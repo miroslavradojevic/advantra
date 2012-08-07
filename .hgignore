@@ -1,0 +1,19 @@
+## files to ignore 
+## use regexp syntax.
+syntax: regexp
+#^\.metadata
+#^advantra.project-sample/build$
+#^advantra/build$
+#^\.settings
+
+## use glob syntax.
+syntax: glob
+## ignore specific files
+*~
+#advantra.project-sample/*.jar
+#advantra/*.jar
+#.classpath
+#.project
+# folders to ignore
+.externalToolBuilders
+.settings
