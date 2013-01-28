@@ -16,6 +16,7 @@ public class BinariseImage implements PlugInFilter  {
 	public static void main(String[] args){
 		
 		if(args.length!=1) {
+			System.out.println("usage: set image path or name as argument");
 			return;
 		}
 		
