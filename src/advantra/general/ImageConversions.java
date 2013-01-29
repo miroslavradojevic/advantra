@@ -57,17 +57,46 @@ public class ImageConversions {
 	}
 	
 	// any ImagePlus to Gray8
+	
+	// TODO: actually IJ.run(imageplus, "8-bit", ""); would do the same 
 	public static ImagePlus ImagePlusToGray8(ImagePlus img){
 		
-		ImageStack im_stack = new ImageStack(img.getStack().getWidth(), img.getStack().getHeight()); // container - layers iteratively added
+		int w = img.getStack().getWidth();
+		int h = img.getStack().getHeight();
 		
-		for (int i = 1; i <= img.getStack().getSize(); i++) {
+		ImageStack im_stack = new ImageStack(w, h); // container - layers iteratively added
+		
+		byte[] array 	= new byte[w*h];
+		byte[] red   	= new byte[w*h];
+		byte[] green   	= new byte[w*h];
+		byte[] blue   	= new byte[w*h];
+		
+		if(img.getType()==ImagePlus.COLOR_RGB){
+			for (int i = 1; i <= img.getStack().getSize(); i++) {
+				
+				red 	= ((ColorProcessor)img.getStack().getProcessor(i)).getChannel(1);
+				green 	= ((ColorProcessor)img.getStack().getProcessor(i)).getChannel(2);
+				blue 	= ((ColorProcessor)img.getStack().getProcessor(i)).getChannel(3);
+				
+				for (int j = 0; j < array.length; j++) {
+					array[j] = (byte)((int)Math.round(((int)(red[j]&0xff)+(int)(green[j]&0xff)+(int)(blue[j]&0xff))/3f)); // average
+				}
+				im_stack.addSlice(new ByteProcessor(img.getStack().getWidth(), img.getStack().getHeight(), array)); // img.getStack().getProcessor(i).createImage()
+				
+			}
 			
-			im_stack.addSlice(new ByteProcessor(img.getStack().getProcessor(i).createImage()));
+			return new ImagePlus("Gray8_image", im_stack);
 			
 		}
-		
-		return new ImagePlus("Gray8_image", im_stack);
+		else{
+			
+			for (int i = 1; i <= img.getStack().getSize(); i++) {
+				im_stack.addSlice(new ByteProcessor(img.getStack().getProcessor(i).createImage()));
+			}
+			
+			return new ImagePlus("Gray8_image", im_stack);
+			
+		}
 		
 	}
 	

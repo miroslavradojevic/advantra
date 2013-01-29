@@ -87,7 +87,6 @@ public class Frangi {
 			
 			// save them as images in form: hess_eig_X_sigma_X_.tif
 			
-			
 		}
 		
 	}

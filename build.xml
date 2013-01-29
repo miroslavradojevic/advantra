@@ -21,12 +21,14 @@
 	<jar jarfile="advantra_.jar">
  		<fileset dir="."          includes="plugins.config" />
 		<fileset dir="${build}"   includes="**/*.*"         />
+		
  		<manifest>
  			 	     <attribute name="Built-By" value="${user.name}"/>
  		</manifest>
  	</jar>
 	<copy file="./advantra_.jar" 				toDir="${fiji.plugins}" />
 	<copy file="./advantra_.jar" 				toDir="${env.HOME}" />
+	<copy file="./advantra_.jar" 				toDir="${env.HOME}/workspace/jar_library/" />
 	
 	<!-- 
 	<copy file="./src/StartupMacros.txt"    	toDir="${fijiMacros}"  />

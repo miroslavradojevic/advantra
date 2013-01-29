@@ -9,7 +9,7 @@ import java.io.File;
 
 import advantra.tools.OtsuBinarisation;
 
-public class BinariseImage implements PlugInFilter  {
+public class BinarizeImage implements PlugInFilter  {
 	
 	ImagePlus img;
 	
