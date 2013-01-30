@@ -6,7 +6,7 @@ import ij.gui.GenericDialog;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
 import imagescience.feature.Differentiator;
-import imagescience.image.ByteImage;
+import imagescience.image.Dimensions;
 import imagescience.image.FloatImage;
 import imagescience.image.Image;
 
@@ -19,7 +19,7 @@ public class DifferentialStructure implements PlugInFilter {
 	
 	/*
 	 * imagej part
-	 * @see ij.plugin.filter.PlugInFilter#run(ij.process.ImageProcessor)
+	 * 
 	 */
 	
 	ImagePlus img;
@@ -31,7 +31,7 @@ public class DifferentialStructure implements PlugInFilter {
 	boolean Lw_enable, Lww_enable, Lvv_enable;
 	
 	Image[] Lx, Ly, Lxx, Lyy, Lxy;
-	Image[] Lz, Lzz, Lxz, Lyz; // 3d image
+	Image[] Lz, Lzz, Lxz, Lyz; // 3D image
 	
 	public void run(ImageProcessor arg0) {
 		
@@ -55,41 +55,75 @@ public class DifferentialStructure implements PlugInFilter {
 		gd.showDialog();
 		if (gd.wasCanceled()) return;
 		
-		sigma_1 = (double)gd.getNextNumber();
-		sigma_2 = (double)gd.getNextNumber();
-		nr 		= (int)gd.getNextNumber();
-		Lw_enable = (boolean)gd.getNextBoolean();
-		Lww_enable = (boolean)gd.getNextBoolean();
-		Lvv_enable = (boolean)gd.getNextBoolean();
+		sigma_1 	= (double)gd.getNextNumber();
+		sigma_2 	= (double)gd.getNextNumber();
+		nr 			= (int)gd.getNextNumber();
+		Lw_enable 	= (boolean)gd.getNextBoolean();
+		Lww_enable 	= (boolean)gd.getNextBoolean();
+		Lvv_enable 	= (boolean)gd.getNextBoolean();
 		
 		double[] sc = new double[nr];
 		for (int i = 0; i < nr; i++) {
-			sc[i] = sigma_1+i*((sigma_2-sigma_1)/(nr-1));
+			sc[i] = (i==0)? sigma_1 : sigma_1+i*((sigma_2-sigma_1)/(nr-1));
 			System.out.println("scale : "+sc[i]);
 		}
 		
-		System.out.println("calculate derivatives... ");
-		IJ.run(img, "32-bit", "");
-		Image image = Image.wrap(img);
+		Image input_image = new FloatImage(Image.wrap(img));
+		//input_image.imageplus().show();
 		
-		image.imageplus().show();
-		
+		final Dimensions dims = input_image.dimensions();
 		Differentiator df = new Differentiator();
-		
-		/*
-		 * 1st derivatives
-		 */
-		Lx 		= new Image[nr];
-		Ly 		= new Image[nr];
-		Lxy 	= new Image[nr];
-		
-		for (int i = 0; i < nr; i++) {
-			Lx[i] 	= df.run(image, sc[i], 1, 0, 0); Lx[i].imageplus().show();
-			Ly[i] 	= df.run(image, sc[i], 0, 1, 0); Ly[i].imageplus().show();
-			Lxy[i] 	= df.run(image, sc[i], 1, 1, 0); Lxy[i].imageplus().show();
+		if (dims.z == 1) { // 2D case
+			// calculate derivatives
+			Lx 		= new Image[nr];
+			Ly 		= new Image[nr];
+			Lxx 	= new Image[nr];
+			Lyy		= new Image[nr];
+			Lxy 	= new Image[nr];
+			
+			for (int i = 0; i < nr; i++) {
+				Lx[i] 	= df.run(input_image.duplicate(), sc[i], 1, 0, 0); 
+				Ly[i] 	= df.run(input_image.duplicate(), sc[i], 0, 1, 0);
+				Lxx[i] 	= df.run(input_image.duplicate(), sc[i], 2, 0, 0);
+				Lyy[i] 	= df.run(input_image.duplicate(), sc[i], 0, 2, 0);
+				Lxy[i] 	= df.run(input_image.duplicate(), sc[i], 1, 1, 0); 
+				if (Lw_enable) {
+					// gradient
+					//double[] Lw = new double[];
+				}
+				
+			}
+			
+		}
+		else{ //3D case
+			// calculate derivatives
+			Lx 		= new Image[nr];
+			Ly 		= new Image[nr];
+			Lz 		= new Image[nr];
+			Lxx 	= new Image[nr];
+			Lyy		= new Image[nr];
+			Lzz		= new Image[nr];
+			Lxy 	= new Image[nr];
+			Lxz 	= new Image[nr];
+			Lyz 	= new Image[nr];
+			
+			for (int i = 0; i < nr; i++) {
+				Lx[i] 	= df.run(input_image.duplicate(), sc[i], 1, 0, 0); 
+				Ly[i] 	= df.run(input_image.duplicate(), sc[i], 0, 1, 0);
+				Lz[i] 	= df.run(input_image.duplicate(), sc[i], 0, 0, 1);
+				Lxx[i] 	= df.run(input_image.duplicate(), sc[i], 2, 0, 0);
+				Lyy[i] 	= df.run(input_image.duplicate(), sc[i], 0, 2, 0);
+				Lzz[i] 	= df.run(input_image.duplicate(), sc[i], 0, 0, 2);
+				Lxy[i] 	= df.run(input_image.duplicate(), sc[i], 1, 1, 0);
+				Lxz[i] 	= df.run(input_image.duplicate(), sc[i], 1, 0, 1);
+				Lyz[i] 	= df.run(input_image.duplicate(), sc[i], 0, 1, 1);
+			}
+			
 		}
 		
-		System.out.println("done.");
+		System.out.println("done calculating derivatives.");
+		
+		
 		
 	}
 
