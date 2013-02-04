@@ -7,6 +7,7 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 
 import advantra.general.CreateDirectory;
+import advantra.tools.OtsuBinarisation;
 import advantra.trace.NeuronTrace;
 
 import ij.IJ;
@@ -35,6 +36,12 @@ public class NeuronTraceRecursive implements PlugInFilter, MouseListener {
 			IJ.error("The image was not GRAY8... Select new image...");
 			return DONE;
 		}
+		// correct for the calibration
+//		img.getCalibration().setXUnit("1");
+//		img.getCalibration().setYUnit("1");
+//		img.getCalibration().setZUnit("1");
+//		System.out.format("getY: %f\n", img.getCalibration().getY(1));
+//		img.getCalibration().getCValue(arg0)
 		MAX_BRANCHES = 4;
 		return DOES_8G+NO_CHANGES;
 	}
@@ -50,7 +57,14 @@ public class NeuronTraceRecursive implements PlugInFilter, MouseListener {
 		int mouseX = 	img.getWindow().getCanvas().offScreenY(e.getY()); 
 		int mouseZ =  	img.getCurrentSlice()-1;
 		
-		trace(mouseX, mouseY, mouseZ); // trace from the selected point
+		// check if the point was roughly on neuron
+		OtsuBinarisation otsu = new OtsuBinarisation(img);
+		ImagePlus out = otsu.run();
+		System.out.format("(%d, %d, %d)\n", mouseY, mouseX, mouseZ);
+		System.out.format("value at (%d, %d, %d) is \n", mouseY, mouseX, mouseZ);
+		//IJ.run(imp, "Dilate (3D)", "iso=255");
+		//IJ.run(imp, "Erode (3D)", "iso=255");
+		//trace(mouseX, mouseY, mouseZ); // trace from the selected point
 		
 	}
 	
