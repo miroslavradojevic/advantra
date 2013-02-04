@@ -36,12 +36,7 @@ public class NeuronTraceRecursive implements PlugInFilter, MouseListener {
 			IJ.error("The image was not GRAY8... Select new image...");
 			return DONE;
 		}
-		// correct for the calibration
-//		img.getCalibration().setXUnit("1");
-//		img.getCalibration().setYUnit("1");
-//		img.getCalibration().setZUnit("1");
-//		System.out.format("getY: %f\n", img.getCalibration().getY(1));
-//		img.getCalibration().getCValue(arg0)
+
 		MAX_BRANCHES = 4;
 		return DOES_8G+NO_CHANGES;
 	}
@@ -58,12 +53,21 @@ public class NeuronTraceRecursive implements PlugInFilter, MouseListener {
 		int mouseZ =  	img.getCurrentSlice()-1;
 		
 		// check if the point was roughly on neuron
-		OtsuBinarisation otsu = new OtsuBinarisation(img);
+		OtsuBinarisation otsu = new OtsuBinarisation(img); // binarize
 		ImagePlus out = otsu.run();
+		
+		// median filtering
+		IJ.run(out, "Median 3D", "");
+		
+		// dilatate 3d
+		IJ.run(out, "Dilate (3D)", "");
+		
+		// check the value
+		
 		System.out.format("(%d, %d, %d)\n", mouseY, mouseX, mouseZ);
 		System.out.format("value at (%d, %d, %d) is \n", mouseY, mouseX, mouseZ);
-		//IJ.run(imp, "Dilate (3D)", "iso=255");
-		//IJ.run(imp, "Erode (3D)", "iso=255");
+		
+		// skip tracing for now
 		//trace(mouseX, mouseY, mouseZ); // trace from the selected point
 		
 	}

@@ -143,6 +143,7 @@ System.out.format(
 				    		
 				  }
 			  } // end looping the file
+			br.close();
 		}
 		catch (Exception e){
 			System.err.println("Error: " + e.getMessage());
