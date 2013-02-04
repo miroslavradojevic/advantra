@@ -13,6 +13,7 @@ syntax: glob
 advantra/*.jar
 advantra/*.class
 advantra/build
+advantra/build/*
 advantra/bin
 
 .classpath
