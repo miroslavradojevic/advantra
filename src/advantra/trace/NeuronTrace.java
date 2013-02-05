@@ -78,10 +78,12 @@ public class NeuronTrace {
 		long t11 = System.currentTimeMillis();
 		ms3dSph.run(MS_MAX_ITER, MS_EPS);
 		double[][] out_dirs = ms3dSph.extractDirections(MS_NEIGHBOUR, MS_PTS_TH); // Mx3
-		
+		long t12 = System.currentTimeMillis();
 		System.out.format(
-				"at sphere radius R = %2.1f found %d dirs \n", 
-				start_hyp.getHypothesisRadius(), out_dirs.length);
+				"at sphere radius R = %2.1f found %d dirs, elapsed %f sec. \n", 
+				start_hyp.getHypothesisRadius(), out_dirs.length, (t12-t11)/1000f);
+		
+		if(true){return;}
 		
 		// detect directions
 		double relative_dist_check_bifurcations = TinyBranch.check_bifurcations*start_hyp.getNeuriteRadius();

@@ -409,7 +409,8 @@ public class Sphere extends RegionOfInterest {
 			
 			
 		case LOOP_SPHERICAL:
-			// set loop range & step
+			
+			IntensityCalc im_calc = new IntensityCalc(source_image.getStack());
 			
 			for (double local_r = r_ratio*r; local_r <= 1.0*r; local_r+=0.1*r) {
 				for (index_phi = 0; index_phi < resolution; index_phi++) {
@@ -425,11 +426,6 @@ public class Sphere extends RegionOfInterest {
 								local_r_phi_theta[2], 
 								local_x_y_z);
 						
-						// extract real cartesian coords, x, y, z (this.x, this.y, this.z are sphere center coordinates)
-//						int x = (int)(this.x+local_x_y_z[0]+0.5); 
-//						int y = (int)(this.y+local_x_y_z[1]+0.5);
-//						int z = (int)(this.z+local_x_y_z[2]+0.5);
-						
 						double x = this.x + local_x_y_z[0];
 						double y = this.y + local_x_y_z[1];
 						double z = this.z + local_x_y_z[2];
@@ -439,17 +435,14 @@ public class Sphere extends RegionOfInterest {
 							int idx = ArrayHandling.sub2index_2d(index_phi, index_theta, 2*resolution);
 							
 							planisphere[idx] += 
-									(new IntensityCalc(source_image.getStack())).interpolateAt(x, y, z);
-									//(int)source_image.getStack().getProcessor(z+1).getPixel(y, x); // local_r * 
-							planisphere_count[idx] += 
-									1; // local_r *												 
+									im_calc.interpolateAt_new((float)x, (float)y, (float)z);
+									 
+							planisphere_count[idx] += 1; 												 
 							count ++;
 						}
 					}
 				}
 			}
-			
-			
 			
 			break;
 		default:
@@ -938,7 +931,6 @@ public class Sphere extends RegionOfInterest {
 				double azim = n*((2*Math.PI)/N);
 				
 				Transf.sph2cart(r, incl, azim, x_y_z[cnt]);
-				//x_y_z[cnt] = spherical2cartesian(new double[]{r, incl, azim});
 				cnt++;
 				
 			}
@@ -1001,7 +993,7 @@ public class Sphere extends RegionOfInterest {
 			double x = this.x+Transf.sph2cart_x(r, phi, theta);
 			double y = this.y+Transf.sph2cart_y(r, phi, theta);
 			double z = this.z+Transf.sph2cart_z(r, phi, theta);
-			value += calc.interpolateAt(x, y, z);
+			value += calc.interpolateAt_new((float)x, (float)y, (float)z);
 			count++;
 		}
 		

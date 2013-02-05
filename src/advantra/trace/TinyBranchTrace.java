@@ -1,11 +1,9 @@
 package advantra.trace;
 
 import java.util.ArrayList;
-import java.util.Random;
-
 import advantra.general.ArrayHandling;
 import advantra.general.ImageConversions;
-import advantra.general.Transf;
+import advantra.processing.IntensityCalc;
 import advantra.shapes.Cylinder;
 import advantra.shapes.OrientedProjectivePlane;
 import advantra.shapes.RegionOfInterest.RoiType;
@@ -19,7 +17,10 @@ import ij.io.FileSaver;
 public class TinyBranchTrace implements TinyBranch {
 	
 	ImagePlus 			img_traced;				// image being traced
-	ImagePlus			img_traced_output;
+	IntensityCalc		img_calc;				// TODO: both ImagePlus and IntensityCalc are perhaps redundant
+	
+	ImagePlus			img_traced_output;		// for debug, visualizations...
+	
 												// dimensionality
 	double[] 			seed_point; 			// 3
 	double[]			seed_direction;			// 3
@@ -31,7 +32,7 @@ public class TinyBranchTrace implements TinyBranch {
 	double[][]			centerlines; 			// N x3
 	double[]			radiuses;				// N
 	
-	Hypothesis 			current_hyp_estimate;	// actuel hypothesis 
+	Hypothesis 			current_hyp_estimate;	// actual hypothesis 
 	
 	double[][] 			new_seeds; 				// br_dirs x3 (because they're 3d coordinates)
 	double[][]			new_directions;			// br_dirs x3
@@ -44,8 +45,9 @@ public class TinyBranchTrace implements TinyBranch {
 	
 	public 		TinyBranchTrace(){ 
 		
-		this.img_traced 	= null;
-		this.img_traced_output = null;
+		this.img_traced 		= null;
+		this.img_calc			= new IntensityCalc();
+		this.img_traced_output 	= null;
 		
 		this.seed_point 	= new double[3];
 		this.seed_direction = new double[3];
@@ -72,8 +74,9 @@ public class TinyBranchTrace implements TinyBranch {
 			final ImagePlus 		img_traced 
 			){ 
 		
-		this.img_traced 	= img_traced;
-		this.img_traced_output = ImageConversions.ImagePlusToRGB(img_traced);
+		this.img_traced 		= img_traced;
+		this.img_calc			= new IntensityCalc(img_traced.getStack());
+		this.img_traced_output 	= ImageConversions.ImagePlusToRGB(img_traced);
 		
 		this.seed_point 	= new double[3];
 		this.seed_direction = new double[3];
@@ -102,8 +105,9 @@ public class TinyBranchTrace implements TinyBranch {
 			final Hypothesis		seed_hyp
 			){ 
 		
-		this.img_traced 	= img_traced;
-		this.img_traced_output = ImageConversions.ImagePlusToRGB(img_traced);
+		this.img_traced 		= img_traced;
+		this.img_calc			= new IntensityCalc(img_traced.getStack());
+		this.img_traced_output 	= ImageConversions.ImagePlusToRGB(img_traced);
 		
 		this.seed_point 	= new double[3];
 		this.seed_point[0]	= seed_hyp.getPositionX();
@@ -154,27 +158,27 @@ public class TinyBranchTrace implements TinyBranch {
 			double[] 			point3d
 			){ 
 		
-		long t11 = System.currentTimeMillis();
+		//long t11 = System.currentTimeMillis();
 		createInitialHypothesesAndCalculateLikelihoods(point3d);
-		long t12 = System.currentTimeMillis();
-		System.out.format("createInitialHypothesesAndCalculateLikelihoods -> %f sec.   \n", ((t12-t11)/1000f) );
+		//long t12 = System.currentTimeMillis();
+		//System.out.format("createInitialHypothesesAndCalculateLikelihoods -> %f sec.   \n", ((t12-t11)/1000f) );
 		
-		t11 = System.currentTimeMillis();
+		//t11 = System.currentTimeMillis();
 		setInitialPriors(); 
-		t12 = System.currentTimeMillis();
-		System.out.format("setInitialPriors -> %f sec.   \n", ((t12-t11)/1000f) );
+		//t12 = System.currentTimeMillis();
+		//System.out.format("setInitialPriors -> %f sec.   \n", ((t12-t11)/1000f) );
 		
-		t11 = System.currentTimeMillis();
+		//t11 = System.currentTimeMillis();
 		calculatePosteriors(); 
-		t12 = System.currentTimeMillis();
-		System.out.format("calculatePosteriors -> %f sec.   \n", ((t12-t11)/1000f) );
+		//t12 = System.currentTimeMillis();
+		//System.out.format("calculatePosteriors -> %f sec.   \n", ((t12-t11)/1000f) );
 		
-		t11 = System.currentTimeMillis();
+		//t11 = System.currentTimeMillis();
 		Hypothesis estimated_hyp 	= getMaximumPosteriorHypothesis();
-		t12 = System.currentTimeMillis();
-		System.out.format("getMaximumPosteriorHypothesis -> %f sec.   \n", ((t12-t11)/1000f) );
+		//t12 = System.currentTimeMillis();
+		//System.out.format("getMaximumPosteriorHypothesis -> %f sec.   \n", ((t12-t11)/1000f) );
 		
-		System.out.println("est.l'hood = "+estimated_hyp.getLikelihood());
+		//System.out.println("est.l'hood = "+estimated_hyp.getLikelihood());
 		
 		return estimated_hyp;
 		
@@ -712,35 +716,10 @@ public class TinyBranchTrace implements TinyBranch {
 						trace_rads[radius_idx], 
 						k,
 						4
-						); //2*trace_rads[radius_idx]
+						); 
+
+				trace_hyps[count_hypotheses].calculateLikelihood_new(img_calc, 1.0, 1.0);
 				
-				//////////////////
-				
-				// sample the points on cylinder cross section
-//				int N = 60;
-//				int K = 5;
-//				double[][]  x_y_z = new double[K*N+1][3];
-//						
-//						//Transf.sph2cart(r, 0, 0, x_y_z[0]);
-//						
-//				int cnt = 1;
-//				for (int k = 1; k <= K; k++) {
-//					for (int n = 1; n <= N; n++) {
-//						
-//						double azimuth 	= n*((2*Math.PI)/N);
-//						double incl 	= k*(angular_limit/K);
-//								
-//								//Transf.sph2cart(r, incl, azimuth, x_y_z[cnt]);
-//								
-//						cnt++;
-//					}
-//				}
-				
-				//////////////////////
-//				trace_hyps[count_hypotheses].calculateLikelihood(img_traced.getStack());
-				/////////////////////
-				
-				trace_hyps[count_hypotheses].calculateLikelihood(img_traced, 1.0, 1.0);   
 //				System.out.println(
 //						"l'hood["+count_hypotheses+"] = "+trace_hyps[count_hypotheses].getLikelihood());
 				count_hypotheses++;
@@ -749,7 +728,6 @@ public class TinyBranchTrace implements TinyBranch {
 		}
 		
 	}
-
 
 	private void				predict(){
 		
@@ -796,23 +774,23 @@ public class TinyBranchTrace implements TinyBranch {
 		
 	}
 	
-	/*
-	 * make this one to speed up the estimations
-	 */
-	//TODO finish this to speed up 
-	private void 				likelihoods(int nr_samples){
-		
-		
-		for (int i = 0; i < nr_samples; i++) {
-			Random generator = new Random();
-			double r = generator.nextDouble()*trace_rads[trace_rads.length-1];
-			double a = generator.nextDouble()*2*Math.PI;
-			double h = (generator.nextDouble()-0.5)*4;
-			double cs_x = r*Math.cos(a);
-			double cs_y = r*Math.sin(a);
-		}
-		
-	}
+//	/*
+//	 * make this one to speed up the estimations
+//	 */
+//	//TODO finish this to speed up 
+//	private void 				likelihoods(int nr_samples){
+//		
+//		
+//		for (int i = 0; i < nr_samples; i++) {
+//			Random generator = new Random();
+//			double r = generator.nextDouble()*trace_rads[trace_rads.length-1];
+//			double a = generator.nextDouble()*2*Math.PI;
+//			double h = (generator.nextDouble()-0.5)*4;
+//			double cs_x = r*Math.cos(a);
+//			double cs_y = r*Math.sin(a);
+//		}
+//		
+//	}
 	
 	private void 				calculatePriors(){ 
 		// it will set priors in hyps w.r.t. ref_hyp

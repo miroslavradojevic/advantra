@@ -876,7 +876,7 @@ public class Cylinder extends RegionOfInterest {
 				for (double z = -this.h/2; z <= this.h/2; z+=dh) {
 					
 					double[] loc 	= cylindrical2cartesian(ro, phi, z);
-					double I 		= calc.interpolateAt(loc[0], loc[1], loc[2]);
+					float I 		= calc.interpolateAt_new((float)loc[0], (float)loc[1], (float)loc[2]);
 					x_y_z_I[count_in_cyl][0] = loc[0];
 					x_y_z_I[count_in_cyl][1] = loc[1];
 					x_y_z_I[count_in_cyl][2] = loc[2];
@@ -891,9 +891,77 @@ public class Cylinder extends RegionOfInterest {
 		return x_y_z_I;
 		
 	}
+	
+	public double[]		extractAvgInOut_new(IntensityCalc image_calc, double in_out_ratio, double dr, double dh){
+		
+		int 	cnt_in	= 0;
+		int 	cnt_out	= 0;
+		double 	avg_in 	= 0;
+		double  avg_out	= 0;
+		
+		int extracted_samples = 0;
 
+		for (double ro = 0.0; ro <= this.r; ro+=dr) {
+			
+			int M = 1;
+			if(ro>0){
+				M = (int)Math.ceil((2*Math.PI)*(ro/dr));
+			}
+			
+			for (int m = 1; m <= M; m++) {
+				
+				double phi = m*((2*Math.PI)/M);
+				
+				for (double z = -this.h/2; z <= this.h/2; z+=dh) {
+					
+					double[] loc 		= cylindrical2cartesian(ro, phi, z);
+					
+					boolean isInImage 	= 
+							(loc[0]>=0 && loc[0]<=image_calc.getImgHeight()	-1) 	&&
+							(loc[1]>=0 && loc[1]<=image_calc.getImgWidth()	-1) 	&&
+							(loc[2]>=0 && loc[2]<=image_calc.getImgLength()	-1);
+					
+					if(isInImage){
+						
+						extracted_samples++;
+						
+						float I 	= image_calc.interpolateAt_new((float)loc[0], (float)loc[1], (float)loc[2]); 
+						
+						if(ro<=in_out_ratio*this.r){
+							
+							avg_in += I;
+							cnt_in ++;
+							
+						}
+						else{
+							
+							avg_out += I;
+							cnt_out++;
+							
+						}
+						
+					}
+					
+				}
+				
+			}
+			
+		}
+		
+		if(cnt_in>0){
+			avg_in /= cnt_in;
+		}
+		
+		if(cnt_out>0){
+			avg_out /= cnt_out;
+		}
+		
+		return new double[]{avg_in, avg_out, extracted_samples};
+		
+	}
+
+	// TODO: should be deprecated in future in favor of extractAvgInOut_new 
 	public double[] 	extractAvgInOut(ImagePlus input_img, double in_out_ratio, double dr, double dh){ 
-		// Nx3
 		
 		int 	cnt_in	= 0;
 		int 	cnt_out	= 0;
@@ -927,7 +995,7 @@ public class Cylinder extends RegionOfInterest {
 						
 						extracted_samples++;
 						
-						double I 		= calc.interpolateAt(loc[0], loc[1], loc[2]); // TODO: change this!
+						float I 		= calc.interpolateAt_new((float)loc[0], (float)loc[1], (float)loc[2]); 
 						
 						if(ro<=in_out_ratio*this.r){
 							

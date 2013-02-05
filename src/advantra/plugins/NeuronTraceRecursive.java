@@ -6,6 +6,8 @@ import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 
+import flanagan.analysis.Stat;
+
 import advantra.general.CreateDirectory;
 import advantra.tools.OtsuBinarisation;
 import advantra.trace.NeuronTrace;
@@ -13,6 +15,7 @@ import advantra.trace.NeuronTrace;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.ImageCanvas;
+import ij.measure.Calibration;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
 
@@ -36,7 +39,15 @@ public class NeuronTraceRecursive implements PlugInFilter, MouseListener {
 			IJ.error("The image was not GRAY8... Select new image...");
 			return DONE;
 		}
-
+		
+		//modify calibration 
+		Calibration cal = img.getCalibration();
+		cal.pixelWidth 	= 1;
+		cal.pixelHeight	= 1;
+		cal.pixelDepth	= 1;
+		cal.setUnit("pixels");
+		img.setCalibration(cal);
+		
 		MAX_BRANCHES = 4;
 		return DOES_8G+NO_CHANGES;
 	}
@@ -44,31 +55,51 @@ public class NeuronTraceRecursive implements PlugInFilter, MouseListener {
 	public void run(ImageProcessor ip) {
 		img.getWindow().getCanvas().addMouseListener(this);
 		System.out.println("click on the point to start tracing from there...");
+		IJ.log("click on the point to start tracing from there...");
 	}
 	
 	public void mouseClicked(MouseEvent e) {
 		
-		int mouseY = 	img.getWindow().getCanvas().offScreenX(e.getX());
-		int mouseX = 	img.getWindow().getCanvas().offScreenY(e.getY()); 
+		int mouseX = 	img.getWindow().getCanvas().offScreenX(e.getX());
+		int mouseY = 	img.getWindow().getCanvas().offScreenY(e.getY()); 
 		int mouseZ =  	img.getCurrentSlice()-1;
 		
+		double value = img.getStack().getVoxel(mouseX, mouseY, mouseZ);
+		System.out.format("value at (%d, %d, %d) is %f \n", mouseX, mouseY, mouseZ, value);
+		
 		// check if the point was roughly on neuron
-		OtsuBinarisation otsu = new OtsuBinarisation(img); // binarize
+		OtsuBinarisation otsu = new OtsuBinarisation(img); // binarise
 		ImagePlus out = otsu.run();
 		
-		// median filtering
-		IJ.run(out, "Median 3D", "");
+		value = out.getStack().getVoxel(mouseX, mouseY, mouseZ);
+		System.out.format("binary value at (%d, %d, %d) is %s \n", mouseX, mouseY, mouseZ, (value==255)?"ON":"OFF");
 		
-		// dilatate 3d
-		IJ.run(out, "Dilate (3D)", "");
+		// median filtering in the neighborhood extract 3x3x3 neighborhood around and see if it's still "ON"
+		double[] neighborhood = new double[27];
+		int idx = 0;
+		int r, c, l;
+		for (int i = -1; i <= 1; i++) {
+			for (int j = -1; j <= 1; j++) {
+				for (int k = -1; k <= 1; k++) {
+					r = mouseY+i;	c = mouseX+j;	l = mouseZ+k;
+					if(r>=0 && r<img.getHeight() && c>=0 && c<img.getWidth() && l>=0 && l<img.getStackSize()){
+						neighborhood[idx] = out.getStack().getVoxel(c, r, l); 
+						idx++;
+					}
+				}
+			}
+		}
 		
-		// check the value
+		if((int)Math.round(Stat.median(neighborhood))==255){
+			IJ.log("start trace from "+mouseX+", "+mouseY+", "+mouseZ);
+		}
+		else{
+			IJ.log("couldn't start the trace from this point... click again...");
+			return;
+		}
 		
-		System.out.format("(%d, %d, %d)\n", mouseY, mouseX, mouseZ);
-		System.out.format("value at (%d, %d, %d) is \n", mouseY, mouseX, mouseZ);
-		
-		// skip tracing for now
-		//trace(mouseX, mouseY, mouseZ); // trace from the selected point
+		IJ.log("trace()...");
+		trace(mouseY, mouseX, mouseZ); // trace from the selected point mouseX==col, mouseY==row
 		
 	}
 	
@@ -77,7 +108,7 @@ public class NeuronTraceRecursive implements PlugInFilter, MouseListener {
 	public void mouseEntered(MouseEvent e) {}
 	public void mouseExited(MouseEvent e) {}
 	
-	private void trace(double mouseX, double mouseY, double mouseZ){
+	private void trace(double mouseX, double mouseY, double mouseZ){ // trace(row, col, lay)
 
 		System.out.format("starting from: %f, %f, %f ...\n", mouseX, mouseY, mouseZ);
 

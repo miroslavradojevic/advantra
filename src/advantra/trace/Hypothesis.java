@@ -1,7 +1,5 @@
 package advantra.trace;
 
-import java.util.Random;
-
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.NewImage;
@@ -417,8 +415,7 @@ public class Hypothesis {
 					
 					if(x>=0 && x<in_stack.getHeight() && y>=0 && y<in_stack.getWidth() && z>=0 && z<in_stack.getSize()){
 						
-						double taken_value 	= (new IntensityCalc(in_stack)).interpolateAt(x, y, z);
-						//int store_taken 	= (int)(Math.round(taken_value));
+						double taken_value 	= (new IntensityCalc(in_stack)).interpolateAt_new((float)x, (float)y, (float)z);
 						im_hyp.getStack().setVoxel(index_col, index_row, index_lay, taken_value);
 						
 					}
@@ -436,72 +433,42 @@ public class Hypothesis {
 	 * LIKELIHOOD
 	 */
 	
+	// TODO: substitute this one for speed reasons with calculateLikelihood_new
 	public void calculateLikelihood(ImagePlus input_img, double dr, double dh){
 
-		
-		double[] avg_in_out_extracted_samples = this.hypothesis_cylinder.extractAvgInOut(input_img, (1/this.k), dr, dh);
+		double[] avg_in_out_extracted_samples = hypothesis_cylinder.extractAvgInOut(input_img, (1/this.k), dr, dh);
 		
 		avgIn	 		= 	avg_in_out_extracted_samples[0];
 		avgOut		 	= 	avg_in_out_extracted_samples[1];
-		//					avg_in_out_extracted_samples[2] is the ratio of the extracted samples wrt. total nr. of samples
 		
-		/*
-		 * likelihood formula
-		 */
-		double likelihood_value = 0;
+		double likelihood_value = 0; 
 		
 		if(avg_in_out_extracted_samples[2]>0.5){
 			double I_contrast 	= 1.0;
 			int 	s 			= 1;
-			likelihood_value = Math.pow((avgIn-avgOut)/I_contrast, s);
+			likelihood_value = Math.pow((avgIn-avgOut)/I_contrast, s); //likelihood formula
 		}
 		
 		setLikelihood(likelihood_value);
 		
-//		Random generator = new Random();
-		//DebugExport f = new DebugExport("likelihood.csv");
-//		int 	count_in  	= 0;
-//		avgIn   			= 0; // average intensity in
-//		int 	count_out 	= 0;
-//		avgOut				= 0; // average intensity out
-//		int cnt = 0;
-//		double likelihood_value = 0;
-//		
-//		for (int i = 0; i < nr_samples; i++) {
-//			
-//			double r = generator.nextDouble()*this.hypothesis_cylinder.getR();
-//			double a = generator.nextDouble()*2*Math.PI;
-//			double h = (generator.nextDouble()-0.5)*this.hypothesis_cylinder.getH();
-//			double cs_x = r*Math.cos(a);
-//			double cs_y = r*Math.sin(a);
-//			double[] x_y_z = this.hypothesis_cylinder.localCart2GlobalCart(cs_x, cs_y, h);
-//			
-//			if(
-//					x_y_z[0]>=0 && x_y_z[0]<=(img_stack.getHeight()-1) 	&&
-//					x_y_z[1]>=0 && x_y_z[1]<=(img_stack.getWidth()-1) 	&&
-//					x_y_z[2]>=0 && x_y_z[2]<=(img_stack.getSize()-1)
-//					){
-//				
-//				double curr_value = (new IntensityCalc(img_stack)).interpolateAt(x_y_z[0], x_y_z[1], x_y_z[2]);
-//				//double curr_value = img_stack.getVoxel((int)Math.round(x_y_z[1]), (int)Math.round(x_y_z[0]), (int)Math.round(x_y_z[2])); 
-//				
-//				cnt++;
-//				
-//				//f.writeLine(String.format("%f, %f, %f", x_y_z[0], x_y_z[1], x_y_z[2]));
-//				
-//				if(r<this.getNeuriteRadius()){
-//					
-//					count_in++;
-//					avgIn += curr_value;
-//				}
-//				else{
-//					count_out++;
-//					avgOut += curr_value;
-//				}
-//				
-//			}
-//			
-//		}
+	}
+	
+	public void calculateLikelihood_new(IntensityCalc img_calc, double dr, double dh){
+
+		double[] avg_in_out_extracted_samples = hypothesis_cylinder.extractAvgInOut_new(img_calc, (1/k), dr, dh);
+		
+		avgIn	 		= 	avg_in_out_extracted_samples[0];
+		avgOut		 	= 	avg_in_out_extracted_samples[1];
+		
+		double likelihood_value = 0; 
+		
+		if(avg_in_out_extracted_samples[2]>0.5){
+			double I_contrast 	= 1.0;
+			int 	s 			= 1;
+			likelihood_value = Math.pow((avgIn-avgOut)/I_contrast, s); //likelihood formula
+		}
+		
+		setLikelihood(likelihood_value);
 		
 	}
 	
@@ -616,63 +583,6 @@ public class Hypothesis {
 		}
 	}
 
-	/*
-	 * HYPOTHESIS CREATION
-	 */
-	//double radius_step, double radius_limit,
-
-//	public static void			predictHypotheses(
-//			Hypothesis[] hyps, 
-//			double[] point,
-//			double[] orient,
-//			double radius, 
-//			int N_orientations, 
-//			double[] radiuses, 
-//			double k){
-//		// form the points on sphere - they will be placed on the semi-sphere in the direction of tangent
-//		double[][] points 			= new double[3][N_orientations];
-//		double[][] point_orients	= new double[3][N_orientations];
-//		
-//		// form them at semi-sphere with radius of that semi-sphere depending on the neurite radius linearly with scale_prediction 
-//		(new Sphere(point[0], point[1], point[2], radius)).generate3DSemiSpherePts(
-//						N_orientations, 
-//						orient[0], 
-//						orient[1], 
-//						orient[2], 
-//						points, 
-//						point_orients);
-//		
-//		int radius_count	= radiuses.length;
-//		
-//		// set the hypotheses... once more
-//		int count_hypotheses = 0;
-//		System.out.format("new hypotheses construct...");
-//		for (int hypo_idx = 0; hypo_idx < N_orientations; hypo_idx++) {
-//			for (int radius_idx = 0; radius_idx < radius_count; radius_idx++) {
-//				
-//				// (re)set the Hypothesis
-//				hyps[count_hypotheses].setHypothesis(
-//						points[0][hypo_idx], 
-//						points[1][hypo_idx], 
-//						points[2][hypo_idx], 
-//						point_orients[0][hypo_idx], 
-//						point_orients[1][hypo_idx], 
-//						point_orients[2][hypo_idx], 
-//						radiuses[radius_idx], 
-//						k); //k*
-//				
-//				count_hypotheses++;
-//				
-//				//System.out.print(".");
-//				
-//			}
-//		}
-//		
-//		System.out.println("done.");
-//		
-//	}
-
-	
 	public static double[] 		extractLikelihoods     (Hypothesis[] hyps){
 		
 		double[] out = new double[hyps.length];
@@ -744,7 +654,6 @@ public class Hypothesis {
 				ref_hyp.getOrientation());
 	}
 	
-	
 	public void 				print(){
 		System.out.format( "pos[%5.2f, %5.2f, %5.2f] ort[%5.2f, %5.2f, %5.2f] r.: %5.2f | neur r.: %5.2f   k:%5.2f | prior:%f  l'hood:%f \n", 
 				getPositionX(),
@@ -762,8 +671,6 @@ public class Hypothesis {
 	}
 
 }
-
-
 
 //public void calculateLikelihood(ImageStack img_stack, int nr_rad, int nr_angl, int nr_long){
 //
@@ -848,4 +755,59 @@ public class Hypothesis {
 //
 //setLikelihood(likelihood_value);
 //
+//}
+/*
+ * HYPOTHESIS CREATION
+ */
+//double radius_step, double radius_limit,
+
+//public static void			predictHypotheses(
+//		Hypothesis[] hyps, 
+//		double[] point,
+//		double[] orient,
+//		double radius, 
+//		int N_orientations, 
+//		double[] radiuses, 
+//		double k){
+//	// form the points on sphere - they will be placed on the semi-sphere in the direction of tangent
+//	double[][] points 			= new double[3][N_orientations];
+//	double[][] point_orients	= new double[3][N_orientations];
+//	
+//	// form them at semi-sphere with radius of that semi-sphere depending on the neurite radius linearly with scale_prediction 
+//	(new Sphere(point[0], point[1], point[2], radius)).generate3DSemiSpherePts(
+//					N_orientations, 
+//					orient[0], 
+//					orient[1], 
+//					orient[2], 
+//					points, 
+//					point_orients);
+//	
+//	int radius_count	= radiuses.length;
+//	
+//	// set the hypotheses... once more
+//	int count_hypotheses = 0;
+//	System.out.format("new hypotheses construct...");
+//	for (int hypo_idx = 0; hypo_idx < N_orientations; hypo_idx++) {
+//		for (int radius_idx = 0; radius_idx < radius_count; radius_idx++) {
+//			
+//			// (re)set the Hypothesis
+//			hyps[count_hypotheses].setHypothesis(
+//					points[0][hypo_idx], 
+//					points[1][hypo_idx], 
+//					points[2][hypo_idx], 
+//					point_orients[0][hypo_idx], 
+//					point_orients[1][hypo_idx], 
+//					point_orients[2][hypo_idx], 
+//					radiuses[radius_idx], 
+//					k); //k*
+//			
+//			count_hypotheses++;
+//			
+//			//System.out.print(".");
+//			
+//		}
+//	}
+//	
+//	System.out.println("done.");
+//	
 //}

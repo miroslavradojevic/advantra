@@ -133,6 +133,7 @@ public class ExtractDifferentialStructure implements PlugInFilter {
 	
 	/*
 	 * main() for terminal use
+	 * java -cp JAR_LIBRARIES:advantra_.jar advantra.plugins.ExtractDifferentialStructure ARG1 ARG2 ARG3 ARG4
 	 */
 	
 	public static void main(String[] args){
@@ -244,7 +245,7 @@ public class ExtractDifferentialStructure implements PlugInFilter {
 	
 }
 
-//class used by both terminal call and imagej
+//class used by both terminal call and ImageJ
 class DifferentialStructure {
 	
 	Image image; // input
