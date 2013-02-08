@@ -46,6 +46,8 @@ public class MeanShift3DSphere {
 	
 	double[][]	cluster_dirs;
 	double[][]	cluster_seed;
+	int[][]		cluster_local_seeds;	// coordinates in local sphere image coordinates (need it for connectivity tests)
+	
 										/*
 										 * NrClustx3
 										 * 1. col: row coordinate (x)
@@ -80,9 +82,10 @@ public class MeanShift3DSphere {
 		S = new double[N][2];
 		T = new double[N][2];
 		
-		T_clust 		= null;
-		cluster_dirs 	= null;
-		cluster_seed 	= null;
+		T_clust 				= null;
+		cluster_dirs 			= null;
+		cluster_seed 			= null;
+		cluster_local_seeds 	= null;
 		
 		for (int i = 0; i < N; i++) {
 			S[i][0] = spherical_coords[i][1];	S[i][1] = spherical_coords[i][2];
@@ -107,6 +110,10 @@ public class MeanShift3DSphere {
 
 	public double[][] 	getClusterSeed(){
 		return cluster_seed;
+	}
+	
+	public int[][] 		getClusterSeedLocal(){
+		return cluster_local_seeds;
 	}
 	
 	public double[][] 	getClusterDirs(){
@@ -234,7 +241,24 @@ public class MeanShift3DSphere {
 		
 	}
 	
-	public void extractClusters(double range, int M){ 
+	public ImagePlus 	extractConvergence(int resolution){
+		ImagePlus output 		= NewImage.createByteImage(
+				"average_values_per_direction", 2*resolution, resolution, 1, NewImage.FILL_BLACK);
+		for (int i = 0; i < T.length; i++) {
+			// get indexes to be plotted on the image
+			double current_phi 		= T[i][0];
+			double current_theta 	= T[i][1];
+			int row = ArrayHandling.value2index(current_phi, 	ArrayHandling.IdxMode.LAST_INCLUDED, 0.0, Math.PI, 	resolution);
+			int col = ArrayHandling.value2index(current_theta, 	ArrayHandling.IdxMode.LAST_EXCLUDED, 0.0, 2*Math.PI, 2*resolution);
+			double g = sphere_roi.avgValuePerDirection(current_phi, current_theta, img_calc); 
+			output.getStack().setVoxel(col, row, 0, g);
+		}
+		
+		return output;
+
+	}
+	
+	public void 		extractClusters(double range, int M){ 
 		
 		// 'range' describes neighborhood range size, 
 		// 'M' number of samples within the cluster
@@ -280,28 +304,56 @@ public class MeanShift3DSphere {
 		// take them out and form T_clust
 		int cnt = 0;
 		if(nr_clusters_nigher_than_M<=0){
-			T_clust 		= null;
-			cluster_dirs 	= null;
-			cluster_seed 	= null;
+			T_clust 			= null;
+			cluster_dirs 		= null;
+			cluster_seed 		= null;
+			cluster_local_seeds = null;
 			return;
 		}
 		
 		T_clust 		= new double[nr_clusters_nigher_than_M][2];
 		cluster_dirs 	= new double[nr_clusters_nigher_than_M][3];
 		cluster_seed 	= new double[nr_clusters_nigher_than_M][3];
-			
+		cluster_local_seeds = new int[nr_clusters_nigher_than_M][3];
+		
+		double[] cartesian_aux = new double[3];
 		for (int i = 0; i < nr_clusters; i++) {
 			if(cluster_size[i]>M){
+				/*
+				 * 
+				 */
 				T_clust[cnt][0] = T[i][0];
+				/*
+				 * 
+				 */
 				Transf.sph2cart(1.0, 				T[i][0], T[i][1], cluster_dirs[cnt]); 
-				System.out.println("spherical when converting: "+sphere_space.getR()+","+T[i][0]+","+T[i][1]);
+				/*
+				 * 
+				 */
 				Transf.sph2cart(sphere_space.getR(), 	T[i][0], T[i][1], cluster_seed[cnt]);
 				cluster_seed[cnt][0] += sphere_space.getCenterX();
 				cluster_seed[cnt][1] += sphere_space.getCenterY();
 				cluster_seed[cnt][2] += sphere_space.getCenterZ();
+				/*
+				 * 
+				 */
+				Transf.sph2cart(sphere_roi.getR(), 	T[i][0], T[i][1], cartesian_aux);
+				cluster_local_seeds[cnt][0] = (int)Math.round(cartesian_aux[0] + sphere_roi.getCenterX());
+				cluster_local_seeds[cnt][1] = (int)Math.round(cartesian_aux[1] + sphere_roi.getCenterY());	
+				cluster_local_seeds[cnt][2] = (int)Math.round(cartesian_aux[2] + sphere_roi.getCenterZ());
+				
 				cnt++;
 			}
 		}
+		
+//		System.out.println("cluster_dirs by mean-shift:");
+//		ArrayHandling.print2DArray(cluster_dirs);
+//		System.out.println("cluster_seed by mean-shift:");
+//		ArrayHandling.print2DArray(cluster_seed);
+//		System.out.println("cluster_local_seeds by mean-shift:");
+//		ArrayHandling.print2DArray(cluster_local_seeds);
+		
+		
 	}
 	
 	private double d2(double[] a, double[] b){
@@ -317,7 +369,7 @@ public class MeanShift3DSphere {
 		return Math.sqrt(Math.pow(phi_dist, 2)+Math.pow(wrapped_az, 2));
 	}
 	
-	public void saveS(String csv_file_name){
+	public void 		saveS(String csv_file_name){
 		DebugExport f = new DebugExport(csv_file_name);
 		
 		for (int i = 0; i < S.length; i++) {
@@ -334,7 +386,7 @@ public class MeanShift3DSphere {
 		System.out.println(csv_file_name+" saved...");
 	}
 	
-	public void saveT(String csv_file_name){
+	public void 		saveT(String csv_file_name){
 		DebugExport f = new DebugExport(csv_file_name);
 		
 		for (int i = 0; i < T.length; i++) {
@@ -350,22 +402,5 @@ public class MeanShift3DSphere {
 		f.closeDebug();
 		System.out.println(csv_file_name+" saved...");
 	}	
-	
-	public ImagePlus extractConvergence(int resolution){
-		ImagePlus output 		= NewImage.createByteImage(
-				"average_values_per_direction", 2*resolution, resolution, 1, NewImage.FILL_BLACK);
-		for (int i = 0; i < T.length; i++) {
-			// get indexes to be plotted on the image
-			double current_phi 		= T[i][0];
-			double current_theta 	= T[i][1];
-			int row = ArrayHandling.value2index(current_phi, 	ArrayHandling.IdxMode.LAST_INCLUDED, 0.0, Math.PI, 	resolution);
-			int col = ArrayHandling.value2index(current_theta, 	ArrayHandling.IdxMode.LAST_EXCLUDED, 0.0, 2*Math.PI, 2*resolution);
-			double g = sphere_roi.avgValuePerDirection(current_phi, current_theta, img_calc); 
-			output.getStack().setVoxel(col, row, 0, g);
-		}
-		
-		return output;
-
-	}
 	
 }

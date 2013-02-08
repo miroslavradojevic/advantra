@@ -2,11 +2,10 @@ package advantra.trace;
 
 import java.util.ArrayList;
 
+import advantra.general.ArrayHandling;
 import advantra.processing.Moments;
 import advantra.shapes.Sphere;
 import advantra.swc.ExportSWC;
-import advantra.trace.TinyBranchTrace.CharacteristicPoint;
-
 import ij.ImagePlus;
 
 public class NeuronTrace {
@@ -44,13 +43,12 @@ public class NeuronTrace {
 		}
 	}
 	
-	public void trace(double x, double y, double z){ // trace from the selected point
+	public void 			trace(double x, double y, double z){ // trace from the selected point
 		
 		boolean first = true;
 		Hypothesis	take_hypothesis = new Hypothesis();
 		Hypothesis  estimated_hyp 	= new Hypothesis();
 		Hypothesis[] new_hypotheses = null;
-		CharacteristicPoint p = CharacteristicPoint.BODY;
 		TinyBranchTrace current_branch = new TinyBranchTrace();
 		int sphere_res = 32;
 		ImagePlus sphere_img = new ImagePlus();
@@ -60,7 +58,7 @@ public class NeuronTrace {
 		
 		while((first || branch_queue.size()>0) && traced_branch_nr<max_branch_nr){
 			
-			System.out.println("looping...");//  queue size(>0)=%d, traced branches(<%d)=%d \n", branch_queue.size(), max_branch_nr, traced_branch_nr);
+			//System.out.println("looping...");//  queue size(>0)=%d, traced branches(<%d)=%d \n", branch_queue.size(), max_branch_nr, traced_branch_nr);
 			
 			if(first){
 				System.out.println("manual press loop...");
@@ -74,12 +72,11 @@ public class NeuronTrace {
 				double scale = TinyBranch.check_bifurcations*current_branch.getCurrentTraceHypothesisRadius();
 				Sphere sp = new Sphere(current_branch.getCurrentTraceHypothesisCenterpoint(), scale);
 				sphere_img     = sp.extract(traced_img, sphere_res); 
-				//sphere_img.show();
 				current_branch.bifurcation_detection_MeanShift3D(sphere_img, sp, first); // will process new hypotheses
 			
 			}
 			else{ 
-				System.out.println("branch trace loop...");
+				//System.out.println("branch trace loop...");
 				//take first hypothesis if not the first execution
 				take_hypothesis = branch_queue.get(0);	
 				branch_queue.remove(0);
@@ -93,6 +90,7 @@ public class NeuronTrace {
 				new_hypotheses = null;
 				int loop_count = 0;
 				while(loop_count<TinyBranch.N-1){ 
+					
 					current_branch.predict();
 					current_branch.calculatePriors();
 					current_branch.calculateLikelihoods();
@@ -106,45 +104,45 @@ public class NeuronTrace {
 						//*** detection
 						double scale = TinyBranch.check_bifurcations*current_branch.getCurrentTraceHypothesisRadius();
 						Sphere sp = new Sphere(current_branch.getCurrentTraceHypothesisCenterpoint(), scale);
-						sphere_img     = sp.extract(traced_img, sphere_res); 
-						//sphere_img.show();
+						sphere_img     = sp.extract(traced_img, TinyBranch.extract_sphere_resolution); 
+						
+						//long t11 = System.currentTimeMillis();
 						boolean stop = current_branch.bifurcation_detection_MeanShift3D(sphere_img, sp, first); // will process new hypotheses
+						//long t12 = System.currentTimeMillis();
+						//System.out.println("bif detection (elapsed "+((t12-t11)/1000f)+")sec. says "+((stop)?"STOP":"CONTINUE"));
 						if(stop) break;
 					}
 					else{
-						// tracing itself resulted in "characteristic point"
-						break;
+						System.out.println("trace says STOP!");
+						break;// tracing itself got 0 posteriors
 					}
-					
-					if(
-							p==CharacteristicPoint.TRACE_CANCELLED || 
-							p==CharacteristicPoint.BRANCH ||
-							p==CharacteristicPoint.END
-							) break; //break while loop if the point is a stop point
-					
 					loop_count++;
 				}
 			}
 			
-			// done with the trace or the loop
-			// store new hypotheses to the queue
-			sphere_img.show();
 			new_hypotheses = current_branch.getNewSeedHypotheses();
 			
 			if(new_hypotheses!=null){ 
+				int how_many_new_hyps = 0;
 				for (int b = 0; b < new_hypotheses.length; b++) {
-					branch_queue.add(new_hypotheses[b]);
-					if(first) 	branch_queue_mother_idx.add(traced_branch_nr);
-					else 		branch_queue_mother_idx.add(-1);
+					if(new_hypotheses[b]!=null){
+						
+						branch_queue.add(new_hypotheses[b]);
+						if(first) 	branch_queue_mother_idx.add(-1);
+						else 		branch_queue_mother_idx.add(traced_branch_nr);
+						
+						System.out.println("\nadded seed hypothesis: ");
+						System.out.println("\nwith mother index: "+((!first)?traced_branch_nr:-1));
+						
+						
+						how_many_new_hyps++;
+					}
 				}
-				System.out.println("\nadded "+new_hypotheses.length+" branches");
+				System.out.println("\n***\nadded "+how_many_new_hyps+" new branches\n***\n");
 			}
 			else{
 				System.out.println("\nno added branches");
 			}
-			
-//			System.out.format("\n------------------------------------------------------\n");
-//			System.out.format("branch # %4d  |  %4d  remaining   |  limit: %4d \n", traced_branch_nr+1, branch_queue.size(), max_branch_nr);
 			
 			traced_branch_nr++; // count next one once this is finished
 			
@@ -157,24 +155,35 @@ public class NeuronTrace {
 		
 	}		
 	
-	public void export_swc(String file_name){
+	public void 			export_swc(String file_name){
+		
 		System.out.println("saving to: "+file_name);
+		
+		System.out.println("what do I have?");
+		for (int i = 0; i < traced_branch_nr; i++) {
+			System.out.println("branch "+i+" size "+branches[i].getCount()+" mother idx: "+branches_mother_idxs[i]);
+			System.out.println("*-------");
+		}
 		
 		int[] last_line = new int[traced_branch_nr];
 		
 		ExportSWC swc_file = new ExportSWC(file_name);
 		
-		int line = 1;
+		int line = 0;
 		int prev_line;
+		
 		for (int i = 0; i < traced_branch_nr; i++) {
 			boolean first = true;
 			for (int j = 0; j < branches[i].getCount(); j++) {
+				
 				if(first){
 					if(branches_mother_idxs[i]==(-1)){
 						prev_line = -1;
 					}
 					else{
-						prev_line = last_line[i];
+						ArrayHandling.print1DArray(last_line);
+						prev_line = last_line[branches_mother_idxs[i]];
+						System.out.println("setting first index, for branch "+i+" : "+prev_line);
 					}
 					first = false;
 				}
@@ -184,7 +193,7 @@ public class NeuronTrace {
 
 				swc_file.writelnSWC(String.format("%5d %2d %6.2f %6.2f %6.2f %6.2f %5d", 
 						line, 
-						6,
+						2,
 						branches[i].centerlines[j][1],
 						branches[i].centerlines[j][0],
 						branches[i].centerlines[j][2],
@@ -194,10 +203,10 @@ public class NeuronTrace {
 				
 			}
 			
-			last_line[i] = line-1;
+			last_line[i] = line;
 			
 		}
-		
+		System.out.println("finished... closing");
 		swc_file.closeSWC();
 		
 	}

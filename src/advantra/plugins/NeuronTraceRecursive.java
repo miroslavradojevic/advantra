@@ -48,7 +48,7 @@ public class NeuronTraceRecursive implements PlugInFilter, MouseListener {
 		cal.setUnit("pixels");
 		img.setCalibration(cal);
 		
-		MAX_BRANCHES = 2;
+		MAX_BRANCHES = 4;
 		return DOES_8G+NO_CHANGES;
 	}
 	

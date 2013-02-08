@@ -88,12 +88,12 @@ public class DemoMeanShift3DSphere {
 		double angle_range_deg 	= 20;
 		double angle_range_rad 	= (angle_range_deg/180)*Math.PI;
 		int 	N = 200;
-		MeanShift3DSphere ms3dSph = new MeanShift3DSphere(output, angle_range_rad, N);
+		MeanShift3DSphere ms3dSph = new MeanShift3DSphere(output, sp, angle_range_rad, N);
 		int max_iter = 100;
 		double epsilon = 0.0001;
 		ms3dSph.run(max_iter, epsilon);
-		double[][] out_dirs = ms3dSph.extractDirections(0.05, 25);
-		
+		ms3dSph.extractClusters(0.05, 25);
+		double[][] out_dirs = ms3dSph.getClusterDirs();
 		if(out_dirs!=null){
 			System.out.format("### DONE! %d directions! :\n", out_dirs.length);
 			ArrayHandling.print2DArray(out_dirs);
