@@ -5,13 +5,11 @@ import advantra.general.ArrayHandling;
 import advantra.general.ImageConversions;
 import advantra.processing.IntensityCalc;
 import advantra.shapes.Cylinder;
-import advantra.shapes.OrientedProjectivePlane;
 import advantra.shapes.RegionOfInterest.RoiType;
 import advantra.shapes.Sphere;
-import advantra.tools.MeanShift;
+import advantra.tools.MeanShift3DSphere;
 
 import ij.ImagePlus;
-import ij.io.FileSaver;
 
 
 public class TinyBranchTrace implements TinyBranch {
@@ -138,7 +136,7 @@ public class TinyBranchTrace implements TinyBranch {
 		count = 0;
 	}
 	
-	public void setStart(Hypothesis		seed_hyp){ 
+	public void 				setStart(Hypothesis		seed_hyp){ 
 		
 		seed_point[0]	= seed_hyp.getPositionX();
 		seed_point[1]	= seed_hyp.getPositionY();
@@ -150,229 +148,29 @@ public class TinyBranchTrace implements TinyBranch {
 		
 		seed_radius 		= seed_hyp.getNeuriteRadius();
 		
-		storeHypothesis(seed_hyp, false);
+		storeHypothesis(seed_hyp, false);  // stores in current_hyp_estimate, centerlines, radiuses
 		
 	}
 	
-	public Hypothesis hyp_at(
+	public Hypothesis 			hyp_at(
 			double[] 			point3d
 			){ 
-		
-		//long t11 = System.currentTimeMillis();
 		createInitialHypothesesAndCalculateLikelihoods(point3d);
-		//long t12 = System.currentTimeMillis();
-		//System.out.format("createInitialHypothesesAndCalculateLikelihoods -> %f sec.   \n", ((t12-t11)/1000f) );
-		
-		//t11 = System.currentTimeMillis();
 		setInitialPriors(); 
-		//t12 = System.currentTimeMillis();
-		//System.out.format("setInitialPriors -> %f sec.   \n", ((t12-t11)/1000f) );
-		
-		//t11 = System.currentTimeMillis();
 		calculatePosteriors(); 
-		//t12 = System.currentTimeMillis();
-		//System.out.format("calculatePosteriors -> %f sec.   \n", ((t12-t11)/1000f) );
-		
-		//t11 = System.currentTimeMillis();
 		Hypothesis estimated_hyp 	= getMaximumPosteriorHypothesis();
-		//t12 = System.currentTimeMillis();
-		//System.out.format("getMaximumPosteriorHypothesis -> %f sec.   \n", ((t12-t11)/1000f) );
-		
-		//System.out.println("est.l'hood = "+estimated_hyp.getLikelihood());
-		
 		return estimated_hyp;
-		
 	}
 	
-	public CharacteristicPoint trace(){ 
-
-		Hypothesis 		estimated_hyp	 	= new Hypothesis();
-		
-		estimated_hyp.setHypothesis(current_hyp_estimate);
-		
-		int loop_count = 0;
-		
-		CharacteristicPoint p = CharacteristicPoint.BODY;
-		
-		while(loop_count<N-1){  
-			
-			predict(); 									// make predictions & calculate priors (these two can go together as same method)
-			
-			calculatePriors(); 							// set priors according to previous iteration's estimation
-			
-			/*
-			 * //TODO: speed this stage up
-			 */
-			calculateLikelihoods(); 					// calculate likelihoods
-			
-			double sum_posts = calculatePosteriors(); 	// calculate posteriors 
-			
-			System.out.print(".");
-			
-			if(sum_posts!=0){
-				
-				estimated_hyp 	= getMaximumPosteriorHypothesis(); // map
-				storeHypothesis(estimated_hyp, false);
-				
-//				////////////////
-//				OrientedProjectivePlane plane = new OrientedProjectivePlane(
-//						current_hyp_estimate.getPositionX(), 
-//						current_hyp_estimate.getPositionY(), 
-//						current_hyp_estimate.getPositionZ(), 
-//						current_hyp_estimate.getNeuriteRadius(), 
-//						3,
-//						current_hyp_estimate.getOrientationX(), 
-//						current_hyp_estimate.getOrientationY(), 
-//						current_hyp_estimate.getOrientationZ()
-//						);
-//				
-//				ImagePlus plane_img = plane.extract(img_traced, 32);
-//				String image_plane_name = String.format("plane_at_%f_%f_%f_count%d.tif", 
-//						current_hyp_estimate.getPositionX(),
-//						current_hyp_estimate.getPositionY(),
-//						current_hyp_estimate.getPositionZ(),
-//						0
-//						);
-//				(new FileSaver(plane_img)).saveAsTiff(image_plane_name);
-//				
-//				System.out.format("saved plane image: %s   \n", image_plane_name);
-//				////////////////
-				
-				/*
-				 * extract critical points
-				 */
-				
-				if(count>3){ // check for bifurcations after count is ...
-				
-					// 3D mean-shift used to extract directions
-					//extractDirections_MeanShift3D();
-					
-					// 2D
-					extractDirections_MeanShift2D_Plane();
-					
-					// check whether it is not the characteristic point
-					if(new_seeds==null){
-						p = CharacteristicPoint.END;
-						break;
-					}
-					else if(new_seeds.length==1){
-						p = CharacteristicPoint.BODY;
-					}
-					else if(new_seeds.length>1){
-						p = CharacteristicPoint.BRANCH;
-						break;
-					}
-				}
-				loop_count++;
-			}
-			else{
-				System.out.format("### Stop. All posteriors were zero for current point. Branch detection was not tried.\n");
-				p = CharacteristicPoint.TRACE_CANCELLED;
-				break;
-			}
-			
-		}
-		
-		System.out.println("finished after "+loop_count+" iterations...");
-		
-		return p;
-		
-	}
-	
-	public void setPriors(Hypothesis[] hyps, double prior_value){
+	public void 				setPriors(Hypothesis[] hyps, double prior_value){
 		// the prior value will be distributed to all hypotheses from the list
 		// problem.. might not sum up to 1 this way and it should...
 		for (int i = 0; i < hyps.length; i++) {
 			hyps[i].setPrior(prior_value);
 		}
 	}
-
-	private void extractDirections_MeanShift2D_Plane(){
-		
-		double 		detection_distance 	= TinyBranch.check_bifurcations*current_hyp_estimate.getNeuriteRadius();
-		double[] 	detection_point		= current_hyp_estimate.getPosition();	
-		double[] 	detection_orient	= current_hyp_estimate.getOrientation();
-		
-		OrientedProjectivePlane plane = new OrientedProjectivePlane(
-				detection_point, 
-				detection_distance,
-				2,
-				detection_orient);
-		
-		ImagePlus output 		= plane.extract(img_traced, extract_plane_resolution);	
-		
-		
-		MeanShift ms2dplane = new MeanShift(output, 8);
-		
-		int max_iter = 200;	double epsilon = 0.00001; ms2dplane.run(max_iter, epsilon);
-		
-		double neighbourhood = 1.0;
-		double[][] conv_pts = ms2dplane.extractConvPoints(neighbourhood, (int)(0.25*Math.pow(extract_plane_resolution, 2)));
-		
-		if(conv_pts==null){
-			(new FileSaver(output)).saveAsTiff(String.format("plane_at_%.1f_%.1f_%.1f__%d_directions.tif", 
-					detection_point[0], detection_point[1], detection_point[2], 0));
-			System.out.println("exporting "+String.format("plane_at_%.1f_%.1f_%.1f__%d_directions.tif", 
-					detection_point[0], detection_point[1], detection_point[2], 0));
-		}
-		else{
-			(new FileSaver(output)).saveAsTiff(String.format("plane_at_%.1f_%.1f_%.1f__%d_directions.tif", 
-					detection_point[0], detection_point[1], detection_point[2], conv_pts.length));
-			System.out.println("exporting "+String.format("plane_at_%.1f_%.1f_%.1f__%d_directions.tif", 
-					detection_point[0], detection_point[1], detection_point[2], conv_pts.length));
-			System.out.println("mean-shift detection output (conv_points):");
-			ArrayHandling.print2DArray(conv_pts);
-		}
-		
-		if(conv_pts==null){
-			System.out.format("\nno directions found  \n");
-			new_seeds = null; 
-			new_directions = null;
-		}
-		else if(conv_pts.length==1){
-			new_seeds 		= new double[1][3];
-			new_directions 	= new double[1][3];
-			new_seeds[0][0] = (conv_pts[0][0]*(2f/(extract_plane_resolution-1)) - 1) * (2*detection_distance);
-			new_seeds[0][1] = (conv_pts[0][1]*(2f/(extract_plane_resolution-1)) - 1) * (2*detection_distance);
-			new_seeds[0][2] = detection_distance;
-			double norm = Math.sqrt(Math.pow(new_seeds[0][0], 2)+Math.pow(new_seeds[0][1], 2)+Math.pow(new_seeds[0][2], 2));
-			
-			new_directions[0][0] = new_seeds[0][0]/norm;
-			new_directions[0][1] = new_seeds[0][1]/norm;
-			new_directions[0][2] = new_seeds[0][2]/norm;
-			
-			new_seeds[0][0] += detection_point[0];
-			new_seeds[0][1] += detection_point[1];
-			new_seeds[0][2] += detection_point[2];
-			
-		}
-		else if(conv_pts.length>=2){
-			
-			System.out.format("\nbranch point detected by mean-shift: %d directions \n", conv_pts.length);
-			
-			new_seeds 		= new double[conv_pts.length][3];
-			new_directions 	= new double[conv_pts.length][3];
-			
-			for (int i = 0; i < conv_pts.length; i++) {
-				new_seeds[i][0] = (conv_pts[i][0]*(2f/(extract_plane_resolution-1)) - 1) * (2*detection_distance);
-				new_seeds[i][1] = (conv_pts[i][1]*(2f/(extract_plane_resolution-1)) - 1) * (2*detection_distance);
-				new_seeds[i][2] = detection_distance;
-				double norm = Math.sqrt(Math.pow(new_seeds[i][0], 2)+Math.pow(new_seeds[i][1], 2)+Math.pow(new_seeds[i][2], 2));
-				
-				new_directions[i][0] = new_seeds[i][0]/norm;
-				new_directions[i][1] = new_seeds[i][1]/norm;
-				new_directions[i][2] = new_seeds[i][2]/norm;
-				
-				new_seeds[i][0] += detection_point[0];
-				new_seeds[i][1] += detection_point[1];
-				new_seeds[i][2] += detection_point[2];
-			}
-				
-		}
-		
-	}
 	
-	private double[] subtract(double[] a3, double[] b3){
+	private double[] 			subtract(double[] a3, double[] b3){
 		double[] out3 = new double[3];
 		out3[0] = a3[0] - b3[0];
 		out3[1] = a3[1] - b3[1];
@@ -380,7 +178,7 @@ public class TinyBranchTrace implements TinyBranch {
 		return out3;
 	}
 	
-	private void 	normalize(double[] in3){
+	private void 				normalize(double[] in3){
 		double norm = Math.sqrt(Math.pow(in3[0], 2) + Math.pow(in3[1], 2) + Math.pow(in3[2], 2));
 		if(norm>0){
 			in3[0] /= norm;
@@ -390,27 +188,26 @@ public class TinyBranchTrace implements TinyBranch {
 		
 	}
 	
-	private double 	dotProd3(double[] a, double[] b){
+	private double 				dotProd3(double[] a, double[] b){
 		return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
 	}
 	
-	public void setLikelihoods(Hypothesis[] hyps, double likelihood_value){
+	public void 				setLikelihoods(Hypothesis[] hyps, double likelihood_value){
 		// all hypotheses are equally likely this way
 		for (int i = 0; i < hyps.length; i++) {
 			hyps[i].setLikelihood(likelihood_value);
 		}
 	}
 	
-	private void calculateLikelihoods(){ 
+	public void 				calculateLikelihoods(){ 
 		
 		for (int i = 0; i < trace_hyps.length; i++) {
-			//trace_hyps[i].calculateLikelihood(img_traced.getStack());
-			//trace_hyps[i].calculateLikelihood(img_traced.getStack(), likelihood_cylinder_samples);
+			trace_hyps[i].calculateLikelihood_new(img_calc, 1.0, 1.0);
 		}
 		
 	}
 
-	private double calculatePosteriors(){ 
+	public double 				calculatePosteriors(){ 
 		
 		double sum_posteriors = 0;
 		
@@ -431,22 +228,22 @@ public class TinyBranchTrace implements TinyBranch {
 		}
 		else{
 			
-			double[] point = this.getCurrentCenterpoint();
-			System.err.println("\nTraceBranch:calculatePosteriors(): " +
+			double[] point = current_hyp_estimate.getPosition();
+			System.err.println("\nTinyBranchTrace:calculatePosteriors(): " +
 					"sum of the posteriors was "+sum_posteriors+" at ("+point[0]+" , "+point[1]+" , "+point[2]+")");
 		}
 		
 		return sum_posteriors;
 	}
 	
-	public void addNewBranchesToQueue(ArrayList<Hypothesis> branch_queue){ 
+	public void 				addNewBranchesToQueue(ArrayList<Hypothesis> branch_queue){ 
 		
 		for (int i = 0; i < new_directions.length; i++) {
 			Hypothesis hyp_to_queue = new Hypothesis();
 			hyp_to_queue.setHypothesis(
-					centerlines[count-1][0]+check_bifurcations*radiuses[count-1]*new_directions[i][0], 
-					centerlines[count-1][1]+check_bifurcations*radiuses[count-1]*new_directions[i][1], 
-					centerlines[count-1][2]+check_bifurcations*radiuses[count-1]*new_directions[i][2],
+					centerlines[count-1][0]+check_bifurcations*current_hyp_estimate.getHypothesisRadius()*new_directions[i][0], 
+					centerlines[count-1][1]+check_bifurcations*current_hyp_estimate.getHypothesisRadius()*new_directions[i][1], 
+					centerlines[count-1][2]+check_bifurcations*current_hyp_estimate.getHypothesisRadius()*new_directions[i][2],
 					new_directions[i][0], 
 					new_directions[i][1], 
 					new_directions[i][2], 
@@ -458,82 +255,82 @@ public class TinyBranchTrace implements TinyBranch {
 		
 	}
 	
-	public double[] getLastCenterpoint(){
-		return centerlines[count-1];
+	public double[] 			getLastCenterpoint(){
+		return (count>=1)?centerlines[count-1]:null;
 	}
 	
-	public double getLastRadius(){
-		return radiuses[count-1];
+	public double 				getLastRadius(){
+		return (count>=1)?radiuses[count-1]:null;
 	}
 	
-	public double[] getSeedPoints(){
+	public double[] 			getSeedPoints(){
 		return seed_point;
 	}
 	
-	public double[] getSeedDirection(){
+	public double[] 			getSeedDirection(){
 		return seed_direction;
 	}
 	
-	public double[] getCurrentPos(){
+	public double[] 			getCurrentPos(){
 		return current_hyp_estimate.getPosition();
 	}
 
-	public double getCurrentPosX(){
+	public double 				getCurrentPosX(){
 		return current_hyp_estimate.getPositionX();
 	}
 
-	public double getCurrentPosY(){
+	public double 				getCurrentPosY(){
 		return current_hyp_estimate.getPositionY();
 	}
 	
-	public double getCurrentPosZ(){
+	public double 				getCurrentPosZ(){
 		return current_hyp_estimate.getPositionZ();
 	}
 
-	public double[] getCurrentOrient(){
+	public double[] 			getCurrentOrient(){
 		return current_hyp_estimate.getOrientation();
 	}
 
-	public double getCurrentOrientX(){
+	public double 				getCurrentOrientX(){
 		return current_hyp_estimate.getOrientationX();
 	}
 
-	public double getCurrentOrientY(){
+	public double 				getCurrentOrientY(){
 		return current_hyp_estimate.getOrientationY();
 	}
 	
-	public double getCurrentOrientZ(){
+	public double 				getCurrentOrientZ(){
 		return current_hyp_estimate.getOrientationZ();
 	}	
 	
-	public double[][] getNewOrients(){
+	public double[][] 			getNewDirections(){
 		return new_directions;
 	}
-	
-	public int numberOfNewOrients() {
-		return new_directions.length;
-	}
 
-	public double[][] getNewSeeds(){
+	public double[][] 			getNewSeeds(){
 		return new_seeds;
 	}
 	
-	public int numberOfNewSeeds() {
-		return new_seeds.length;
-	}
-	
-	public double[] getNewDirection(int index){
+	public Hypothesis[] 		getNewSeedHypotheses(){
 		
-		if(index<0 || index>=new_directions.length){
+		if(new_directions==null){
 			return null;
 		}
 		else{
-			return new_directions[index];
+			Hypothesis[] new_hyps = new Hypothesis[new_directions.length];
+			for (int i = 0; i < new_directions.length; i++) {
+				new_hyps[i] = new Hypothesis(
+						new_seeds[i], 
+						new_directions[i], 
+						current_hyp_estimate.getHypothesisRadius(), 
+						current_hyp_estimate.getK()); 
+			}
+			return new_hyps;
 		}
 		
 	}
 	
-	public double[] getNewSeed(int index){
+	public double[] 			getNewSeed(int index){
 		
 		if(index<0 || index>=new_seeds.length){
 			return null;
@@ -544,23 +341,27 @@ public class TinyBranchTrace implements TinyBranch {
 		
 	}
 	
-	public int getCount(){
+	public int 					getCount(){
 		return count;
 	}
 	
-	public Hypothesis 	getCurrentTraceHypothesis(){
+	public Hypothesis 			getCurrentTraceHypothesis(){
 		return current_hyp_estimate;
 	}
 	
-	public double[] 	getCurrentCenterpoint(){
+	public double[] 			getCurrentTraceHypothesisCenterpoint(){
 		return current_hyp_estimate.getPosition();
 	}
 	
-	public double 		getCurrentRadius(){
+	public double 				getCurrentTraceHypothesisNeuriteRadius(){
 		return current_hyp_estimate.getNeuriteRadius();
 	}
 	
-	private Hypothesis 			getMaximumPosteriorHypothesis(){ 
+	public double 				getCurrentTraceHypothesisRadius(){
+		return current_hyp_estimate.getHypothesisRadius();
+	}
+	
+	public Hypothesis 			getMaximumPosteriorHypothesis(){ 
 		
 		if(!trace_hyps[0].isPosteriorCalculated()){
 			System.err.println("BranchTrace:getMaximumPosteriorHypothesis(): \n" +
@@ -592,7 +393,7 @@ public class TinyBranchTrace implements TinyBranch {
 		return out; 
 	}
 	
-	private void 				storeHypothesis			(Hypothesis estimated_hyp, boolean printHyp){
+	public void 				storeHypothesis			(Hypothesis estimated_hyp, boolean printHyp){
 		
 		// add particular hypothesis to the estimation thread
 		current_hyp_estimate.setHypothesis(estimated_hyp);
@@ -603,11 +404,7 @@ public class TinyBranchTrace implements TinyBranch {
 			
 		radiuses[count] 		= current_hyp_estimate.getNeuriteRadius();
 			
-		if(printHyp){
-				
-			estimated_hyp.print();
-			
-		}
+		if(printHyp) estimated_hyp.print();
 						
 		count++;
 	}
@@ -651,45 +448,6 @@ public class TinyBranchTrace implements TinyBranch {
 		}
 	}
 	
-	private void 				createInitialHypotheses(
-			double[] 	seed_point
-			){
-		
-		/* 
-		 * creates array of initial Hypotheses
-		 * all around the same point, different directions, radiuses
-		 */
-		
-		double[][] points 			= new double[3][N_orientations];
-		double[][] point_orients	= new double[3][N_orientations];
-		
-		(new Sphere(seed_point[0], seed_point[1], seed_point[2], 1)).generate3DFullSpherePts(
-				N_orientations, 
-				points, 
-				point_orients);
-		
-		// create initial hypotheses
-		int count_hypotheses = 0;
-		for (int hypo_idx = 0; hypo_idx < N_orientations; hypo_idx++) {
-			for (int radius_idx = 0; radius_idx < trace_rads.length; radius_idx++) {
-				
-				// set the Hypothesis
-				trace_hyps[count_hypotheses].setHypothesis(
-						seed_point[0], seed_point[1], seed_point[2], 
-						point_orients[0][hypo_idx], 
-						point_orients[1][hypo_idx], 
-						point_orients[2][hypo_idx], 
-						trace_rads[radius_idx], 
-						k,
-						4
-						); //2*trace_rads[radius_idx]
-				count_hypotheses++;
-				
-			}
-		}
-		
-	}
-	
 	private void 				createInitialHypothesesAndCalculateLikelihoods(
 			double[] 	seed_point
 			){
@@ -729,7 +487,7 @@ public class TinyBranchTrace implements TinyBranch {
 		
 	}
 
-	private void				predict(){
+	public void					predict(){
 		
 		// form the points on sphere... they will be placed on the semi-sphere in the direction of tangent 
 		//double[][] points 			= new double[3][N_orientations];
@@ -774,25 +532,7 @@ public class TinyBranchTrace implements TinyBranch {
 		
 	}
 	
-//	/*
-//	 * make this one to speed up the estimations
-//	 */
-//	//TODO finish this to speed up 
-//	private void 				likelihoods(int nr_samples){
-//		
-//		
-//		for (int i = 0; i < nr_samples; i++) {
-//			Random generator = new Random();
-//			double r = generator.nextDouble()*trace_rads[trace_rads.length-1];
-//			double a = generator.nextDouble()*2*Math.PI;
-//			double h = (generator.nextDouble()-0.5)*4;
-//			double cs_x = r*Math.cos(a);
-//			double cs_y = r*Math.sin(a);
-//		}
-//		
-//	}
-	
-	private void 				calculatePriors(){ 
+	public void 				calculatePriors(){ 
 		// it will set priors in hyps w.r.t. ref_hyp
 		for (int i = 0; i < trace_hyps.length; i++) {
 			
@@ -813,86 +553,165 @@ public class TinyBranchTrace implements TinyBranch {
 		return TinyBranch.k;
 	}
 	
-}
+	public boolean				bifurcation_detection_MeanShift3D(ImagePlus sphere_img, Sphere sphere_from_image, boolean manual_start){ 
+		
+		// returns whether to stop the trace or not
+		
+		if(count<3 && (!manual_start)){
+			new_seeds = null;
+			new_directions = null;
+			return false; // valid after 3 steps
+		}
+		
+		int 	MS_PTS 				= 200;
+		int 	MS_PTS_TH 			= 25;
+		int 	MS_MAX_ITER 		= 100;
+		double 	MS_EPS 				= 0.0001; 
+		double 	MS_NEIGHBOUR 		= 0.01;
+		double 	MS_ANGLE_RANGE_DEG 	= 30;
+		double 	MS_ANGLE_RANGE_RAD 	= (MS_ANGLE_RANGE_DEG/180)*Math.PI;
+		
+		MeanShift3DSphere ms3dSph = new MeanShift3DSphere(sphere_img, sphere_from_image, MS_ANGLE_RANGE_RAD, MS_PTS);
+		ms3dSph.run(MS_MAX_ITER, MS_EPS);
+		ms3dSph.extractClusters(MS_NEIGHBOUR, MS_PTS_TH); // result is stored in fields of the ms3dSph class
+		double[][] cluster_dirs = ms3dSph.getClusterDirs();
+		double[][] cluster_seed = ms3dSph.getClusterSeed();
+		
+		if(cluster_dirs!=null){
+			//System.out.println("!# MS gave clusters  "+cluster_dirs.length+" x "+cluster_dirs[0].length);
+			//ArrayHandling.print2DArray(cluster_dirs);
+			//ArrayHandling.print2DArray(cluster_seed);
+		}
+		else System.out.println("MS gave NULL");
+		
+		if(cluster_dirs==null || cluster_dirs.length==1){
+			new_seeds 		= null;
+			new_directions 	= null;
+			System.out.println("new_seeds/_directions:  NULL!");
+			System.out.println("stopping trace (either MS didn't converge or endpoint)...");
+			return true;
+		}
+		else if(cluster_dirs.length>2){
 
-//private void extractDirections_MeanShift3D(){
-//
-//Sphere sp = new Sphere(
-//		current_hyp_estimate.getPositionX(), 
-//		current_hyp_estimate.getPositionY(), 
-//		current_hyp_estimate.getPositionZ(), 
-//		current_hyp_estimate.getNeuriteRadius()*check_bifurcations);
-//
-//ImagePlus output 		= sp.extract(img_traced, extract_sphere_resolution);	
-//
-//double angle_range_deg 	= 30;
-//double angle_range_rad 	= (angle_range_deg/180)*Math.PI;
-//MeanShift3DSphere ms3dSph = new MeanShift3DSphere(output, angle_range_rad, number_of_convergence_points);
-//int max_iter = 200;	double epsilon = 0.00001; ms3dSph.run(max_iter, epsilon);
-//double neighbourhood = 0.01;
-//double[][] out_dirs = ms3dSph.extractDirections(neighbourhood, threshold_convergence_points);
-//	
-//if(out_dirs==null){
-//	System.out.format("\n no directions found by mean-shift 3d  \n");
-//	sp.drawOverColorImage(img_traced_output, 0, 0, 255); // blue
-//	new_seeds = null; 
-//}
-//else if(out_dirs.length==1){
-//	System.out.format("\nend point detected by mean-shift 3d\n");
-//	
-//	/////
-//	(new FileSaver(output)).saveAsTiffStack(String.format("end_pt_at_%d_start_%f_%f_%f__dir_%f_%f_%f.tif", 
-//			count, seed_point[0], seed_point[1], seed_point[2], seed_direction[0], seed_direction[1], seed_direction[2]));
-//	sp.drawOverColorImage(img_traced_output, 0, 255, 0); // green
-//	/////
-//	
-//	new_seeds = null;
-//}
-//else if(out_dirs.length>2){
-//	
-//	System.out.format("\n$$$ branch point detected by mean-shift 3d: %d directions \n", out_dirs.length);
-//	
-//	/////
-//	(new FileSaver(output)).saveAsTiffStack(String.format("bifurcation_%d_thresholded_directs_at_%d_start_%f_%f_%f__dir_%f_%f_%f.tif", 
-//			out_dirs.length, count, seed_point[0], seed_point[1], seed_point[2], seed_direction[0], seed_direction[1], seed_direction[2]));
-//	sp.drawOverColorImage(img_traced_output, 255, 0, 0); // red
-//	/////
-//	
-//	/*
-//	 * compare 'out_dirs' directions with the direction towards previous
-//	 * exclude the one that is the closest to previous direction
-//	 * and store the final group of directions to current_planisph_directions
-//	 * important that storeHypothesis() happened before so that count is set to proper value
-//	 */
-//	
-//	// expel one from new_seeds - take out the one closest to the direction towards previous trace point
-//		
-//		double[] dir_towards_previous = new double[3];
-//		dir_towards_previous = subtract(centerlines[count-2], centerlines[count-1]);
-//		normalize(dir_towards_previous);
-//		
-//		int 	index_expell_direction 	= 0;
-//		double	dot_prod_direction_max		= dotProd3(dir_towards_previous, out_dirs[0]);
-//		
-//		for (int i = 1; i < out_dirs.length; i++) {
-//			double dot_prod_direction = dotProd3(dir_towards_previous, out_dirs[i]);
-//			if(dot_prod_direction>dot_prod_direction_max){
-//				dot_prod_direction_max = dot_prod_direction;
-//				index_expell_direction = i;
-//			}
-//		}
-//		new_seeds = new double[out_dirs.length-1][3];
-//		int cnt = 0;
-//		for (int i = 0; i < out_dirs.length; i++) {
-//			if(i!=index_expell_direction){
-//				new_seeds[cnt][0] = out_dirs[i][0];
-//				new_seeds[cnt][1] = out_dirs[i][1];
-//				new_seeds[cnt][2] = out_dirs[i][2];
-//				cnt++;
-//			}
-//			
-//		}
-//		
-//}
-//
-//}
+			if(!manual_start){
+				
+				// expel one from new_seeds - take out the one closest to the direction towards previous trace point
+				// centerlines[count-1] marks last centerpoint
+				double[] dir_towards_previous = new double[3];
+				dir_towards_previous = subtract(centerlines[count-2], centerlines[count-1]);
+				normalize(dir_towards_previous);
+				
+				int 	index_expell_direction 	= 0;
+				double	dot_prod_direction_max		= dotProd3(dir_towards_previous, cluster_dirs[0]);
+				
+				for (int i = 1; i < cluster_dirs.length; i++) {
+					double dot_prod_direction = dotProd3(dir_towards_previous, cluster_dirs[i]);
+					if(dot_prod_direction>dot_prod_direction_max){
+						dot_prod_direction_max = dot_prod_direction;
+						index_expell_direction = i;
+					}
+				}
+				
+				new_directions 	= new double[cluster_dirs.length-1][3];
+				new_seeds 		= new double[cluster_dirs.length-1][3];
+				
+				// not a manual_start, do expel
+				
+				int cnt = 0;
+				for (int i = 0; i < cluster_dirs.length; i++) {
+					if(i!=index_expell_direction){
+						
+						// new_directions
+						new_directions[cnt][0] = cluster_dirs[i][0];
+						new_directions[cnt][1] = cluster_dirs[i][1];
+						new_directions[cnt][2] = cluster_dirs[i][2];
+						
+						// new_seeds
+						new_seeds[cnt][0] 		= cluster_seed[i][0];
+						new_seeds[cnt][1] 		= cluster_seed[i][1];
+						new_seeds[cnt][2] 		= cluster_seed[i][2];
+
+						cnt++;
+					}
+					
+				}
+				
+				System.out.println("new_seeds/_directions (no manual):  ");
+				for (int i = 0; i < new_seeds.length; i++) {
+					System.out.println("seed "+(i+1)+":("+new_seeds[i][0]+","+new_seeds[i][1]+","+new_seeds[i][2]+")");
+					System.out.println("dir  "+(i+1)+":("+new_directions[i][0]+","+new_directions[i][1]+","+new_directions[i][2]+")");
+				}
+				System.out.println("stop trace...");
+				
+				return true; 
+			}
+			else{ // manual_start, no expel
+				
+				for (int i = 0; i < cluster_dirs.length; i++) {
+					
+					// new_directions
+					new_directions[i][0] = cluster_dirs[i][0];
+					new_directions[i][1] = cluster_dirs[i][1];
+					new_directions[i][2] = cluster_dirs[i][2];
+						
+					// new_seeds
+					new_seeds[i][0] 	= cluster_seed[i][0];
+					new_seeds[i][1] 	= cluster_seed[i][1];
+					new_seeds[i][2] 	= cluster_seed[i][2];
+					
+				}
+				
+				System.out.println("new_seeds/_directions (manual):  ");
+				for (int i = 0; i < new_seeds.length; i++) {
+					System.out.println("seed "+(i+1)+":("+new_seeds[i][0]+","+new_seeds[i][1]+","+new_seeds[i][2]+")");
+					System.out.println("dir  "+(i+1)+":("+new_directions[i][0]+","+new_directions[i][1]+","+new_directions[i][2]+")");
+					
+				}
+				System.out.println("continue trace...");
+				
+				return false;  
+			}
+				
+		}
+		else{ // cluster_dirs.length==2
+			if(manual_start){ // manual start, no expel
+				
+				new_directions 	= new double[2][3];
+				new_seeds 		= new double[2][3];
+				
+				// new_directions
+				new_directions[0][0] = cluster_dirs[0][0];	new_directions[1][0] = cluster_dirs[1][0];
+				new_directions[0][1] = cluster_dirs[0][1];	new_directions[1][1] = cluster_dirs[1][1];
+				new_directions[0][2] = cluster_dirs[0][2];	new_directions[1][2] = cluster_dirs[1][2];
+					
+				// new_seeds
+				new_seeds[0][0] 	= cluster_seed[0][0];	new_seeds[1][0] 	= cluster_seed[1][0];
+				new_seeds[0][1] 	= cluster_seed[0][1];	new_seeds[1][1] 	= cluster_seed[1][1];
+				new_seeds[0][2] 	= cluster_seed[0][2];	new_seeds[1][2] 	= cluster_seed[1][2];
+				
+				System.out.println("new_seeds/_directions:  ");
+				System.out.println("seed 1:("+new_seeds[0][0]+","+new_seeds[0][1]+","+new_seeds[0][2]+")");
+				System.out.println("seed 2:("+new_seeds[1][0]+","+new_seeds[1][1]+","+new_seeds[1][2]+")");
+				System.out.println("dir 1:("+new_directions[0][0]+","+new_directions[0][1]+","+new_directions[0][2]+")");
+				System.out.println("dir 2:("+new_directions[1][0]+","+new_directions[1][1]+","+new_directions[1][2]+")");
+				System.out.println("stopping trace...");
+				
+				return true;
+			}
+			else{ // not a manual start, nothing new to add
+				
+				new_seeds 		= null;
+				new_directions 	= null;
+				
+				System.out.println("new_seeds/_directions:  NULL!");
+				System.out.println("continue trace...");
+				
+				return false;
+				
+			}
+			
+		}
+		
+	}
+	
+}

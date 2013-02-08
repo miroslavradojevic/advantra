@@ -48,14 +48,13 @@ public class NeuronTraceRecursive implements PlugInFilter, MouseListener {
 		cal.setUnit("pixels");
 		img.setCalibration(cal);
 		
-		MAX_BRANCHES = 4;
+		MAX_BRANCHES = 2;
 		return DOES_8G+NO_CHANGES;
 	}
 	
 	public void run(ImageProcessor ip) {
 		img.getWindow().getCanvas().addMouseListener(this);
 		System.out.println("click on the point to start tracing from there...");
-		IJ.log("click on the point to start tracing from there...");
 	}
 	
 	public void mouseClicked(MouseEvent e) {
@@ -65,7 +64,7 @@ public class NeuronTraceRecursive implements PlugInFilter, MouseListener {
 		int mouseZ =  	img.getCurrentSlice()-1;
 		
 		double value = img.getStack().getVoxel(mouseX, mouseY, mouseZ);
-		System.out.format("value at (%d, %d, %d) is %f \n", mouseX, mouseY, mouseZ, value);
+		System.out.format("mouse clicked! value at [x,y,z] = (%d, %d, %d) is %f \n", mouseX, mouseY, mouseZ, value);
 		
 		// check if the point was roughly on neuron
 		OtsuBinarisation otsu = new OtsuBinarisation(img); // binarise
@@ -91,14 +90,14 @@ public class NeuronTraceRecursive implements PlugInFilter, MouseListener {
 		}
 		
 		if((int)Math.round(Stat.median(neighborhood))==255){
-			IJ.log("start trace from "+mouseX+", "+mouseY+", "+mouseZ);
+			System.out.println("start trace from "+mouseX+", "+mouseY+", "+mouseZ);
 		}
 		else{
-			IJ.log("couldn't start the trace from this point... click again...");
+			System.out.println("couldn't start the trace from this point... click again...");
 			return;
 		}
 		
-		IJ.log("trace()...");
+		System.out.println("trace()...");
 		trace(mouseY, mouseX, mouseZ); // trace from the selected point mouseX==col, mouseY==row
 		
 	}
@@ -110,18 +109,20 @@ public class NeuronTraceRecursive implements PlugInFilter, MouseListener {
 	
 	private void trace(double mouseX, double mouseY, double mouseZ){ // trace(row, col, lay)
 
-		System.out.format("starting from: %f, %f, %f ...\n", mouseX, mouseY, mouseZ);
-
+		
+		
 		String log_dir_name 		= 
-				System.getProperty("user.home")																	+File.separator+
-				"TraceLog_"+(new SimpleDateFormat("dd-MM-yyyy-HH-mm-ss")).format(Calendar.getInstance().getTime())	+File.separator;
+				System.getProperty("user.home")																		
+				+File.separator+
+				"TraceLog_"+(new SimpleDateFormat("dd-MM-yyyy-HH-mm-ss")).format(Calendar.getInstance().getTime())	
+				+File.separator;
 		
 		CreateDirectory.createOneDir(log_dir_name);
 		
 		NeuronTrace neuron_tr = new NeuronTrace(img, MAX_BRANCHES); 
 		
 		long start_time = System.currentTimeMillis();
-		
+		System.out.println("start tracing from row: "+mouseX+" , col: "+mouseY+" and lay: "+mouseZ);
 		neuron_tr.trace(mouseX, mouseY, mouseZ);
 		
 		System.out.format("total elasped time: %f sec.\n", (double)(System.currentTimeMillis()-start_time)/1000 );

@@ -568,7 +568,7 @@ public class Hypothesis {
 		else{
 			System.err.println("Hypothesis:calculatePosterior(): \n" +
 					"cannot calculate posterior without having prior & likelihood!");
-			System.exit(1);
+			return;
 		}
 	}
 	

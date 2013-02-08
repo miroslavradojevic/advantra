@@ -5,11 +5,9 @@ import java.util.ArrayList;
 import advantra.processing.Moments;
 import advantra.shapes.Sphere;
 import advantra.swc.ExportSWC;
-import advantra.tools.MeanShift3DSphere;
 import advantra.trace.TinyBranchTrace.CharacteristicPoint;
 
 import ij.ImagePlus;
-import ij.io.FileSaver;
 
 public class NeuronTrace {
 
@@ -46,122 +44,111 @@ public class NeuronTrace {
 		}
 	}
 	
-	public void trace(double x, double y, double z){ // trace from the selected point (coord.)
+	public void trace(double x, double y, double z){ // trace from the selected point
 		
-		int RES = 32;
-		int MS_PTS = 100;
-		int MS_PTS_TH = 25;
-		int MS_MAX_ITER = 100;
-		double MS_EPS = 0.001; 
-		double MS_NEIGHBOUR = 0.01;
-		double MS_ANGLE_RANGE_DEG = 30;
+		boolean first = true;
+		Hypothesis	take_hypothesis = new Hypothesis();
+		Hypothesis  estimated_hyp 	= new Hypothesis();
+		Hypothesis[] new_hypotheses = null;
+		CharacteristicPoint p = CharacteristicPoint.BODY;
+		TinyBranchTrace current_branch = new TinyBranchTrace();
+		int sphere_res = 32;
+		ImagePlus sphere_img = new ImagePlus();
 		
+		double[] start_xyz = new double[]{x, y, z};//refineStartPoint(new double[]{x, y, z}, 20); // refine 
+		System.out.println("start at: "+start_xyz[0]+" , "+start_xyz[1]+" , "+start_xyz[2]);
 		
-		// refine the point
-		double[] start_xyz = refineStartPoint(new double[]{x, y, z}, 20); // 20 radius of refinement
-		System.out.format("\nrefined start points at (%f,%f,%f)... \n" +
-				"------------------------------------\n", 
-				start_xyz[0],
-				start_xyz[1],
-				start_xyz[2]);
-		
-		// detect best matching hypothesis at refined start point
-		System.out.println("calculating start hypothesis...");
-		Hypothesis start_hyp = (new TinyBranchTrace(traced_img)).hyp_at(start_xyz);
-		start_hyp.print();
-		
-		Sphere sph = new Sphere(start_xyz, start_hyp.getHypothesisRadius());
-		ImagePlus sphere_img = sph.extract(traced_img, RES);
-		
-		MeanShift3DSphere ms3dSph = new MeanShift3DSphere(sphere_img, ((MS_ANGLE_RANGE_DEG/180)*Math.PI), MS_PTS);
-		
-		long t11 = System.currentTimeMillis();
-		ms3dSph.run(MS_MAX_ITER, MS_EPS);
-		double[][] out_dirs = ms3dSph.extractDirections(MS_NEIGHBOUR, MS_PTS_TH); // Mx3
-		long t12 = System.currentTimeMillis();
-		System.out.format(
-				"at sphere radius R = %2.1f found %d dirs, elapsed %f sec. \n", 
-				start_hyp.getHypothesisRadius(), out_dirs.length, (t12-t11)/1000f);
-		
-		if(true){return;}
-		
-		// detect directions
-		double relative_dist_check_bifurcations = TinyBranch.check_bifurcations*start_hyp.getNeuriteRadius();
-//		int 	spherical_image_resolution = 32;
-//		double[][] start_directions = calculateTraceDirections(
-//				start_xyz, 
-//				relative_dist_check_bifurcations, 
-//				RES);
-		
-		if(out_dirs==null || out_dirs.length==0){
-			System.out.println("Trace stopped... " +
-					"no directions detected at selected point.");
-			return;
-		}
-		else{
-			System.out.format("\nTrace starting at(%f,%f,%f)... %d directions detected at starting point:\n", 
-					start_xyz[0],	start_xyz[1],	start_xyz[2],
-					out_dirs.length);
-			System.out.println("out_dirs: "+out_dirs.length+" x "+out_dirs[0].length);
+		while((first || branch_queue.size()>0) && traced_branch_nr<max_branch_nr){
 			
-		}
-		
-		// add them to hypothesis queue
-		double[] branch_start_xyz = new double[3];
-		for (int i = 0; i < out_dirs.length; i++) {
-			branch_start_xyz[0] = start_xyz[0]+relative_dist_check_bifurcations*out_dirs[i][0];
-			branch_start_xyz[1] = start_xyz[1]+relative_dist_check_bifurcations*out_dirs[i][1];
-			branch_start_xyz[2] = start_xyz[2]+relative_dist_check_bifurcations*out_dirs[i][2];
-			Hypothesis to_add = new Hypothesis(start_xyz, out_dirs[i], start_hyp.getNeuriteRadius(), start_hyp.getK());
-			branch_queue.add(to_add);
-			branch_queue_mother_idx.add(-1);
-		}
-		
-		long t22 = System.currentTimeMillis();
-		System.out.println("ms took : "+((t22-t11)/1000f)+" sec.");	
-		System.out.println("returning..."); if(true){return;}
-		
-		/*
-		 * loop
-		 */
-		
-		while(branch_queue.size()>0 && traced_branch_nr<max_branch_nr){
+			System.out.println("looping...");//  queue size(>0)=%d, traced branches(<%d)=%d \n", branch_queue.size(), max_branch_nr, traced_branch_nr);
 			
-			//take first hypothesis
-			Hypothesis hyp_from_queue = branch_queue.get(0);
-			branch_queue.remove(0);
-			
-			// take its mother idx
-			branches_mother_idxs[traced_branch_nr] = branch_queue_mother_idx.get(0);
-			branch_queue_mother_idx.remove(0);
-			
-			System.out.format("\n------------------------------------------------------\n");
-			System.out.format("branch # %4d  |  %4d  remaining   |  limit: %4d \n", traced_branch_nr+1, branch_queue.size(), max_branch_nr);
-			
-			branches[traced_branch_nr].setStart(hyp_from_queue);
-			
-			/*
-			 * MAIN STUFF: trace it
-			 */
-			
-			CharacteristicPoint p = getCurrentlyTracedBranch().trace();// will calculate 'new_directions' 'new_seeds'
-			System.out.println(p+" detected...");
-			
-			if(p==CharacteristicPoint.BRANCH){ // add them to queue
+			if(first){
+				System.out.println("manual press loop...");
+				// detect best matching hypothesis at refined start point
+				take_hypothesis = (new TinyBranchTrace(traced_img)).hyp_at(start_xyz);
+				take_hypothesis.print();
+				current_branch = getCurrentlyTracedBranch();
+				current_branch.setStart(take_hypothesis); 
 				
-				// make hypotheses for further tracing
-				for (int b = 0; b < getCurrentlyTracedBranch().numberOfNewSeeds(); b++) {
-					branch_queue.add(new Hypothesis(getCurrentlyTracedBranch().getNewSeed(b),
-													getCurrentlyTracedBranch().getNewDirection(b),
-													getCurrentlyTracedBranchNeuriteRad(),
-													getCurrentlyTracedBranch().getK()));
-					branch_queue_mother_idx.add(traced_branch_nr);
+				//*** detection
+				double scale = TinyBranch.check_bifurcations*current_branch.getCurrentTraceHypothesisRadius();
+				Sphere sp = new Sphere(current_branch.getCurrentTraceHypothesisCenterpoint(), scale);
+				sphere_img     = sp.extract(traced_img, sphere_res); 
+				//sphere_img.show();
+				current_branch.bifurcation_detection_MeanShift3D(sphere_img, sp, first); // will process new hypotheses
+			
+			}
+			else{ 
+				System.out.println("branch trace loop...");
+				//take first hypothesis if not the first execution
+				take_hypothesis = branch_queue.get(0);	
+				branch_queue.remove(0);
+				branches_mother_idxs[traced_branch_nr] = branch_queue_mother_idx.get(0);
+				branch_queue_mother_idx.remove(0);
+				
+				current_branch = getCurrentlyTracedBranch();
+				current_branch.setStart(take_hypothesis); 
+				
+				// trace from the point on
+				new_hypotheses = null;
+				int loop_count = 0;
+				while(loop_count<TinyBranch.N-1){ 
+					current_branch.predict();
+					current_branch.calculatePriors();
+					current_branch.calculateLikelihoods();
+					double sum_posts = current_branch.calculatePosteriors();
+					System.out.print(".");
+					if(sum_posts!=0){
+						
+						estimated_hyp 	= current_branch.getMaximumPosteriorHypothesis();
+						current_branch.storeHypothesis(estimated_hyp, false);
+						
+						//*** detection
+						double scale = TinyBranch.check_bifurcations*current_branch.getCurrentTraceHypothesisRadius();
+						Sphere sp = new Sphere(current_branch.getCurrentTraceHypothesisCenterpoint(), scale);
+						sphere_img     = sp.extract(traced_img, sphere_res); 
+						//sphere_img.show();
+						boolean stop = current_branch.bifurcation_detection_MeanShift3D(sphere_img, sp, first); // will process new hypotheses
+						if(stop) break;
+					}
+					else{
+						// tracing itself resulted in "characteristic point"
+						break;
+					}
+					
+					if(
+							p==CharacteristicPoint.TRACE_CANCELLED || 
+							p==CharacteristicPoint.BRANCH ||
+							p==CharacteristicPoint.END
+							) break; //break while loop if the point is a stop point
+					
+					loop_count++;
 				}
-				System.out.println("\nadded "+getCurrentlyTracedBranch().numberOfNewSeeds()+" branches");
-				
 			}
 			
-			traced_branch_nr++;
+			// done with the trace or the loop
+			// store new hypotheses to the queue
+			sphere_img.show();
+			new_hypotheses = current_branch.getNewSeedHypotheses();
+			
+			if(new_hypotheses!=null){ 
+				for (int b = 0; b < new_hypotheses.length; b++) {
+					branch_queue.add(new_hypotheses[b]);
+					if(first) 	branch_queue_mother_idx.add(traced_branch_nr);
+					else 		branch_queue_mother_idx.add(-1);
+				}
+				System.out.println("\nadded "+new_hypotheses.length+" branches");
+			}
+			else{
+				System.out.println("\nno added branches");
+			}
+			
+//			System.out.format("\n------------------------------------------------------\n");
+//			System.out.format("branch # %4d  |  %4d  remaining   |  limit: %4d \n", traced_branch_nr+1, branch_queue.size(), max_branch_nr);
+			
+			traced_branch_nr++; // count next one once this is finished
+			
+			if(first) first = false;
 			
 		}
 		
@@ -219,21 +206,25 @@ public class NeuronTrace {
 		return branches[traced_branch_nr];
 	}
 	
-	private double[] getCurrentlyTracedBranchPos(){
-		return getCurrentlyTracedBranch().getCurrentPos();
-	}
+//	private int				getCurrentlyTracedBranchNr(){
+//		return traced_branch_nr;
+//	}
 	
-	private double getCurrentlyTracedBranchNeuriteRad(){
-		return getCurrentlyTracedBranch().getCurrentRadius();
-	}	
+//	private double[] 		getCurrentlyTracedBranchPos(){
+//		return getCurrentlyTracedBranch().getCurrentPos();
+//	}
+	
+//	private double 			getCurrentlyTracedBranchNeuriteRad(){
+//		return getCurrentlyTracedBranch().getCurrentTraceHypothesisNeuriteRadius();
+//	}	
 
-	private double[] AplusKtimesB(double[] A, double K, double[] B){
-		double[] c = new double[3];
-		c[0] = A[0]+K*B[0];
-		c[1] = A[1]+K*B[1];
-		c[2] = A[2]+K*B[2];
-		return c;
-	}
+//	private double[] AplusKtimesB(double[] A, double K, double[] B){
+//		double[] c = new double[3];
+//		c[0] = A[0]+K*B[0];
+//		c[1] = A[1]+K*B[1];
+//		c[2] = A[2]+K*B[2];
+//		return c;
+//	}
 	
 	private double[] refineStartPoint(double[] point3d, int range){
 		
@@ -268,26 +259,30 @@ public class NeuronTrace {
 
 	}
 
-	private double[][] calculateTraceDirections(double[] at_pos, double at_r, int at_resolution){
-		
-		Sphere sp = new Sphere(at_pos[0], at_pos[1], at_pos[2], at_r);
-		
-		ImagePlus output 		= sp.extract(traced_img, at_resolution);	
-		
-		double angle_range_deg 	= 20;
-		double angle_range_rad 	= (angle_range_deg/180)*Math.PI;
-		int 	N 				= 200;
-		int		N_th			= 20;
-		MeanShift3DSphere ms3dSph = new MeanShift3DSphere(output, angle_range_rad, N);
-		int max_iter 			= 200;
-		double epsilon 			= 0.00001;
-		ms3dSph.run(max_iter, epsilon);
-		double[][] out_dirs = ms3dSph.extractDirections(0.05, N_th);
-		
-		(new FileSaver(output)).saveAsTiffStack(String.format("sphere_r_%f_%d_dirs.tif", at_r, out_dirs.length));
-		
-		return out_dirs;
-		
-	}
+//	private double[][] calculateTraceDirections(double[] at_pos, double at_r, int at_resolution){
+//		
+//		Sphere sp = new Sphere(at_pos[0], at_pos[1], at_pos[2], at_r);
+//		
+//		ImagePlus output 		= sp.extract(traced_img, at_resolution);	
+//		
+//		double angle_range_deg 	= 20;
+//		double angle_range_rad 	= (angle_range_deg/180)*Math.PI;
+//		int 	N 				= 200;
+//		int		N_th			= 20;
+//		MeanShift3DSphere ms3dSph = new MeanShift3DSphere(output, angle_range_rad, N);
+//		int max_iter 			= 200;
+//		double epsilon 			= 0.00001;
+//		ms3dSph.run(max_iter, epsilon);
+//		ms3dSph.extractClusters(0.05, N_th); // result is stored in fields of the ms3dSph class
+//		double[][] out_dirs = ms3dSph.getClusterDirs();
+//		//double[][] cluster_seed = ms3dSph.getClusterSeed();
+//		
+//		//double[][] out_dirs = ms3dSph.extractDirections(0.05, N_th);
+//		
+//		(new FileSaver(output)).saveAsTiffStack(String.format("sphere_r_%f_%d_dirs.tif", at_r, out_dirs.length));
+//		
+//		return out_dirs;
+//		
+//	}
 	
 }

@@ -16,9 +16,10 @@ public class MeanShift3DSphere {
 	 *  doi: 10.1109/34.400568
 	 */
 	
-	ImagePlus	sphere_img;				// will be used as source for weights
+	IntensityCalc	img_calc;			// will be used as tool to calculate weights
 	
-	double		angle_range;
+	double		angle_range;			// main mean-shift parameter
+	Sphere		sphere_space;			// original sphere when taken from the image
 	Sphere		sphere_roi;				// sphere that captures the image
 	
 	double[][]	S;						
@@ -30,25 +31,41 @@ public class MeanShift3DSphere {
 	
 	double[][]	T;						
 										/*
-										 * 2xN
+										 * Nx2
 										 * 1. col phi
 										 * 2. col theta
 										 */
 	
-	public MeanShift3DSphere(ImagePlus sphere_img, double angle_range, int N){
+	double[][]	T_clust;
+										/*
+										 * extract clusters of T
+										 * Nx2
+										 * 1. col phi
+										 * 2. col theta
+										 */
+	
+	double[][]	cluster_dirs;
+	double[][]	cluster_seed;
+										/*
+										 * NrClustx3
+										 * 1. col: row coordinate (x)
+										 * 2. col: col coordinate (y)
+										 * 3. col: lay coordinate (z)
+										 */
+	
+	public MeanShift3DSphere(ImagePlus sphere_img, Sphere sphere_space, double angle_range, int N){
 		
-		this.sphere_img				= sphere_img;
+		this.img_calc				= new IntensityCalc(sphere_img.getStack());
 		this.angle_range 			= angle_range;
+		this.sphere_space			= new Sphere(sphere_space);
 		
 		double mid_x				= (double)sphere_img.getHeight()/2 - 0.5;
-		double mid_y				= (double)sphere_img.getWidth()/2  - 0.5;
+		double mid_y				= (double)sphere_img.getWidth() /2 - 0.5;
 		double mid_z				= (double)sphere_img.getStack().getSize()/2 - 0.5;
 		double mid_r 				= mid_x; 
 		
 		// form the sphere to extract the starting directions - matrix S
 		sphere_roi = new Sphere(mid_x, mid_y, mid_z, mid_r);
-				
-		//double[][] spherical_coords = sphere_roi.extractSphericalCoords(this.sphere_img); 
 		double[][] cartesian_coords = sphere_roi.generate3DFullSpherePts(N);
 		double[][] spherical_coords = new double[N][3];
 		for (int i = 0; i < N; i++) {
@@ -59,9 +76,14 @@ public class MeanShift3DSphere {
 					spherical_coords[i]);
 		}
 		
-		// initialize S, T will stay zero
+		// initialize S, T will stay zero, T_clust and cluster_* are null before anything is calculated
 		S = new double[N][2];
 		T = new double[N][2];
+		
+		T_clust 		= null;
+		cluster_dirs 	= null;
+		cluster_seed 	= null;
+		
 		for (int i = 0; i < N; i++) {
 			S[i][0] = spherical_coords[i][1];	S[i][1] = spherical_coords[i][2];
 		}
@@ -72,12 +94,45 @@ public class MeanShift3DSphere {
 		return S.length;
 	}
 	
-	public double[][] 	getT(){
-		return T;
+	public double[][] 	getT_cartesian(){
+		double[][] T_cartesian = new double[T.length][3];
+		for (int i = 0; i < T.length; i++) {
+			Transf.sph2cart(sphere_roi.getR(), T[i][0], T[i][1], T_cartesian[i]);
+			T_cartesian[i][0] += sphere_roi.getCenterX();
+			T_cartesian[i][1] += sphere_roi.getCenterY();
+			T_cartesian[i][2] += sphere_roi.getCenterZ();
+		}
+		return T_cartesian;
 	}
 
-	public double[][] 	getS(){
-		return S;
+	public double[][] 	getClusterSeed(){
+		return cluster_seed;
+	}
+	
+	public double[][] 	getClusterDirs(){
+		return cluster_dirs;
+	}
+	
+	public double[][]	getS_cartesian(){
+		double[][] S_cartesian = new double[S.length][3];
+		for (int i = 0; i < S.length; i++) {
+			Transf.sph2cart(sphere_roi.getR(), S[i][0], S[i][1], S_cartesian[i]);
+			S_cartesian[i][0] += sphere_roi.getCenterX();
+			S_cartesian[i][1] += sphere_roi.getCenterY();
+			S_cartesian[i][2] += sphere_roi.getCenterZ();
+		}
+		return S_cartesian;
+	}
+	
+	public double[][]	getT_Clust_cartesian(){
+		double[][] T_clust_cartesian = new double[T_clust.length][3];
+		for (int i = 0; i < T_clust.length; i++) {
+			Transf.sph2cart(sphere_roi.getR(), S[i][0], S[i][1], T_clust_cartesian[i]);
+			T_clust_cartesian[i][0] += sphere_roi.getCenterX();
+			T_clust_cartesian[i][1] += sphere_roi.getCenterY();
+			T_clust_cartesian[i][2] += sphere_roi.getCenterZ();
+		}
+		return T_clust_cartesian;
 	}
 	
 	private double[] 	runOneIterAtPos(double[] curr_pos){ 
@@ -92,8 +147,9 @@ public class MeanShift3DSphere {
 //				this.sphere_roi.getCenterZ(), 
 //				r);
 		
+		int nr_d_angle = 10;
 		double[][] solid_angle_cart = 
-				sphere_roi.coordinatesSolidAngleSpherePts(angle_range, 10, curr_pos[0], curr_pos[1]); // 10 steps in angle_range
+				sphere_roi.coordinatesSolidAngleSpherePts(angle_range, nr_d_angle, curr_pos[0], curr_pos[1]); 
 		double[][] solid_angle_sph = sphere_roi.cartesian2spherical(solid_angle_cart);
 		
 //		System.out.println("curr_pos (cart):");
@@ -115,24 +171,11 @@ public class MeanShift3DSphere {
 		// the value of the mean-shift vector is added on current value without risk of getting 
 		// corrupted weighted means
 		
-		// take the interpolated values from the image to use as weights
-		//IntensityCalc calculator = new IntensityCalc(sphere_img.getStack());
-		
-//		System.out.format("extracted\n");
-		IntensityCalc calc = new IntensityCalc(sphere_img.getStack());
 		for (int i = 0; i < solid_angle_sph.length; i++) {
 			
-			//double weight 	=  sphere_roi.avgValuePerDirection(solid_angle_sph[i][1], solid_angle_sph[i][2], sphere_img.getStack());
-			float weight 	= 	sphere_roi.sphereSurfaceValuePerDirection(solid_angle_sph[i][1], solid_angle_sph[i][2], calc);		
-//				calculator.interpolateAt(
-//				solid_angle_cart[i][0], 
-//				solid_angle_cart[i][1], 
-//				solid_angle_cart[i][2]);
-//			System.out.format("%f, %f, %f , %f \n", 
-//					solid_angle_cart[i][0], 
-//					solid_angle_cart[i][1], 
-//					solid_angle_cart[i][2],
-//					weight);			
+			// avgValuePerDirection or sphereSurfaceValuePerDirection
+			float weight 	= 	
+					sphere_roi.avgValuePerDirection(solid_angle_sph[i][1], solid_angle_sph[i][2], img_calc);		
 			
 			new_pos[0] 		+= weight * Transf.angle_wrap_pi(solid_angle_sph[i][1]-curr_pos[0]);	
 			new_pos[1] 		+= weight * Transf.angle_wrap_pi(solid_angle_sph[i][2]-curr_pos[1]);
@@ -187,19 +230,17 @@ public class MeanShift3DSphere {
 			
 		}
 		
-		//saveConvergencePts(String.format("T_iter%04d.csv", max_iter));
-		//saveConvergencePtsAsImage(String.format("T_iter%04d.tif", max_iter));
 		return T;
 		
 	}
 	
-	public double[][] extractDirections(double range, int M){ 
+	public void extractClusters(double range, int M){ 
 		
 		// 'range' describes neighborhood range size, 
 		// 'M' number of samples within the cluster
 		
 		// T will be checked and extracted clusters stored in it, starting from the
-		// element with first index
+		// element with first index, results stored in T_clust
 
 		boolean[] 	clustered 		= new boolean[T.length]; // initialized with false
 		int[] 		cluster_size 	= new int[T.length];
@@ -236,21 +277,31 @@ public class MeanShift3DSphere {
 			
 		}
 		
-		// take them out
-		double[][] out_directions = null;
+		// take them out and form T_clust
 		int cnt = 0;
+		if(nr_clusters_nigher_than_M<=0){
+			T_clust 		= null;
+			cluster_dirs 	= null;
+			cluster_seed 	= null;
+			return;
+		}
 		
-		out_directions = new double[nr_clusters_nigher_than_M][3];
+		T_clust 		= new double[nr_clusters_nigher_than_M][2];
+		cluster_dirs 	= new double[nr_clusters_nigher_than_M][3];
+		cluster_seed 	= new double[nr_clusters_nigher_than_M][3];
 			
 		for (int i = 0; i < nr_clusters; i++) {
 			if(cluster_size[i]>M){
-				Transf.sph2cart(1.0, T[i][0], T[i][1], out_directions[cnt]); 
+				T_clust[cnt][0] = T[i][0];
+				Transf.sph2cart(1.0, 				T[i][0], T[i][1], cluster_dirs[cnt]); 
+				System.out.println("spherical when converting: "+sphere_space.getR()+","+T[i][0]+","+T[i][1]);
+				Transf.sph2cart(sphere_space.getR(), 	T[i][0], T[i][1], cluster_seed[cnt]);
+				cluster_seed[cnt][0] += sphere_space.getCenterX();
+				cluster_seed[cnt][1] += sphere_space.getCenterY();
+				cluster_seed[cnt][2] += sphere_space.getCenterZ();
 				cnt++;
 			}
 		}
-			
-		return out_directions;
-		
 	}
 	
 	private double d2(double[] a, double[] b){
@@ -273,9 +324,9 @@ public class MeanShift3DSphere {
 			double[] x_y_z = new double[3];
 			Transf.sph2cart(sphere_roi.getR(), S[i][0], S[i][1], x_y_z);
 			
-			x_y_z[0] += this.sphere_roi.getCenterX();
-			x_y_z[1] += this.sphere_roi.getCenterY();
-			x_y_z[2] += this.sphere_roi.getCenterZ();
+			x_y_z[0] += sphere_roi.getCenterX();
+			x_y_z[1] += sphere_roi.getCenterY();
+			x_y_z[2] += sphere_roi.getCenterZ();
 			
 			f.writeLine(String.format("%f, %f, %f", x_y_z[0], x_y_z[1], x_y_z[2]));
 		}
@@ -303,17 +354,13 @@ public class MeanShift3DSphere {
 	public ImagePlus extractConvergence(int resolution){
 		ImagePlus output 		= NewImage.createByteImage(
 				"average_values_per_direction", 2*resolution, resolution, 1, NewImage.FILL_BLACK);
-		// generate cartesian points on the sphere
-		//double[][] pts = sphere_roi.generate3DFullSpherePts_Nx3(T.length);
-		// make them spherical
-		//double[][] pts_sph = sphere_roi.cartesian2spherical(pts);
 		for (int i = 0; i < T.length; i++) {
 			// get indexes to be plotted on the image
 			double current_phi 		= T[i][0];
 			double current_theta 	= T[i][1];
 			int row = ArrayHandling.value2index(current_phi, 	ArrayHandling.IdxMode.LAST_INCLUDED, 0.0, Math.PI, 	resolution);
 			int col = ArrayHandling.value2index(current_theta, 	ArrayHandling.IdxMode.LAST_EXCLUDED, 0.0, 2*Math.PI, 2*resolution);
-			double g = sphere_roi.avgValuePerDirection(current_phi, current_theta, sphere_img.getStack());
+			double g = sphere_roi.avgValuePerDirection(current_phi, current_theta, img_calc); 
 			output.getStack().setVoxel(col, row, 0, g);
 		}
 		
@@ -322,60 +369,3 @@ public class MeanShift3DSphere {
 	}
 	
 }
-
-//private boolean isNeighbour(double[] a, double[] b, double range){
-//return d(a, b)<=range;
-//}
-//public void saveStartPtsAsImage(String img_file_name){
-//ImagePlus img = this.sphere_img_rgb.duplicate();
-//
-//for (int i = 0; i < S.length; i++) {
-//	double[] x_y_z = new double[3];
-//	Transf.sph2cart(r[i], S[i][0], S[i][1], x_y_z);
-//	x_y_z[0] += this.sphere_roi.getCenterX();
-//	x_y_z[1] += this.sphere_roi.getCenterY();
-//	x_y_z[2] += this.sphere_roi.getCenterZ();
-//	(new Point(x_y_z)).drawOverColorImageStack(img, 255, 0, 0);
-//}
-//(new FileSaver(img)).saveAsTiffStack(img_file_name);
-//System.out.println(img_file_name+" saved...");
-//}
-//public void saveConvergencePtsAsImage(String img_file_name){
-//
-//long timeInMillis = System.currentTimeMillis();
-//
-//
-//ImagePlus img = this.sphere_img_rgb.duplicate();//new ImagePlus("conv", this.sphere_img_rgb.getStack());
-//
-//for (int i = 0; i < T.length; i++) {
-//	double[] x_y_z = new double[3];
-//	Transf.sph2cart(r[i], T[i][0], T[i][1], x_y_z);
-//	
-//	x_y_z[0] += this.sphere_roi.getCenterX();
-//	x_y_z[1] += this.sphere_roi.getCenterY();
-//	x_y_z[2] += this.sphere_roi.getCenterZ();
-//	
-//	(new Point(x_y_z)).drawOverColorImageStack(img, 0, 255, 0);
-//}
-//(new FileSaver(img)).saveAsTiffStack(img_file_name);
-//
-//System.out.println(img_file_name+" saved...  "+(System.currentTimeMillis()-timeInMillis)+" ms");
-//}
-
-//private void saveOutDirectionsAsImage(String img_file_name, double[][] directions){
-//
-//long timeInMillis = System.currentTimeMillis();
-//
-//
-//ImagePlus img = this.sphere_img_rgb.duplicate();
-//
-//for (int i = 0; i < directions.length; i++) {
-//	double X = this.sphere_roi.getCenterX()+this.sphere_roi.getR()*directions[i][0];
-//	double Y = this.sphere_roi.getCenterY()+this.sphere_roi.getR()*directions[i][1];
-//	double Z = this.sphere_roi.getCenterZ()+this.sphere_roi.getR()*directions[i][2];
-//	(new Sphere(X, Y, Z, 3)).drawOverColorImage(img, 255, 0, 0);
-//}
-//(new FileSaver(img)).saveAsTiffStack(img_file_name);
-//
-//System.out.println(img_file_name+" saved...  "+(System.currentTimeMillis()-timeInMillis)+" ms");
-//}

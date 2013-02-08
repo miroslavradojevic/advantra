@@ -1,7 +1,6 @@
 package advantra.shapes;
 
 import ij.ImagePlus;
-import ij.ImageStack;
 import ij.gui.NewImage;
 import ij.process.ColorProcessor;
 import advantra.general.ArrayHandling;
@@ -983,46 +982,45 @@ public class Sphere extends RegionOfInterest {
 		return cart;
 	}
 	
-	public double 		avgValuePerDirection(double phi, double theta, ImageStack extracted_sphere){
+	public float 		avgValuePerDirection(double phi, double theta, IntensityCalc extracted_sphere_calc){
 		
-		double value 	= 0;
+		float value 	= 0;
 		int count 		= 0;
-		IntensityCalc calc = new IntensityCalc(extracted_sphere);
 		
-		for (double r = 0.8*getR(); r <= getR(); r++) {
+		for (double r = 0.9*getR(); r < getR(); r+=0.02*getR()) {
 			double x = this.x+Transf.sph2cart_x(r, phi, theta);
 			double y = this.y+Transf.sph2cart_y(r, phi, theta);
 			double z = this.z+Transf.sph2cart_z(r, phi, theta);
-			value += calc.interpolateAt_new((float)x, (float)y, (float)z);
+			value += extracted_sphere_calc.interpolateAt_new((float)x, (float)y, (float)z);
 			count++;
 		}
 		
-		return value/count;
+		return value/(float)count;
 	}
 	
-	public float 		sphereSurfaceValuePerDirection(double phi, double theta, IntensityCalc calc){ //  ImageStack extracted_sphere
+	public float 		sphereSurfaceValuePerDirection(double phi, double theta, IntensityCalc calc){ 
 		
 		float value 	= 0;
-		//int count 		= 0;
-		//IntensityCalc calc = new IntensityCalc(extracted_sphere);
+		int count 		= 0;
 		
-		//for (double r = 0.8*getR(); r <= getR(); r++) {
+		for (double r = 0.9*getR(); r <= getR(); r+=0.05*getR()) {
 			
 			float x = (float)(this.x+Transf.sph2cart_x(r, phi, theta));
 			float y = (float)(this.y+Transf.sph2cart_y(r, phi, theta));
 			float z = (float)(this.z+Transf.sph2cart_z(r, phi, theta));
-			value = calc.interpolateAt_new(x, y, z);
-			//count++;
+			value += calc.interpolateAt_new(x, y, z);
+			count++;
 			
-		//}
+		}
 		
-		return value;///count;
+		return value/count;
 	}
 
 	public ImagePlus	avgValuesPerDirection(ImagePlus input_img, int nr_points, int resolution){
 		
 		ImagePlus output 		= NewImage.createByteImage(
 				"average_values_per_direction", 2*resolution, resolution, 1, NewImage.FILL_BLACK);
+		IntensityCalc img_calc = new IntensityCalc(input_img.getStack());
 		
 		// generate cartesian points on the sphere
 		double[][] pts = generate3DFullSpherePts_Nx3(nr_points);
@@ -1035,7 +1033,7 @@ public class Sphere extends RegionOfInterest {
 			int row = ArrayHandling.value2index(current_phi, 	ArrayHandling.IdxMode.LAST_INCLUDED, 0.0, Math.PI, 	resolution);
 			int col = ArrayHandling.value2index(current_theta, 	ArrayHandling.IdxMode.LAST_EXCLUDED, 0.0, 2*Math.PI, 2*resolution);
 			 
-			double g = avgValuePerDirection(current_phi, current_theta, input_img.getStack());
+			double g = avgValuePerDirection(current_phi, current_theta, img_calc);
 			output.getStack().setVoxel(col, row, 0, g);
 		}
 		
