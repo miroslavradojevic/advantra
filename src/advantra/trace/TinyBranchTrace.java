@@ -273,6 +273,18 @@ public class TinyBranchTrace implements TinyBranch {
 		return seed_point;
 	}
 	
+	public double 				getSeedPosX(){
+		return seed_point[0];
+	}
+	
+	public double 				getSeedPosY(){
+		return seed_point[1];
+	}
+	
+	public double 				getSeedPosZ(){
+		return seed_point[2];
+	}
+	
 	public double[] 			getSeedDirection(){
 		return seed_direction;
 	}
@@ -597,7 +609,7 @@ public class TinyBranchTrace implements TinyBranch {
 			new_seeds 		= null;
 			new_directions 	= null;
 			new_seeds_coords = null;
-			//System.out.println("count:"+count+" --- MS FOUND NOTHING OR 1 CLUSTER (endpoint), STOP");
+			if(cluster_dirs.length==1) System.out.print("::END::");
 			return true;
 		}
 		
@@ -668,8 +680,7 @@ public class TinyBranchTrace implements TinyBranch {
 				Find_Connected_Regions conn = new Find_Connected_Regions(sphere_img_binaized, true);
 				conn.run("");
 				
-				//System.out.println(conn.getNrConnectedRegions()+" connected regions extracted...");
-				conn.showLabels().show();
+				//conn.showLabels().show();
 				
 				for (int i = 0; i < new_seeds_coords.length; i++) {
 					if(new_seeds_coords[i]!=null && !conn.belongsToBiggestRegion(new_seeds_coords[i])){  
@@ -677,10 +688,6 @@ public class TinyBranchTrace implements TinyBranch {
 						new_seeds[i]			= null;
 						new_seeds_coords[i]		= null;
 					}
-//					else{
-//						System.out.println("point "+i+"");
-//						System.out.println("is NULL");
-//					}
 				}
 				
 				int nr_new_branches = 0;
@@ -690,12 +697,20 @@ public class TinyBranchTrace implements TinyBranch {
 					}
 				}
 				
-//				if(nr_new_branches>1){
-//					System.out.println("count:"+count+" --- MS (removed "+nr_removed+" out of "+new_seeds.length+") FOUND > 1 NEW CLUSTERS, STOP");
-//				}
-//				else{
-//					System.out.println("count:"+count+" --- MS (removed "+nr_removed+" out of "+new_seeds.length+") FOUND NOT ENOUGH NEW CLUSTERS TO MAKE IT BRANCH, CONTINUE");
-//				}
+				if(nr_new_branches>1){
+					System.out.print("BIF");
+				}
+				else{
+					// kill the remaining one not to make any confusion
+//					for (int i = 0; i < new_seeds.length; i++) {
+//						if(new_seeds[i]!=null){
+							new_seeds 		= null;
+							new_directions 	= null;
+							new_seeds_coords	= null;
+//						}
+//					}
+					System.out.print("::SUPP'SSED_BIF::");
+				}
 				
 				return (nr_new_branches>1)? true : false;  // stop in case there is more than one, otherwise 
 				

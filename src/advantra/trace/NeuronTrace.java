@@ -51,7 +51,6 @@ public class NeuronTrace {
 		ImagePlus sphere_img = new ImagePlus();
 		
 		double[] start_xyz = new double[]{x, y, z};//refineStartPoint(new double[]{x, y, z}, 20); // refine 
-		System.out.println("start at: "+start_xyz[0]+" , "+start_xyz[1]+" , "+start_xyz[2]);
 		
 		while((first || branch_queue.size()>0) && traced_branch_nr<max_branch_nr){
 			
@@ -81,6 +80,7 @@ public class NeuronTrace {
 				
 				// trace from the point on
 				new_hypotheses = null;
+				boolean enable_bif_detection = false;
 				int loop_count = 0;
 				while(loop_count<TinyBranch.N-1){ 
 					
@@ -96,24 +96,31 @@ public class NeuronTrace {
 						
 						//*** detection
 						double scale = TinyBranch.check_bifurcations*current_branch.getCurrentTraceHypothesisRadius();
-						Sphere sp = new Sphere(current_branch.getCurrentTraceHypothesisCenterpoint(), scale);
-						sphere_img     = sp.extract(traced_img, TinyBranch.extract_sphere_resolution); 
-						//long t11 = System.currentTimeMillis();
-						boolean stop = current_branch.bifurcation_detection_MeanShift3D(sphere_img, sp, first); // will process new hypotheses
-						//long t12 = System.currentTimeMillis();  (elapsed "+((t12-t11)/1000f)+")sec.
+						double dx = current_branch.getCurrentPosX()-current_branch.getSeedPosX();
+						double dy = current_branch.getCurrentPosY()-current_branch.getSeedPosY();
+						double dz = current_branch.getCurrentPosZ()-current_branch.getSeedPosZ();
+						if( (dx*dx+dy*dy+dz*dz>scale*scale || loop_count>10) && !enable_bif_detection )	enable_bif_detection = true;
+						
+						if(enable_bif_detection){
+							Sphere sp = new Sphere(current_branch.getCurrentTraceHypothesisCenterpoint(), scale);
+							sphere_img     = sp.extract(traced_img, TinyBranch.extract_sphere_resolution); 
+							System.out.print("*");
+							boolean stop = current_branch.bifurcation_detection_MeanShift3D(sphere_img, sp, first); // will process new hypotheses
+							if(stop) break;
+						}
 //						System.out.println(
 //								"mean-shift detection says "+((stop)?"STOP":"CONTINUE"));
 //						if(stop){
 //							new FileSaver(sphere_img).saveAsTiffStack(String.format("branch_%d,mother_%d,loop_%d.tif", traced_branch_nr, branches_mother_idxs[traced_branch_nr], loop_count));
 //						}
-						if(stop) break;
 					}
 					else{
-						//System.out.println("trace says STOP!");
+						System.out.print("::SUM_POSTS_ZERO::");
 						break;// tracing itself got 0 posteriors
 					}
 					loop_count++;
 				}
+				if(loop_count==TinyBranch.N-1)System.out.println("::LOOP_LIMIT_REACHED::");
 				System.out.println(">");
 			}
 			
@@ -130,11 +137,9 @@ public class NeuronTrace {
 				}
 				// current queue
 				System.out.println(how_many_new_hyps+" new branches");
-				
 			}
 			
 			traced_branch_nr++; // count next one once this is finished
-			
 			if(first) first = false;
 			
 		}

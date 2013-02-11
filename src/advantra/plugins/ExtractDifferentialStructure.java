@@ -50,9 +50,7 @@ public class ExtractDifferentialStructure implements PlugInFilter {
 		
 		// reset calibration before going further
 		Calibration cal = new Calibration(img);
-		cal.pixelWidth = 1.0;
-		cal.pixelHeight = 1.0;
-		cal.pixelDepth = 1.0;
+		cal.pixelWidth = cal.pixelHeight = cal.pixelDepth = 1.0;
 		cal.setUnit("pixel");
 		img.setCalibration(cal);
 		
@@ -86,6 +84,8 @@ public class ExtractDifferentialStructure implements PlugInFilter {
 		gd.addCheckbox("mean curvature",		false);//true);
 		gd.addCheckbox("gaussian extremality",	false);//true);
 		gd.addCheckbox("t junction likeliness",	false);//true);
+		
+		gd.addMessage("* * *");
 		
 		gd.showDialog();
 		if (gd.wasCanceled()) return;
