@@ -26,8 +26,8 @@ public class NeuronTraceRecursive implements PlugInFilter, MouseListener {
 	int MAX_BRANCHES;
 	
 	public int setup (String arg, ImagePlus img){
-		this.img = img;
-		if(img==null){ //.getStack().getSize()<=1
+		
+		if(img==null){ 
 			IJ.error("The image was NULL... Select new image...");
 			return DONE;
 		}
@@ -36,19 +36,23 @@ public class NeuronTraceRecursive implements PlugInFilter, MouseListener {
 			return DONE;
 		}
 		if(img.getType()!=ImagePlus.GRAY8) {
-			IJ.error("The image was not GRAY8... Select new image...");
+			IJ.error("The image was not GRAY8... Convert it...");
+			// do the conversion & continue
+			//this.img = ImageConversions.ImagePlusToGray8(img);
 			return DONE;
 		}
+		//else{
+			this.img = img;
+		//}
+		
 		
 		//modify calibration 
 		Calibration cal = img.getCalibration();
-		cal.pixelWidth 	= 1;
-		cal.pixelHeight	= 1;
-		cal.pixelDepth	= 1;
+		cal.pixelWidth 	= cal.pixelHeight = cal.pixelDepth = 1;
 		cal.setUnit("pixels");
-		img.setCalibration(cal);
+		this.img.setCalibration(cal);
 		
-		MAX_BRANCHES = 4;
+		MAX_BRANCHES = 5;
 		return DOES_8G+NO_CHANGES;
 	}
 	
@@ -109,8 +113,6 @@ public class NeuronTraceRecursive implements PlugInFilter, MouseListener {
 	
 	private void trace(double mouseX, double mouseY, double mouseZ){ // trace(row, col, lay)
 
-		
-		
 		String log_dir_name 		= 
 				System.getProperty("user.home")																		
 				+File.separator+

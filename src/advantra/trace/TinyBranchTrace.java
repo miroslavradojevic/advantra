@@ -597,7 +597,7 @@ public class TinyBranchTrace implements TinyBranch {
 			new_seeds 		= null;
 			new_directions 	= null;
 			new_seeds_coords = null;
-			//System.out.println("count:"+count+" --- MS FOUND NOTHING OR 1 CLUSTER, STOP");
+			//System.out.println("count:"+count+" --- MS FOUND NOTHING OR 1 CLUSTER (endpoint), STOP");
 			return true;
 		}
 		
@@ -607,23 +607,28 @@ public class TinyBranchTrace implements TinyBranch {
 
 		for (int i = 0; i < cluster_dirs.length; i++) {
 			// new_directions
-			new_directions[i][0]= cluster_dirs[i][0];	new_directions[i][1]= cluster_dirs[i][1];	new_directions[i][2]= cluster_dirs[i][2];
+			new_directions[i][0]= cluster_dirs[i][0];	
+			new_directions[i][1]= cluster_dirs[i][1];	
+			new_directions[i][2]= cluster_dirs[i][2];
 			// new_seeds
-			new_seeds[i][0] 	= cluster_seed[i][0];	new_seeds[i][1] 	= cluster_seed[i][1];	new_seeds[i][2] 	= cluster_seed[i][2];
+			new_seeds[i][0] 	= cluster_seed[i][0];	
+			new_seeds[i][1] 	= cluster_seed[i][1];	
+			new_seeds[i][2] 	= cluster_seed[i][2];
 			// sphere img coords
-			new_seeds_coords[i][0]= cluster_local_coords[i][0];	new_seeds_coords[i][1]= cluster_local_coords[i][1];	new_seeds_coords[i][2]= cluster_local_coords[i][2];
+			new_seeds_coords[i][0]= cluster_local_coords[i][0];	
+			new_seeds_coords[i][1]= cluster_local_coords[i][1];	
+			new_seeds_coords[i][2]= cluster_local_coords[i][2];
 		}
 		
-		if(manual_start){
-			//System.out.println("count:"+count+" --- MANUAL START, TAKE ALL M-S GAVE, STOP");
+		if(manual_start)
+			//System.out.println("count:"+count+" --- MANUAL START, TAKE ALL M-S GAVE & STOP");
 			return true;   // stop tracing & take all, it was just manual start
-		}
 		
 		if(cluster_dirs.length==2){
 			new_seeds 		= null;
 			new_directions 	= null;
 			new_seeds_coords= null;
-			//System.out.println("count:"+count+" --- MS FOUND 2, CONTINUE");
+			//System.out.println("count:"+count+" --- MS FOUND 2 directions, CONTINUE");
 			return false;
 		}
 		
@@ -651,8 +656,6 @@ public class TinyBranchTrace implements TinyBranch {
 					}
 				}
 				
-				System.out.println("removed direction with index "+index_expell_direction);
-				
 				new_directions[index_expell_direction] 		= null;
 				new_seeds[index_expell_direction]			= null;
 				new_seeds_coords[index_expell_direction]	= null;
@@ -669,10 +672,7 @@ public class TinyBranchTrace implements TinyBranch {
 				conn.showLabels().show();
 				
 				for (int i = 0; i < new_seeds_coords.length; i++) {
-					if(new_seeds_coords[i]!=null && !conn.belongsToBiggestRegion(new_seeds_coords[i])){ //  
-						System.out.println("point "+i+"");
-						//ArrayHandling.print1DArray(new_seeds_coords[i]);
-						System.out.println("to take out!");
+					if(new_seeds_coords[i]!=null && !conn.belongsToBiggestRegion(new_seeds_coords[i])){  
 						new_directions[i] 		= null;
 						new_seeds[i]			= null;
 						new_seeds_coords[i]		= null;
@@ -683,16 +683,11 @@ public class TinyBranchTrace implements TinyBranch {
 //					}
 				}
 				
-				//int nr_removed = 0;
 				int nr_new_branches = 0;
 				for (int i = 0; i < new_seeds.length; i++) {
 					if(new_seeds[i]!=null){
 						nr_new_branches++;
-						
 					}
-//					if(new_seeds[i]==null){
-//						nr_removed++;
-//					}
 				}
 				
 //				if(nr_new_branches>1){
@@ -702,9 +697,7 @@ public class TinyBranchTrace implements TinyBranch {
 //					System.out.println("count:"+count+" --- MS (removed "+nr_removed+" out of "+new_seeds.length+") FOUND NOT ENOUGH NEW CLUSTERS TO MAKE IT BRANCH, CONTINUE");
 //				}
 				
-				
 				return (nr_new_branches>1)? true : false;  // stop in case there is more than one, otherwise 
-
 				
 		}
 		

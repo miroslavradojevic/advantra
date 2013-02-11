@@ -10,11 +10,11 @@ public interface TinyBranch {
 	
 	static int 		N_orientations 	= 50;
 	static double 	radius_init 	= 2.0;
-	static double 	radius_step		= 1.0;
+	static double 	radius_step		= 0.5;
 	static double 	radius_limit	= 5.0;
 	
 	public static double 	k				= 2.0; 			// k*					radius is the total radius of the hypothesis
-	public static double	jump_ahead		= 1.5; 			// jump_ahead*			radius is the jump ahead when tracing
+	public static double	jump_ahead		= 1.2; 			// jump_ahead*			radius is the jump ahead when tracing
 	
 	static double	radius_std 		= 1.0; // voxel
 	static double	direction_std	= 0.5; // rad
