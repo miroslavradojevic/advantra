@@ -245,8 +245,14 @@ public class ExtractDifferentialStructure implements PlugInFilter {
 	
 }
 
-//class used by both terminal call and ImageJ
+/*
+ * classes used by both terminal call and ImageJ
+ */
 class DifferentialStructure {
+	
+	/*
+	 * from “Front-End Vision & Multi-Scale Image Analysis”, chapter 6: Differential structure of images
+	 */
 	
 	Image image; // input
 	

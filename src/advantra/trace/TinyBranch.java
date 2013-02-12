@@ -16,8 +16,8 @@ public interface TinyBranch {
 	public static double 	k				= 2.0; 			// k*					radius is the total radius of the hypothesis
 	public static double	jump_ahead		= 1.2; 			// jump_ahead*			radius is the jump ahead when tracing
 	
-	static double	radius_std 		= 1.0; // voxel
-	static double	direction_std	= 0.5; // rad
+	static double	radius_std 		= 0.5; // voxel
+	static double	direction_std	= 0.7; // rad
 	
 	public static double 	check_bifurcations = 1.0; 		
 	// check_bifurcations*hypothesis_radius marks the spherical distance at which bifurcations are checked
