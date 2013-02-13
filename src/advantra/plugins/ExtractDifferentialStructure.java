@@ -46,6 +46,11 @@ public class ExtractDifferentialStructure implements PlugInFilter {
 	 * 
 	 */
 	
+	public int setup(String arg0, ImagePlus im) {
+		this.img = im;
+		return DOES_8G+NO_CHANGES;
+	}
+	
 	public void run(ImageProcessor arg0) {
 		
 		// reset calibration before going further
@@ -124,11 +129,6 @@ public class ExtractDifferentialStructure implements PlugInFilter {
 		if(gaussian_extremality_show)d_struct.getGaussianExtremality().show();
 		if(t_junction_likeliness_show)d_struct.getTJunctionLikeliness().show();
 		
-	}
-
-	public int setup(String arg0, ImagePlus im) {
-		this.img = im;
-		return DOES_8G+NO_CHANGES;
 	}
 	
 	/*

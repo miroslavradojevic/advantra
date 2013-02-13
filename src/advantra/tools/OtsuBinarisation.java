@@ -17,12 +17,19 @@ public class OtsuBinarisation {
 	
 	
 	public OtsuBinarisation(ImagePlus img){
-		this.img = ImageConversions.ImagePlusToGray8(img);
+		// TODO: check this - maybe conversion on float images can be bad!
+		// TODO: make it work with float 
+		// make it work with 32bit and 16 bit images!
 		
+		if(img.getType()!=ImagePlus.GRAY8){
+			System.out.println("Will be converted to gray8.. can cause errors if 32-bit... ");
+		}
+		
+		this.img = ImageConversions.ImagePlusToGray8(img);
 		this.k = 0;
 	}
 	
-	public ImagePlus run(){
+	public ImagePlus run(){ // returns a byte image (that's ok)
 		
 		int[] 	n 		= new int[256];
 		float[]	p		= new float[256];
@@ -84,13 +91,6 @@ public class OtsuBinarisation {
 			out.getStack().getProcessor(i+1).setPixels(pix_out);
 		}
 		
-//		if(imgIsStack){
-//			new FileSaver(out).saveAsTiffStack(img.getTitle()+"_binarized.tif");
-//		}
-//		else{
-//			new FileSaver(out).saveAsTiff(img.getTitle()+"_binarized.tif");
-//		}
-		
 		return out;
 		
 	}
@@ -98,7 +98,5 @@ public class OtsuBinarisation {
 	public int getK() {
 		return this.k;
 	}
-
-	
 	
 }
