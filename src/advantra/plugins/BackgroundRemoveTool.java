@@ -109,6 +109,11 @@ public class BackgroundRemoveTool implements PlugInFilter  {
 
 	public int setup(String arg0, ImagePlus img) {
 		
+		if(img==null){
+			IJ.showMessage("No image opened!"); 
+			return DONE;
+		}
+		
 		this.img = img;
 		
 		// reset calibration before going further

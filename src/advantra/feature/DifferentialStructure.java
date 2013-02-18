@@ -1,6 +1,5 @@
 package advantra.feature;
 
-import java.io.File;
 import java.util.Vector;
 
 import ij.ImagePlus;
@@ -21,14 +20,15 @@ public class DifferentialStructure {
 	/*
 	 * class members
 	 */
-	
-	Image image; // input
+	// Input
+	Image image; 
 	// Auxiliary
 	Image Lx, 	Ly;
 	Image Lxx, 	Lyy, 	Lxy; 
 	Image Lxyy, Lxxy, 	Lxxx, 	Lyyy;
 	Image Lambda1, 		Lambda2;
-	// Outputs
+	// Outputs (15 currently)
+	static int FEATS_NR = 15;
 	Image gradient_image, 			laplacian_image, 			ridge_det_image, 			isophote_curv_image, 	flowline_curv_image;
 	Image isophote_density_image, 	corner_det_image, 			shape_index_image, 			curvedness_image, 		hessian_det_image;
 	Image mean_curvature_image, 	gaussian_extremality_image, t_junction_likeliness_image;
@@ -69,7 +69,6 @@ public class DifferentialStructure {
 		Lxxy	= new FloatImage(dims);
 		Lxxx	= new FloatImage(dims);
 		Lyyy	= new FloatImage(dims);
-		
 		Lambda1	= new FloatImage(dims);
 		Lambda2 = new FloatImage(dims);
 		
@@ -86,9 +85,8 @@ public class DifferentialStructure {
 		mean_curvature_image		= new FloatImage(filter_dims); mean_curvature_image.axes(Axes.X);
 		gaussian_extremality_image	= new FloatImage(filter_dims); gaussian_extremality_image.axes(Axes.X);
 		t_junction_likeliness_image	= new FloatImage(filter_dims); t_junction_likeliness_image.axes(Axes.X);
-		
-		ballness_filter				= new FloatImage(filter_dims); 
-		DoH_filter					= new FloatImage(filter_dims);
+		ballness_filter				= new FloatImage(filter_dims); ballness_filter.axes(Axes.X);
+		DoH_filter					= new FloatImage(filter_dims); DoH_filter.axes(Axes.X);
 		
 		// arrays 
 		double[] aLx 	= new double[dims.x];
@@ -100,7 +98,6 @@ public class DifferentialStructure {
 		double[] aLxxy 	= new double[dims.x];
 		double[] aLxxx 	= new double[dims.x];
 		double[] aLyyy 	= new double[dims.x];
-		
 		double[] aLambda1 = new double[dims.x];
 		double[] aLambda2 = new double[dims.x];
 					
@@ -134,7 +131,6 @@ public class DifferentialStructure {
 			Lxxx 	= df.run(image.duplicate(), sc[i], 3, 0, 0); Lxxx.axes(Axes.X);
 			Lyyy 	= df.run(image.duplicate(), sc[i], 0, 3, 0); Lyyy.axes(Axes.X);
 			
-			//Vector<Image> l = new Vector<Image>();
 			Vector<Image> l = hs.run(image.duplicate(), sc[i], true);
 			Lambda2 = l.elementAt(0);
 			Lambda1 = l.elementAt(1);
@@ -229,100 +225,232 @@ public class DifferentialStructure {
 	/*
 	 * methods
 	 */
-	
+	// gradient mag.
 	public ImagePlus getGradientMagnitude(){
 		ImagePlus gradient_image_ip = gradient_image.imageplus();
 		gradient_image_ip.setTitle("Gradient magnitude");
 		return gradient_image_ip;
 	}
-	// TODO do this method for all
-	public double 	getGradientMagnitude(double[] at_pos){
-		Coordinates coords 	= new Coordinates();
-		coords.x = (int)Math.round(at_pos[0]);
-		coords.y = (int)Math.round(at_pos[1]);
-		if(at_pos.length>2) coords.z = (int)Math.round(at_pos[2]);
+	
+	public double 	getGradientMagnitude(int[] at_pos){
+		Coordinates coords = new Coordinates(at_pos[0], at_pos[1], at_pos[2]);
 		return gradient_image.get(coords);
 	}
 	
+	// laplacian
  	public ImagePlus getLaplacian(){
 		ImagePlus laplacian_image_ip = laplacian_image.imageplus();
 		laplacian_image_ip.setTitle("Laplacian");
 		return laplacian_image_ip;
 	}
+ 	
+ 	public double 	getLaplacian(int[] at_pos){
+ 		Coordinates coords = new Coordinates(at_pos[0], at_pos[1], at_pos[2]);
+ 		return laplacian_image.get(coords);
+ 	}
 	
+ 	// ridge detection
 	public ImagePlus getRidgeDet(){
 		ImagePlus ridge_det_image_ip = ridge_det_image.imageplus();
 		ridge_det_image_ip.setTitle("Ridge detection");
 		return ridge_det_image_ip;
 	}
 	
+	public double  	getRidgeDet(int[] at_pos){ 
+		Coordinates coords = new Coordinates(at_pos[0], at_pos[1], at_pos[2]);
+ 		return ridge_det_image.get(coords);
+	}
+	
+	// isophote curvature
 	public ImagePlus getIsophoteCurvature(){
 		ImagePlus isophote_curv_image_ip = isophote_curv_image.imageplus();
 		isophote_curv_image_ip.setTitle("Isophote curvature");
 		return isophote_curv_image_ip;
 	}
 	
-	public ImagePlus getFlowlineCurv(){
+	public double  	getIsophoteCurvature(int[] at_pos){
+		Coordinates coords = new Coordinates(at_pos[0], at_pos[1], at_pos[2]);
+ 		return isophote_curv_image.get(coords);
+	}
+	
+	// flowline curvature
+	public ImagePlus 	getFlowlineCurv(){
 		ImagePlus flowline_curv_image_ip = flowline_curv_image.imageplus();
 		flowline_curv_image_ip.setTitle("Flowline curvature");
 		return flowline_curv_image_ip;
 	}
 	
-	public ImagePlus getIsophoteDensity(){
+	public double 		getFlowlineCurv(int[] at_pos){
+		Coordinates coords = new Coordinates(at_pos[0], at_pos[1], at_pos[2]);
+ 		return flowline_curv_image.get(coords);
+	}
+	
+	// isophote density
+	public ImagePlus 	getIsophoteDensity(){
 		ImagePlus isophote_density_image_ip = isophote_density_image.imageplus();
 		isophote_density_image_ip.setTitle("Isophote density");
 		return isophote_density_image_ip;
 	}
 	
+	public 	double		getIsophoteDensity(int[] at_pos){
+		Coordinates coords = new Coordinates(at_pos[0], at_pos[1], at_pos[2]);
+ 		return isophote_density_image.get(coords);
+	}
+	
+	// corner detector
 	public ImagePlus getCornerDetector(){
 		ImagePlus corner_det_image_ip = corner_det_image.imageplus();
 		corner_det_image_ip.setTitle("Affine invariant corner detector");
 		return corner_det_image_ip;
 	}
 	
+	public double	getCornerDetector(int[] at_pos){
+		Coordinates coords = new Coordinates(at_pos[0], at_pos[1], at_pos[2]);
+ 		return corner_det_image.get(coords);
+	}
+	
+	// shape index
 	public ImagePlus getShapeIndex(){
 		ImagePlus shape_index_image_ip = shape_index_image.imageplus();
 		shape_index_image_ip.setTitle("Shape index");
 		return shape_index_image_ip;
 	}
 	
+	public double 	getShapeIndex(int[] at_pos){
+		Coordinates coords = new Coordinates(at_pos[0], at_pos[1], at_pos[2]);
+ 		return shape_index_image.get(coords);
+	}
+	
+	// curvedness
 	public ImagePlus getCurvedness(){
 		ImagePlus curvedness_image_ip = curvedness_image.imageplus();
 		curvedness_image_ip.setTitle("Hessian determinant (gaussian curvature)");
 		return curvedness_image_ip; 
 	}
 	
+	public double	getCurvedness(int[] at_pos){
+		Coordinates coords = new Coordinates(at_pos[0], at_pos[1], at_pos[2]);
+ 		return curvedness_image.get(coords);
+	}
+	
+	// DoH
 	public ImagePlus getHessianDeterminant(){
 		ImagePlus hessian_det_image_ip = hessian_det_image.imageplus();
 		hessian_det_image_ip.setTitle("Hessian determinant (gaussian curvature)");
 		return hessian_det_image_ip; 
 	}
 	
+	public double 	getHessianDeterminant(int[] at_pos){
+		Coordinates coords = new Coordinates(at_pos[0], at_pos[1], at_pos[2]);
+ 		return hessian_det_image.get(coords);
+	}
+	
+	// mean curv.
 	public ImagePlus getMeanCurvature(){
 		ImagePlus mean_curvature_image_ip = mean_curvature_image.imageplus();
 		mean_curvature_image_ip.setTitle("Mean curvature");
 		return mean_curvature_image_ip;
 	}
 	
+	public double getMeanCurvature(int[] at_pos){
+		Coordinates coords = new Coordinates(at_pos[0], at_pos[1], at_pos[2]);
+ 		return mean_curvature_image.get(coords);
+	}
+	
+	// gaussian extremality
 	public ImagePlus getGaussianExtremality(){
 		ImagePlus gaussian_extremality_image_ip = gaussian_extremality_image.imageplus();
 		gaussian_extremality_image_ip.setTitle("Extremality");
 		return gaussian_extremality_image_ip;
 	}
 	
+	public double getGaussianExtremality(int[] at_pos){
+		Coordinates coords = new Coordinates(at_pos[0], at_pos[1], at_pos[2]);
+ 		return gaussian_extremality_image.get(coords);
+	}
+	
+	// t-junct.
 	public ImagePlus getTJunctionLikeliness(){
 		ImagePlus t_junction_likeliness_image_ip = t_junction_likeliness_image.imageplus();
 		t_junction_likeliness_image_ip.setTitle("T-junction likeliness");
 		return t_junction_likeliness_image_ip;
 	}
-
+	
+	public double 	getTJunctionLikeliness(int[] at_pos){
+		Coordinates coords = new Coordinates(at_pos[0], at_pos[1], at_pos[2]);
+ 		return t_junction_likeliness_image.get(coords);
+	}
+	
+	// ballness
+	public ImagePlus getBallness(){
+		ImagePlus ballness_filter_ip = ballness_filter.imageplus();
+		ballness_filter_ip.setTitle("Ballness");
+		return ballness_filter_ip;
+	}
+	
+	public double 	getBallness(int[] at_pos){
+		Coordinates coords = new Coordinates(at_pos[0], at_pos[1], at_pos[2]);
+ 		return ballness_filter.get(coords);
+	}
+	
+	// DoH (just to compare)
+	public ImagePlus getDoH(){
+		ImagePlus DoH_filter_ip = DoH_filter.imageplus();
+		DoH_filter_ip.setTitle("DoH");
+		return DoH_filter_ip;
+	}
+	
+	public double 	getDoH(int[] at_pos){
+		Coordinates coords = new Coordinates(at_pos[0], at_pos[1], at_pos[2]);
+ 		return DoH_filter.get(coords);
+	}	
+	
 	/*
 	 * export features for different scales:
-	 * 
 	 */
 	
-	public double[][] exportFeatures(double[][] locations, boolean[] which_feats){
-		return new double[2][sc.length*which_feats.length];
+	public double[][] exportFeatures(double[][] locations){// locations contains row, col obtained from each line
+		
+		int nr_scales 	= sc.length;
+		int[] pos 		= new int[3];
+		
+		
+		double[][] feat = new double[locations.length][nr_scales*FEATS_NR];
+		
+		for (int feat_row = 0; feat_row < locations.length; feat_row++) {
+			
+			int feat_col = 0;
+			
+			pos[0] = (int)Math.round(locations[feat_row][0]);
+			pos[1] = (int)Math.round(locations[feat_row][1]);
+			
+			for (int i = 0; i < nr_scales; i++) { // scale will define the layer
+				pos[2] = i;
+				
+				feat[feat_row][feat_col] = getGradientMagnitude(pos); feat_col++;
+				feat[feat_row][feat_col] = getLaplacian(pos); feat_col++;
+				feat[feat_row][feat_col] = getRidgeDet(pos); feat_col++;
+				feat[feat_row][feat_col] = getIsophoteCurvature(pos); feat_col++;
+				
+				feat[feat_row][feat_col] = getFlowlineCurv(pos); feat_col++;
+				feat[feat_row][feat_col] = getIsophoteDensity(pos); feat_col++;
+				feat[feat_row][feat_col] = getCornerDetector(pos); feat_col++;
+				feat[feat_row][feat_col] = getShapeIndex(pos); feat_col++;
+				
+				feat[feat_row][feat_col] = getCurvedness(pos); feat_col++;
+				feat[feat_row][feat_col] = getHessianDeterminant(pos); feat_col++;
+				feat[feat_row][feat_col] = getMeanCurvature(pos); feat_col++;
+				feat[feat_row][feat_col] = getGaussianExtremality(pos); feat_col++;
+				
+				feat[feat_row][feat_col] = getTJunctionLikeliness(pos); feat_col++;
+				feat[feat_row][feat_col] = getBallness(pos); feat_col++;
+				feat[feat_row][feat_col] = getDoH(pos); feat_col++;
+				
+			}
+			
+			
+		}
+		return feat;
 	}
 	
 }

@@ -72,33 +72,38 @@ public class ExtractFeatures implements PlugIn {
 			String 	current_csv_name 	= csv_files[i].getName();
 			System.out.print("extracting "+current_csv_name+" ... ");
 			boolean found = false;
-			// is there a .tif pair
+			int idx_found = 0;
+			// is there a .tif pair, remember it's index
 			for (int j = 0; j < tif_files.length; j++) {
-				
 				String current_tif_name = tif_files[j].getName();
-				
 				if(removeExt(current_csv_name).equals(removeExt(current_tif_name))){
 					found = true;
+					idx_found = j;
 					break;
 				}
 			}
 			
 			if(!found){
 				System.out.println("FAILED");
-				continue;
+				continue; // try other .csv-s
 			}
 			
 			System.out.println();
+			System.out.println("processing "+tif_files[idx_found].getName()+"...");
+			
+			
 			// match was found, extract image, locations and class value
-			train_img = new ImagePlus(tif_files[i].getAbsolutePath());
+			train_img = new ImagePlus(tif_files[idx_found].getAbsolutePath());
 			AnalyzeCSV reader_csv = new AnalyzeCSV(csv_files[i].getAbsolutePath());
+			
 			train_loc = reader_csv.readLn(2);
 			train_cls = reader_csv.readLastCol();
-			
 			DifferentialStructure df = new DifferentialStructure(train_img, sigma_1, sigma_2, nr);
+			df.getHessianDeterminant().show();
+			df.getDoH().show();
+			df.getBallness().show();
+			double[][] feats  = df.exportFeatures(train_loc);
 			
-//			System.out.println("loc: "+train_loc.length+" --- "+train_loc[0].length);
-//			System.out.println("cls: "+train_cls.length);
 			
 		}
 		
@@ -113,6 +118,45 @@ public class ExtractFeatures implements PlugIn {
 			return in_name.substring(0, name_len);
 		}
 		return "";
+	}
+	
+	private double[][] concatenateCols(double[][] in11, double[][] in12){
+		 
+		double[][] out = new double[in11.length][in11[0].length+in12[0].length];
+		 
+		 for (int i = 0; i < in11.length; i++) {
+			for (int j = 0; j < in11[0].length; j++) {
+				out[i][j] = in11[i][j];
+			}
+		 }
+		 
+		 for (int i = 0; i < in12.length; i++) {
+			 for (int j = 0; j < in12[0].length; j++) {
+				 out[i][j+in11[0].length] = in12[i][j];
+			 }
+		 }
+		 
+		 return out;
+	}
+	
+	private double[][] concatenateRows(double[][] in11, double[][] in21){
+		
+		double[][] out = new double[in11.length+in21.length][in11[0].length];
+		
+		 for (int i = 0; i < in11.length; i++) {
+			for (int j = 0; j < in11[0].length; j++) {
+				out[i][j] = in11[i][j];
+			}
+		 }
+		 
+		 for (int i = 0; i < in21.length; i++) {
+			 for (int j = 0; j < in21[0].length; j++) {
+				 out[i+in11.length][j] = in21[i][j];
+			 }
+		 }
+		
+		return out;
+		
 	}
 	
 }	

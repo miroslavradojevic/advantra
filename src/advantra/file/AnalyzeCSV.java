@@ -96,7 +96,7 @@ public class AnalyzeCSV {
 	public int[] readLastCol(){
 		
 		if(max_width!=min_width){
-			System.out.println("Lines have different lengths! in file "+file_path);
+			System.out.println("Warning: Lines have different lengths! in file "+file_path);
 		}
 		
 		int[] col = new int[file_length];
@@ -126,7 +126,7 @@ public class AnalyzeCSV {
 			
 		}
 		catch (Exception e){
-		  			System.err.println("Error: " + e.getMessage());
+		  			System.err.println("Error scanning the csv file: " + e.getMessage());
 		}
 		
 		return col;
