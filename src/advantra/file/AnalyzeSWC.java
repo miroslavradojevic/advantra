@@ -1,4 +1,4 @@
-package advantra.swc;
+package advantra.file;
 
 import ij.ImagePlus;
 import ij.io.FileSaver;
@@ -23,7 +23,6 @@ public class AnalyzeSWC {
 	
 	// .swc file path
 	private String  			file_path;
-	private	String				folder_path;
 	// source image path
 	private ImagePlus			image;
 	// some counters used
@@ -52,17 +51,13 @@ public class AnalyzeSWC {
 			return;
 		}
 		
-		System.out.println("swc: "+swc_file_path);
-		System.out.println("img: "+corresponding_image_path);
-		
 		this.file_path		= swc_file_path;
-		this.folder_path	= (new File(file_path)).getParent(); // maybe add separator at the end
 		this.image			= new ImagePlus(corresponding_image_path);
 		
 		// image has to be stack
 		if(!(image.getStack().getSize()>1)){
 			System.err.println(""+corresponding_image_path+" has to be stack!");
-			System.exit(1);
+			return;
 		}
 		
 		this.file_length	= 0;
@@ -96,10 +91,6 @@ public class AnalyzeSWC {
 			nodes[i]	= new NeuronNode();	// set nodes to zero at the initialization
 		}
 		
-		System.out.format("Current folder is :  \t\t %s \n", folder_path);
-		System.out.format("Current file is :    \t\t %s \n", file_path);
-		System.out.println("Initialization done.");
-		
 	}
 	
 	public void load(){
@@ -108,7 +99,7 @@ public class AnalyzeSWC {
 		
 		// variables - data to be read 
   		int 		current_label 		= 0;
-  		int 		current_type 		= 0;
+  		//int 		current_type 		= 0;
   		double[] 	current_coords 		= new double[3];
   		double		current_radius 		= 0; 
   		int 		current_parent 		= 0;
@@ -132,7 +123,7 @@ public class AnalyzeSWC {
 		    		if(tokens.length == 7){
 		    			
 		    			current_label		= Integer.valueOf(tokens[0].trim()).intValue();
-		    			current_type		= Integer.valueOf(tokens[1].trim()).intValue();
+		    			//current_type		= Integer.valueOf(tokens[1].trim()).intValue();
 		    			
 		    			current_coords[0] 	= Double.valueOf(tokens[2].trim()).doubleValue();
 		    			current_coords[1] 	= Double.valueOf(tokens[3].trim()).doubleValue();

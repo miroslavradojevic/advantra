@@ -2,6 +2,8 @@ package advantra.plugins;
 
 import java.io.File;
 
+import advantra.feature.DifferentialStructure;
+
 import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.GenericDialog;
@@ -9,11 +11,7 @@ import ij.io.FileSaver;
 import ij.measure.Calibration;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
-import imagescience.feature.Differentiator;
-import imagescience.image.Axes;
-import imagescience.image.Coordinates;
-import imagescience.image.Dimensions;
-import imagescience.image.FloatImage;
+
 import imagescience.image.Image;
 
 public class ExtractBifurcationFeatures implements PlugInFilter {

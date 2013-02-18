@@ -2,8 +2,8 @@ package advantra.trace;
 
 import java.util.ArrayList;
 
+import advantra.file.ExportSWC;
 import advantra.shapes.Sphere;
-import advantra.swc.ExportSWC;
 import ij.ImagePlus;
 
 public class NeuronTrace {

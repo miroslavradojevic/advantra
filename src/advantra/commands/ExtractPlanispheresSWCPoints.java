@@ -2,8 +2,8 @@ package advantra.commands;
 
 import java.io.File;
 
+import advantra.file.AnalyzeSWC;
 import advantra.shapes.Sphere.Planisphere_Extr_Mode;
-import advantra.swc.AnalyzeSWC;
 
 public class ExtractPlanispheresSWCPoints {
 

@@ -24,26 +24,33 @@ public class BackgroundRemoveTool implements PlugInFilter  {
 	
 	ImagePlus 	img;
 	ImagePlus 	out;
-	int 		method;
+	String 		method;
 	double 		scale;
 
 	public void run(ImageProcessor arg0) {
 		
-		GenericDialog gd = new GenericDialog("    b     ackground", IJ.getInstance());
+		GenericDialog gd = new GenericDialog("Remove background", IJ.getInstance());
+		
+		String[] methods = new String[3];
+		methods[0] = "Method_0";
+		methods[1] = "Method_1";
+		methods[2] = "Method_2";
+		gd.addChoice("method", methods, methods[0]);
+		//gd.addNumericField("Choose method:", method, 0, 3, "");
+		
 		gd.addMessage("0: orig-gaussan(scale)");
 		gd.addMessage("1: binarize(otsu)+dilate+erode");
-		gd.addNumericField("Choose method:", method, 0, 3, "");
+		gd.addMessage("2: binarize(otsu)+erode+dilate");
+		
 		gd.addNumericField("Scale (method 0 only)", scale, 1, 5, "");
 		gd.showDialog();
 		if (gd.wasCanceled()) return;
 		
-		method 		= (int)gd.getNextNumber();
+		method 		= (String)gd.getNextChoice(); //getNextNumber();
 		scale		= (double)gd.getNextNumber();
 		
-		System.out.println("loaded method: "+method+"  scale: "+scale);
-		
 		switch (method) {
-		case 0:
+		case "Method_0":
 			Image I 						= new FloatImage(Image.wrap(img));
 			Dimensions dims 				= I.dimensions();
 
@@ -75,21 +82,23 @@ public class BackgroundRemoveTool implements PlugInFilter  {
 			
 			break;
 
-		case 1:
+		case "Method_1":
 			OtsuBinarisation otsu = new OtsuBinarisation(img);
 			ImagePlus img_binarized = otsu.run();
-			System.out.println("binarized!"+(img_binarized.getType() != ImagePlus.GRAY8));
-			img_binarized.show();
 			
 			Morpho morpho = new Morpho();
-			System.out.println("made class");
-			// = new ImageStack(img.getWidth(), img.getHeight(), img.getStackSize());
-			ImageStack dest = Util.duplicateEmpty(img_binarized.getStack());
-			morpho.dilate(img_binarized.getStack(), dest);
-			System.out.println("done.");
-			out = new ImagePlus("otsu+dilate+erode", dest);
+			ImageStack after_dilate = Util.duplicateEmpty(img_binarized.getStack());
+			ImageStack after_erode = Util.duplicateEmpty(img_binarized.getStack());
+			
+			morpho.dilate(img_binarized.getStack(), after_dilate);
+			morpho.erode(after_dilate, after_erode);
+			
+			out = new ImagePlus("otsu+dilate+erode", after_erode);
 			out.show();
+			
 			break;
+
+			
 
 		default:
 			IJ.showMessage("Wrong method selected.");

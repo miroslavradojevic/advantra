@@ -2,7 +2,7 @@ package advantra.commands;
 
 import java.io.File;
 
-import advantra.swc.AnalyzeSWC;
+import advantra.file.AnalyzeSWC;
 
 public class ExtractBifurcationsSWC {
 

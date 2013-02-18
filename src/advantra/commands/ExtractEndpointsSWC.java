@@ -1,6 +1,6 @@
 package advantra.commands;
 
-import advantra.swc.AnalyzeSWC;
+import advantra.file.AnalyzeSWC;
 
 public class ExtractEndpointsSWC {
 
