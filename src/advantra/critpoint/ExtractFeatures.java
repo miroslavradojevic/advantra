@@ -1,19 +1,18 @@
 package advantra.critpoint;
 
+import java.awt.Checkbox;
 import java.io.File;
 import java.io.FilenameFilter;
 
-import weka.classifiers.Classifier;
-import weka.classifiers.bayes.net.search.fixed.NaiveBayes;
-import weka.classifiers.trees.J48;
+import javax.swing.text.StyledEditorKit.ForegroundAction;
+
 import weka.core.Attribute;
 import weka.core.FastVector;
 import weka.core.Instance;
 import weka.core.Instances;
-import weka.filters.Filter;
-import weka.filters.unsupervised.attribute.StringToWordVector;
+import weka.core.converters.ArffSaver;
 
-import advantra.feature.DifferentialStructure;
+import advantra.feature.DifferentialFeatures;
 import advantra.file.AnalyzeCSV;
 
 import ij.IJ;
@@ -23,39 +22,100 @@ import ij.plugin.PlugIn;
 
 public class ExtractFeatures implements PlugIn {
 
-	String folder_name = System.getProperty("user.dir");
+	String 		folder_name = System.getProperty("user.dir");
+	
+	String[] 	diff_feature_labels = new String[DifferentialFeatures.FEATS_NR];
+	boolean[] 	diff_feature_enable = new boolean[DifferentialFeatures.FEATS_NR];
+	
+	/*
+	 * some other features labels, enable
+	 * ????_feature_labels
+	 * ????_feature_enable
+	 */
+	
 	ImagePlus 	train_img;
-	double[][] 	train_loc;
-	int[]		train_cls;
 	
-	// extraction parameters (standard deviations of the Gaussan used for smoothing/scaling)
-	double 	sigma_1 = 2.0;
-	double 	sigma_2 = 2.0;
-	int		nr 		= 1;
+	double[][] 	all_feats 		= null;
+	int[] 		all_cls 		= null;
+	String[] 	all_labels 		= null;
 	
+	String 		out_dir    		= System.getProperty("user.home");
+	String 		out_file   		= "";
+	
+	// extraction parameters (standard deviations of the Gaussian used for smoothing/scaling)
+	double 		sigma_1 		= 2.0;
+	double 		sigma_2 		= 3.0;
+	int			nr 				= 2;
 	
 	public void run(String arg0) {
+		
+		IJ.log("Legend: \n" +
+				"f01 -> gradient magnitude \n" +
+				"f02 -> laplacian \n" +
+				"f03 -> ridge detection \n" +
+				"f04 -> isophote curvature \n" +
+				"f05 -> flowline curvature \n" +
+				"f06 -> isophote density \n" +
+				"f07 -> corner detector \n" +
+				"f08 -> shape index \n" +
+				"f09 -> curvedness \n" +
+				"f10 -> DoH \n" +
+				"f11 -> Mean Curvature \n" +
+				"f12 -> Gaussian Extremality \n" + 
+				"f13 -> T-junction likeliness \n" +
+				"f14 -> Ballness \n");
+		
+		for (int i = 0; i < diff_feature_labels.length; i++) {
+			diff_feature_labels[i] = String.format("diff_feature_%02d", (i+1));
+		}
+		
 		GenericDialog gd = new GenericDialog("Critical Point features");
 		
-		gd.addMessage("Locate folder...");
-		gd.addStringField("folder with annotations", folder_name, 100);
+		final int menu_width = 50;
 		
-		gd.addNumericField( "sigma start:", sigma_1, 	0, 5, "pix" );
-		gd.addNumericField( "sigma end  :", sigma_2, 	0, 5, "pix" );	
+		gd.addMessage("Locate folder...");
+		gd.addStringField("folder with annotations", folder_name, menu_width);
+		
+		gd.addMessage("Choose diff. features...");
+		gd.addCheckboxGroup(3, 5, diff_feature_labels, diff_feature_enable);
+		
+		gd.addMessage("Choose some other features...");
+		
+		gd.addMessage("Extraction params...");
+		gd.addNumericField( "sigma start:", sigma_1, 	0, 5, "" );
+		gd.addNumericField( "sigma end  :", sigma_2, 	0, 5, "" );	
 		gd.addNumericField( "number of scales : ", nr,  0, 5, "");
+		
+		gd.addMessage("Save dataset...");
+		gd.addStringField("destination directory", out_dir, menu_width);
 		
 		gd.showDialog();
 		if (gd.wasCanceled()) return;
 		
 		folder_name 	= gd.getNextString();
+		
+		for (int i = 0; i < diff_feature_enable.length; i++) {
+			diff_feature_enable[i] = ((Checkbox)gd.getCheckboxes().get(i)).getState();
+		}
+		
+		/*
+		 * read other features here...
+		 */
+		
 		sigma_1 		= (double)gd.getNextNumber();
 		sigma_2 		= (double)gd.getNextNumber();
 		nr 				= (int)gd.getNextNumber();
 		
+		out_dir			= gd.getNextString();
+		
+		out_file		= "TRAIN_FEATS_f_";
+		for (int i = 1; i <= diff_feature_enable.length; i++) {
+			if(diff_feature_enable[i-1]) out_file += Integer.toString(i)+",";
+		}
+		out_file += String.format("s_%.2f,%.2f,%d.arff", sigma_1, sigma_2, nr);
+		
 		File dir = new File(folder_name);
 		folder_name = dir.getAbsolutePath();
-		
-		System.out.println("loading files from : "+folder_name);
 		
 		if(!dir.isDirectory()){
 			IJ.error(folder_name+" is not a directory!");
@@ -77,8 +137,12 @@ public class ExtractFeatures implements PlugIn {
 			}
 		);
 		
+		if(csv_files.length<=0){
+			IJ.log("\nError: There was no csv annotation files.\n");
+			return;
+		}
+		
 		for (int i = 0; i < csv_files.length; i++) {
-			
 			String 	current_csv_name 	= csv_files[i].getName();
 			System.out.print("extracting "+current_csv_name+" ... ");
 			boolean found = false;
@@ -101,36 +165,41 @@ public class ExtractFeatures implements PlugIn {
 			System.out.println();
 			System.out.println("processing "+tif_files[idx_found].getName()+"...");
 			
-			
+			if(true){
 			// match was found, extract image, locations and class value
 			train_img = new ImagePlus(tif_files[idx_found].getAbsolutePath());
+			
 			AnalyzeCSV reader_csv = new AnalyzeCSV(csv_files[i].getAbsolutePath());
+			double[][] train_loc	= reader_csv.readLn(2);
+			int[]      train_cls 	= reader_csv.readLastCol();
 			
-			train_loc = reader_csv.readLn(2);
-			train_cls = reader_csv.readLastCol();
-			DifferentialStructure df = new DifferentialStructure(train_img, sigma_1, sigma_2, nr);
-			//df.getHessianDeterminant().show();
-			//df.getDoH().show();
-			//df.getBallness().show();
-			double[][] feats  = df.exportFeatures(train_loc);
-			String[] feats_labels = df.exportFeatureLabels();
+			all_cls 	= concatenate(all_cls, train_cls);
 			
-			try {
-				
-				train(feats, feats_labels, train_cls);
-				System.out.println("trined J48 classifier.");
-				
-			} catch (Exception e) {
-				e.printStackTrace();
+			DifferentialFeatures df = new DifferentialFeatures(train_img, sigma_1, sigma_2, nr);
+			double[][] diff_feats  = df.exportFeatures(train_loc, diff_feature_enable);
+			
+			/*
+			 * add here if there's more features, careful when concatenating (below)
+			 */
+			
+			all_labels = df.exportFeatureLabels(diff_feature_enable);// diff_feature_labels; // concatenate feature_labels if new feature types are added
+			all_feats = concatenateRows(all_feats, diff_feats); // will be necessary to concatenate on diff_feats for new feature types
+			
 			}
 			
 		}
 		
-		
+		try {
+			saveDataset(all_feats, all_labels, all_cls);
+			IJ.log("saved trainset!");
+		} 
+		catch (Exception e) {
+			e.printStackTrace();
+		}
 		
 	}
 	
-	public void train(double[][] feats, String[] feats_labels, int[] cls) throws Exception {
+	private void saveDataset(double[][] feats, String[] feats_labels, int[] cls) throws Exception {
 		
 		FastVector attrs = new FastVector();
 		
@@ -158,12 +227,21 @@ public class ExtractFeatures implements PlugIn {
 		}
 		dataset.setClassIndex(0);
 		
-		Classifier classifier = new J48();
-		classifier.buildClassifier(dataset);
+		// save dataset
+		ArffSaver saver = new ArffSaver();
+		
+		File dataset_file = new File(out_dir+File.separator+out_file);
+		
+		saver.setInstances(dataset);
+		saver.setFile(dataset_file);
+		saver.writeBatch();
+		
+		IJ.log("train dataset saved to: "+dataset_file.getAbsolutePath());
+		
+		//Classifier classifier = new J48();
+		//classifier.buildClassifier(dataset);
 		
 	}
-	
-	
 	
  	private String removeExt(String in_name){
 		int name_len = in_name.length();
@@ -174,26 +252,40 @@ public class ExtractFeatures implements PlugIn {
 		return "";
 	}
 	
-	private double[][] concatenateCols(double[][] in11, double[][] in12){
-		 
-		double[][] out = new double[in11.length][in11[0].length+in12[0].length];
-		 
-		 for (int i = 0; i < in11.length; i++) {
-			for (int j = 0; j < in11[0].length; j++) {
-				out[i][j] = in11[i][j];
-			}
-		 }
-		 
-		 for (int i = 0; i < in12.length; i++) {
-			 for (int j = 0; j < in12[0].length; j++) {
-				 out[i][j+in11[0].length] = in12[i][j];
+	private int[] concatenate(int[] in1, int[] in2){
+		
+		if(in1==null){
+			int[] out = new int[in2.length];
+			for (int i = 0; i < in2.length; i++) {
+				 out[i] = in2[i];
 			 }
-		 }
+			return out;
+		}
+		
+		int[] out = new int[in1.length+in2.length];
 		 
-		 return out;
+		for (int i = 0; i < in1.length; i++) {
+			out[i] = in1[i];
+		}
+		 
+		for (int i = 0; i < in2.length; i++) {
+			out[i+in1.length] = in2[i];
+		}
+		 
+		return out;
 	}
 	
 	private double[][] concatenateRows(double[][] in11, double[][] in21){
+		
+		if(in11==null){
+			double[][] out = new double[in21.length][in21[0].length];
+			for (int i = 0; i < in21.length; i++) {
+				 for (int j = 0; j < in21[0].length; j++) {
+					 out[i][j] = in21[i][j];
+				 }
+			}
+			return out;
+		}
 		
 		double[][] out = new double[in11.length+in21.length][in11[0].length];
 		

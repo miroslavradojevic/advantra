@@ -2,7 +2,7 @@ package advantra.plugins;
 
 import java.io.File;
 
-import advantra.feature.DifferentialStructure;
+import advantra.feature.DifferentialFeatures;
 
 import ij.IJ;
 import ij.ImagePlus;
@@ -35,6 +35,7 @@ public class ExtractDifferentialStructure implements PlugInFilter {
 				mean_curvature_show,
 				gaussian_extremality_show,
 				t_junction_likeliness_show;
+	// TODO: add one more!
 	
 	Image Lx, 	Ly, 	Lxx, 	Lyy, 	Lxy; 
 	Image Lxyy, Lxxy, 	Lxxx, 	Lyyy;
@@ -111,7 +112,7 @@ public class ExtractDifferentialStructure implements PlugInFilter {
 		gaussian_extremality_show 	= (boolean)gd.getNextBoolean();
 		t_junction_likeliness_show 	= (boolean)gd.getNextBoolean();
 		
-		DifferentialStructure d_struct = new DifferentialStructure(img, sigma_1, sigma_2, nr);
+		DifferentialFeatures d_struct = new DifferentialFeatures(img, sigma_1, sigma_2, nr);
 		
 		if (gradient_show)		d_struct.getGradientMagnitude().show();
 		if (laplacian_show) 	d_struct.getLaplacian().show();
@@ -122,11 +123,11 @@ public class ExtractDifferentialStructure implements PlugInFilter {
 		if(corner_det_show)		d_struct.getCornerDetector().show();
 		if(shape_index_show)	d_struct.getShapeIndex().show();
 		if(curvedness_show)		d_struct.getCurvedness().show();
-		if(hessian_det_show)	d_struct.getHessianDeterminant().show();
+		if(hessian_det_show)	d_struct.getDoH().show();
 		if(mean_curvature_show) d_struct.getMeanCurvature().show();
 		if(gaussian_extremality_show)d_struct.getGaussianExtremality().show();
 		if(t_junction_likeliness_show)d_struct.getTJunctionLikeliness().show();
-		
+		// TODO: add ballness here
 	}
 	
 	/*
@@ -167,7 +168,7 @@ public class ExtractDifferentialStructure implements PlugInFilter {
 			return;
 		}
 		
-		DifferentialStructure d_struct = new DifferentialStructure(img, sigma_1, sigma_2, nr);
+		DifferentialFeatures d_struct = new DifferentialFeatures(img, sigma_1, sigma_2, nr);
 		
 		// saving outputs to disk...
 		String export_path = "";
@@ -221,8 +222,8 @@ public class ExtractDifferentialStructure implements PlugInFilter {
 		
 		export_path = img.getTitle()+"_hessian_determinant.tif";
 		System.out.println(((new File(export_path)).getAbsolutePath()));
-		if(nr>1) 	(new FileSaver(d_struct.getHessianDeterminant())).saveAsTiffStack(export_path);
-		else 		(new FileSaver(d_struct.getHessianDeterminant())).saveAsTiff(export_path);
+		if(nr>1) 	(new FileSaver(d_struct.getDoH())).saveAsTiffStack(export_path);
+		else 		(new FileSaver(d_struct.getDoH())).saveAsTiff(export_path);
 		
 		export_path = img.getTitle()+"_mean_curvature.tif";
 		System.out.println(((new File(export_path)).getAbsolutePath()));

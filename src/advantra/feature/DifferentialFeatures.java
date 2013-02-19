@@ -11,15 +11,18 @@ import imagescience.image.Dimensions;
 import imagescience.image.FloatImage;
 import imagescience.image.Image;
 
-public class DifferentialStructure {
+public class DifferentialFeatures {
 
 	/*
 	 * “Front-End Vision & Multi-Scale Image Analysis”, chapter 6: Differential structure of images
+	 * and
+	 * "Vascular Bifurcation Detection in Scale-Space", 
 	 */
 
 	/*
 	 * class members
 	 */
+	
 	// Input
 	Image image; 
 	// Auxiliary
@@ -27,12 +30,12 @@ public class DifferentialStructure {
 	Image Lxx, 	Lyy, 	Lxy; 
 	Image Lxyy, Lxxy, 	Lxxx, 	Lyyy;
 	Image Lambda1, 		Lambda2;
-	// Outputs (15 currently)
-	static int FEATS_NR = 15;
+	// Outputs (14 currently)
+	public static int FEATS_NR = 14;
 	Image gradient_image, 			laplacian_image, 			ridge_det_image, 			isophote_curv_image, 	flowline_curv_image;
-	Image isophote_density_image, 	corner_det_image, 			shape_index_image, 			curvedness_image, 		hessian_det_image;
+	Image isophote_density_image, 	corner_det_image, 			shape_index_image, 			curvedness_image;
 	Image mean_curvature_image, 	gaussian_extremality_image, t_junction_likeliness_image;
-	Image ballness_filter,			DoH_filter; // |Lambda1|, Lambda1*Lambda2
+	Image ballness_filter,			DoH_filter; // |Lambda1|
 	// Scales
 	double[] sc;
 
@@ -40,10 +43,10 @@ public class DifferentialStructure {
 	 * constructor
 	 */
 	
-	public DifferentialStructure(ImagePlus img, double sigma_1, double sigma_2, int nr){
+	public DifferentialFeatures(ImagePlus img, double sigma_1, double sigma_2, int nr){
 		
 		if(img.getStackSize()>1){
-			System.out.println("DifferentialStructure:DifferentialStructure() currently works with 2D images!");
+			System.out.println("DifferentialFeatures:DifferentialFeatures() works with 2D images!");
 			return;
 		}
 		
@@ -81,7 +84,7 @@ public class DifferentialStructure {
 		corner_det_image			= new FloatImage(filter_dims); corner_det_image.axes(Axes.X);
 		shape_index_image			= new FloatImage(filter_dims); shape_index_image.axes(Axes.X);
 		curvedness_image			= new FloatImage(filter_dims); curvedness_image.axes(Axes.X);
-		hessian_det_image			= new FloatImage(filter_dims); hessian_det_image.axes(Axes.X);
+		//hessian_det_image			= new FloatImage(filter_dims); hessian_det_image.axes(Axes.X);
 		mean_curvature_image		= new FloatImage(filter_dims); mean_curvature_image.axes(Axes.X);
 		gaussian_extremality_image	= new FloatImage(filter_dims); gaussian_extremality_image.axes(Axes.X);
 		t_junction_likeliness_image	= new FloatImage(filter_dims); t_junction_likeliness_image.axes(Axes.X);
@@ -110,7 +113,7 @@ public class DifferentialStructure {
 		double[] aCornerDet = new double[dims.x];
 		double[] aShapeIndex = new double[dims.x];
 		double[] aCurvedness = new double[dims.x];
-		double[] aHessianDet = new double[dims.x];
+		//double[] aHessianDet = new double[dims.x];
 		double[] aMeanCurvature = new double[dims.x];
 		double[] aGaussianExtremality = new double[dims.x];
 		double[] aTJunctionLikeliness = new double[dims.x];
@@ -171,7 +174,7 @@ public class DifferentialStructure {
 					
 					aCurvedness[x] = 0.5*Math.sqrt(aLxx[x]*aLxx[x]+2*aLxy[x]*aLxy[x]+aLyy[x]*aLyy[x]);
 					
-					aHessianDet[x] = -aLxy[x]*aLxy[x]+aLxx[x]*aLyy[x];
+					//aHessianDet[x] = -aLxy[x]*aLxy[x]+aLxx[x]*aLyy[x];
 					
 					aMeanCurvature[x] = 0.5*(aLxx[x]+aLyy[x]);
 					
@@ -204,7 +207,7 @@ public class DifferentialStructure {
 				corner_det_image.set(coords, aCornerDet);
 				shape_index_image.set(coords, aShapeIndex);
 				curvedness_image.set(coords, aCurvedness);
-				hessian_det_image.set(coords, aHessianDet);
+				//hessian_det_image.set(coords, aHessianDet);
 				mean_curvature_image.set(coords, aMeanCurvature);
 				gaussian_extremality_image.set(coords, aGaussianExtremality);
 				t_junction_likeliness_image.set(coords, aTJunctionLikeliness);
@@ -226,37 +229,37 @@ public class DifferentialStructure {
 	 * methods
 	 */
 	// gradient mag.
-	public ImagePlus getGradientMagnitude(){
+	public ImagePlus 	getGradientMagnitude(){
 		ImagePlus gradient_image_ip = gradient_image.imageplus();
 		gradient_image_ip.setTitle("Gradient magnitude");
 		return gradient_image_ip;
 	}
 	
-	public double 	getGradientMagnitude(int[] at_pos){
+	public double 		getGradientMagnitude(int[] at_pos){
 		Coordinates coords = new Coordinates(at_pos[0], at_pos[1], at_pos[2]);
 		return gradient_image.get(coords);
 	}
 	
 	// laplacian
- 	public ImagePlus getLaplacian(){
+ 	public ImagePlus 	getLaplacian(){
 		ImagePlus laplacian_image_ip = laplacian_image.imageplus();
 		laplacian_image_ip.setTitle("Laplacian");
 		return laplacian_image_ip;
 	}
  	
- 	public double 	getLaplacian(int[] at_pos){
+ 	public double 		getLaplacian(int[] at_pos){
  		Coordinates coords = new Coordinates(at_pos[0], at_pos[1], at_pos[2]);
  		return laplacian_image.get(coords);
  	}
 	
  	// ridge detection
-	public ImagePlus getRidgeDet(){
+	public ImagePlus 	getRidgeDet(){
 		ImagePlus ridge_det_image_ip = ridge_det_image.imageplus();
 		ridge_det_image_ip.setTitle("Ridge detection");
 		return ridge_det_image_ip;
 	}
 	
-	public double  	getRidgeDet(int[] at_pos){ 
+	public double  		getRidgeDet(int[] at_pos){ 
 		Coordinates coords = new Coordinates(at_pos[0], at_pos[1], at_pos[2]);
  		return ridge_det_image.get(coords);
 	}
@@ -334,16 +337,16 @@ public class DifferentialStructure {
 	}
 	
 	// DoH
-	public ImagePlus getHessianDeterminant(){
-		ImagePlus hessian_det_image_ip = hessian_det_image.imageplus();
-		hessian_det_image_ip.setTitle("Hessian determinant (gaussian curvature)");
-		return hessian_det_image_ip; 
-	}
-	
-	public double 	getHessianDeterminant(int[] at_pos){
-		Coordinates coords = new Coordinates(at_pos[0], at_pos[1], at_pos[2]);
- 		return hessian_det_image.get(coords);
-	}
+//	public ImagePlus getHessianDeterminant(){
+//		ImagePlus hessian_det_image_ip = hessian_det_image.imageplus();
+//		hessian_det_image_ip.setTitle("Hessian determinant (gaussian curvature)");
+//		return hessian_det_image_ip; 
+//	}
+//	
+//	public double 	getHessianDeterminant(int[] at_pos){
+//		Coordinates coords = new Coordinates(at_pos[0], at_pos[1], at_pos[2]);
+// 		return hessian_det_image.get(coords);
+//	}
 	
 	// mean curv.
 	public ImagePlus getMeanCurvature(){
@@ -409,12 +412,21 @@ public class DifferentialStructure {
 	 * export features for different scales:
 	 */
 	
-	public double[][] exportFeatures(double[][] locations){// locations contains row, col obtained from each line
+	public double[][] 	exportFeatures(double[][] locations, boolean[] which_features){// locations contains row, col obtained from each line
 		
+		if(which_features.length!=FEATS_NR){
+			System.out.println("DifferentialFeatures:exportFeatures(): Boolean array describing the number of features has to have length "+FEATS_NR);
+			return null;
+		}
+		
+		int nr_features = 0;
+		for (int i = 0; i < which_features.length; i++) {
+			if(which_features[i]) nr_features++;
+		}
 		int nr_scales 	= sc.length;
 		int[] pos 		= new int[3];
 		
-		double[][] feat = new double[locations.length][nr_scales*FEATS_NR];
+		double[][] feat = new double[locations.length][nr_scales*nr_features];
 		
 		for (int feat_row = 0; feat_row < locations.length; feat_row++) {
 			
@@ -423,54 +435,24 @@ public class DifferentialStructure {
 			pos[0] = (int)Math.round(locations[feat_row][0]);
 			pos[1] = (int)Math.round(locations[feat_row][1]);
 			
-			for (int i = 0; i < nr_scales; i++) { // scale will define the layer
+			for (int i = 0; i < nr_scales; i++) { 
 				
-				pos[2] = i;
+				pos[2] = i; // scale will define the layer in the images
 				
-				feat[feat_row][feat_col] = getGradientMagnitude(pos);
-				feat_col++;
-				
-				feat[feat_row][feat_col] = getLaplacian(pos); 
-				feat_col++;
-				
-				feat[feat_row][feat_col] = getRidgeDet(pos); 
-				feat_col++;
-				
-				feat[feat_row][feat_col] = getIsophoteCurvature(pos); 
-				feat_col++;
-				
-				feat[feat_row][feat_col] = getFlowlineCurv(pos); 
-				feat_col++;
-				
-				feat[feat_row][feat_col] = getIsophoteDensity(pos);
-				feat_col++;
-				
-				feat[feat_row][feat_col] = getCornerDetector(pos); 
-				feat_col++;
-				
-				feat[feat_row][feat_col] = getShapeIndex(pos); 
-				feat_col++;
-				
-				feat[feat_row][feat_col] = getCurvedness(pos); 
-				feat_col++;
-				
-				feat[feat_row][feat_col] = getHessianDeterminant(pos); 
-				feat_col++;
-				
-				feat[feat_row][feat_col] = getMeanCurvature(pos); 
-				feat_col++;
-				
-				feat[feat_row][feat_col] = getGaussianExtremality(pos); 
-				feat_col++;
-				
-				feat[feat_row][feat_col] = getTJunctionLikeliness(pos); 
-				feat_col++;
-				
-				feat[feat_row][feat_col] = getBallness(pos); 
-				feat_col++;
-				
-				feat[feat_row][feat_col] = getDoH(pos); 
-				feat_col++;
+				if(which_features[0]) feat[feat_row][feat_col++] = getGradientMagnitude(pos);
+				if(which_features[1]) feat[feat_row][feat_col++] = getLaplacian(pos); 
+				if(which_features[2]) feat[feat_row][feat_col++] = getRidgeDet(pos); 
+				if(which_features[3]) feat[feat_row][feat_col++] = getIsophoteCurvature(pos); 
+				if(which_features[4]) feat[feat_row][feat_col++] = getFlowlineCurv(pos); 
+				if(which_features[5]) feat[feat_row][feat_col++] = getIsophoteDensity(pos);
+				if(which_features[6]) feat[feat_row][feat_col++] = getCornerDetector(pos); 
+				if(which_features[7]) feat[feat_row][feat_col++] = getShapeIndex(pos); 
+				if(which_features[8]) feat[feat_row][feat_col++] = getCurvedness(pos); 
+				if(which_features[9]) feat[feat_row][feat_col++] = getDoH(pos);
+				if(which_features[10]) feat[feat_row][feat_col++] = getMeanCurvature(pos); 
+				if(which_features[11]) feat[feat_row][feat_col++] = getGaussianExtremality(pos); 
+				if(which_features[12]) feat[feat_row][feat_col++] = getTJunctionLikeliness(pos); 
+				if(which_features[13]) feat[feat_row][feat_col++] = getBallness(pos); 
 				
 			}
 			
@@ -479,58 +461,38 @@ public class DifferentialStructure {
 		return feat;
 	}
 	
-	public String[] exportFeatureLabels(){// locations contains row, col obtained from each line
+	public String[] 	exportFeatureLabels(boolean[] which_features){// locations contains row, col obtained from each line
+		
+		if(which_features.length!=FEATS_NR){
+			System.out.println("DifferentialFeatures:exportFeatures(): Boolean array describing the number of features has to have length "+FEATS_NR);
+			return null;
+		}
+		
+		int nr_features = 0;
+		for (int i = 0; i < which_features.length; i++) {
+			if(which_features[i]) nr_features++;
+		}
 		
 		int nr_scales = sc.length;
-		String[] feat_names = new String[sc.length*FEATS_NR];
+		String[] feat_names = new String[sc.length*nr_features];
 		int feat_col = 0;
 		
 		for (int i = 0; i < nr_scales; i++) { // scale will define the layer
 		
-			feat_names[feat_col] = String.format("f01s%d", i);
-			feat_col++;
-			
-			feat_names[feat_col] = String.format("f02s%d", i);
-			feat_col++;
-				
-			feat_names[feat_col] = String.format("f03s%d", i);
-			feat_col++;
-				
-			feat_names[feat_col] = String.format("f04s%d", i);
-			feat_col++;
-				
-			feat_names[feat_col] = String.format("f05s%d", i);
-			feat_col++;
-				
-			feat_names[feat_col] = String.format("f06s%d", i);
-			feat_col++;
-				
-			feat_names[feat_col] = String.format("f07s%d", i);
-			feat_col++;
-				
-			feat_names[feat_col] = String.format("f08s%d", i);
-			feat_col++;
-				
-			feat_names[feat_col] = String.format("f09s%d", i);
-			feat_col++;
-				
-			feat_names[feat_col] = String.format("f10s%d", i);
-			feat_col++;
-				
-			feat_names[feat_col] = String.format("f11s%d", i);
-			feat_col++;
-				
-			feat_names[feat_col] = String.format("f12s%d", i);
-			feat_col++;
-				
-			feat_names[feat_col] = String.format("f13s%d", i);
-			feat_col++;
-				
-			feat_names[feat_col] = String.format("f14s%d", i);
-			feat_col++;
-				
-			feat_names[feat_col] = String.format("f15s%d", i);
-			feat_col++;
+			if(which_features[0]) feat_names[feat_col++] = String.format("diff_feat_01s%d", i);
+			if(which_features[1]) feat_names[feat_col++] = String.format("diff_feat_02s%d", i);
+			if(which_features[2]) feat_names[feat_col++] = String.format("diff_feat_03s%d", i);
+			if(which_features[3]) feat_names[feat_col++] = String.format("diff_feat_04s%d", i);
+			if(which_features[4]) feat_names[feat_col++] = String.format("diff_feat_05s%d", i);
+			if(which_features[5]) feat_names[feat_col++] = String.format("diff_feat_06s%d", i);
+			if(which_features[6]) feat_names[feat_col++] = String.format("diff_feat_07s%d", i);
+			if(which_features[7]) feat_names[feat_col++] = String.format("diff_feat_08s%d", i);
+			if(which_features[8]) feat_names[feat_col++] = String.format("diff_feat_09s%d", i);
+			if(which_features[9]) feat_names[feat_col++] = String.format("diff_feat_10s%d", i);
+			if(which_features[10]) feat_names[feat_col++] = String.format("diff_feat_11s%d", i);
+			if(which_features[11]) feat_names[feat_col++] = String.format("diff_feat_12s%d", i);
+			if(which_features[12]) feat_names[feat_col++] = String.format("diff_feat_13s%d", i);
+			if(which_features[13]) feat_names[feat_col++] = String.format("diff_feat_14s%d", i);
 			
 		}
 		return feat_names;
