@@ -3,6 +3,16 @@ package advantra.critpoint;
 import java.io.File;
 import java.io.FilenameFilter;
 
+import weka.classifiers.Classifier;
+import weka.classifiers.bayes.net.search.fixed.NaiveBayes;
+import weka.classifiers.trees.J48;
+import weka.core.Attribute;
+import weka.core.FastVector;
+import weka.core.Instance;
+import weka.core.Instances;
+import weka.filters.Filter;
+import weka.filters.unsupervised.attribute.StringToWordVector;
+
 import advantra.feature.DifferentialStructure;
 import advantra.file.AnalyzeCSV;
 
@@ -99,11 +109,20 @@ public class ExtractFeatures implements PlugIn {
 			train_loc = reader_csv.readLn(2);
 			train_cls = reader_csv.readLastCol();
 			DifferentialStructure df = new DifferentialStructure(train_img, sigma_1, sigma_2, nr);
-			df.getHessianDeterminant().show();
-			df.getDoH().show();
-			df.getBallness().show();
+			//df.getHessianDeterminant().show();
+			//df.getDoH().show();
+			//df.getBallness().show();
 			double[][] feats  = df.exportFeatures(train_loc);
+			String[] feats_labels = df.exportFeatureLabels();
 			
+			try {
+				
+				train(feats, feats_labels, train_cls);
+				System.out.println("trined J48 classifier.");
+				
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
 			
 		}
 		
@@ -111,7 +130,42 @@ public class ExtractFeatures implements PlugIn {
 		
 	}
 	
-	private String removeExt(String in_name){
+	public void train(double[][] feats, String[] feats_labels, int[] cls) throws Exception {
+		
+		FastVector attrs = new FastVector();
+		
+		FastVector class_vals = new FastVector();
+		class_vals.addElement("yes");
+		class_vals.addElement("no");
+		Attribute class_attr = new Attribute("critpoint", class_vals); // nominal
+		attrs.addElement(class_attr); 
+		for (int i = 0; i < feats_labels.length; i++) {
+			Attribute attr = new Attribute(feats_labels[i]); //numeric
+			attrs.addElement(attr);
+		}
+		
+		Instances dataset = new Instances("my_dataset", attrs, 0); // capacity is zero
+		
+		for (int i = 0; i < feats.length; i++) {
+			
+			// add instances
+			double[] attValues = new double[dataset.numAttributes()];
+			attValues[0] = (cls[i]==1)?class_attr.indexOfValue("yes"):class_attr.indexOfValue("no");
+			for (int j = 1; j <= feats[0].length; j++) {
+				attValues[j] = feats[i][j-1];
+			}
+			dataset.add(new Instance(1.0, attValues));
+		}
+		dataset.setClassIndex(0);
+		
+		Classifier classifier = new J48();
+		classifier.buildClassifier(dataset);
+		
+	}
+	
+	
+	
+ 	private String removeExt(String in_name){
 		int name_len = in_name.length();
 		if(name_len>4){
 			name_len -= 4;
@@ -158,6 +212,8 @@ public class ExtractFeatures implements PlugIn {
 		return out;
 		
 	}
+	
+	
 	
 }	
 //	ImagePlus 		img;

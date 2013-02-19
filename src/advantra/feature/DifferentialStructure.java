@@ -414,7 +414,6 @@ public class DifferentialStructure {
 		int nr_scales 	= sc.length;
 		int[] pos 		= new int[3];
 		
-		
 		double[][] feat = new double[locations.length][nr_scales*FEATS_NR];
 		
 		for (int feat_row = 0; feat_row < locations.length; feat_row++) {
@@ -425,26 +424,53 @@ public class DifferentialStructure {
 			pos[1] = (int)Math.round(locations[feat_row][1]);
 			
 			for (int i = 0; i < nr_scales; i++) { // scale will define the layer
+				
 				pos[2] = i;
 				
-				feat[feat_row][feat_col] = getGradientMagnitude(pos); feat_col++;
-				feat[feat_row][feat_col] = getLaplacian(pos); feat_col++;
-				feat[feat_row][feat_col] = getRidgeDet(pos); feat_col++;
-				feat[feat_row][feat_col] = getIsophoteCurvature(pos); feat_col++;
+				feat[feat_row][feat_col] = getGradientMagnitude(pos);
+				feat_col++;
 				
-				feat[feat_row][feat_col] = getFlowlineCurv(pos); feat_col++;
-				feat[feat_row][feat_col] = getIsophoteDensity(pos); feat_col++;
-				feat[feat_row][feat_col] = getCornerDetector(pos); feat_col++;
-				feat[feat_row][feat_col] = getShapeIndex(pos); feat_col++;
+				feat[feat_row][feat_col] = getLaplacian(pos); 
+				feat_col++;
 				
-				feat[feat_row][feat_col] = getCurvedness(pos); feat_col++;
-				feat[feat_row][feat_col] = getHessianDeterminant(pos); feat_col++;
-				feat[feat_row][feat_col] = getMeanCurvature(pos); feat_col++;
-				feat[feat_row][feat_col] = getGaussianExtremality(pos); feat_col++;
+				feat[feat_row][feat_col] = getRidgeDet(pos); 
+				feat_col++;
 				
-				feat[feat_row][feat_col] = getTJunctionLikeliness(pos); feat_col++;
-				feat[feat_row][feat_col] = getBallness(pos); feat_col++;
-				feat[feat_row][feat_col] = getDoH(pos); feat_col++;
+				feat[feat_row][feat_col] = getIsophoteCurvature(pos); 
+				feat_col++;
+				
+				feat[feat_row][feat_col] = getFlowlineCurv(pos); 
+				feat_col++;
+				
+				feat[feat_row][feat_col] = getIsophoteDensity(pos);
+				feat_col++;
+				
+				feat[feat_row][feat_col] = getCornerDetector(pos); 
+				feat_col++;
+				
+				feat[feat_row][feat_col] = getShapeIndex(pos); 
+				feat_col++;
+				
+				feat[feat_row][feat_col] = getCurvedness(pos); 
+				feat_col++;
+				
+				feat[feat_row][feat_col] = getHessianDeterminant(pos); 
+				feat_col++;
+				
+				feat[feat_row][feat_col] = getMeanCurvature(pos); 
+				feat_col++;
+				
+				feat[feat_row][feat_col] = getGaussianExtremality(pos); 
+				feat_col++;
+				
+				feat[feat_row][feat_col] = getTJunctionLikeliness(pos); 
+				feat_col++;
+				
+				feat[feat_row][feat_col] = getBallness(pos); 
+				feat_col++;
+				
+				feat[feat_row][feat_col] = getDoH(pos); 
+				feat_col++;
 				
 			}
 			
@@ -453,4 +479,61 @@ public class DifferentialStructure {
 		return feat;
 	}
 	
+	public String[] exportFeatureLabels(){// locations contains row, col obtained from each line
+		
+		int nr_scales = sc.length;
+		String[] feat_names = new String[sc.length*FEATS_NR];
+		int feat_col = 0;
+		
+		for (int i = 0; i < nr_scales; i++) { // scale will define the layer
+		
+			feat_names[feat_col] = String.format("f01s%d", i);
+			feat_col++;
+			
+			feat_names[feat_col] = String.format("f02s%d", i);
+			feat_col++;
+				
+			feat_names[feat_col] = String.format("f03s%d", i);
+			feat_col++;
+				
+			feat_names[feat_col] = String.format("f04s%d", i);
+			feat_col++;
+				
+			feat_names[feat_col] = String.format("f05s%d", i);
+			feat_col++;
+				
+			feat_names[feat_col] = String.format("f06s%d", i);
+			feat_col++;
+				
+			feat_names[feat_col] = String.format("f07s%d", i);
+			feat_col++;
+				
+			feat_names[feat_col] = String.format("f08s%d", i);
+			feat_col++;
+				
+			feat_names[feat_col] = String.format("f09s%d", i);
+			feat_col++;
+				
+			feat_names[feat_col] = String.format("f10s%d", i);
+			feat_col++;
+				
+			feat_names[feat_col] = String.format("f11s%d", i);
+			feat_col++;
+				
+			feat_names[feat_col] = String.format("f12s%d", i);
+			feat_col++;
+				
+			feat_names[feat_col] = String.format("f13s%d", i);
+			feat_col++;
+				
+			feat_names[feat_col] = String.format("f14s%d", i);
+			feat_col++;
+				
+			feat_names[feat_col] = String.format("f15s%d", i);
+			feat_col++;
+			
+		}
+		return feat_names;
+	}
+
 }
