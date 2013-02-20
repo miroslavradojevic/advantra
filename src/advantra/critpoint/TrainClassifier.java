@@ -2,8 +2,16 @@ package advantra.critpoint;
 
 import java.awt.Checkbox;
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.ObjectOutputStream;
+import java.io.OutputStream;
 
 import javax.swing.JFileChooser;
+
+import weka.classifiers.Classifier;
+import weka.classifiers.trees.J48;
+import weka.core.Instances;
+import weka.core.converters.ArffLoader;
 
 import ij.IJ;
 import ij.gui.GenericDialog;
@@ -20,15 +28,15 @@ public class TrainClassifier  implements PlugIn {
 	File 	train_dataset_file;
 
 	String[] cls_labels = new String[]
-			{"Tree", "NB"};
+			{"J48", "NB"};
 	boolean[] cls_enable = new boolean[]
-			{true, true};
+			{false, false};
 	
-	String 		out_dir    		= System.getProperty("user.home");
+//	String 		out_dir    		= System.getProperty("user.home");
 	
 	public void run(String arg0) {
 		
-		IJ.showMessage("HINT: Browse TRAIN_FEATS_*****.ARFF file with datasets for training!");
+		//IJ.showMessage("HINT: Browse FEATS_*****.ARFF file with datasets for training!");
 		
 		/*
 		 * based on File_Opener.java ij source code 
@@ -52,37 +60,77 @@ public class TrainClassifier  implements PlugIn {
 			return;
 		train_dataset_file = fc.getSelectedFile();
 		train_dataset_path = fc.getSelectedFile().getAbsolutePath();
-		if(train_dataset_file.exists())IJ.showMessage("opened: "+train_dataset_path);
-		else {
+		if(!train_dataset_file.exists()){
 			IJ.showMessage("file "+train_dataset_path+" does not exist");
 			return;
 		}
+		
 		/*
-		 * 
+		 * generic dialog
 		 */
-		
-		GenericDialog gd = new GenericDialog("Critical Point features");
-		
-		final int menu_width = 50;
-		
+		//final int menu_width = 50;
+		GenericDialog gd = new GenericDialog("Train Classifier");
 		gd.addMessage("Choose classifier(s)...");
-		//gd.addStringField("folder with annotations", folder_name, menu_width);
 		gd.addCheckboxGroup(3, 5, cls_labels, cls_enable);
-		
-		gd.addMessage("Classification params...");
-		
-		gd.addMessage("Save dataset...");
-		gd.addStringField("destination directory", out_dir, menu_width);
-		
+//		gd.addMessage("Classification params...");
+//		gd.addMessage("Save dataset...");
+//		gd.addStringField("destination directory", out_dir, menu_width);
 		gd.showDialog();
 		if (gd.wasCanceled()) return;
-		
 		for (int i = 0; i < cls_enable.length; i++) {
 			cls_enable[i] = ((Checkbox)gd.getCheckboxes().get(i)).getState();
 		}
+//		out_dir			= gd.getNextString();
+		/*
+		 * generic dialog
+		 */
 		
-		out_dir			= gd.getNextString();
+		try {
+			
+			/*
+			 * main 
+			 */
+			
+			Instances train_dataset = loadTrainDataset(train_dataset_file);
+			train_dataset.setClassIndex(0);
+			
+			/*
+			 * train & save classifier
+			 */
+			
+			if(cls_enable[0]){
+				IJ.log("training J48 classifier...");
+				// J48 train & save
+				Classifier classifier = new J48();
+				classifier.buildClassifier(train_dataset);
+				// save classifier
+				String name = train_dataset_file.getName();//.substring(0, endIndex);
+				name = name.substring(0, name.length()-5);
+				String file = train_dataset_file.getParent()+File.separator+name+"_J48.arff";
+				OutputStream os = new FileOutputStream(file);
+				ObjectOutputStream objectOutputStream = new ObjectOutputStream(os);
+				objectOutputStream.writeObject(classifier);
+				objectOutputStream.close();
+				IJ.log("done, exported "+file);
+			}
+			if(cls_enable[1]){
+				IJ.log("training NB classifier");
+				IJ.log("done, exported "+"nothing");
+			}
+			
+		} 
+		catch (Exception e) {
+			e.printStackTrace();
+		}
 		
+	}
+	
+	private Instances loadTrainDataset(File train_dataset_file) throws Exception {
+		// read dataset from file
+		ArffLoader loader = new ArffLoader();
+		loader.setFile(train_dataset_file);
+		Instances dataset = loader.getDataSet();
+		return dataset;		
 	}
 
 }
