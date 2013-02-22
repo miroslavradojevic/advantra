@@ -2,6 +2,8 @@ package advantra.feature;
 
 import java.util.Vector;
 
+import advantra.general.ArrayHandling;
+
 import ij.ImagePlus;
 import imagescience.feature.Differentiator;
 import imagescience.feature.Hessian;
@@ -76,6 +78,7 @@ public class DifferentialFeatures {
 		Lambda2 = new FloatImage(dims);
 		
 		gradient_image				= new FloatImage(filter_dims); gradient_image.axes(Axes.X);
+		System.out.println("size dims(x,y,z): "+dims.x+" , "+dims.y+" , "+dims.z);
 		laplacian_image				= new FloatImage(filter_dims); laplacian_image.axes(Axes.X);
 		ridge_det_image				= new FloatImage(filter_dims); ridge_det_image.axes(Axes.X);
 		isophote_curv_image			= new FloatImage(filter_dims); isophote_curv_image.axes(Axes.X);
@@ -235,8 +238,8 @@ public class DifferentialFeatures {
 		return gradient_image_ip;
 	}
 	
-	public double 		getGradientMagnitude(int[] at_pos){
-		Coordinates coords = new Coordinates(at_pos[0], at_pos[1], at_pos[2]);
+	public double 		getGradientMagnitude(int[] at_pos){  // at_pos contains (row,col)
+		Coordinates coords = new Coordinates(at_pos[0], at_pos[1], at_pos[2]); // coords contains (col,row,lay)
 		return gradient_image.get(coords);
 	}
 	
@@ -412,7 +415,7 @@ public class DifferentialFeatures {
 	 * export features for different scales:
 	 */
 	
-	public double[][] 	exportFeatures(double[][] locations, boolean[] which_features){// locations contains row, col obtained from each line
+	public double[][] 		exportFeatures(double[][] locations, boolean[] which_features){// locations contains row, col obtained from each line
 		
 		if(which_features.length!=FEATS_NR){
 			System.out.println("DifferentialFeatures:exportFeatures(): Boolean array describing the number of features has to have length "+FEATS_NR);
@@ -428,17 +431,25 @@ public class DifferentialFeatures {
 		
 		double[][] feat = new double[locations.length][nr_scales*nr_features];
 		
+		//ArrayHandling.print2DArray(locations);
+		
 		for (int feat_row = 0; feat_row < locations.length; feat_row++) {
+			
+			//System.out.println("loc: "+locations[feat_row][0]+" , "+locations[feat_row][1]+"  ");
 			
 			int feat_col = 0;
 			
-			pos[0] = (int)Math.round(locations[feat_row][0]);
-			pos[1] = (int)Math.round(locations[feat_row][1]);
+			/*
+			 *  switching cols & rows here below at pos[0] and pos[1] because imagescience 
+			 *  considers Coords.x as column position and Coords.y as row position
+			 */
+			
+			pos[1] = (int)Math.round(locations[feat_row][0]); // row location will be assigned to Coords.y
+			pos[0] = (int)Math.round(locations[feat_row][1]); // col location will be assigned to Coords.x
 			
 			for (int i = 0; i < nr_scales; i++) { 
 				
 				pos[2] = i; // scale will define the layer in the images
-				
 				if(which_features[0]) feat[feat_row][feat_col++] = getGradientMagnitude(pos);
 				if(which_features[1]) feat[feat_row][feat_col++] = getLaplacian(pos); 
 				if(which_features[2]) feat[feat_row][feat_col++] = getRidgeDet(pos); 
@@ -456,12 +467,11 @@ public class DifferentialFeatures {
 				
 			}
 			
-			
 		}
 		return feat;
 	}
 	
-	public String[] 	exportFeatureLabels(boolean[] which_features){// locations contains row, col obtained from each line
+	public static String[] 	exportFeatureLabels(int nr_scales, boolean[] which_features){// locations contains row, col obtained from each line
 		
 		if(which_features.length!=FEATS_NR){
 			System.out.println("DifferentialFeatures:exportFeatures(): Boolean array describing the number of features has to have length "+FEATS_NR);
@@ -469,30 +479,29 @@ public class DifferentialFeatures {
 		}
 		
 		int nr_features = 0;
-		for (int i = 0; i < which_features.length; i++) {
+		for (int i = 0; i < FEATS_NR; i++) {
 			if(which_features[i]) nr_features++;
 		}
 		
-		int nr_scales = sc.length;
-		String[] feat_names = new String[sc.length*nr_features];
+		String[] feat_names = new String[nr_scales*nr_features];
 		int feat_col = 0;
 		
 		for (int i = 0; i < nr_scales; i++) { // scale will define the layer
 		
-			if(which_features[0]) feat_names[feat_col++] = String.format("diff_feat_01s%d", i);
-			if(which_features[1]) feat_names[feat_col++] = String.format("diff_feat_02s%d", i);
-			if(which_features[2]) feat_names[feat_col++] = String.format("diff_feat_03s%d", i);
-			if(which_features[3]) feat_names[feat_col++] = String.format("diff_feat_04s%d", i);
-			if(which_features[4]) feat_names[feat_col++] = String.format("diff_feat_05s%d", i);
-			if(which_features[5]) feat_names[feat_col++] = String.format("diff_feat_06s%d", i);
-			if(which_features[6]) feat_names[feat_col++] = String.format("diff_feat_07s%d", i);
-			if(which_features[7]) feat_names[feat_col++] = String.format("diff_feat_08s%d", i);
-			if(which_features[8]) feat_names[feat_col++] = String.format("diff_feat_09s%d", i);
-			if(which_features[9]) feat_names[feat_col++] = String.format("diff_feat_10s%d", i);
-			if(which_features[10]) feat_names[feat_col++] = String.format("diff_feat_11s%d", i);
-			if(which_features[11]) feat_names[feat_col++] = String.format("diff_feat_12s%d", i);
-			if(which_features[12]) feat_names[feat_col++] = String.format("diff_feat_13s%d", i);
-			if(which_features[13]) feat_names[feat_col++] = String.format("diff_feat_14s%d", i);
+			if(which_features[0]) feat_names[feat_col++] = String.format("df_ft_01s%d", i);
+			if(which_features[1]) feat_names[feat_col++] = String.format("df_ft_02s%d", i);
+			if(which_features[2]) feat_names[feat_col++] = String.format("df_ft_03s%d", i);
+			if(which_features[3]) feat_names[feat_col++] = String.format("df_ft_04s%d", i);
+			if(which_features[4]) feat_names[feat_col++] = String.format("df_ft_05s%d", i);
+			if(which_features[5]) feat_names[feat_col++] = String.format("df_ft_06s%d", i);
+			if(which_features[6]) feat_names[feat_col++] = String.format("df_ft_07s%d", i);
+			if(which_features[7]) feat_names[feat_col++] = String.format("df_ft_08s%d", i);
+			if(which_features[8]) feat_names[feat_col++] = String.format("df_ft_09s%d", i);
+			if(which_features[9]) feat_names[feat_col++] = String.format("df_ft_10s%d", i);
+			if(which_features[10]) feat_names[feat_col++] = String.format("df_ft_11s%d", i);
+			if(which_features[11]) feat_names[feat_col++] = String.format("df_ft_12s%d", i);
+			if(which_features[12]) feat_names[feat_col++] = String.format("df_ft_13s%d", i);
+			if(which_features[13]) feat_names[feat_col++] = String.format("df_ft_14s%d", i);
 			
 		}
 		return feat_names;
