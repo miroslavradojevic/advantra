@@ -37,7 +37,7 @@ public class DifferentialFeatures {
 	Image mean_curvature_image, 	gaussian_extremality_image, t_junction_likeliness_image;
 	Image ballness_filter,			DoH_filter; // |Lambda1|
 	// Scales
-	double[] sc;
+	double[] sc; //The scale is equal to the standard deviation of the Gaussian kernel used for differentiation
 
 	/*
 	 * constructor
