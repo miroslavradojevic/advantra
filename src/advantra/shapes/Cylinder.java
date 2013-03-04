@@ -673,7 +673,7 @@ public class Cylinder extends RegionOfInterest {
 		if(
 				cyl_coord[0].length<Sphere.numberOfVoxInSphere(dist) ){
 			System.err.println("Cylinder:extractCoords(): \n" +
-					"output matrix needs to have "+Sphere.numberOfVoxInSphere(dist)+"+ & more columns\n" +
+					"output matrix needs to have "+Sphere.numberOfVoxInSphere(dist)+" & more columns\n" +
 					" to cover the cylinder with R="+r+" and H="+h+" \n"+
 					"allocate some more space!");
 			System.exit(1);
@@ -1168,7 +1168,7 @@ public class Cylinder extends RegionOfInterest {
 		byte[][][] img_array = ImageConversions.RgbToByteArray(template_image);
 		
 		// extract the points
-		int[][] cyl_coordinates = new int[3][Sphere.numberOfVoxInSphere((int) Math.ceil(r*r+h*h))];
+		int[][] cyl_coordinates = new int[3][Sphere.numberOfVoxInSphere((int) Math.ceil(this.r*this.r+this.h*this.h))];
 		
 		int cnt = this.extractCoords(template_image, cyl_coordinates);
 		

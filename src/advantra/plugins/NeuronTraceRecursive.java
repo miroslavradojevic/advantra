@@ -14,6 +14,7 @@ import advantra.trace.NeuronTrace;
 
 import ij.IJ;
 import ij.ImagePlus;
+import ij.gui.GenericDialog;
 import ij.gui.ImageCanvas;
 import ij.measure.Calibration;
 import ij.plugin.filter.PlugInFilter;
@@ -41,18 +42,22 @@ public class NeuronTraceRecursive implements PlugInFilter, MouseListener {
 			//this.img = ImageConversions.ImagePlusToGray8(img);
 			return DONE;
 		}
-		//else{
-			this.img = img;
-		//}
 		
+		this.img = img;
 		
+		GenericDialog gd = new GenericDialog("Recursive trace");
+		gd.addNumericField("max branches", 10, 0);
+		gd.showDialog();
+		if (gd.wasCanceled()) return -1;
+		MAX_BRANCHES = (int)gd.getNextNumber();
+			
 		//modify calibration 
 		Calibration cal = img.getCalibration();
 		cal.pixelWidth 	= cal.pixelHeight = cal.pixelDepth = 1;
 		cal.setUnit("pixels");
 		this.img.setCalibration(cal);
 		
-		MAX_BRANCHES = 5;
+		System.out.println("max branches: "+MAX_BRANCHES);
 		return DOES_8G+NO_CHANGES;
 	}
 	

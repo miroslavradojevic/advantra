@@ -92,7 +92,6 @@ public class Test implements PlugIn {
 			fw = new FileWriter(path);
 			Coordinates coords 	= new Coordinates();
 			for (coords.y=0; coords.y<img_dims.y; ++coords.y) {
-				System.out.println("get y="+coords.y);
 				img.get(coords, aImg);
 				for (int x=0; x<img_dims.x; ++x){
 					fw.write(aImg[x]+"");

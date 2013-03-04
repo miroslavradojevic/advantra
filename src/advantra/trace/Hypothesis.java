@@ -561,9 +561,14 @@ public class Hypothesis {
 	public void calculatePosterior(){
 		if(isPriorCalculated() && isLikelihoodCalculated()){
 			
-			this.posterior = this.getPrior() * this.getLikelihood();
+			posterior = this.getPrior() * this.getLikelihood();
+			
+//			if(posterior<0){
+//				posterior = 0;
+//			}
 			
 			posteriorCalculated = true;
+			
 		}
 		else{
 			System.err.println("Hypothesis:calculatePosterior(): \n" +

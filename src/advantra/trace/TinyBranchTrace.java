@@ -206,11 +206,26 @@ public class TinyBranchTrace implements TinyBranch {
 	}
 	
 	public void 				calculateLikelihoods(){ 
-		
 		for (int i = 0; i < trace_hyps.length; i++) {
 			trace_hyps[i].calculateLikelihood_new(img_calc, 1.0, 1.0);
 		}
+	}
+	
+	public void 				drawCurrentEstimate(){
 		
+//		System.out.print("hyps: "+trace_hyps.length);
+//		
+//		double lh_max = Double.MIN_VALUE;
+//		double lh_min = Double.MAX_VALUE;
+//		
+//		for (int i = 0; i < trace_hyps.length; i++) {
+//			
+//			
+//			
+//			//if(trace_hyps[i].getLikelihood()>lh) lh = trace_hyps[i].getLikelihood();
+//			//trace_hyps[i].
+//			//System.out.format("hyp %d: pr(%f), lh(%f)  | ", i, trace_hyps[i].getPrior(), );
+//		}
 	}
 
 	public double 				calculatePosteriors(){ 
@@ -232,12 +247,9 @@ public class TinyBranchTrace implements TinyBranch {
 			}
 			
 		}
-		else{
-			
-			double[] point = current_hyp_estimate.getPosition();
-			System.err.println("\nTinyBranchTrace:calculatePosteriors(): " +
-					"sum of the posteriors was "+sum_posteriors+" at ("+point[0]+" , "+point[1]+" , "+point[2]+")");
-		}
+//		else{
+//			System.out.print("POSTERIOR_SUM<=0");
+//		}
 		
 		return sum_posteriors;
 	}
@@ -341,7 +353,7 @@ public class TinyBranchTrace implements TinyBranch {
 					new_hyps[i] = new Hypothesis(
 							new_seeds[i], 
 							new_directions[i], 
-							current_hyp_estimate.getHypothesisRadius(), 
+							current_hyp_estimate.getNeuriteRadius(), //ERROR!!! current_hyp_estimate.getHypothesisRadius(), 
 							current_hyp_estimate.getK());
 				}
 				else{
@@ -580,17 +592,16 @@ public class TinyBranchTrace implements TinyBranch {
 	public boolean				bifurcation_detection_MeanShift3D(ImagePlus sphere_img, Sphere sphere_from_image, boolean manual_start){ 
 		
 		// returns whether to stop the trace or not
-		
-		if(count<3 && (!manual_start)){
-			new_seeds = null;
-			new_directions = null;
-			new_seeds_coords = null;
-			//System.out.println("count:"+count+" --- MS BLOCKED");
+		if(count<3 && !manual_start){  
+			new_seeds 			= null;
+			new_directions 		= null;
+			new_seeds_coords 	= null;
+			System.out.print("INITIAL-BLK");
 			return false; // valid after 3 steps
 		}
 		
-		int 	MS_PTS 				= 100;
-		int 	MS_PTS_TH 			= 15;
+		int 	MS_PTS 				= 50;
+		int 	MS_PTS_TH 			= 10;
 		int 	MS_MAX_ITER 		= 100;
 		double 	MS_EPS 				= 0.0001; 
 		double 	MS_NEIGHBOUR 		= 0.01;
@@ -605,11 +616,14 @@ public class TinyBranchTrace implements TinyBranch {
 		double[][] 	cluster_seed 			= ms3dSph.getClusterSeed();
 		int[][] 	cluster_local_coords 	= ms3dSph.getClusterSeedLocal();
 		
+		//if(cluster_dirs==null) System.out.print("MS:NO-DIRS");
+		if(cluster_dirs.length==1) System.out.print("MS:END");
+		
 		if(cluster_dirs==null || cluster_dirs.length==1){
 			new_seeds 		= null;
 			new_directions 	= null;
 			new_seeds_coords = null;
-			if(cluster_dirs.length==1) System.out.print("::END::");
+			
 			return true;
 		}
 		
@@ -632,19 +646,18 @@ public class TinyBranchTrace implements TinyBranch {
 			new_seeds_coords[i][2]= cluster_local_coords[i][2];
 		}
 		
-		if(manual_start)
-			//System.out.println("count:"+count+" --- MANUAL START, TAKE ALL M-S GAVE & STOP");
+		if(manual_start){	
+			System.out.print("MANUAL_SEED");
 			return true;   // stop tracing & take all, it was just manual start
+		}
 		
 		if(cluster_dirs.length==2){
 			new_seeds 		= null;
 			new_directions 	= null;
 			new_seeds_coords= null;
-			//System.out.println("count:"+count+" --- MS FOUND 2 directions, CONTINUE");
 			return false;
 		}
-		
-		else{
+		else{ // cluster_dirs.length>2
 			
 			/*
 			 * calculate direction towards previous
@@ -653,66 +666,61 @@ public class TinyBranchTrace implements TinyBranch {
 			dir_towards_previous = subtract(centerlines[count-2], centerlines[count-1]); // centerlines[count-1] marks last centerpoint
 			normalize(dir_towards_previous);
 				
-				/*
-				 * get index to expel on the basis of previous direction
-				 */
+			/*
+			 * get index to expel on the basis of previous direction
+			 */
 				
-				int 	index_expell_direction 	= 0;
-				double	dot_prod_direction_max		= dotProd3(dir_towards_previous, cluster_dirs[0]);
+			int 	index_expell_direction 	= 0;
+			double	dot_prod_direction_max		= dotProd3(dir_towards_previous, cluster_dirs[0]);
 				
-				for (int i = 1; i < cluster_dirs.length; i++) {
-					double dot_prod_direction = dotProd3(dir_towards_previous, cluster_dirs[i]);
-					if(dot_prod_direction>dot_prod_direction_max){
-						dot_prod_direction_max = dot_prod_direction;
-						index_expell_direction = i;
+			for (int i = 1; i < cluster_dirs.length; i++) {
+				double dot_prod_direction = dotProd3(dir_towards_previous, cluster_dirs[i]);
+				if(dot_prod_direction>dot_prod_direction_max){
+					dot_prod_direction_max = dot_prod_direction;
+					index_expell_direction = i;
+				}
+			}
+				
+			new_directions[index_expell_direction] 		= null;
+			new_seeds[index_expell_direction]			= null;
+			new_seeds_coords[index_expell_direction]	= null;
+				
+				if(false){
+					/*
+					 * expel one that is not connected to the body
+					 */
+					OtsuBinarisation otsu = new OtsuBinarisation(sphere_img);
+					ImagePlus sphere_img_binaized = otsu.run();
+					Find_Connected_Regions conn = new Find_Connected_Regions(sphere_img_binaized, true);
+					conn.run("");
+					//conn.showLabels().show();
+					for (int i = 0; i < new_seeds_coords.length; i++) {
+						if(new_seeds_coords[i]!=null && !conn.belongsToBiggestRegion(new_seeds_coords[i])){  
+							new_directions[i] 		= null;
+							new_seeds[i]			= null;
+							new_seeds_coords[i]		= null;
+						}
 					}
 				}
 				
-				new_directions[index_expell_direction] 		= null;
-				new_seeds[index_expell_direction]			= null;
-				new_seeds_coords[index_expell_direction]	= null;
-				
-				/*
-				 * expel one that is not connected to the body
-				 */
-				OtsuBinarisation otsu = new OtsuBinarisation(sphere_img);
-				ImagePlus sphere_img_binaized = otsu.run();
-				Find_Connected_Regions conn = new Find_Connected_Regions(sphere_img_binaized, true);
-				conn.run("");
-				
-				//conn.showLabels().show();
-				
-				for (int i = 0; i < new_seeds_coords.length; i++) {
-					if(new_seeds_coords[i]!=null && !conn.belongsToBiggestRegion(new_seeds_coords[i])){  
-						new_directions[i] 		= null;
-						new_seeds[i]			= null;
-						new_seeds_coords[i]		= null;
-					}
+			int nr_new_branches = 0;
+			for (int i = 0; i < new_seeds.length; i++) {
+				if(new_seeds[i]!=null){
+					nr_new_branches++;
 				}
+			}
 				
-				int nr_new_branches = 0;
-				for (int i = 0; i < new_seeds.length; i++) {
-					if(new_seeds[i]!=null){
-						nr_new_branches++;
-					}
-				}
+			if(nr_new_branches>1){
+				System.out.print("BIF("+nr_new_branches+"new)");
+			}
+			else{
+				new_seeds 			= null;
+				new_directions 		= null;
+				new_seeds_coords	= null;
+				System.out.print("SUPP'SSED_BIF");
+			}
 				
-				if(nr_new_branches>1){
-					System.out.print("BIF");
-				}
-				else{
-					// kill the remaining one not to make any confusion
-//					for (int i = 0; i < new_seeds.length; i++) {
-//						if(new_seeds[i]!=null){
-							new_seeds 		= null;
-							new_directions 	= null;
-							new_seeds_coords	= null;
-//						}
-//					}
-					System.out.print("::SUPP'SSED_BIF::");
-				}
-				
-				return (nr_new_branches>1)? true : false;  // stop in case there is more than one, otherwise 
+			return (nr_new_branches>1)? true : false;  // stop in case there is more than one, otherwise 
 				
 		}
 		
