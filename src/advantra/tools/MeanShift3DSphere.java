@@ -320,22 +320,18 @@ public class MeanShift3DSphere {
 		for (int i = 0; i < nr_clusters; i++) {
 			if(cluster_size[i]>M){
 				/*
-				 * 
 				 */
 				T_clust[cnt][0] = T[i][0];
 				/*
-				 * 
 				 */
 				Transf.sph2cart(1.0, 				T[i][0], T[i][1], cluster_dirs[cnt]); 
 				/*
-				 * 
 				 */
 				Transf.sph2cart(sphere_space.getR(), 	T[i][0], T[i][1], cluster_seed[cnt]);
 				cluster_seed[cnt][0] += sphere_space.getCenterX();
 				cluster_seed[cnt][1] += sphere_space.getCenterY();
 				cluster_seed[cnt][2] += sphere_space.getCenterZ();
 				/*
-				 * 
 				 */
 				Transf.sph2cart(sphere_roi.getR(), 	T[i][0], T[i][1], cartesian_aux);
 				cluster_local_seeds[cnt][0] = (int)Math.round(cartesian_aux[0] + sphere_roi.getCenterX());

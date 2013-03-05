@@ -3,10 +3,8 @@ package advantra.trace;
 import java.util.ArrayList;
 
 import advantra.file.ExportSWC;
-import advantra.general.ImageConversions;
 import advantra.shapes.Sphere;
 import ij.ImagePlus;
-import ij.io.FileSaver;
 
 public class NeuronTrace {
 
@@ -46,8 +44,8 @@ public class NeuronTrace {
 	
 	public void 			trace(double x, double y, double z){ // trace from the selected point
 		
-		ImagePlus img_traced_output;
-		img_traced_output 	= ImageConversions.ImagePlusToRGB(traced_img);
+		//ImagePlus img_traced_output;
+		//img_traced_output 	= ImageConversions.ImagePlusToRGB(traced_img);
 		
 		//boolean first 					= true;
 		boolean manual_start			= true;
@@ -62,10 +60,10 @@ public class NeuronTrace {
 		while((manual_start || branch_queue.size()>0) && traced_branch_nr<max_branch_nr){
 			
 			if(manual_start){
+				
 				System.out.print("{");
 				// detect best matching hypothesis at refined start point
 				take_hypothesis = (new TinyBranchTrace(traced_img)).hyp_at(start_xyz);
-				//take_hypothesis.print();
 				current_branch = getCurrentlyTracedBranch();
 				current_branch.setStart(take_hypothesis);
 				branches_mother_idxs[traced_branch_nr] = -1;
@@ -74,14 +72,15 @@ public class NeuronTrace {
 				double scale = TinyBranch.check_bifurcations*current_branch.getCurrentTraceHypothesisRadius();
 				Sphere sp = new Sphere(current_branch.getCurrentTraceHypothesisCenterpoint(), scale);
 				sphere_img     = sp.extract(traced_img, TinyBranch.extract_sphere_resolution); 
-				//sphere_img.show();
-				//System.out.print("man?"+manual_start);
-				current_branch.bifurcation_detection_MeanShift3D(sphere_img, sp, manual_start); // will process new hypotheses
+				current_branch.bifurcation_detection_MeanShift3D(sphere_img, sp, manual_start); 
+				// will process new hypotheses
 				manual_start = false;
 				System.out.print("}");
+				
 			}
 			else{ // not a manual start
-				System.out.print("\n<");
+				
+				System.out.print("\nbranch #"+traced_branch_nr+"/"+max_branch_nr+"<");
 				//take first hypothesis if not the first execution
 				take_hypothesis = branch_queue.get(0);	
 				branch_queue.remove(0);
@@ -102,16 +101,12 @@ public class NeuronTrace {
 					current_branch.calculateLikelihoods();
 					
 					double sum_posts = current_branch.calculatePosteriors();
+					
 					System.out.print("=");
 					
 					if(sum_posts>0){
 						
 						estimated_hyp 	= current_branch.getMaximumPosteriorHypothesis();
-						
-						 if(estimated_hyp.getPosterior()<=0){
-							 System.out.print("");
-							 break;
-						 }
 						
 						current_branch.storeHypothesis(estimated_hyp, false);
 						
@@ -121,19 +116,25 @@ public class NeuronTrace {
 						double dy = current_branch.getCurrentPosY()-current_branch.getSeedPosY();
 						double dz = current_branch.getCurrentPosZ()-current_branch.getSeedPosZ();
 						
-						if((dx*dx+dy*dy+dz*dz>scale*scale) && !enable_bif_detection)	enable_bif_detection = true; // || loop_count>3
+						if((dx*dx+dy*dy+dz*dz>scale*scale) && !enable_bif_detection)	
+							enable_bif_detection = true; // || loop_count>3
 						
 						if(enable_bif_detection){
-							//
-							Sphere sp = new Sphere(current_branch.getCurrentTraceHypothesisCenterpoint(), scale);
-							sphere_img     = sp.extract(traced_img, TinyBranch.extract_sphere_resolution); 
+							Sphere sp 		= new Sphere(current_branch.getCurrentTraceHypothesisCenterpoint(), scale);
+							sphere_img     	= sp.extract(traced_img, TinyBranch.extract_sphere_resolution); 
 							System.out.print("*");
-							boolean stop = current_branch.bifurcation_detection_MeanShift3D(sphere_img, sp, manual_start); // will process new hypotheses
+							
+//							System.out.println("bif detection at ");
+//							ArrayHandling.print1DArray(current_branch.getCurrentTraceHypothesisCenterpoint());
+							
+							boolean stop 	= 
+									current_branch.bifurcation_detection_MeanShift3D(sphere_img, sp, manual_start); 
+							// will process new hypotheses
 							if(stop) break;
 						}
-						else{
-							//Hypothesis.drawOverColorImage(estimated_hyp, img_traced_output, 255, 0, 0);
-						}
+//						else{
+//							//Hypothesis.drawOverColorImage(estimated_hyp, img_traced_output, 255, 0, 0);
+//						}
 //						System.out.println(
 //								"mean-shift detection says "+((stop)?"STOP":"CONTINUE"));
 //						if(stop){
@@ -146,9 +147,10 @@ public class NeuronTrace {
 					}
 					loop_count++;
 				}
-				if(loop_count==TinyBranch.N-1)System.out.println("LOOP_LIMIT_REACHED");
 				
-				System.out.println(">");
+				if(loop_count==TinyBranch.N-1) System.out.print("LOOP_LIMIT_REACHED");
+				
+				System.out.print(">");
 			
 			}
 			
@@ -159,7 +161,7 @@ public class NeuronTrace {
 				for (int b = 0; b < new_hypotheses.length; b++) {
 					if(new_hypotheses[b]!=null){
 						//System.out.println("adding:");
-						Hypothesis.drawOverColorImage(new_hypotheses[b], img_traced_output, 255, 0, 0);
+						//Hypothesis.drawOverColorImage(new_hypotheses[b], img_traced_output, 255, 0, 0);
 						//new_hypotheses[b].print();
 						branch_queue.add(new_hypotheses[b]);
 						branch_queue_mother_idx.add(traced_branch_nr);
@@ -180,10 +182,10 @@ public class NeuronTrace {
 		System.out.println("\n"+branch_queue.size()+" branches waiting in the queue");
 		
 		// debug
-		String name = String.format("seeds.tif");
-		img_traced_output.setTitle(name);
-		FileSaver fs = new FileSaver(img_traced_output);
-		fs.saveAsTiffStack(name);
+//		String name = String.format("seeds.tif");
+//		img_traced_output.setTitle(name);
+//		FileSaver fs = new FileSaver(img_traced_output);
+//		fs.saveAsTiffStack(name);
 		
 	}		
 	
@@ -243,40 +245,5 @@ public class NeuronTrace {
 	private TinyBranchTrace getCurrentlyTracedBranch(){
 		return branches[traced_branch_nr];
 	}
-	
-	/*
-	private double[] refineStartPoint(double[] point3d, int range){
-		
-		// expand Sphere around the seed
-		Sphere startSphere	= new Sphere(point3d[0], point3d[1], point3d[2], range);
-		
-		// take voxel values & locations
-		int[][] roi_coord = new int[3][	Sphere.numberOfVoxInSphere(range)];	
-		int[]   roi_vals  = new int[	Sphere.numberOfVoxInSphere(range)];
-		
-		int count_sphere_voxels = startSphere.extractVox(traced_img, roi_coord, roi_vals);
-		
-		double[] momts = new double[9]; // allocate space to store moments from extracted roi		
-		// extract moments: momts[0], momts[1], momts[2] define CENTROID
-		double sum_of_intensities = Moments.extract_moments_3D(roi_coord, roi_vals, count_sphere_voxels, momts);		
-		
-		double[] refined_point3d = new double[3];
-		if(sum_of_intensities>0){
-			refined_point3d[0] = momts[0];
-			refined_point3d[1] = momts[1];
-			refined_point3d[2] = momts[2];
-		}
-		else{
-			System.out.println("Point was not refined... sum of the intensities was "+sum_of_intensities+" ...");
-			refined_point3d[0] = point3d[0];
-			refined_point3d[1] = point3d[1];
-			refined_point3d[2] = point3d[2];
-		}
-
-		
-		return refined_point3d;
-
-	}
-	*/
 	
 }

@@ -388,3 +388,37 @@ public class MyHessianJama extends Hessian {
 	}
 	
 }
+/*
+private double[] refineStartPoint(double[] point3d, int range){
+	
+	// expand Sphere around the seed
+	Sphere startSphere	= new Sphere(point3d[0], point3d[1], point3d[2], range);
+	
+	// take voxel values & locations
+	int[][] roi_coord = new int[3][	Sphere.numberOfVoxInSphere(range)];	
+	int[]   roi_vals  = new int[	Sphere.numberOfVoxInSphere(range)];
+	
+	int count_sphere_voxels = startSphere.extractVox(traced_img, roi_coord, roi_vals);
+	
+	double[] momts = new double[9]; // allocate space to store moments from extracted roi		
+	// extract moments: momts[0], momts[1], momts[2] define CENTROID
+	double sum_of_intensities = Moments.extract_moments_3D(roi_coord, roi_vals, count_sphere_voxels, momts);		
+	
+	double[] refined_point3d = new double[3];
+	if(sum_of_intensities>0){
+		refined_point3d[0] = momts[0];
+		refined_point3d[1] = momts[1];
+		refined_point3d[2] = momts[2];
+	}
+	else{
+		System.out.println("Point was not refined... sum of the intensities was "+sum_of_intensities+" ...");
+		refined_point3d[0] = point3d[0];
+		refined_point3d[1] = point3d[1];
+		refined_point3d[2] = point3d[2];
+	}
+
+	
+	return refined_point3d;
+
+}
+*/

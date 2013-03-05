@@ -26,18 +26,18 @@ public class NeuronTraceRecursive implements PlugInFilter, MouseListener {
 	ImageCanvas canvas;
 	int MAX_BRANCHES;
 	
-	public int setup (String arg, ImagePlus img){
+	public int 	setup (String arg, ImagePlus img){
 		
 		if(img==null){ 
-			IJ.error("The image was NULL... Select new image...");
+			IJ.showMessage("The image was NULL... Select new image...");
 			return DONE;
 		}
 		if(img.getStack().getSize()<=1) {
-			IJ.error("The image was not a stack... Select new image...");
+			IJ.showMessage("The image was not a stack... Select new image...");
 			return DONE;
 		}
 		if(img.getType()!=ImagePlus.GRAY8) {
-			IJ.error("The image was not GRAY8... Convert it...");
+			IJ.showMessage("The image was not GRAY8... Convert it...");
 			// do the conversion & continue
 			//this.img = ImageConversions.ImagePlusToGray8(img);
 			return DONE;
@@ -57,7 +57,6 @@ public class NeuronTraceRecursive implements PlugInFilter, MouseListener {
 		cal.setUnit("pixels");
 		this.img.setCalibration(cal);
 		
-		System.out.println("max branches: "+MAX_BRANCHES);
 		return DOES_8G+NO_CHANGES;
 	}
 	
@@ -102,7 +101,7 @@ public class NeuronTraceRecursive implements PlugInFilter, MouseListener {
 			System.out.println("start trace from "+mouseX+", "+mouseY+", "+mouseZ);
 		}
 		else{
-			System.out.println("couldn't start the trace from this point... click again...");
+			IJ.showMessage("couldn't start the trace from this point... click again...");
 			return;
 		}
 		
@@ -130,6 +129,7 @@ public class NeuronTraceRecursive implements PlugInFilter, MouseListener {
 		
 		long start_time = System.currentTimeMillis();
 		System.out.println("start tracing from row: "+mouseX+" , col: "+mouseY+" and lay: "+mouseZ);
+		
 		neuron_tr.trace(mouseX, mouseY, mouseZ);
 		
 		System.out.format("total elasped time: %f sec.\n", (double)(System.currentTimeMillis()-start_time)/1000 );

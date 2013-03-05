@@ -211,48 +211,27 @@ public class TinyBranchTrace implements TinyBranch {
 		}
 	}
 	
-	public void 				drawCurrentEstimate(){
-		
-//		System.out.print("hyps: "+trace_hyps.length);
-//		
-//		double lh_max = Double.MIN_VALUE;
-//		double lh_min = Double.MAX_VALUE;
-//		
-//		for (int i = 0; i < trace_hyps.length; i++) {
-//			
-//			
-//			
-//			//if(trace_hyps[i].getLikelihood()>lh) lh = trace_hyps[i].getLikelihood();
-//			//trace_hyps[i].
-//			//System.out.format("hyp %d: pr(%f), lh(%f)  | ", i, trace_hyps[i].getPrior(), );
-//		}
-	}
-
 	public double 				calculatePosteriors(){ 
 		
 		double sum_posteriors = 0;
 		
 		for (int i = 0; i < trace_hyps.length; i++) {
-			
 			trace_hyps[i].calculatePosterior();					// calculate the posterior
-			
 			sum_posteriors += trace_hyps[i].getPosterior();		// add it to the sum
-		
 		}
 		// normalize posteriors (so that they sum to 1)
 		if(sum_posteriors>0){
-		
 			for (int i = 0; i < trace_hyps.length; i++) {
 				trace_hyps[i].scalePosterior(1/sum_posteriors);
 			}
-			
 		}
-//		else{
-//			System.out.print("POSTERIOR_SUM<=0");
-//		}
+		else{
+			System.out.print("POSTERIOR_SUM==0");
+		}
 		
 		return sum_posteriors;
 	}
+	
 	// TODO: check if it is used any more
 	public void 				addNewBranchesToQueue(ArrayList<Hypothesis> branch_queue){ 
 		
@@ -402,7 +381,7 @@ public class TinyBranchTrace implements TinyBranch {
 		if(!trace_hyps[0].isPosteriorCalculated()){
 			System.err.println("BranchTrace:getMaximumPosteriorHypothesis(): \n" +
 					"posterior of the first hypothesis is not calculated!  Stopping...");
-			System.exit(1);
+			return null;
 		}
 		
 		Hypothesis out = new Hypothesis();
@@ -414,19 +393,18 @@ public class TinyBranchTrace implements TinyBranch {
 			
 			if(!trace_hyps[i].isPosteriorCalculated()){
 				System.err.println("BranchTrace:getMaximumPosteriorHypothesis(): \n" +
-						"posterior of hypothesis "+i+" not calculated! Stopping...");
-				System.exit(1);
+						"posterior of hypothesis "+i+" not calculated! Return null...");
+				return null;
 			}
 			
 			if(trace_hyps[i].getPosterior()>max_posterior){
-				
 				max_posterior 	= trace_hyps[i].getPosterior();
 				index_max		= i;
 			}
 		}
 		out.setHypothesis(trace_hyps[index_max]);
-		
 		return out; 
+		
 	}
 	
 	public void 				storeHypothesis			(Hypothesis estimated_hyp, boolean printHyp){
@@ -571,9 +549,7 @@ public class TinyBranchTrace implements TinyBranch {
 	public void 				calculatePriors(){ 
 		// it will set priors in hyps w.r.t. ref_hyp
 		for (int i = 0; i < trace_hyps.length; i++) {
-			
 			trace_hyps[i].calculatePrior(current_hyp_estimate, radius_std, direction_std);
-			
 		}
 	}
 
@@ -592,7 +568,7 @@ public class TinyBranchTrace implements TinyBranch {
 	public boolean				bifurcation_detection_MeanShift3D(ImagePlus sphere_img, Sphere sphere_from_image, boolean manual_start){ 
 		
 		// returns whether to stop the trace or not
-		if(count<3 && !manual_start){  
+		if(count<2 && !manual_start){  
 			new_seeds 			= null;
 			new_directions 		= null;
 			new_seeds_coords 	= null;
@@ -600,11 +576,11 @@ public class TinyBranchTrace implements TinyBranch {
 			return false; // valid after 3 steps
 		}
 		
-		int 	MS_PTS 				= 50;
-		int 	MS_PTS_TH 			= 10;
+		int 	MS_PTS 				= 100;
+		int 	MS_PTS_TH 			= 20;
 		int 	MS_MAX_ITER 		= 100;
-		double 	MS_EPS 				= 0.0001; 
-		double 	MS_NEIGHBOUR 		= 0.01;
+		double 	MS_EPS 				= 0.001; 
+		double 	MS_NEIGHBOUR 		= 0.2; // TODO: this can be calculated wrt. circular angle & radius
 		double 	MS_ANGLE_RANGE_DEG 	= 30;
 		double 	MS_ANGLE_RANGE_RAD 	= (MS_ANGLE_RANGE_DEG/180)*Math.PI;
 		
@@ -616,14 +592,13 @@ public class TinyBranchTrace implements TinyBranch {
 		double[][] 	cluster_seed 			= ms3dSph.getClusterSeed();
 		int[][] 	cluster_local_coords 	= ms3dSph.getClusterSeedLocal();
 		
-		//if(cluster_dirs==null) System.out.print("MS:NO-DIRS");
-		if(cluster_dirs.length==1) System.out.print("MS:END");
+		if(cluster_dirs==null) 				System.out.print("MS:NO-DIRS");
+		else if(cluster_dirs.length==1) 	System.out.print("MS:END");
 		
 		if(cluster_dirs==null || cluster_dirs.length==1){
 			new_seeds 		= null;
 			new_directions 	= null;
 			new_seeds_coords = null;
-			
 			return true;
 		}
 		
@@ -651,6 +626,10 @@ public class TinyBranchTrace implements TinyBranch {
 			return true;   // stop tracing & take all, it was just manual start
 		}
 		
+//		System.out.println("count:"+count);
+//		System.out.println("centerlines(count-1):");
+//		ArrayHandling.print1DArray(centerlines[count-1]);
+		
 		if(cluster_dirs.length==2){
 			new_seeds 		= null;
 			new_directions 	= null;
@@ -662,6 +641,7 @@ public class TinyBranchTrace implements TinyBranch {
 			/*
 			 * calculate direction towards previous
 			 */
+			
 			double[] dir_towards_previous = new double[3];
 			dir_towards_previous = subtract(centerlines[count-2], centerlines[count-1]); // centerlines[count-1] marks last centerpoint
 			normalize(dir_towards_previous);
@@ -693,7 +673,6 @@ public class TinyBranchTrace implements TinyBranch {
 					ImagePlus sphere_img_binaized = otsu.run();
 					Find_Connected_Regions conn = new Find_Connected_Regions(sphere_img_binaized, true);
 					conn.run("");
-					//conn.showLabels().show();
 					for (int i = 0; i < new_seeds_coords.length; i++) {
 						if(new_seeds_coords[i]!=null && !conn.belongsToBiggestRegion(new_seeds_coords[i])){  
 							new_directions[i] 		= null;
@@ -711,7 +690,7 @@ public class TinyBranchTrace implements TinyBranch {
 			}
 				
 			if(nr_new_branches>1){
-				System.out.print("BIF("+nr_new_branches+"new)");
+				System.out.print("("+nr_new_branches+"new)");
 			}
 			else{
 				new_seeds 			= null;

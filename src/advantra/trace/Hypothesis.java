@@ -436,7 +436,8 @@ public class Hypothesis {
 	// TODO: substitute this one for speed reasons with calculateLikelihood_new
 	public void calculateLikelihood(ImagePlus input_img, double dr, double dh){
 
-		double[] avg_in_out_extracted_samples = hypothesis_cylinder.extractAvgInOut(input_img, (1/this.k), dr, dh);
+		double[] avg_in_out_extracted_samples = 
+				hypothesis_cylinder.extractAvgInOut(input_img, (1/this.k), dr, dh);
 		
 		avgIn	 		= 	avg_in_out_extracted_samples[0];
 		avgOut		 	= 	avg_in_out_extracted_samples[1];
@@ -448,6 +449,8 @@ public class Hypothesis {
 			int 	s 			= 1;
 			likelihood_value = Math.pow((avgIn-avgOut)/I_contrast, s); //likelihood formula
 		}
+		
+		
 		
 		setLikelihood(likelihood_value);
 		
@@ -462,7 +465,7 @@ public class Hypothesis {
 		
 		double likelihood_value = 0; 
 		
-		if(avg_in_out_extracted_samples[2]>0.5){
+		if(avg_in_out_extracted_samples[2]>50 && (avgIn>avgOut)){ // if there was more than 50 values
 			double I_contrast 	= 1.0;
 			int 	s 			= 1;
 			likelihood_value = Math.pow((avgIn-avgOut)/I_contrast, s); //likelihood formula
@@ -561,13 +564,13 @@ public class Hypothesis {
 	public void calculatePosterior(){
 		if(isPriorCalculated() && isLikelihoodCalculated()){
 			
-			posterior = this.getPrior() * this.getLikelihood();
+			setPosterior(this.getPrior() * this.getLikelihood());
 			
 //			if(posterior<0){
 //				posterior = 0;
 //			}
 			
-			posteriorCalculated = true;
+			//posteriorCalculated = true;
 			
 		}
 		else{
@@ -577,6 +580,17 @@ public class Hypothesis {
 		}
 	}
 	
+	public void setPosterior(double value){
+		
+		if(value<0){
+			System.out.println("Warning: Posterior set to negative value.\n");
+			return;
+		}
+		this.posterior = value;
+		this.posteriorCalculated = true;
+		
+	}
+	
 	public void scalePosterior(double coeff){
 		if(isPosteriorCalculated()){
 			this.posterior *= coeff;
@@ -584,7 +598,7 @@ public class Hypothesis {
 		else{
 			System.err.println("Hypothesis:scalePosterior(): \n" +
 					"cannot scale posterior without having it calculated first!");
-			System.exit(1);
+			return;
 		}
 	}
 

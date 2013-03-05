@@ -78,7 +78,6 @@ public class Test implements PlugIn {
 				
 			}
 			
-			
 	}
 	
 	public static void saveAsCsv(Image img, String path){
