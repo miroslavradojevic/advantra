@@ -251,8 +251,6 @@ public class ClassificationCP implements PlugIn {
 		//classifiers.add(new J48());
 		//classifiers_id.add("J48tree");
 		
-		
-		
 		// build classifiers
 		try {
 			

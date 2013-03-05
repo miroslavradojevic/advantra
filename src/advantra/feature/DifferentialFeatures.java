@@ -47,11 +47,14 @@ public class DifferentialFeatures {
 		
 		// set image
 		if(img!=null){
-			image = new FloatImage(Image.wrap(img));
+			
 			if(img.getStackSize()>1){
 				System.out.println("Cannot work with 3d!");
 				return;
 			}
+			
+			image = new FloatImage(Image.wrap(img));
+			
 		}
 			
 		else
