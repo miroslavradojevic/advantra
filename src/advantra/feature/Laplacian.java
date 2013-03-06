@@ -26,7 +26,7 @@ public class Laplacian implements PlugIn {
 	
 	public void run(String arg0) {
 		
-		IJ.showMessage("Using Laplacian as a CP feature!");
+		//IJ.showMessage("Using Laplacian as a CP feature!");
 		
 		String image_path 	= System.getProperty("user.home")+File.separator+"train"+File.separator+"n01.tif";
 		String csv_path		= System.getProperty("user.home")+File.separator+"train"+File.separator+"n01.csv";
@@ -34,7 +34,7 @@ public class Laplacian implements PlugIn {
 		double sigma_end	= 3.0;
 		int	sigma_nr 		= 2;
 		
-		GenericDialog gd = new GenericDialog("Testing laplacian...");
+		GenericDialog gd = new GenericDialog("Laplacian...");
 		gd.addStringField("image        :", image_path, 50);
 		gd.addStringField("ground truth :", csv_path, 	50);
 		gd.addNumericField("start 	sqrt(t) (sigma): ", sigma_start, 	2);
