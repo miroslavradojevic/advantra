@@ -12,9 +12,9 @@ import imagescience.image.Dimensions;
 import imagescience.image.FloatImage;
 import imagescience.image.Image;
 
-public class MyHessianFlanagan extends Hessian {
+public class MyHessian extends Hessian {
 	
-	public MyHessianFlanagan(){
+	public MyHessian(){
 		super();
 	}
 	

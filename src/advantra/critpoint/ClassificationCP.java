@@ -80,13 +80,6 @@ public class ClassificationCP implements PlugIn {
 		
 		test_dir		= gd.getNextString();
 		
-		// continue reading checkboxes
-//		for (int i = feature_enable.length; i < feature_enable.length+cls_enable.length; i++) {
-//			cls_enable[i-feature_enable.length] = ((Checkbox)gd.getCheckboxes().get(i)).getState();
-//		}
-		
-		//out_dir			= gd.getNextString();
-		
 		/*
 		 * dialog read done
 		 */
@@ -360,9 +353,6 @@ public class ClassificationCP implements PlugIn {
 			e.printStackTrace();
 			return null;
 		}
-		
-		
-		
 
  	}
 	
