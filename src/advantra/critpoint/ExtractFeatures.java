@@ -5,9 +5,7 @@ import ij.ImagePlus;
 import ij.gui.GenericDialog;
 import ij.measure.Calibration;
 import ij.plugin.PlugIn;
-import imagescience.feature.Hessian;
 import imagescience.image.Coordinates;
-import imagescience.image.Dimensions;
 import imagescience.image.FloatImage;
 import imagescience.image.Image;
 
@@ -17,6 +15,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Vector;
 
+import advantra.feature.Ballness;
+import advantra.feature.DoH;
 import advantra.feature.Laplacian;
 
 import weka.core.Attribute;
@@ -189,7 +189,7 @@ public class ExtractFeatures implements PlugIn {
 		
 		Instances train = new Instances("train", attributes, nr_locs);
 		for (int i = 0; i < nr_locs; i++) {
-			train.add(new Instance(nr+1)); // fille them with missing values
+			train.add(new Instance(nr+1)); // fill them with missing values
 		}
 		train.setClassIndex(train.numAttributes()-1);
 
@@ -225,7 +225,6 @@ public class ExtractFeatures implements PlugIn {
 					}
 					
 					train.instance(fill_up_idx).setValue(laplacians.size(), clss.get(image_idx).instance(loc_idx).value(0));
-					
 					fill_up_idx++;
 					
 				}
@@ -245,7 +244,32 @@ public class ExtractFeatures implements PlugIn {
 			/*
 			 *  DoH = l1*l2
 			 */
-			Hessian hess_doh = new Hessian();
+			DoH doh = new DoH();
+			
+			for (int image_idx = 0; image_idx < imgs.size(); image_idx++) {
+				
+				System.out.println("extracting DoH for image "+image_idx+"/"+(imgs.size()-1));
+				
+				Vector<Image> dohs = doh.run(imgs.get(image_idx), sigma);
+				
+				for (int loc_idx = 0; loc_idx < locs.get(image_idx).numInstances(); loc_idx++) {
+					
+					for (int scale_idx = 0; scale_idx < dohs.size(); scale_idx++) {
+						
+						int col = (int)Math.round( locs.get(image_idx).instance(loc_idx).value(0) );
+						int row = (int)Math.round( locs.get(image_idx).instance(loc_idx).value(1) );
+						Coordinates at_pos = new Coordinates(col, row);
+						double value = dohs.get(scale_idx).get(at_pos);
+						train.instance(fill_up_idx).setValue(scale_idx, value);
+					
+					}
+					
+					train.instance(fill_up_idx).setValue(dohs.size(), clss.get(image_idx).instance(loc_idx).value(0));
+					fill_up_idx++;
+				
+				}
+				
+			}
 			
 			try {
 				DataSink.write(train_path, train);
@@ -257,9 +281,34 @@ public class ExtractFeatures implements PlugIn {
 			break;
 		case 2:
 			/*
-			 *  |l1|
+			 *  |l1|, Ballness
 			 */
-			Hessian hess_l1 = new Hessian();
+			Ballness bness = new Ballness();
+			
+			for (int image_idx = 0; image_idx < imgs.size(); image_idx++) {
+				
+				System.out.println("extracting |l1| for image "+image_idx+"/"+(imgs.size()-1));
+				
+				Vector<Image> bnesses = bness.run(imgs.get(image_idx), sigma);
+				
+				for (int loc_idx = 0; loc_idx < locs.get(image_idx).numInstances(); loc_idx++) {
+					
+					for (int scale_idx = 0; scale_idx < bnesses.size(); scale_idx++) {
+						
+						int col = (int)Math.round( locs.get(image_idx).instance(loc_idx).value(0) );
+						int row = (int)Math.round( locs.get(image_idx).instance(loc_idx).value(1) );
+						Coordinates at_pos = new Coordinates(col, row);
+						double value = bnesses.get(scale_idx).get(at_pos);
+						train.instance(fill_up_idx).setValue(scale_idx, value);
+					
+					}
+					
+					train.instance(fill_up_idx).setValue(bnesses.size(), clss.get(image_idx).instance(loc_idx).value(0));
+					fill_up_idx++;
+				
+				}
+				
+			}
 			
 			try {
 				DataSink.write(train_path, train);

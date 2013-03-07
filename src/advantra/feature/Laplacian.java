@@ -17,8 +17,8 @@ public class Laplacian {
 		
 		Vector<Image> out = new Vector<Image>(sigmas.length);
 		
-		Image Lxx = null;//new FloatImage(input2D.dimensions());
-		Image Lyy = null;//new FloatImage(input2D.dimensions());
+		Image Lxx = null;
+		Image Lyy = null;
 		
 		
 		Dimensions dim = input2D.dimensions();

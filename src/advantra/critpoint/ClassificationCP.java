@@ -27,7 +27,7 @@ import ij.process.FloatProcessor;
 public class ClassificationCP implements PlugIn {
 
 	String 		train_dir 	= System.getProperty("user.home")+File.separator+"train";
-	String 		test_dir 	= System.getProperty("user.home")+File.separator+"test";
+	String 		test_dir 	= "nothing now...";//System.getProperty("user.home")+File.separator+"test";
 	String 		out_dir    	= System.getProperty("user.home")+File.separator+"res";
 	
 	File[] csv_train 		= null;
@@ -52,8 +52,8 @@ public class ClassificationCP implements PlugIn {
 		gd.addMessage("Choose features");
 		gd.addMessage("f(orig.)");
 		gd.addCheckboxGroup(3, 5, FE.exportAllLabels(), feature_enable);
-		gd.addMessage("f(DoH.)");
-		gd.addMessage("f(|lambda1|.)");
+		//gd.addMessage("f(DoH.)");
+		//gd.addMessage("f(|lambda1|.)");
 		
 		gd.addNumericField( "sigma start:", 			2, 	0, 5, "" );
 		gd.addNumericField( "sigma end  :", 			3, 	0, 5, "" );	
@@ -229,12 +229,14 @@ public class ClassificationCP implements PlugIn {
 		Instances train_set = Instances.mergeInstances(feat_set, classes);
 		train_set.setClassIndex((train_set.numAttributes()-1));
 		
-		IJ.showMessage("Train set formed!\n" +
+		System.out.println("Train set formed!\n" +
 				""+train_set.numInstances()+" instances, "+train_set.numAttributes()+" attributes.\n" +
 						"saved to:\n" +
 						"");
 		
-		System.out.println(train_set);
+		if(true) return;
+		
+		//System.out.println(train_set);
 		
 		// define classifiers
 		//ArrayList<Classifier> classifiers = new ArrayList<Classifier>();
@@ -256,8 +258,8 @@ public class ClassificationCP implements PlugIn {
 			e.printStackTrace();
 		}
 
-		IJ.showMessage("Classifiers built!");
-		System.out.println(tree);
+		//IJ.showMessage("Classifiers built!");
+		//System.out.println(tree);
 		// cross-validation
 		
 		
@@ -326,7 +328,7 @@ public class ClassificationCP implements PlugIn {
 		
 		}
 		
-		IJ.showMessage("finished");
+		System.out.println("finished");
 		
 	}
 	
