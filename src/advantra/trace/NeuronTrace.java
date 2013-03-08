@@ -116,7 +116,7 @@ public class NeuronTrace {
 						double dy = current_branch.getCurrentPosY()-current_branch.getSeedPosY();
 						double dz = current_branch.getCurrentPosZ()-current_branch.getSeedPosZ();
 						
-						if((dx*dx+dy*dy+dz*dz>scale*scale) && !enable_bif_detection)	
+						if((dx*dx+dy*dy+dz*dz>0.5*scale*0.5*scale) && !enable_bif_detection)	
 							enable_bif_detection = true; // || loop_count>3
 						
 						if(enable_bif_detection){
@@ -130,6 +130,17 @@ public class NeuronTrace {
 							boolean stop 	= 
 									current_branch.bifurcation_detection_MeanShift3D(sphere_img, sp, manual_start); 
 							// will process new hypotheses
+//							if(stop) {
+//								String name = String.format(
+//										"branch_at_%.2f_%.2f_%.2f.tif",
+//										current_branch.getCurrentPosX(), 
+//										current_branch.getCurrentPosY(),
+//										current_branch.getCurrentPosZ()
+//										);
+//								sphere_img.setTitle(name);
+//								FileSaver fs = new FileSaver(sphere_img);
+//								fs.saveAsTiffStack(name);
+//							}
 							if(stop) break;
 						}
 //						else{
@@ -181,11 +192,6 @@ public class NeuronTrace {
 		System.out.println("\n reconstructed "+traced_branch_nr+" branches");
 		System.out.println("\n"+branch_queue.size()+" branches waiting in the queue");
 		
-		// debug
-//		String name = String.format("seeds.tif");
-//		img_traced_output.setTitle(name);
-//		FileSaver fs = new FileSaver(img_traced_output);
-//		fs.saveAsTiffStack(name);
 		
 	}		
 	

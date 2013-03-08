@@ -13,6 +13,7 @@ import weka.core.FastVector;
 import weka.core.Instance;
 import weka.core.Instances;
 import weka.core.converters.CSVLoader;
+import weka.core.converters.ConverterUtils.DataSink;
 import weka.filters.Filter;
 import weka.filters.unsupervised.attribute.Remove;
 import advantra.feature.DifferentialFeatures;
@@ -93,7 +94,7 @@ public class ClassificationCP implements PlugIn {
 		File dir1 = new File(train_dir);
 		train_dir = dir1.getAbsolutePath();
 		File dir2 = new File(test_dir);
-		if(!dir1.isDirectory() || !dir2.isDirectory()){
+		if(!dir1.isDirectory() ){ //|| !dir2.isDirectory()
 			IJ.error("Wrong train/test directory!");
 			return;
 		}
@@ -233,7 +234,23 @@ public class ClassificationCP implements PlugIn {
 				""+train_set.numInstances()+" instances, "+train_set.numAttributes()+" attributes.\n" +
 						"saved to:\n" +
 						"");
+		String train_path = System.getProperty("user.home")+File.separator+"train.csv";
+		try {
+			DataSink.write(train_path, train_set);
+			System.out.println("done, saved to "+train_path);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 		
+		/*
+		 * 
+		 * 
+		 * 
+		 * 
+		 * 
+		 * 
+		 * 
+		 */
 		if(true) return;
 		
 		//System.out.println(train_set);

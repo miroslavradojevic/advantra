@@ -2,7 +2,6 @@ package advantra.trace;
 
 import java.util.ArrayList;
 import advantra.general.ArrayHandling;
-import advantra.general.ImageConversions;
 import advantra.processing.IntensityCalc;
 import advantra.shapes.Cylinder;
 import advantra.shapes.RegionOfInterest.RoiType;
@@ -16,10 +15,10 @@ import ij.ImagePlus;
 
 public class TinyBranchTrace implements TinyBranch {
 	
-	ImagePlus 			img_traced;				// image being traced
-	IntensityCalc		img_calc;				// TODO: both ImagePlus and IntensityCalc are perhaps redundant
+	//ImagePlus 			img_traced;				// image being traced
+	IntensityCalc		img_calc;				// for intensity calculations
 	
-	ImagePlus			img_traced_output;		// for debug, visualizations...
+	//ImagePlus			img_traced_output;		// for debug, visualizations...
 	
 												// dimensionality
 	double[] 			seed_point; 			// 3
@@ -46,9 +45,9 @@ public class TinyBranchTrace implements TinyBranch {
 	
 	public 		TinyBranchTrace(){ 
 		
-		this.img_traced 		= null;
+		//this.img_traced 		= null;
 		this.img_calc			= new IntensityCalc();
-		this.img_traced_output 	= null;
+		//this.img_traced_output 	= null;
 		
 		this.seed_point 	= new double[3];
 		this.seed_direction = new double[3];
@@ -76,9 +75,9 @@ public class TinyBranchTrace implements TinyBranch {
 			final ImagePlus 		img_traced 
 			){ 
 		
-		this.img_traced 		= img_traced;
+		//this.img_traced 		= img_traced;
 		this.img_calc			= new IntensityCalc(img_traced.getStack());
-		this.img_traced_output 	= ImageConversions.ImagePlusToRGB(img_traced);
+		//this.img_traced_output 	= ImageConversions.ImagePlusToRGB(img_traced);
 		
 		this.seed_point 	= new double[3];
 		this.seed_direction = new double[3];
@@ -108,9 +107,9 @@ public class TinyBranchTrace implements TinyBranch {
 			final Hypothesis		seed_hyp
 			){ 
 		
-		this.img_traced 		= img_traced;
+		//this.img_traced 		= img_traced;
 		this.img_calc			= new IntensityCalc(img_traced.getStack());
-		this.img_traced_output 	= ImageConversions.ImagePlusToRGB(img_traced);
+		//this.img_traced_output 	= ImageConversions.ImagePlusToRGB(img_traced);
 		
 		this.seed_point 	= new double[3];
 		this.seed_point[0]	= seed_hyp.getPositionX();
@@ -196,6 +195,21 @@ public class TinyBranchTrace implements TinyBranch {
 	
 	private double 				dotProd3(double[] a, double[] b){
 		return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+	}
+	
+	private double 				angle3(double[] a, double[] b){
+		
+		double[] a_n  = new double[3];
+		double a_norm = Math.sqrt(a[0]*a[0]+a[1]*a[1]+a[2]*a[2]); 
+		a_n[0] = a[0]/a_norm;	a_n[1] = a[1]/a_norm;	a_n[2] = a[2]/a_norm;
+		
+		double[] b_n  = new double[3];
+		double b_norm = Math.sqrt(b[0]*b[0]+b[1]*b[1]+b[2]*b[2]); 
+		b_n[0] = b[0]/b_norm;	b_n[1] = b[1]/b_norm;	b_n[2] = b[2]/b_norm;
+		
+		double ang = Math.acos(dotProd3(a_n, b_n));
+		return ang;
+		
 	}
 	
 	public void 				setLikelihoods(Hypothesis[] hyps, double likelihood_value){
@@ -332,7 +346,7 @@ public class TinyBranchTrace implements TinyBranch {
 					new_hyps[i] = new Hypothesis(
 							new_seeds[i], 
 							new_directions[i], 
-							current_hyp_estimate.getNeuriteRadius(), //ERROR!!! current_hyp_estimate.getHypothesisRadius(), 
+							2.0,//current_hyp_estimate.getNeuriteRadius(), 
 							current_hyp_estimate.getK());
 				}
 				else{
@@ -568,7 +582,7 @@ public class TinyBranchTrace implements TinyBranch {
 	public boolean				bifurcation_detection_MeanShift3D(ImagePlus sphere_img, Sphere sphere_from_image, boolean manual_start){ 
 		
 		// returns whether to stop the trace or not
-		if(count<2 && !manual_start){  
+		if(count<3 && !manual_start){  
 			new_seeds 			= null;
 			new_directions 		= null;
 			new_seeds_coords 	= null;
@@ -580,7 +594,7 @@ public class TinyBranchTrace implements TinyBranch {
 		int 	MS_PTS_TH 			= 20;
 		int 	MS_MAX_ITER 		= 100;
 		double 	MS_EPS 				= 0.001; 
-		double 	MS_NEIGHBOUR 		= 0.2; // TODO: this can be calculated wrt. circular angle & radius
+		double 	MS_NEIGHBOUR 		= 0.1; // TODO: this can be calculated wrt. circular angle & radius
 		double 	MS_ANGLE_RANGE_DEG 	= 30;
 		double 	MS_ANGLE_RANGE_RAD 	= (MS_ANGLE_RANGE_DEG/180)*Math.PI;
 		
@@ -664,8 +678,25 @@ public class TinyBranchTrace implements TinyBranch {
 			new_directions[index_expell_direction] 		= null;
 			new_seeds[index_expell_direction]			= null;
 			new_seeds_coords[index_expell_direction]	= null;
+			
+			/*
+			 * combine them together if they're close enough (angles close enough, <5 degrees)
+			 * 
+			 */
+			
+			for (int i = 0; i < cluster_dirs.length; i++) {
+				double th_angle = 0.15; // approx. 5degrees
+				for (int j = i+1; j < cluster_dirs.length; j++) {
+					if(new_directions[i]!=null && new_directions[j]!=null && angle3(new_directions[i],new_directions[j])<th_angle){
+						new_directions[j] = null;
+						new_seeds[j] = null;
+						new_seeds_coords[j] = null;
+						System.out.print("SEEDS_MERGED");
+					}
+				}
+			}
 				
-				if(false){
+				//if(false){
 					/*
 					 * expel one that is not connected to the body
 					 */
@@ -678,9 +709,10 @@ public class TinyBranchTrace implements TinyBranch {
 							new_directions[i] 		= null;
 							new_seeds[i]			= null;
 							new_seeds_coords[i]		= null;
+							System.out.print("EXPELLING_NOT_CONNECTED");
 						}
 					}
-				}
+				//}
 				
 			int nr_new_branches = 0;
 			for (int i = 0; i < new_seeds.length; i++) {
