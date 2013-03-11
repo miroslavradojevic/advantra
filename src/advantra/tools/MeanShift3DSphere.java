@@ -48,6 +48,7 @@ public class MeanShift3DSphere {
 	
 	double[][]	cluster_dirs;
 	double[][]	cluster_seed;			// global image stack coordinates
+	double[][]	cluster_seed_test;
 	int[][]		cluster_local_seeds;	// coordinates in local sphere image coordinates (need it for connectivity tests)
 	
 										/*
@@ -87,6 +88,7 @@ public class MeanShift3DSphere {
 		T_clust 				= null;
 		cluster_dirs 			= null;
 		cluster_seed 			= null;
+		cluster_seed_test		= null;
 		cluster_local_seeds 	= null;
 		
 		for (int i = 0; i < N; i++) {
@@ -112,6 +114,10 @@ public class MeanShift3DSphere {
 
 	public double[][] 	getClusterSeed(){
 		return cluster_seed;
+	}
+	
+	public double[][] 	getClusterSeedTest(){
+		return cluster_seed_test;
 	}
 	
 	public int[][] 		getClusterSeedLocal(){
@@ -262,69 +268,166 @@ public class MeanShift3DSphere {
 
 	}
 	
-	public void 		extractClusters_new(double angle_range, int M){
+	public void 		extractClusters_new(double angle_th, int M){
 		
-		System.out.println("extractClusters_new");
+		//System.out.println("single linkage");
 		
-		long t11 = System.currentTimeMillis();
+		//long t11 = System.currentTimeMillis();
 		
-		double[][] ang_distances 	= new double[T.length][T.length];
+		double[][] D 				= new double[T.length][T.length];
 		double[] cartesian_i 		= new double[3];
 		double[] cartesian_j 		= new double[3];
 		
-		// fill the distances
+		// fill the distances - thresholded distance map
 		for (int i = 0; i < T.length; i++) {
 			
 			Transf.sph2cart(1.0, T[i][0], T[i][1], cartesian_i);
 			
-			for (int j = 0; j < T.length; j++) {
-				if(i>=j){
-					ang_distances[i][j] = Double.NaN;
+			for (int j = i; j < T.length; j++) {
+				if(i==j){
+					D[i][j] = 0;
 				}
 				else{
 					// ang between i and j
 					Transf.sph2cart(1.0, T[j][0], T[j][1], cartesian_j);
-					ang_distances[i][j] = angle3(cartesian_i, cartesian_j);// in radians
+					D[i][j] = angle3(cartesian_i, cartesian_j);// in radians
+					if(D[i][j]<=angle_th){
+						D[i][j] = 0;
+					}
+					D[j][i] = D[i][j];
 					
 				}
 				
 			}
 		}
 		
+		//System.out.println("table calculated.");
+		
 		// group clusters
 		
-		Vector< Vector<double[]> > clusters = new Vector< Vector<double[]> >();
+		Vector<Vector<Integer>> clusters = new Vector<Vector<Integer>>();
+		
 		boolean[] clustered = new boolean[T.length];
 		for (int i = 0; i < clustered.length; i++) {
 			clustered[i] = false;
 		}
 		
-		for (int i = 0; i < T.length; i++) {
+		//int nr_classes = 0;
+		
+		for (int i = 0; i < T.length; i++) { // T.length
+			
+			//System.out.print(".");
+			
 			if(!clustered[i]){
 				
-				Vector<double[]> e = new Vector<double[]>();
-				e.add(T[i]);
-				clusters.add(e);
+				clustered[i] = true;
 				
-				for (int j = i+1; j < T.length; j++) {
-					if(ang_distances[i][j]<angle_range){
-						clusters.lastElement().add(T[j]);
-						clustered[j] = true;
+				Vector<Integer> v = new Vector<Integer>();
+				v.add(i);
+				clusters.add(v);
+				
+				Vector<Integer> neighbors = new Vector<Integer>();
+				
+				// check neighbors for i -th
+				for (int j = 0; j < T.length; j++) {
+					if(j!=i && !clustered[j]){
+						if(D[i][j]==0){
+							neighbors.add(j);
+							clustered[j] = true;
+							//System.out.print("nb:"+j+", ");
+							// each time it was zero - ad it to the list
+							clusters.get(clusters.size()-1).add(j);
+						}
 					}
 				}
 				
+				//System.out.println("nb list: "+neighbors.size());
+				
+				while(neighbors.size()>0){
+					
+					int take_neighbor = neighbors.get(0);
+					neighbors.removeElementAt(0);
+					
+					// check neighbors for take_neighbor -th
+					
+					//if(clustered[]){
+					for (int j = 0; j < T.length; j++) {
+						if (j!=take_neighbor && !clustered[j]) {
+							if(D[take_neighbor][j]==0){
+								neighbors.add(j);
+								clustered[j] = true;
+								// each time it was zero - ad it to the list
+								clusters.get(clusters.size()-1).add(j);
+							}
+						}
+					}
+					
+					//System.out.println("nb list: "+neighbors.size());
+					
+				}
+				
+				//nr_classes++;
+				
+			}
+		}
+		//long t22 = System.currentTimeMillis();
+		// return clusters as 'cluster_seed' (used further)
+		//System.out.println("elapsed "+((t22-t11)/1000f)+" s.");
+
+		// TODO: this is a bit stupid solution (two loops just to see the size), cluster_seed should be ArrayList!
+		
+		int nr_clusters_higher_than_M = 0;
+		
+		for (int i = 0; i < clusters.size(); i++) {
+			if(clusters.get(i).size()>M){
+				nr_clusters_higher_than_M++;
 			}
 		}
 		
-		long t22 = System.currentTimeMillis();
-		
-		// return clusters as 'cluster_seed' (used further)
-		System.out.println("testing...");
-		
-		System.out.println("elapsed "+((t22-t11)/1000f)+" s.");
+		cluster_seed_test 	= new double[nr_clusters_higher_than_M][3];
+		double[] current_v 	= new double[3]; // cartesian
+		double[] avg_v 		= new double[3]; // cartesian
+		int idx = 0;
 		
 		for (int i = 0; i < clusters.size(); i++) {
-			System.out.println("cluster "+(i+1)+" : "+clusters.get(i).size()+" el.");
+			if(clusters.get(i).size()>M){
+				
+				
+				
+				
+				
+				
+//				int sz = clusters.get(i).size();
+//				// avg
+//				avg_v[0] = avg_v[1] = avg_v[2] = 0;
+//				for (int j = 0; j < sz; j++) {
+//					int index_v = clusters.get(i).get(j);
+//					Transf.sph2cart(1.0, T[index_v][0], T[index_v][1], current_v);
+//					avg_v[0] += current_v[0];
+//					avg_v[1] += current_v[1];
+//					avg_v[2] += current_v[2];
+//				}
+//				
+//				double avg_v_norm = Math.sqrt(avg_v[0]*avg_v[0]+avg_v[1]*avg_v[1]+avg_v[2]*avg_v[2]);
+//				
+//				avg_v[0] /= avg_v_norm;
+//				avg_v[1] /= avg_v_norm;
+//				avg_v[2] /= avg_v_norm;
+//				
+//				avg_v[0] *= sphere_roi.getR();
+//				avg_v[1] *= sphere_roi.getR();
+//				avg_v[2] *= sphere_roi.getR();
+				
+				int index_v = clusters.get(i).get(0);
+				Transf.sph2cart(sphere_roi.getR(), T[index_v][0], T[index_v][1], avg_v);
+				
+				
+				cluster_seed_test[idx][0] = avg_v[0] + sphere_roi.getCenterX();//sphere_space.getCenterX();
+				cluster_seed_test[idx][1] = avg_v[1] + sphere_roi.getCenterY();
+				cluster_seed_test[idx][2] = avg_v[2] + sphere_roi.getCenterZ();
+				
+				idx++;
+			}
 		}
 		
 	}
@@ -339,6 +442,7 @@ public class MeanShift3DSphere {
 
 		boolean[] 	clustered 		= new boolean[T.length]; // initialized with false
 		int[] 		cluster_size 	= new int[T.length];
+		
 		int nr_clusters = 0;
 		int nr_clusters_nigher_than_M = 0;
 		
@@ -348,12 +452,13 @@ public class MeanShift3DSphere {
 				
 				clustered[i] = true;
 				cluster_size[nr_clusters]++;
+				
 				T[nr_clusters][0] = T[i][0];
 				T[nr_clusters][1] = T[i][1];
 				
-				for (int j = i+1; j < T.length; j++) {
+				for (int j = 0; j < T.length; j++) {
 					
-					if(!clustered[j] && d(T[i], T[j])<=range){ 
+					if(!clustered[j] &&  d(T[i], T[j])<=range){  // // angle2(T[i], T[j])
 						
 						clustered[j] = true;
 						cluster_size[nr_clusters]++;
@@ -387,8 +492,8 @@ public class MeanShift3DSphere {
 		cluster_seed 	= new double[nr_clusters_nigher_than_M][3];
 		cluster_local_seeds = new int[nr_clusters_nigher_than_M][3];
 		
-		System.out.println("total: "+nr_clusters);
-		System.out.println(">M: "+nr_clusters_nigher_than_M);
+//		System.out.println("total: "+nr_clusters);
+//		System.out.println(">M: "+nr_clusters_nigher_than_M);
 		
 		double[] cartesian_aux = new double[3];
 		for (int i = 0; i < nr_clusters; i++) {
@@ -398,19 +503,17 @@ public class MeanShift3DSphere {
 				T_clust[cnt][0] = T[i][0];
 				/*
 				 */
+				// TODO: expell cluster_dirs
 				Transf.sph2cart(1.0, 				T[i][0], T[i][1], cluster_dirs[cnt]); 
 				/*
 				 */
-				Transf.sph2cart(sphere_space.getR(), 	T[i][0], T[i][1], cluster_seed[cnt]);
+				Transf.sph2cart(1.1*sphere_space.getR(), 	T[i][0], T[i][1], cluster_seed[cnt]);
 				cluster_seed[cnt][0] += sphere_space.getCenterX();
 				cluster_seed[cnt][1] += sphere_space.getCenterY();
 				cluster_seed[cnt][2] += sphere_space.getCenterZ();
-				// added rounding here
-				//cluster_seed[cnt][0] = Math.round(cluster_seed[cnt][0]);
-				//cluster_seed[cnt][1] = Math.round(cluster_seed[cnt][1]);
-				//cluster_seed[cnt][2] = Math.round(cluster_seed[cnt][2]);
 				/*
 				 */
+				// TODO: expell cluster_local_seeds
 				Transf.sph2cart(sphere_roi.getR(), 	T[i][0], T[i][1], cartesian_aux);
 				cluster_local_seeds[cnt][0] = (int)Math.round(cartesian_aux[0] + sphere_roi.getCenterX());
 				cluster_local_seeds[cnt][1] = (int)Math.round(cartesian_aux[1] + sphere_roi.getCenterY());	
@@ -440,7 +543,17 @@ public class MeanShift3DSphere {
 		// wrap azimuth
 		double az_dist = a[1]-b[1];
 		double wrapped_az = Transf.angle_wrap_pi(az_dist);
-		return Math.sqrt(Math.pow(phi_dist, 2)+Math.pow(wrapped_az, 2));
+		return (wrapped_az>phi_dist)? wrapped_az : phi_dist ;
+		//return Math.sqrt(Math.pow(phi_dist, 2)+Math.pow(wrapped_az, 2));
+	}
+	
+	private double 		angle2(double[] T1, double[] T2){
+		double[] a = new double[3];
+		double[] b = new double[3];
+		Transf.sph2cart(1.0, T1[0], T1[1], a);
+		Transf.sph2cart(1.0, T2[0], T2[1], b);
+		return angle3(a, b);
+		
 	}
 	
 	private double 		angle3(double[] a, double[] b){
@@ -468,10 +581,9 @@ public class MeanShift3DSphere {
 		
 	}
 	
-	private double 				dotProd3(double[] a, double[] b){
+	private double 		dotProd3(double[] a, double[] b){
 		return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
 	}
-
 	
 	public void 		saveS(String csv_file_name){
 		DebugExport f = new DebugExport(csv_file_name);

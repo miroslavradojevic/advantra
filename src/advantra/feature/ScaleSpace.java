@@ -1,7 +1,5 @@
 package advantra.feature;
 
-import java.util.Vector;
-
 import imagescience.feature.Smoother;
 import imagescience.image.Axes;
 import imagescience.image.Coordinates;
@@ -9,7 +7,9 @@ import imagescience.image.Dimensions;
 import imagescience.image.FloatImage;
 import imagescience.image.Image;
 
-
+/*
+ * this class will extract image in scale-space
+ */
 
 public class ScaleSpace {
 	
@@ -17,26 +17,25 @@ public class ScaleSpace {
 
 	public ScaleSpace(){}
 	
-	public Vector<Image> extract(Image input2D, double[] sigmas){
-		
-		// normalized derivatives (derivatives are blob in this case)
-		Vector<Image> scsp = new Vector<Image>(sigmas.length);
-		
-		Smoother sm = new Smoother();
-		for (int i = 0; i < sigmas.length; i++) {
-			scsp.add(sm.gauss(input2D.duplicate(), sigmas[i]));
-		}
-		
-		//Image Scl = new FloatImage(input2D.dimensions()); // Lap.axes(Axes.X);
-		
-		return scsp;
-		
-	}
+//	public Vector<Image> extract(Image input2D, double[] sigmas){
+//		
+//		// normalized derivatives (derivatives are blob in this case)
+//		Vector<Image> scsp = new Vector<Image>(sigmas.length);
+//		
+//		Smoother sm = new Smoother();
+//		for (int i = 0; i < sigmas.length; i++) {
+//			scsp.add(sm.gauss(input2D.duplicate(), sigmas[i]));
+//		}
+//		
+//		//Image Scl = new FloatImage(input2D.dimensions()); // Lap.axes(Axes.X);
+//		
+//		return scsp;
+//		
+//	}
 	
 	public Image extractAsStack(Image input2D, double[] sigmas){
 		
 		Dimensions in_dims = input2D.dimensions();
-		// normalized derivatives (derivatives are blob in this case)
 		Image scale_space = new FloatImage(new Dimensions(in_dims.x, in_dims.y, sigmas.length));
 		scale_space.axes(Axes.X);
 		

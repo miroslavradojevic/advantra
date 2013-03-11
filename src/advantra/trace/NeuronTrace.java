@@ -76,7 +76,7 @@ public class NeuronTrace {
 				 */
 				// new seeds calculated inside
 				current_branch.calculateNewSeeds(img_calc);
-				new_hypotheses = current_branch.getNewSeedHypotheses(img_calc);
+				new_hypotheses = current_branch.getNewSeedHypotheses(img_calc); // will eliminate some seeds
 				manual_start = false;
 				System.out.print("}");
 				
@@ -139,9 +139,12 @@ public class NeuronTrace {
 							 */							
 							current_branch.calculateNewSeeds(img_calc);
 							new_hypotheses.clear();
-							new_hypotheses = current_branch.getNewSeedHypotheses(img_calc);
+							new_hypotheses = current_branch.getNewSeedHypotheses(img_calc); // will eliminate some seeds
 							
 							if(new_hypotheses.size()>1) {
+								
+								
+								
 								/*
 								 * save sphere image
 								 */
@@ -171,7 +174,6 @@ public class NeuronTrace {
 									fw = new FileWriter(file_name+"_extracted_seeds.csv");
 									double[][] seed_points = current_branch.getNewSeeds();
 									
-									//fw.write("SEED POINTS!\n");
 									if(seed_points!=null){
 									for (int i = 0; i < seed_points.length; i++) {
 										if(seed_points[i]!=null){
@@ -184,6 +186,23 @@ public class NeuronTrace {
 									}
 									
 									fw.close();
+									
+//									fw = new FileWriter(file_name+"_extracted_seeds_test.csv");
+//									double[][] seed_points_test = current_branch.getNewSeedsTest();
+//									
+//									if(seed_points_test!=null){
+//									for (int i = 0; i < seed_points_test.length; i++) {
+//										if(seed_points_test[i]!=null){
+//											for (int j = 0; j < seed_points_test[i].length; j++) {
+//												fw.write(""+seed_points_test[i][j]+", ");
+//											}
+//											fw.write("\n");
+//										}
+//									}
+//									}
+//									
+//									fw.close();
+									
 									
 								}
 								catch(IOException exIO){

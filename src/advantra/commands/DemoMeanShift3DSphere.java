@@ -10,6 +10,7 @@ import java.util.Calendar;
 import advantra.general.ArrayHandling;
 import advantra.general.CreateDirectory;
 import advantra.general.ImageConversions;
+import advantra.processing.IntensityCalc;
 import advantra.shapes.Sphere;
 import advantra.tools.MeanShift3DSphere;
 
@@ -81,8 +82,8 @@ public class DemoMeanShift3DSphere {
 		System.out.format("resolution: %d \n", resolution);
 		
 		ImagePlus input_image 	= new ImagePlus(image_path);
-		
-		ImagePlus output 		= sp.extract(input_image, resolution);	
+		IntensityCalc img_calc = new IntensityCalc(input_image.getStack());
+		ImagePlus output 		= sp.extract(img_calc, resolution);	
 		(new FileSaver(output)).saveAsTiffStack(export_dir+"sphere_stack.tif");	
 
 		double angle_range_deg 	= 20;

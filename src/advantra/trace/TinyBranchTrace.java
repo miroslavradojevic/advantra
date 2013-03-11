@@ -8,6 +8,7 @@ import advantra.shapes.Cylinder;
 import advantra.shapes.RegionOfInterest.RoiType;
 import advantra.shapes.Sphere;
 import advantra.tools.MeanShift3DSphere;
+import advantra.tools.OtsuBinarisation;
 
 import ij.ImagePlus;
 
@@ -28,6 +29,7 @@ public class TinyBranchTrace implements TinyBranch {
 	Hypothesis 			current_hyp_estimate;	// actual hypothesis 
 	
 	double[][] 			new_seeds; 				// br_dirs x3 (because they're 3d space coordinates)
+	double[][]			new_seeds_test;
 	
 	ImagePlus 			sphere_img; 
 	double[][] 			after_conv;
@@ -58,6 +60,7 @@ public class TinyBranchTrace implements TinyBranch {
 		current_hyp_estimate = new Hypothesis();
 		
 		new_seeds		= null;
+		new_seeds_test 	= null;
 
 		sphere_img = null;
 		after_conv = null;
@@ -91,6 +94,7 @@ public class TinyBranchTrace implements TinyBranch {
 		current_hyp_estimate = new Hypothesis();
 
 		new_seeds 		= null;
+		new_seeds_test  = null;
 		
 		sphere_img      = null;
 		after_conv = null;
@@ -249,6 +253,10 @@ public class TinyBranchTrace implements TinyBranch {
 		return new_seeds;
 	}
 	
+	public double[][]			getNewSeedsTest(){
+		return new_seeds_test;
+	}
+	
 	public double[][] 			getNewSeedsCopy(){
 		double[][] out = new double[new_seeds.length][new_seeds[0].length];
 		for (int i = 0; i < new_seeds.length; i++) {
@@ -341,17 +349,6 @@ public class TinyBranchTrace implements TinyBranch {
 				 
 			}
 			return new_hyps;
-		}
-		
-	}
-	
-	public double[] 			getNewSeed(int index){
-		
-		if(index<0 || index>=new_seeds.length){
-			return null;
-		}
-		else{
-			return new_seeds[index];
 		}
 		
 	}
@@ -572,11 +569,11 @@ public class TinyBranchTrace implements TinyBranch {
 	
 	public void					calculateNewSeeds(IntensityCalc img_calc){ 
 		
-		int 	MS_PTS 				= 300;
-		int 	MS_PTS_TH 			= 30;
+		int 	MS_PTS 				= 250;
+		int 	MS_PTS_TH 			= 40;
 		int 	MS_MAX_ITER 		= 100;
 		double 	MS_EPS 				= 0.001; 
-		double 	MS_NEIGHBOUR 		= 5;//deg
+		double 	MS_NEIGHBOUR 		= 4;//deg
 		double  MS_NEIGHBOUR_RAD	= (MS_NEIGHBOUR/180)*Math.PI;
 		double 	MS_ANGLE_RANGE_DEG 	= 30;
 		double 	MS_ANGLE_RANGE_RAD 	= (MS_ANGLE_RANGE_DEG/180)*Math.PI;
@@ -588,17 +585,22 @@ public class TinyBranchTrace implements TinyBranch {
 		Sphere sphere_from_image 		= new Sphere(getCurrentTraceHypothesisCenterpoint(), scale);
 		sphere_img     					= sphere_from_image.extract(img_calc, TinyBranch.extract_sphere_resolution); 
 		
+		//OtsuBinarisation otsu = new OtsuBinarisation(sphere_img);
+		//sphere_img = otsu.run();
+		
 		MeanShift3DSphere ms3dSph = new MeanShift3DSphere(sphere_img, sphere_from_image, MS_ANGLE_RANGE_RAD, MS_PTS);
 		
 		ms3dSph.run(MS_MAX_ITER, MS_EPS);
 		
-		ms3dSph.extractClusters(0.01, MS_PTS_TH); 
+		ms3dSph.extractClusters(MS_NEIGHBOUR_RAD, MS_PTS_TH); // cluster_seed
 		
-		//ms3dSph.extractClusters_new(MS_NEIGHBOUR_RAD, MS_PTS_TH); // pilot
+		//ms3dSph.extractClusters_new(MS_NEIGHBOUR_RAD, MS_PTS_TH); // cluster_seed_test
 		
 		// result is stored in fields of the ms3dSph class
 		
 		new_seeds 			= ms3dSph.getClusterSeed();
+		
+		//new_seeds_test		= ms3dSph.getClusterSeedTest();
 		
 		//System.out.print("new_seeds: ");
 		//ArrayHandling.print2DArray(new_seeds);

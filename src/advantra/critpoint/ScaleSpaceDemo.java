@@ -27,7 +27,7 @@ public class ScaleSpaceDemo implements PlugInFilter, MouseListener {
 	
 	public void run(ImageProcessor arg0) {
 		
-		pw = new PlotWindow("L(sigma)", "sigma", "Intensity", new double[]{1,2}, new double[]{1,2});
+		pw = new PlotWindow("I(sigma)", "sigma", "Intensity", new double[]{1,2}, new double[]{1,2});
 		
 		GenericDialog gd = new GenericDialog("Scale space");
 		//gd.addStringField("folder with annotations", dir_path, 50);
@@ -51,8 +51,6 @@ public class ScaleSpaceDemo implements PlugInFilter, MouseListener {
 			sigma[i] = (i==0)? sigma_1 : sigma_1+i*((sigma_2-sigma_1)/(nr-1));
 		}
 		
-		
-		
 //		Vector<Image> imgs_at_scales = scsp_extractor.extract(img, sigma);
 //		for (int i = 0; i < imgs_at_scales.size(); i++) {
 //			imgs_at_scales.get(i).imageplus().show();
@@ -60,9 +58,11 @@ public class ScaleSpaceDemo implements PlugInFilter, MouseListener {
 		
 		ScaleSpace scsp_extractor = new ScaleSpace();
 		scale_space = scsp_extractor.extractAsStack(img, sigma).imageplus();
+		scale_space.setTitle("Image in scale-space");
 		scale_space.show();
+		
 		scale_space.getWindow().getCanvas().addMouseListener(this);
-		IJ.showMessage("click on the point ...");
+		IJ.showMessage("click on the point...");
 		
 	}
 
@@ -100,7 +100,7 @@ public class ScaleSpaceDemo implements PlugInFilter, MouseListener {
 		// show it in plot window
 		//PlotWindow pw = new PlotWindow("L(sigma)", "sigma", "Intensity", sigma, L);
 		//pw.addPoints(sigma, profile, PlotWindow.LINE);
-		pw.drawPlot(new Plot("", "", "", sigma, profile));
+		pw.drawPlot(new Plot("Intensity vs. scale", "sigma", "I", sigma, profile));
 		//pw.draw();
 		
 	}
