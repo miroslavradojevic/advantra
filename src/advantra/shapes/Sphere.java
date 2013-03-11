@@ -19,8 +19,6 @@ public class Sphere extends RegionOfInterest {
 	static 	int			R_MAX = 20;
 	static  int			R_MIN = 1;
 	
-	
-	
 	public static enum Planisphere_Extr_Mode {LOOP_SPHERICAL, LOOP_CARTESIAN};
 	
 	public Sphere(){ 	// dummy construction
@@ -253,18 +251,18 @@ public class Sphere extends RegionOfInterest {
 	}
 
 	public ImagePlus extract( 
-			final ImagePlus 			input_image, 
+			final IntensityCalc 		calc, 
 			final int 					resolution
 			){  
 
 		// method will extract sphere from the image_stack around the sphere center, with sphere's radius r
 		// images are gray8, sphere defines center and radius
 
-		int H = input_image.getHeight();
-		int W = input_image.getWidth();
-		int L = input_image.getStack().getSize();
+		int H = calc.getImgHeight();//input_image.getHeight();
+		int W = calc.getImgWidth();
+		int L = calc.getImgLength();//input_image.getStack().getSize();
 		
-		IntensityCalc calc = new IntensityCalc(input_image.getStack());
+		//IntensityCalc calc = new IntensityCalc(input_image.getStack());
 		byte[][] pix_layers = new byte[resolution][resolution*resolution];
 		
 		// 'resolution' corresponds to sphere radius
@@ -981,21 +979,22 @@ public class Sphere extends RegionOfInterest {
 		cart[2] += this.z;
 		return cart;
 	}
-	
+	// TODO: this method shouldn't be here but method in MeanShift3D
 	public float 		avgValuePerDirection(double phi, double theta, IntensityCalc extracted_sphere_calc){
 		
 		float value 	= 0;
-		int count 		= 0;
+		//int count 		= 0;
 		
-		for (double r = 0.9*getR(); r < getR(); r+=0.02*getR()) {
+		//for (double r = 0.95*getR(); r < getR(); r+=0.02*getR()) {
+		double r = 0.95*getR();
 			double x = this.x+Transf.sph2cart_x(r, phi, theta);
 			double y = this.y+Transf.sph2cart_y(r, phi, theta);
 			double z = this.z+Transf.sph2cart_z(r, phi, theta);
 			value += extracted_sphere_calc.interpolateAt_new((float)x, (float)y, (float)z);
-			count++;
-		}
+//			count++;
+		//}
 		
-		return value/(float)count;
+		return value;///(float)count;
 	}
 	
 	public float 		sphereSurfaceValuePerDirection(double phi, double theta, IntensityCalc calc){ 

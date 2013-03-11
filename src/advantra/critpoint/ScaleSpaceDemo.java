@@ -23,7 +23,7 @@ public class ScaleSpaceDemo implements PlugInFilter, MouseListener {
 	double[] sigma = null;
 	double[] profile = null;
 	
-	PlotWindow pw;//
+	PlotWindow pw;
 	
 	public void run(ImageProcessor arg0) {
 		

@@ -1,5 +1,7 @@
 package advantra.tools;
 
+import java.util.Vector;
+
 import ij.ImagePlus;
 import ij.gui.NewImage;
 import advantra.general.ArrayHandling;
@@ -45,7 +47,7 @@ public class MeanShift3DSphere {
 										 */
 	
 	double[][]	cluster_dirs;
-	double[][]	cluster_seed;
+	double[][]	cluster_seed;			// global image stack coordinates
 	int[][]		cluster_local_seeds;	// coordinates in local sphere image coordinates (need it for connectivity tests)
 	
 										/*
@@ -131,7 +133,7 @@ public class MeanShift3DSphere {
 		return S_cartesian;
 	}
 	
-	public double[][]	getT_Clust_cartesian(){
+	public double[][]	getT_Clust_cartesian(){ // row, col, lay
 		double[][] T_clust_cartesian = new double[T_clust.length][3];
 		for (int i = 0; i < T_clust.length; i++) {
 			Transf.sph2cart(sphere_roi.getR(), S[i][0], S[i][1], T_clust_cartesian[i]);
@@ -209,15 +211,17 @@ public class MeanShift3DSphere {
 	
 	public double[][] 	run(int max_iter, double epsilon){
 		
-		T				= new double[S.length][2];
+		//T				= new double[S.length][2];
 		
 		for (int i = 0; i < T.length; i++) {
 			T[i][0] = S[i][0];	T[i][1] = S[i][1];
 		}
 		
+		//long t11 = System.currentTimeMillis();
+		
 		for (int i = 0; i < T.length; i++) { // 
 			
-			//long t11 = System.currentTimeMillis();
+			
 			int iter = 0;
 			double d = Double.MAX_VALUE;
 			
@@ -232,10 +236,10 @@ public class MeanShift3DSphere {
 				
 			}
 			while(iter < max_iter && d > epsilon*epsilon);
-			//long t22 = System.currentTimeMillis();
-			//System.out.format("point %d: %d iterations, epsilon=%f, elapsed %f sec\n", i, iter, epsilon, ((t22-t11)/1000f));
 			
 		}
+		//long t22 = System.currentTimeMillis();
+		//System.out.format("run():%f sec.\n", ((t22-t11)/1000f));
 		
 		return T;
 		
@@ -256,6 +260,73 @@ public class MeanShift3DSphere {
 		
 		return output;
 
+	}
+	
+	public void 		extractClusters_new(double angle_range, int M){
+		
+		System.out.println("extractClusters_new");
+		
+		long t11 = System.currentTimeMillis();
+		
+		double[][] ang_distances 	= new double[T.length][T.length];
+		double[] cartesian_i 		= new double[3];
+		double[] cartesian_j 		= new double[3];
+		
+		// fill the distances
+		for (int i = 0; i < T.length; i++) {
+			
+			Transf.sph2cart(1.0, T[i][0], T[i][1], cartesian_i);
+			
+			for (int j = 0; j < T.length; j++) {
+				if(i>=j){
+					ang_distances[i][j] = Double.NaN;
+				}
+				else{
+					// ang between i and j
+					Transf.sph2cart(1.0, T[j][0], T[j][1], cartesian_j);
+					ang_distances[i][j] = angle3(cartesian_i, cartesian_j);// in radians
+					
+				}
+				
+			}
+		}
+		
+		// group clusters
+		
+		Vector< Vector<double[]> > clusters = new Vector< Vector<double[]> >();
+		boolean[] clustered = new boolean[T.length];
+		for (int i = 0; i < clustered.length; i++) {
+			clustered[i] = false;
+		}
+		
+		for (int i = 0; i < T.length; i++) {
+			if(!clustered[i]){
+				
+				Vector<double[]> e = new Vector<double[]>();
+				e.add(T[i]);
+				clusters.add(e);
+				
+				for (int j = i+1; j < T.length; j++) {
+					if(ang_distances[i][j]<angle_range){
+						clusters.lastElement().add(T[j]);
+						clustered[j] = true;
+					}
+				}
+				
+			}
+		}
+		
+		long t22 = System.currentTimeMillis();
+		
+		// return clusters as 'cluster_seed' (used further)
+		System.out.println("testing...");
+		
+		System.out.println("elapsed "+((t22-t11)/1000f)+" s.");
+		
+		for (int i = 0; i < clusters.size(); i++) {
+			System.out.println("cluster "+(i+1)+" : "+clusters.get(i).size()+" el.");
+		}
+		
 	}
 	
 	public void 		extractClusters(double range, int M){ 
@@ -282,7 +353,7 @@ public class MeanShift3DSphere {
 				
 				for (int j = i+1; j < T.length; j++) {
 					
-					if(!clustered[j] && d(T[i], T[j])<=range){
+					if(!clustered[j] && d(T[i], T[j])<=range){ 
 						
 						clustered[j] = true;
 						cluster_size[nr_clusters]++;
@@ -316,6 +387,9 @@ public class MeanShift3DSphere {
 		cluster_seed 	= new double[nr_clusters_nigher_than_M][3];
 		cluster_local_seeds = new int[nr_clusters_nigher_than_M][3];
 		
+		System.out.println("total: "+nr_clusters);
+		System.out.println(">M: "+nr_clusters_nigher_than_M);
+		
 		double[] cartesian_aux = new double[3];
 		for (int i = 0; i < nr_clusters; i++) {
 			if(cluster_size[i]>M){
@@ -331,6 +405,10 @@ public class MeanShift3DSphere {
 				cluster_seed[cnt][0] += sphere_space.getCenterX();
 				cluster_seed[cnt][1] += sphere_space.getCenterY();
 				cluster_seed[cnt][2] += sphere_space.getCenterZ();
+				// added rounding here
+				//cluster_seed[cnt][0] = Math.round(cluster_seed[cnt][0]);
+				//cluster_seed[cnt][1] = Math.round(cluster_seed[cnt][1]);
+				//cluster_seed[cnt][2] = Math.round(cluster_seed[cnt][2]);
 				/*
 				 */
 				Transf.sph2cart(sphere_roi.getR(), 	T[i][0], T[i][1], cartesian_aux);
@@ -352,11 +430,11 @@ public class MeanShift3DSphere {
 		
 	}
 	
-	private double d2(double[] a, double[] b){
+	private double 		d2(double[] a, double[] b){
 		return Math.pow(a[0]-b[0], 2)+Math.pow(a[1]-b[1], 2);
 	}
 	
-	private double d(double[] a, double[] b){
+	private double 		d(double[] a, double[] b){
 		// phi distance
 		double phi_dist = a[0]-b[0];
 		// wrap azimuth
@@ -364,6 +442,36 @@ public class MeanShift3DSphere {
 		double wrapped_az = Transf.angle_wrap_pi(az_dist);
 		return Math.sqrt(Math.pow(phi_dist, 2)+Math.pow(wrapped_az, 2));
 	}
+	
+	private double 		angle3(double[] a, double[] b){
+		
+		double[] a_n  = new double[3];
+		double a_norm = Math.sqrt(a[0]*a[0]+a[1]*a[1]+a[2]*a[2]); 
+		if(a_norm>0){
+			a_n[0] = a[0]/a_norm;	a_n[1] = a[1]/a_norm;	a_n[2] = a[2]/a_norm;
+		}
+		else{
+			a_n[0] = a[0];	a_n[1] = a[1];	a_n[2] = a[2];
+		}
+		
+		double[] b_n  = new double[3];
+		double b_norm = Math.sqrt(b[0]*b[0]+b[1]*b[1]+b[2]*b[2]); 
+		if(b_norm>0){
+			b_n[0] = b[0]/b_norm;	b_n[1] = b[1]/b_norm;	b_n[2] = b[2]/b_norm;
+		}
+		else{
+			b_n[0] = b[0];	b_n[1] = b[1];	b_n[2] = b[2];
+		}
+		
+		double ang = Math.acos(dotProd3(a_n, b_n));
+		return ang;
+		
+	}
+	
+	private double 				dotProd3(double[] a, double[] b){
+		return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+	}
+
 	
 	public void 		saveS(String csv_file_name){
 		DebugExport f = new DebugExport(csv_file_name);
