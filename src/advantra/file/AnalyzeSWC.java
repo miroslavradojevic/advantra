@@ -8,14 +8,10 @@ import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
-import java.text.SimpleDateFormat;
-import java.util.Calendar;
-
 import advantra.general.CreateDirectory;
 import advantra.general.DebugExport;
 import advantra.general.ImageConversions;
 import advantra.shapes.Sphere;
-import advantra.shapes.Sphere.Planisphere_Extr_Mode;
 import advantra.trace.component.NeuronNode;
 import advantra.trace.component.NeuronNode.Type;
 
@@ -286,85 +282,85 @@ public class AnalyzeSWC {
 		System.out.println("exported:   \n"+endpt_log_path+"\n"+endpt_viz_path);
 	}
 	
-	public void extractPlanispheres(int resolution, Planisphere_Extr_Mode mode){ // will try to avoid direct planisphere extraction
-		
-		byte[][] output_image_values = new byte[image.getStack().getSize()][image.getHeight()*image.getWidth()];
-		
-		for (int i = 0; i < image.getStack().getSize(); i++) {
-			// converted to comply with byte8 
-			output_image_values[i] = (byte[])(ImageConversions.ImagePlusToGray8(image)).getStack().getPixels(i+1);
-		}
-		
-		// create export folder
-  		String folder_name = (new SimpleDateFormat("dd-MM-yyyy-HH_mm_ss")).format(Calendar.getInstance().getTime());
-		String export_dir 	= 
-				System.getProperty("user.dir")	+ File.separator +
-				"extract_planispheres_swc_"+ folder_name		+ File.separator;
-		CreateDirectory.createOneDir(export_dir);
-		
-		// create log file
-		DebugExport planisph_log = new DebugExport(export_dir+"planispheres.log");
-		
-		for (int i = 0; i < file_length; i++) { // loops all nodes[] - i is node index
-			
-			String file_name = export_dir+String.format("%d_%s.tif", i, nodes[i].getType()); // name of the planisphere file
-			
-			(new FileSaver(extractPlanisphereAtNode(i, output_image_values, image.getWidth(), resolution, mode))).saveAsTiff(file_name); 
-			System.out.format("node %d saved to %s  \n", i, file_name);
-			
-			double[] v1 = nodes[i].getV1();
-			double[] v2 = nodes[i].getV2();
-			double[] v3 = nodes[i].getV3();
-			
-			switch (nodes[i].getType()) {
-				
-				case UNDEFINED_POINT:
-					planisph_log.writeLine(String.format("%d", i));
-				break;
-					
-				case END_POINT:
-					planisph_log.writeLine(String.format("%d %.3f %.3f %.3f", 
-							i, v1[0], v1[1], v1[2]));
-				break;	
-				
-				case BODY_POINT:
-					planisph_log.writeLine(String.format("%d %.3f %.3f %.3f %.3f %.3f %.3f", 
-							i, v1[0], v1[1], v1[2], v2[0], v2[1], v2[2]));
-				break;
-				
-				case BIFURCATION_POINT:
-					planisph_log.writeLine(String.format("%d %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f", 
-							i, v1[0], v1[1], v1[2], v2[0], v2[1], v2[2], v3[0], v3[1], v3[2]));
-				break;
-				
-				default:
-					System.err.println("AnalizeSWC:extractPlanispheresOnNodes():this option for node type does not exist.");
-					System.exit(1);
-				break;
-			}
-			
-			
-		}
-		
-		planisph_log.closeDebug();
-		
-	}
-	
-	private ImagePlus 	extractPlanisphereAtNode(
-			int node_index,//double node_x, double node_y, double node_z,
-			byte[][] input_image, 
-			int input_image_width,
-			int resolution, 
-			Planisphere_Extr_Mode mode){
-		double planisphere_x = nodes[node_index].getY();
-		double planisphere_y = nodes[node_index].getX();
-		double planisphere_z = nodes[node_index].getZ();
-		double planisphere_r = 3*nodes[node_index].getR();
-		planisphere_r = (planisphere_r<2.0)?2.0:planisphere_r; // doesn't really make sense to take small spheres
-		Sphere sph = new Sphere(planisphere_x, planisphere_y, planisphere_z, planisphere_r);
-		//System.out.format("%f  %f, %f, %f \n", planisphere_x, planisphere_y, planisphere_z, planisphere_r);
-		
-		return sph.extractPlanisphereView(ImageConversions.toGray8(input_image, input_image_width), input_image_width, resolution, mode); 
-	}
-	
 }
+
+//public void extractPlanispheres(int resolution, Planisphere_Extr_Mode mode){ // will try to avoid direct planisphere extraction
+//
+//byte[][] output_image_values = new byte[image.getStack().getSize()][image.getHeight()*image.getWidth()];
+//
+//for (int i = 0; i < image.getStack().getSize(); i++) {
+//	// converted to comply with byte8 
+//	output_image_values[i] = (byte[])(ImageConversions.ImagePlusToGray8(image)).getStack().getPixels(i+1);
+//}
+//
+//// create export folder
+//	String folder_name = (new SimpleDateFormat("dd-MM-yyyy-HH_mm_ss")).format(Calendar.getInstance().getTime());
+//String export_dir 	= 
+//		System.getProperty("user.dir")	+ File.separator +
+//		"extract_planispheres_swc_"+ folder_name		+ File.separator;
+//CreateDirectory.createOneDir(export_dir);
+//
+//// create log file
+//DebugExport planisph_log = new DebugExport(export_dir+"planispheres.log");
+//
+//for (int i = 0; i < file_length; i++) { // loops all nodes[] - i is node index
+//	
+//	String file_name = export_dir+String.format("%d_%s.tif", i, nodes[i].getType()); // name of the planisphere file
+//	
+//	(new FileSaver(extractPlanisphereAtNode(i, output_image_values, image.getWidth(), resolution, mode))).saveAsTiff(file_name); 
+//	System.out.format("node %d saved to %s  \n", i, file_name);
+//	
+//	double[] v1 = nodes[i].getV1();
+//	double[] v2 = nodes[i].getV2();
+//	double[] v3 = nodes[i].getV3();
+//	
+//	switch (nodes[i].getType()) {
+//		
+//		case UNDEFINED_POINT:
+//			planisph_log.writeLine(String.format("%d", i));
+//		break;
+//			
+//		case END_POINT:
+//			planisph_log.writeLine(String.format("%d %.3f %.3f %.3f", 
+//					i, v1[0], v1[1], v1[2]));
+//		break;	
+//		
+//		case BODY_POINT:
+//			planisph_log.writeLine(String.format("%d %.3f %.3f %.3f %.3f %.3f %.3f", 
+//					i, v1[0], v1[1], v1[2], v2[0], v2[1], v2[2]));
+//		break;
+//		
+//		case BIFURCATION_POINT:
+//			planisph_log.writeLine(String.format("%d %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f", 
+//					i, v1[0], v1[1], v1[2], v2[0], v2[1], v2[2], v3[0], v3[1], v3[2]));
+//		break;
+//		
+//		default:
+//			System.err.println("AnalizeSWC:extractPlanispheresOnNodes():this option for node type does not exist.");
+//			System.exit(1);
+//		break;
+//	}
+//	
+//	
+//}
+//
+//planisph_log.closeDebug();
+//
+//}
+
+//private ImagePlus 	extractPlanisphereAtNode(
+//	int node_index,//double node_x, double node_y, double node_z,
+//	byte[][] input_image, 
+//	int input_image_width,
+//	int resolution, 
+//	Planisphere_Extr_Mode mode){
+//double planisphere_x = nodes[node_index].getY();
+//double planisphere_y = nodes[node_index].getX();
+//double planisphere_z = nodes[node_index].getZ();
+//double planisphere_r = 3*nodes[node_index].getR();
+//planisphere_r = (planisphere_r<2.0)?2.0:planisphere_r; // doesn't really make sense to take small spheres
+//Sphere sph = new Sphere(planisphere_x, planisphere_y, planisphere_z, planisphere_r);
+////System.out.format("%f  %f, %f, %f \n", planisphere_x, planisphere_y, planisphere_z, planisphere_r);
+//
+//return sph.extractPlanisphereView(ImageConversions.toGray8(input_image, input_image_width), input_image_width, resolution, mode); 
+//}

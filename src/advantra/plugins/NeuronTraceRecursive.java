@@ -29,7 +29,7 @@ public class NeuronTraceRecursive implements PlugInFilter, MouseListener {
 	public int 	setup (String arg, ImagePlus img){
 		
 		if(img==null){ 
-			IJ.showMessage("The image was NULL... Select new image...");
+			IJ.showMessage("Plugin requires stack to be opened...");
 			return DONE;
 		}
 		if(img.getStack().getSize()<=1) {
@@ -46,23 +46,25 @@ public class NeuronTraceRecursive implements PlugInFilter, MouseListener {
 		this.img = img;
 		
 		GenericDialog gd = new GenericDialog("Recursive trace");
-		gd.addNumericField("max branches", 10, 0);
+		gd.addNumericField("max branches", 20, 0);
 		gd.showDialog();
-		if (gd.wasCanceled()) return -1;
+		if (gd.wasCanceled()) return DONE;
 		MAX_BRANCHES = (int)gd.getNextNumber();
-			
+		
 		//modify calibration 
 		Calibration cal = img.getCalibration();
 		cal.pixelWidth 	= cal.pixelHeight = cal.pixelDepth = 1;
 		cal.setUnit("pixels");
 		this.img.setCalibration(cal);
 		
-		return DOES_8G+NO_CHANGES;
+		return  DOES_8G+NO_CHANGES+STACK_REQUIRED;
 	}
 	
 	public void run(ImageProcessor ip) {
+		
 		img.getWindow().getCanvas().addMouseListener(this);
 		System.out.println("click on the point to start tracing from there...");
+		
 	}
 	
 	public void mouseClicked(MouseEvent e) {

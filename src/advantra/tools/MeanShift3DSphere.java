@@ -3,7 +3,6 @@ package advantra.tools;
 import java.util.Vector;
 
 import ij.ImagePlus;
-import advantra.general.ArrayHandling;
 import advantra.general.Transf;
 import advantra.processing.IntensityCalc;
 import advantra.shapes.Sphere;
@@ -106,17 +105,6 @@ public class MeanShift3DSphere extends Thread {
 	public static int 			getNumberOfPoints(){
 		return S.length;
 	}
-	
-	public static double[][] 	getT_cartesian(){
-		double[][] T_cartesian = new double[T.length][3];
-		for (int i = 0; i < T.length; i++) {
-			Transf.sph2cart(sphere_roi.getR(), T[i][0], T[i][1], T_cartesian[i]);
-			T_cartesian[i][0] += sphere_roi.getCenterX();
-			T_cartesian[i][1] += sphere_roi.getCenterY();
-			T_cartesian[i][2] += sphere_roi.getCenterZ();
-		}
-		return T_cartesian;
-	}
 
 	private float 				avgValuePerDirection(double phi, double theta){
 		
@@ -134,28 +122,6 @@ public class MeanShift3DSphere extends Thread {
 		}
 		
 		return value/(float)count;
-	}
-	
-	public static double[][]	getS_cartesian(){
-		double[][] S_cartesian = new double[S.length][3];
-		for (int i = 0; i < S.length; i++) {
-			Transf.sph2cart(sphere_roi.getR(), S[i][0], S[i][1], S_cartesian[i]);
-			S_cartesian[i][0] += sphere_roi.getCenterX();
-			S_cartesian[i][1] += sphere_roi.getCenterY();
-			S_cartesian[i][2] += sphere_roi.getCenterZ();
-		}
-		return S_cartesian;
-	}
-	
-	public static double[][]	getT_Clust_cartesian(){ // row, col, lay
-		double[][] T_clust_cartesian = new double[T_clust.length][3];
-		for (int i = 0; i < T_clust.length; i++) {
-			Transf.sph2cart(sphere_roi.getR(), S[i][0], S[i][1], T_clust_cartesian[i]);
-			T_clust_cartesian[i][0] += sphere_roi.getCenterX();
-			T_clust_cartesian[i][1] += sphere_roi.getCenterY();
-			T_clust_cartesian[i][2] += sphere_roi.getCenterZ();
-		}
-		return T_clust_cartesian;
 	}
 	
 	private double[] 	runOneIterAtPos(double[] curr_pos){ 
@@ -251,7 +217,6 @@ public class MeanShift3DSphere extends Thread {
 		
 		// 'range' describes neighborhood range size, 
 		// 'M' number of samples within the cluster
-		
 		// T will be checked and extracted clusters stored in it, starting from the
 		// element with first index, results stored in T_clust
 
@@ -345,19 +310,19 @@ public class MeanShift3DSphere extends Thread {
 			}
 		}
 		
-		if(T_clust==null){
-			System.out.print("CLUST:NULL");
-		}
-		else if(T_clust.length>2){
-			System.out.print("CLUST ("+range+")\n");
-			ArrayHandling.print2DArray(T_clust);
-			for (int i = 0; i < T_clust.length; i++) {
-				for (int j = 0; j < T_clust.length; j++) {
-					System.out.format("d(%d,%d)=%.2f ", i, j, d(T_clust[i], T_clust[j]));
-				}
-				System.out.format("\n");
-			}
-		}
+//		if(T_clust==null){
+//			System.out.print("CLUST:NULL");
+//		}
+//		else { //T_clust.length>2
+//			System.out.print("CLUST ("+range+")\n");
+//			ArrayHandling.print2DArray(T_clust);
+//			for (int i = 0; i < T_clust.length; i++) {
+//				for (int j = 0; j < T_clust.length; j++) {
+//					System.out.format("d(%d,%d)=%.2f ", i, j, d(T_clust[i], T_clust[j]));
+//				}
+//				System.out.format("\n");
+//			}
+//		}
 		
 	}
 	
@@ -366,59 +331,116 @@ public class MeanShift3DSphere extends Thread {
 	}
 	
 	public static double 		d(double[] a, double[] b){
-		// phi distance
-		double phi_dist = Math.abs(a[0]-b[0]);
-		double wrapped_phi = Transf.angle_wrap_pi(phi_dist);
-		// wrap azimuth
-		double az_dist = Math.abs(a[1]-b[1]);
-		double wrapped_az = Transf.angle_wrap_pi(az_dist);
-		return (wrapped_az>wrapped_phi)? wrapped_az : wrapped_phi ;
+		
+		double phi1 	= a[0];
+		double theta1 	= a[1];
+		
+		double phi2 	= b[0];
+		double theta2 	= b[1];
+		
+		// phi inclination
+		double dphi = Math.abs(phi2-phi1);
+		// theta azimuth
+		if(theta1>theta2){
+			double dummy = theta1; theta1 = theta2; theta2 = dummy;
+		}
+		double dtheta1 = theta2 - theta1;
+		double dtheta2 = theta1 + 2*Math.PI - theta2;
+		
+		double dtheta = (dtheta1<dtheta2)? dtheta1 : dtheta2 ;
+
+		return (dtheta>dphi)? dtheta : dphi ;
 	}
+
+	/*
+	 * 
+	 * for plotting (no other functionality)
+	 * 
+	 */
 	
-	/*
-	private static double 		angle2(double[] T1, double[] T2){
-		double[] a = new double[3];
-		double[] b = new double[3];
-		Transf.sph2cart(1.0, T1[0], T1[1], a);
-		Transf.sph2cart(1.0, T2[0], T2[1], b);
-		return angle3(a, b);
+	public static void 	printT(){
+		System.out.println("T[][] in cartesian");
+		double[][] T_cartesian = new double[T.length][3];
+		for (int i = 0; i < T.length; i++) {
+			Transf.sph2cart(sphere_roi.getR(), T[i][0], T[i][1], T_cartesian[i]);
+			T_cartesian[i][0] += sphere_roi.getCenterX();
+			T_cartesian[i][1] += sphere_roi.getCenterY();
+			T_cartesian[i][2] += sphere_roi.getCenterZ();
+			System.out.format("%.2f, %.2f, %.2f \n", T_cartesian[i][0], T_cartesian[i][1], T_cartesian[i][2]);
+		}
 		
 	}
-	*/
-	/*
-	private static double 		angle3(double[] a, double[] b){
-		
-		double[] a_n  = new double[3];
-		double a_norm = Math.sqrt(a[0]*a[0]+a[1]*a[1]+a[2]*a[2]); 
-		if(a_norm>0){
-			a_n[0] = a[0]/a_norm;	a_n[1] = a[1]/a_norm;	a_n[2] = a[2]/a_norm;
+
+	public static void	printS(){
+		System.out.println("S[][] in cartesian");
+		double[][] S_cartesian = new double[S.length][3];
+		for (int i = 0; i < S.length; i++) {
+			Transf.sph2cart(sphere_roi.getR(), S[i][0], S[i][1], S_cartesian[i]);
+			S_cartesian[i][0] += sphere_roi.getCenterX();
+			S_cartesian[i][1] += sphere_roi.getCenterY();
+			S_cartesian[i][2] += sphere_roi.getCenterZ();
+			System.out.format("%.2f, %.2f, %.2f \n", S_cartesian[i][0], S_cartesian[i][1], S_cartesian[i][2]);
 		}
-		else{
-			a_n[0] = a[0];	a_n[1] = a[1];	a_n[2] = a[2];
-		}
-		
-		double[] b_n  = new double[3];
-		double b_norm = Math.sqrt(b[0]*b[0]+b[1]*b[1]+b[2]*b[2]); 
-		if(b_norm>0){
-			b_n[0] = b[0]/b_norm;	b_n[1] = b[1]/b_norm;	b_n[2] = b[2]/b_norm;
-		}
-		else{
-			b_n[0] = b[0];	b_n[1] = b[1];	b_n[2] = b[2];
-		}
-		
-		double ang = Math.acos(dotProd3(a_n, b_n));
-		return ang;
 		
 	}
-	*/
-	/*
-	private static double 		dotProd3(double[] a, double[] b){
-		return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+
+	public static void	printConv(){
+		System.out.println("Convergence[][] in cartesian");
+		double[][] T_clust_cartesian = new double[T_clust.length][3];
+		for (int i = 0; i < T_clust.length; i++) {
+			Transf.sph2cart(sphere_roi.getR(), T_clust[i][0], T_clust[i][1], T_clust_cartesian[i]);
+			T_clust_cartesian[i][0] += sphere_roi.getCenterX();
+			T_clust_cartesian[i][1] += sphere_roi.getCenterY();
+			T_clust_cartesian[i][2] += sphere_roi.getCenterZ();
+			System.out.format("%.2f, %.2f, %.2f \n", T_clust_cartesian[i][0], T_clust_cartesian[i][1], T_clust_cartesian[i][2]);
+		}
+		
 	}
-	*/
 	
 }
 
+
+/*
+private static double 		angle2(double[] T1, double[] T2){
+	double[] a = new double[3];
+	double[] b = new double[3];
+	Transf.sph2cart(1.0, T1[0], T1[1], a);
+	Transf.sph2cart(1.0, T2[0], T2[1], b);
+	return angle3(a, b);
+	
+}
+*/
+/*
+private static double 		angle3(double[] a, double[] b){
+	
+	double[] a_n  = new double[3];
+	double a_norm = Math.sqrt(a[0]*a[0]+a[1]*a[1]+a[2]*a[2]); 
+	if(a_norm>0){
+		a_n[0] = a[0]/a_norm;	a_n[1] = a[1]/a_norm;	a_n[2] = a[2]/a_norm;
+	}
+	else{
+		a_n[0] = a[0];	a_n[1] = a[1];	a_n[2] = a[2];
+	}
+	
+	double[] b_n  = new double[3];
+	double b_norm = Math.sqrt(b[0]*b[0]+b[1]*b[1]+b[2]*b[2]); 
+	if(b_norm>0){
+		b_n[0] = b[0]/b_norm;	b_n[1] = b[1]/b_norm;	b_n[2] = b[2]/b_norm;
+	}
+	else{
+		b_n[0] = b[0];	b_n[1] = b[1];	b_n[2] = b[2];
+	}
+	
+	double ang = Math.acos(dotProd3(a_n, b_n));
+	return ang;
+	
+}
+*/
+/*
+private static double 		dotProd3(double[] a, double[] b){
+	return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+}
+*/
 //public void 		extractClusters_new(double angle_th, int M){
 //
 ////System.out.println("single linkage");

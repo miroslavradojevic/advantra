@@ -4,9 +4,9 @@ import advantra.general.ArrayHandling;
 import advantra.processing.IntensityCalc;
 import advantra.shapes.Sphere;
 import advantra.trace.Hypothesis;
-import advantra.trace.TinyBranch;
+import advantra.trace.Tracing;
 
-public class MAP extends Thread implements TinyBranch {
+public class MAP extends Thread implements Tracing {
 
 	private static 	IntensityCalc 	img_calc;
 	public 	static 	Hypothesis[] 	trace_hypotheses;
@@ -35,10 +35,6 @@ public class MAP extends Thread implements TinyBranch {
 		
 		
 	}
-	
-	/*
-	 * different modes
-	 */
 	
 	public static void atPoint(double[] pnt){
 		
@@ -156,7 +152,7 @@ public class MAP extends Thread implements TinyBranch {
 		
 	}
 	
-	public void run(){ // will calculate posteriors
+	public void run(){ 
 			
 		for (int i = n0; i < n1; i++) {	
 				
@@ -180,10 +176,6 @@ public class MAP extends Thread implements TinyBranch {
 
 	}
 	
-	/*
-	 * select the one with max posterior
-	 */
-	
 	public static Hypothesis takeMap(){
 		
 		double max_posterior = Double.MIN_VALUE;
@@ -204,7 +196,7 @@ public class MAP extends Thread implements TinyBranch {
 			}
 		}
 		
-		return (sum_posterior>0.0001)? trace_hypotheses[idx_max] : null;
+		return (sum_posterior>0.001)? trace_hypotheses[idx_max] : null;
 		
 	}
 	
