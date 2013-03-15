@@ -7,7 +7,6 @@ import ij.io.FileSaver;
 import advantra.general.Transf;
 import advantra.processing.IntensityCalc;
 import advantra.shapes.Cylinder;
-import advantra.shapes.Sphere;
 
 public class Hypothesis {
 
@@ -56,13 +55,13 @@ public class Hypothesis {
 			double[] 	centerpoint,
 			double[] 	orientation,
 			double 		neurite_radius,
-			double 		k
+			double 		k1
 			){ 		
 		
 		// define fixed height 4
-		hypothesis_cylinder 	= new Cylinder(centerpoint, k*neurite_radius, 4, orientation);
+		hypothesis_cylinder 	= new Cylinder(centerpoint, k1*neurite_radius, 4, orientation);
 		
-		this.k					= (k<1)?1.0:k;
+		k					= (k1<1)?1.0:k1;
 		
 		// features set as well
 		avgIn 					= 0;
@@ -80,6 +79,8 @@ public class Hypothesis {
 		
 	}
 	
+	// TODO: perhaps add the one that has height as an agrument
+
 	/*
 	 * setHypothesis sets the geometry parameters, 
 	 * not the features with this one - features are extracted 
@@ -91,19 +92,27 @@ public class Hypothesis {
 			double[] 	centerpoint, 
 			double[] 	orientation, 
 			double 		neurite_radius, 
-			double 		k
+			double 		k1
 			){
 		//double model_height = (2*neurite_radius<3)?3:(2*neurite_radius);
 		// define fixed height 4
-		this.hypothesis_cylinder.setCylinder(centerpoint, k*neurite_radius, 4, orientation);
-		this.k 				= (k<1)?1.0:k;
+		hypothesis_cylinder.setCylinder(
+				centerpoint[0],
+				centerpoint[1],
+				centerpoint[2],
+				k*neurite_radius, 
+				4, 
+				orientation[0],
+				orientation[1],
+				orientation[2]);
+		
+		k 				= (k1<1)?1.0:k1;
 		
 		// flags cancelled 
 		setFlags(false);
 	}
 
 	public void setHypothesis( 
-			// sets the Hypothesis but not it's features
 			double 	centerpoint_x, 
 			double 	centerpoint_y,
 			double 	centerpoint_z,
@@ -111,17 +120,20 @@ public class Hypothesis {
 			double 	orientation_y,
 			double 	orientation_z,
 			double 	neurite_radius, 
-			double 	k
+			double 	k1
 			){
-		//double model_height = (2*neurite_radius<3)?3:(2*neurite_radius);
-		//this.hypothesis_cylinder.setCylinder(centerpoint, k*neurite_radius, model_height, orientation);
 		
-		this.hypothesis_cylinder.setCylinder(
-				centerpoint_x, centerpoint_y, centerpoint_z, 
-				k*neurite_radius, 4, 
-				orientation_x, orientation_y, orientation_z);
+		hypothesis_cylinder.setCylinder(
+				centerpoint_x, 
+				centerpoint_y, 
+				centerpoint_z, 
+				k1*neurite_radius, 
+				4, 
+				orientation_x, 
+				orientation_y, 
+				orientation_z);
 		
-		this.k 				= (k<1)?1.0:k;
+		k 				= (k1<1)?1.0:k1;
 		
 		// flags cancelled 
 		setFlags(false);
@@ -137,18 +149,18 @@ public class Hypothesis {
 			double 	orientation_y,
 			double 	orientation_z,
 			double 	neurite_radius, 
-			double 	k,
+			double 	k1,
 			
 			double 	height
 			){
 		//double model_height = (height<3)?3:(height);
 		// define fixed height 4
-		this.hypothesis_cylinder.setCylinder(
+		hypothesis_cylinder.setCylinder(
 				centerpoint_x, centerpoint_y, centerpoint_z, 
-				k*neurite_radius, 4, 
+				k1*neurite_radius, height, 
 				orientation_x, orientation_y, orientation_z);
 		
-		this.k 				= (k<1)?1.0:k;
+		k 				= (k1<1)?1.0:k1;
 		
 		// flags cancelled 
 		setFlags(false);
@@ -415,7 +427,7 @@ public class Hypothesis {
 					
 					if(x>=0 && x<in_stack.getHeight() && y>=0 && y<in_stack.getWidth() && z>=0 && z<in_stack.getSize()){
 						
-						double taken_value 	= (new IntensityCalc(in_stack)).interpolateAt_new((float)x, (float)y, (float)z);
+						double taken_value 	= (new IntensityCalc(in_stack)).interpolateAt((float)x, (float)y, (float)z);
 						im_hyp.getStack().setVoxel(index_col, index_row, index_lay, taken_value);
 						
 					}
@@ -433,32 +445,9 @@ public class Hypothesis {
 	 * LIKELIHOOD
 	 */
 	
-	// TODO: substitute this one for speed reasons with calculateLikelihood_new
-	public void calculateLikelihood(ImagePlus input_img, double dr, double dh){
+	public void calculateLikelihood(IntensityCalc img_calc, double dr, double dh){
 
-		double[] avg_in_out_extracted_samples = 
-				hypothesis_cylinder.extractAvgInOut(input_img, (1/this.k), dr, dh);
-		
-		avgIn	 		= 	avg_in_out_extracted_samples[0];
-		avgOut		 	= 	avg_in_out_extracted_samples[1];
-		
-		double likelihood_value = 0; 
-		
-		if(avg_in_out_extracted_samples[2]>0.5){
-			double I_contrast 	= 1.0;
-			int 	s 			= 1;
-			likelihood_value = Math.pow((avgIn-avgOut)/I_contrast, s); //likelihood formula
-		}
-		
-		
-		
-		setLikelihood(likelihood_value);
-		
-	}
-	
-	public void calculateLikelihood_new(IntensityCalc img_calc, double dr, double dh){
-
-		double[] avg_in_out_extracted_samples = hypothesis_cylinder.extractAvgInOut_new(img_calc, (1/k), dr, dh);
+		double[] avg_in_out_extracted_samples = hypothesis_cylinder.extractAvgInOut(img_calc, (1/k), dr, dh);
 		
 		avgIn	 		= 	avg_in_out_extracted_samples[0];
 		avgOut		 	= 	avg_in_out_extracted_samples[1];
@@ -475,80 +464,6 @@ public class Hypothesis {
 		
 	}
 	
-	public void calculateLikelihood(ImageStack img_stack){ 
-		
-		////// NEW CALCULATION ///////
-		
-		/*
-		 * here...!!!
-		 */
-//		double 	dr = 0.5;
-//		double	dh = 0.5;
-		
-		////// NEW CALCULATION ///////
-		
-		/////// THIS IS WHERE THE LIKELIHOOD CAN BE (RE)DEsigINED //////
-		
-		int voxel_limit_nr = Sphere.numberOfVoxInSphere(
-				(int)Math.ceil(Math.sqrt(
-						Math.pow(this.getCylinder().getH()/2,2)+
-						Math.pow(this.getCylinder().getR(),2))));
-		// allocate as usual...
-		int[][] roi_coord			= new int[3][voxel_limit_nr];
-		int[] 	roi_vals			= new int[voxel_limit_nr];
-		double[][] roi_x_y_crosssec	= new double[2][voxel_limit_nr];
-		
-		// extract the values from the image stack
-		int extracted_vox_nr = this.hypothesis_cylinder.extractVox(
-				img_stack, roi_coord, roi_vals, roi_x_y_crosssec);
-		
-		//System.out.println("extracted cyl: "+extracted_vox_nr);
-		
-		// average in
-		int 	count_in  	= 0;
-		avgIn   			= 0; // average intensity in
-		// average out
-		int 	count_out 	= 0;
-		avgOut				= 0; // average intensity out
-		
-		double likelihood_value = 0;
-		
-		if(extracted_vox_nr>voxel_limit_nr/4){  
-			// put higher amount here so that those that stick out of borders are 
-			// taken with 0 likelihood - maybe set the thresholds wrt volume ratio sphere/cylinder
-		
-		for (int i = 0; i < extracted_vox_nr; i++) {
-			if(
-					Math.sqrt( 
-							Math.pow(roi_x_y_crosssec[0][i],2) + 
-							Math.pow(roi_x_y_crosssec[1][i],2) 
-							) 
-							<= hypothesis_cylinder.getR()/k){
-				count_in++;		avgIn 		+= roi_vals[i];
-				//count_in += roi_vals[i];	avgIn 		+= roi_vals[i]*roi_vals[i];
-			}
-			else{
-				count_out++;	avgOut 		+= roi_vals[i];
-				//count_out += roi_vals[i];	avgOut 		+= roi_vals[i]*roi_vals[i];
-			}
-		}
-		
-		avgIn = 	(count_in>0)?	(avgIn/count_in)	:avgIn;
-		avgOut = 	(count_out>0)?	(avgOut/count_out)	:avgOut;
-		
-		// calculate likelihoood
-		double I_contrast 	= 1.0;
-		int 	s 			= 2;
-				
-		// likelihood
-		likelihood_value = (avgIn>avgOut)? Math.pow((avgIn-avgOut)/I_contrast, s) : 0;
-		
-		}
-		
-		/////// THIS IS WHERE THE LIKELIHOOD CAN BE (RE)DEFINED //////
-		
-		setLikelihood(likelihood_value);
-	}
 	
 	public void setLikelihood(double likelihood_value){
 		likelihood 		= likelihood_value;
@@ -829,4 +744,101 @@ public class Hypothesis {
 //	
 //	System.out.println("done.");
 //	
+//}
+// : substitute this one for speed reasons with calculateLikelihood_new
+//public void calculateLikelihood(ImagePlus input_img, double dr, double dh){
+//
+//	double[] avg_in_out_extracted_samples = 
+//			hypothesis_cylinder.extractAvgInOut(input_img, (1/this.k), dr, dh);
+//	
+//	avgIn	 		= 	avg_in_out_extracted_samples[0];
+//	avgOut		 	= 	avg_in_out_extracted_samples[1];
+//	
+//	double likelihood_value = 0; 
+//	
+//	if(avg_in_out_extracted_samples[2]>0.5){
+//		double I_contrast 	= 1.0;
+//		int 	s 			= 1;
+//		likelihood_value = Math.pow((avgIn-avgOut)/I_contrast, s); //likelihood formula
+//	}
+//	
+//	
+//	
+//	setLikelihood(likelihood_value);
+//	
+//}
+
+//public void calculateLikelihood(ImageStack img_stack){ 
+//
+//////// NEW CALCULATION ///////
+//
+///*
+// * here...!!!
+// */
+////double 	dr = 0.5;
+////double	dh = 0.5;
+//
+//////// NEW CALCULATION ///////
+//
+///////// THIS IS WHERE THE LIKELIHOOD CAN BE (RE)DEsigINED //////
+//
+//int voxel_limit_nr = Sphere.numberOfVoxInSphere(
+//		(int)Math.ceil(Math.sqrt(
+//				Math.pow(this.getCylinder().getH()/2,2)+
+//				Math.pow(this.getCylinder().getR(),2))));
+//// allocate as usual...
+//int[][] roi_coord			= new int[3][voxel_limit_nr];
+//int[] 	roi_vals			= new int[voxel_limit_nr];
+//double[][] roi_x_y_crosssec	= new double[2][voxel_limit_nr];
+//
+//// extract the values from the image stack
+//int extracted_vox_nr = this.hypothesis_cylinder.extractVox(
+//		img_stack, roi_coord, roi_vals, roi_x_y_crosssec);
+//
+////System.out.println("extracted cyl: "+extracted_vox_nr);
+//
+//// average in
+//int 	count_in  	= 0;
+//avgIn   			= 0; // average intensity in
+//// average out
+//int 	count_out 	= 0;
+//avgOut				= 0; // average intensity out
+//
+//double likelihood_value = 0;
+//
+//if(extracted_vox_nr>voxel_limit_nr/4){  
+//	// put higher amount here so that those that stick out of borders are 
+//	// taken with 0 likelihood - maybe set the thresholds wrt volume ratio sphere/cylinder
+//
+//for (int i = 0; i < extracted_vox_nr; i++) {
+//	if(
+//			Math.sqrt( 
+//					Math.pow(roi_x_y_crosssec[0][i],2) + 
+//					Math.pow(roi_x_y_crosssec[1][i],2) 
+//					) 
+//					<= hypothesis_cylinder.getR()/k){
+//		count_in++;		avgIn 		+= roi_vals[i];
+//		//count_in += roi_vals[i];	avgIn 		+= roi_vals[i]*roi_vals[i];
+//	}
+//	else{
+//		count_out++;	avgOut 		+= roi_vals[i];
+//		//count_out += roi_vals[i];	avgOut 		+= roi_vals[i]*roi_vals[i];
+//	}
+//}
+//
+//avgIn = 	(count_in>0)?	(avgIn/count_in)	:avgIn;
+//avgOut = 	(count_out>0)?	(avgOut/count_out)	:avgOut;
+//
+//// calculate likelihoood
+//double I_contrast 	= 1.0;
+//int 	s 			= 2;
+//		
+//// likelihood
+//likelihood_value = (avgIn>avgOut)? Math.pow((avgIn-avgOut)/I_contrast, s) : 0;
+//
+//}
+//
+///////// THIS IS WHERE THE LIKELIHOOD CAN BE (RE)DEFINED //////
+//
+//setLikelihood(likelihood_value);
 //}

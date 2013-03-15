@@ -4,27 +4,20 @@ import ij.ImageStack;
 
 public class IntensityCalc {
 	
-	int H, W, L;
-	float[][] 	img_array; // perhaps make it just 1D instead of 2D for more speed
-	
-	public 	IntensityCalc(){
-		img_array = null;
-		H = 0;
-		W = 0;
-		L = 0;
-	}
-	
-	public  IntensityCalc(ImageStack img){
+	public int H, W, L;
+	public float[][] 	img_array; // perhaps make it just 1D instead of 2D for more speed
+
+	public IntensityCalc(ImageStack img){
 		H = img.getHeight();
 		W = img.getWidth();
 		L = img.getSize();
-		img_array = new float[L][H*W];
+		img_array = new float[L][]; //H*W
 		for (int i = 0; i < L; i++) {
-			img_array[i] = (float [])img.getProcessor(i+1).convertToFloat().getPixels();
+			img_array[i] = (float [])img.getProcessor(i+1).convertToFloat().getPixels(); //
 		}
 	}
 
-	public 	float 	interpolateAt_new(float p1, float p2, float p3){// p1, p2, p3 ---> row, col, lay
+	public float 	interpolateAt(float p1, float p2, float p3){// p1, p2, p3 ---> row, col, lay
 		
 		float value = 0;
 		
@@ -65,15 +58,4 @@ public class IntensityCalc {
 		return value;
 	}
 
-	public	int		getImgHeight(){
-		return H;
-	}
-	
-	public	int 	getImgWidth(){
-		return W;
-	}
-	
-	public	int 	getImgLength(){
-		return L;
-	}
 }

@@ -70,7 +70,7 @@ public class Transf {
 		
 		if(vecs_to_rotate.length!=3){
 			System.err.println("Sphere:rotate3xN(): Vectors that are rotated need to have length 3 (coordinates in 3d space).");
-			System.exit(-1);
+			return;
 		}
 		
 		// flanagan matrices - for multiplication
@@ -118,13 +118,8 @@ public class Transf {
 		 * input_vecs, rotated_vecs are 3xN where N>=1
 		 */
 		
-		if(vecs_to_rotate[0].length!=3){
-			System.err.println("Sphere:rotateNx3(): Vectors that are rotated need to have length 3 (coordinates in 3d space).");
-			System.exit(-1);
-		}
-		
 		// flanagan matrices - for multiplication
-		Matrix input_vecs_matrix 	= new Matrix(vecs_to_rotate.length+1, vecs_to_rotate[0].length, 1); // allocate it and fill with ones
+		Matrix input_vecs_matrix 	= new Matrix(vecs_to_rotate.length, 4, 1); // allocate it and fill with ones
 		input_vecs_matrix.setSubMatrix(0, 0, vecs_to_rotate);
 		
 		// define the transformation wrt to [ax, ay, az]

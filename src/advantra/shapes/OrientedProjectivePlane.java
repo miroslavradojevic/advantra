@@ -110,7 +110,7 @@ public class OrientedProjectivePlane extends RegionOfInterest {
 										plane_coords[idx][2]>0 && plane_coords[idx][2]<=s-1){
 					
 					int value = (int)Math.round(
-							calc.interpolateAt_new(
+							calc.interpolateAt(
 									(float)plane_coords[idx][0], 
 									(float)plane_coords[idx][1], 
 									(float)plane_coords[idx][2])

@@ -68,34 +68,34 @@ public class Cylinder extends RegionOfInterest {
 	 * SET CYLINDER
 	 */
 	
-	public void setCylinder(double[] position_xyz, double r, double h, double[] orient_xyz){
-		
-		if((position_xyz.length!=3) || (orient_xyz.length!=3)){
-			System.err.println("Cylinder:setCylinder(): \n" +
-					"position_xyz and orient_xyz should have length 3!");
-			System.exit(1);
-		}
-		
-		this.x = position_xyz[0];
-		this.y = position_xyz[1];
-		this.z = position_xyz[2];
-		
-		this.r = r;
-		this.h = h;
-		
-		this.vx = orient_xyz[0]/Math.sqrt(
-				Math.pow(orient_xyz[0],2)+
-				Math.pow(orient_xyz[1],2)+
-				Math.pow(orient_xyz[2],2));
-		this.vy = orient_xyz[1]/Math.sqrt(
-				Math.pow(orient_xyz[0],2)+
-				Math.pow(orient_xyz[1],2)+
-				Math.pow(orient_xyz[2],2));
-		this.vz = orient_xyz[2]/Math.sqrt(
-				Math.pow(orient_xyz[0],2)+
-				Math.pow(orient_xyz[1],2)+
-				Math.pow(orient_xyz[2],2));
-	}
+//	public void setCylinder(double[] position_xyz, double r, double h, double[] orient_xyz){
+//		
+////		if((position_xyz.length!=3) || (orient_xyz.length!=3)){
+////			System.err.println("Cylinder:setCylinder(): \n" +
+////					"position_xyz and orient_xyz should have length 3!");
+////			System.exit(1);
+////		}
+//		
+//		this.x = position_xyz[0];
+//		this.y = position_xyz[1];
+//		this.z = position_xyz[2];
+//		
+//		this.r = r;
+//		this.h = h;
+//		
+//		this.vx = orient_xyz[0]/Math.sqrt(
+//				Math.pow(orient_xyz[0],2)+
+//				Math.pow(orient_xyz[1],2)+
+//				Math.pow(orient_xyz[2],2));
+//		this.vy = orient_xyz[1]/Math.sqrt(
+//				Math.pow(orient_xyz[0],2)+
+//				Math.pow(orient_xyz[1],2)+
+//				Math.pow(orient_xyz[2],2));
+//		this.vz = orient_xyz[2]/Math.sqrt(
+//				Math.pow(orient_xyz[0],2)+
+//				Math.pow(orient_xyz[1],2)+
+//				Math.pow(orient_xyz[2],2));
+//	}
 		
 	public void setCylinder(double x, double y, double z, double r, double h, double vx, double vy, double vz){
 		this.x = x;
@@ -214,7 +214,7 @@ public class Cylinder extends RegionOfInterest {
 		if(pos_xyz.length!=3){
 			System.err.println("Cylinder:setPos(): \n" +
 					"position vector has to have length 3.");
-			System.exit(1);
+			return;
 		}
 		this.x = pos_xyz[0];
 		this.y = pos_xyz[1];
@@ -876,7 +876,7 @@ public class Cylinder extends RegionOfInterest {
 				for (double z = -this.h/2; z <= this.h/2; z+=dh) {
 					
 					double[] loc 	= cylindrical2cartesian(ro, phi, z);
-					float I 		= calc.interpolateAt_new((float)loc[0], (float)loc[1], (float)loc[2]);
+					float I 		= calc.interpolateAt((float)loc[0], (float)loc[1], (float)loc[2]);
 					x_y_z_I[count_in_cyl][0] = loc[0];
 					x_y_z_I[count_in_cyl][1] = loc[1];
 					x_y_z_I[count_in_cyl][2] = loc[2];
@@ -892,7 +892,7 @@ public class Cylinder extends RegionOfInterest {
 		
 	}
 	
-	public double[]		extractAvgInOut_new(IntensityCalc image_calc, double in_out_ratio, double dr, double dh){
+	public double[]		extractAvgInOut(IntensityCalc image_calc, double in_out_ratio, double dr, double dh){
 		
 		int 	cnt_in	= 0;
 		int 	cnt_out	= 0;
@@ -917,15 +917,15 @@ public class Cylinder extends RegionOfInterest {
 					double[] loc 		= cylindrical2cartesian(ro, phi, z);
 					
 					boolean isInImage 	= 
-							(loc[0]>=0 && loc[0]<=image_calc.getImgHeight()	-1) 	&&
-							(loc[1]>=0 && loc[1]<=image_calc.getImgWidth()	-1) 	&&
-							(loc[2]>=0 && loc[2]<=image_calc.getImgLength()	-1);
+							(loc[0]>=0 && loc[0]<=image_calc.H	-1) 	&&
+							(loc[1]>=0 && loc[1]<=image_calc.W	-1) 	&&
+							(loc[2]>=0 && loc[2]<=image_calc.L	-1);
 					
 					if(isInImage){
 						
 						extracted_samples++;
 						
-						float I 	= image_calc.interpolateAt_new((float)loc[0], (float)loc[1], (float)loc[2]); 
+						float I 	= image_calc.interpolateAt((float)loc[0], (float)loc[1], (float)loc[2]); 
 						
 						if(ro<=in_out_ratio*this.r){
 							
@@ -960,75 +960,6 @@ public class Cylinder extends RegionOfInterest {
 		
 	}
 
-	// TODO: should be deprecated in future in favor of extractAvgInOut_new 
-	public double[] 	extractAvgInOut(ImagePlus input_img, double in_out_ratio, double dr, double dh){ 
-		
-		int 	cnt_in	= 0;
-		int 	cnt_out	= 0;
-		double 	avg_in 	= 0;
-		double  avg_out	= 0;
-		
-		int extracted_samples = 0;
-		
-		IntensityCalc calc = new IntensityCalc(input_img.getStack());
-		
-		for (double ro = 0.0; ro <= this.r; ro+=dr) {
-			
-			int M = 1;
-			if(ro>0){
-				M = (int)Math.ceil((2*Math.PI)*(ro/dr));
-			}
-			
-			for (int m = 1; m <= M; m++) {
-				
-				double phi = m*((2*Math.PI)/M);
-				
-				for (double z = -this.h/2; z <= this.h/2; z+=dh) {
-					
-					double[] loc 		= cylindrical2cartesian(ro, phi, z);
-					boolean isInImage 	= 
-							(loc[0]>=0 && loc[0]<=input_img.getStack().getHeight()-1) 	&&
-							(loc[1]>=0 && loc[1]<=input_img.getStack().getWidth()-1) 	&&
-							(loc[2]>=0 && loc[2]<=input_img.getStack().getSize()-1);
-					
-					if(isInImage){
-						
-						extracted_samples++;
-						
-						float I 		= calc.interpolateAt_new((float)loc[0], (float)loc[1], (float)loc[2]); 
-						
-						if(ro<=in_out_ratio*this.r){
-							
-							avg_in += I;
-							cnt_in ++;
-							
-						}
-						else{
-							
-							avg_out += I;
-							cnt_out++;
-							
-						}
-						
-					}
-					
-				}
-				
-			}
-			
-		}
-		
-		if(cnt_in>0){
-			avg_in /= cnt_in;
-		}
-		
-		if(cnt_out>0){
-			avg_out /= cnt_out;
-		}
-		
-		return new double[]{avg_in, avg_out, extracted_samples};
-		
-	}
 	
 	public int numberOfCylinderPoints(double dr, double dh){
 		int count_in_cyl = 0;
@@ -1261,3 +1192,74 @@ public class Cylinder extends RegionOfInterest {
 		}
 	}
 }
+
+
+// : should be deprecated in future in favor of extractAvgInOut_new 
+//public double[] 	extractAvgInOut(ImagePlus input_img, double in_out_ratio, double dr, double dh){ 
+//	
+//	int 	cnt_in	= 0;
+//	int 	cnt_out	= 0;
+//	double 	avg_in 	= 0;
+//	double  avg_out	= 0;
+//	
+//	int extracted_samples = 0;
+//	
+//	IntensityCalc calc = new IntensityCalc(input_img.getStack());
+//	
+//	for (double ro = 0.0; ro <= this.r; ro+=dr) {
+//		
+//		int M = 1;
+//		if(ro>0){
+//			M = (int)Math.ceil((2*Math.PI)*(ro/dr));
+//		}
+//		
+//		for (int m = 1; m <= M; m++) {
+//			
+//			double phi = m*((2*Math.PI)/M);
+//			
+//			for (double z = -this.h/2; z <= this.h/2; z+=dh) {
+//				
+//				double[] loc 		= cylindrical2cartesian(ro, phi, z);
+//				boolean isInImage 	= 
+//						(loc[0]>=0 && loc[0]<=input_img.getStack().getHeight()-1) 	&&
+//						(loc[1]>=0 && loc[1]<=input_img.getStack().getWidth()-1) 	&&
+//						(loc[2]>=0 && loc[2]<=input_img.getStack().getSize()-1);
+//				
+//				if(isInImage){
+//					
+//					extracted_samples++;
+//					
+//					float I 		= calc.interpolateAt((float)loc[0], (float)loc[1], (float)loc[2]); 
+//					
+//					if(ro<=in_out_ratio*this.r){
+//						
+//						avg_in += I;
+//						cnt_in ++;
+//						
+//					}
+//					else{
+//						
+//						avg_out += I;
+//						cnt_out++;
+//						
+//					}
+//					
+//				}
+//				
+//			}
+//			
+//		}
+//		
+//	}
+//	
+//	if(cnt_in>0){
+//		avg_in /= cnt_in;
+//	}
+//	
+//	if(cnt_out>0){
+//		avg_out /= cnt_out;
+//	}
+//	
+//	return new double[]{avg_in, avg_out, extracted_samples};
+//	
+//}

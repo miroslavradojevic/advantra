@@ -9,6 +9,7 @@ import advantra.general.ColourTransf;
 import advantra.general.ImageConversions;
 import advantra.general.Transf;
 import advantra.processing.IntensityCalc;
+import advantra.tools.MAP;
 
 public class Sphere extends RegionOfInterest {
 
@@ -258,9 +259,9 @@ public class Sphere extends RegionOfInterest {
 		// method will extract sphere from the image_stack around the sphere center, with sphere's radius r
 		// images are gray8, sphere defines center and radius
 
-		int H = calc.getImgHeight();//input_image.getHeight();
-		int W = calc.getImgWidth();
-		int L = calc.getImgLength();//input_image.getStack().getSize();
+		int H = calc.H;//input_image.getHeight();
+		int W = calc.W;
+		int L = calc.L;//input_image.getStack().getSize();
 		
 		//IntensityCalc calc = new IntensityCalc(input_image.getStack());
 		byte[][] pix_layers = new byte[resolution][resolution*resolution];
@@ -286,7 +287,7 @@ public class Sphere extends RegionOfInterest {
 //								coord_row, coord_col, coord_lay, r, c, l);
 						if(coord_row>=0 && coord_row<=(H-1) && coord_col>=0 && coord_col<=(W-1) && coord_lay>=0 && coord_lay<=(L-1)){
 							// take the interpolated value
-							float value = calc.interpolateAt_new(coord_row, coord_col, coord_lay);
+							float value = calc.interpolateAt(coord_row, coord_col, coord_lay);
 							pix_layers[l][r*resolution+c] = (byte)((int)Math.round(value));
 //							System.out.format("... added %f (byte %d)", 
 //									value, pix_layers[l][r*resolution+c]);
@@ -432,7 +433,7 @@ public class Sphere extends RegionOfInterest {
 							int idx = ArrayHandling.sub2index_2d(index_phi, index_theta, 2*resolution);
 							
 							planisphere[idx] += 
-									im_calc.interpolateAt_new((float)x, (float)y, (float)z);
+									im_calc.interpolateAt((float)x, (float)y, (float)z);
 									 
 							planisphere_count[idx] += 1; 												 
 							count ++;
@@ -645,12 +646,12 @@ public class Sphere extends RegionOfInterest {
 		// checking...
 		if(points.length!=3 || points[0].length!=N){
 			System.err.println("Sphere:generate3DSemiSpherePts(): argument for storing 3d points has to have 3 rows and "+N+" columns.");
-			System.exit(-1);
+			return;
 		}
 		
 		if(point_orients.length!=3 || point_orients[0].length!=N){
 			System.err.println("Sphere:generate3DSemiSpherePts(): argument for storing 3d points has to have 3 rows and "+N+" columns.");
-			System.exit(-1);
+			return;
 		}
 		
 		double h_k, theta_k, phi_k, phi_k_1 = 0;
@@ -701,6 +702,65 @@ public class Sphere extends RegionOfInterest {
 		
 	}
 
+	public double[][] 		generate3DSemiSphereDirsNx3(
+			int N, 
+			double ax, 
+			double ay,
+			double az
+			) {
+		
+		double[][] out_dirs = new double[N][3];
+		
+		double h_k, theta_k, phi_k, phi_k_1 = 0;
+		
+		for (int k = 0; k < N; k++) {
+			
+			h_k = (double)k/(N-1); // 0 : 1
+			
+			theta_k = Math.acos(h_k);
+			
+			if(k==0 || k==(N-1)){
+				
+				phi_k   = 0;
+				phi_k_1 = 0;
+			
+			}
+			else{
+				
+				phi_k = phi_k_1 + 3.6 / ( Math.sqrt(N) * Math.sqrt(1-h_k*h_k));
+				phi_k_1 = phi_k;
+				
+			}
+			
+			// cartesian coordinates
+			out_dirs[k][0] = Math.sin(theta_k) * Math.cos(phi_k);
+			out_dirs[k][1] = Math.sin(theta_k) * Math.sin(phi_k);
+			out_dirs[k][2] = Math.cos(theta_k);
+			
+//			// scale it 
+//			points[0][k] = this.r * points[0][k];
+//			points[1][k] = this.r * points[1][k];
+//			points[2][k] = this.r * points[2][k];
+			
+		}
+		// set the orientation according to ax, ay, az - for all the points
+		double norm = Math.sqrt(Math.pow(ax, 2)+Math.pow(ay, 2)+Math.pow(az, 2));
+		
+		//Transf.rotate3xN(ax/norm, ay/norm, az/norm, points);  // rotation result is stored in points	
+		
+		Transf.rotateNx3(ax/norm, ay/norm, az/norm, out_dirs); // have to add this one so that they're properly oriented
+		
+//		for (int k = 0; k < N; k++) {
+//			// set sphere center as origin - translation
+//			points[0][k] += this.x;
+//			points[1][k] += this.y;
+//			points[2][k] += this.z;
+//		}
+		return out_dirs;
+		
+	}
+
+	
 	public double[][] 	generate3DSemiSpherePts(
 			int N, 
 			double ax, 
@@ -892,10 +952,19 @@ public class Sphere extends RegionOfInterest {
 			points[k][2] = Math.cos(theta_k);
 			
 			// scale it & translate
-			points[k][0] = r * points[k][0] + x;
-			points[k][1] = r * points[k][1] + y;
-			points[k][2] = r * points[k][2] + z;
+			points[k][0] = r * points[k][0];// + x;
+			points[k][1] = r * points[k][1];// + y;
+			points[k][2] = r * points[k][2];// + z;
 			
+		}
+		
+		Transf.rotateNx3(1, 0, 0, points);
+		
+		for (int k = 0; k < N; k++) {
+			// set sphere center as origin - translation
+			points[k][0] += this.x;
+			points[k][1] += this.y;
+			points[k][2] += this.z;
 		}
 		
 		return points;
@@ -990,7 +1059,7 @@ public class Sphere extends RegionOfInterest {
 			double x = this.x+Transf.sph2cart_x(r, phi, theta);
 			double y = this.y+Transf.sph2cart_y(r, phi, theta);
 			double z = this.z+Transf.sph2cart_z(r, phi, theta);
-			value += extracted_sphere_calc.interpolateAt_new((float)x, (float)y, (float)z);
+			value += extracted_sphere_calc.interpolateAt((float)x, (float)y, (float)z);
 //			count++;
 		//}
 		
@@ -1007,7 +1076,7 @@ public class Sphere extends RegionOfInterest {
 			float x = (float)(this.x+Transf.sph2cart_x(r, phi, theta));
 			float y = (float)(this.y+Transf.sph2cart_y(r, phi, theta));
 			float z = (float)(this.z+Transf.sph2cart_z(r, phi, theta));
-			value += calc.interpolateAt_new(x, y, z);
+			value += calc.interpolateAt(x, y, z);
 			count++;
 			
 		}

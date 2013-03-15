@@ -4,12 +4,8 @@ import java.util.Vector;
 
 import advantra.general.ArrayHandling;
 import advantra.processing.IntensityCalc;
-import advantra.shapes.Cylinder;
-import advantra.shapes.RegionOfInterest.RoiType;
 import advantra.shapes.Sphere;
 import advantra.tools.MeanShift3DSphere;
-import advantra.tools.OtsuBinarisation;
-
 import ij.ImagePlus;
 
 
@@ -28,19 +24,16 @@ public class TinyBranchTrace implements TinyBranch {
 	
 	Hypothesis 			current_hyp_estimate;	// actual hypothesis 
 	
-	double[][] 			new_seeds; 				// br_dirs x3 (because they're 3d space coordinates)
-	double[][]			new_seeds_test;
+	public double[][] 	new_seeds; 				// br_dirs x3 (because they're 3d space coordinates)
+//	double[][]			new_seeds_test;
 	
 	ImagePlus 			sphere_img; 
-	double[][] 			after_conv;
+	//double[][] 			after_conv;
+	double[][]			before_conv;
 	//double[][]			new_directions;			// br_dirs x3 (3d space directions)
 	//int[][]				new_seeds_coords;		// br_dirs x3 (3d sphere image local coordinates)
 	
 	int 				count;					// counts points on the branch
-	
-	public static enum CharacteristicPoint {
-	    END, BODY, BRANCH, TRACE_CANCELLED 
-	}
 	
 	public 		TinyBranchTrace(){ 
 		
@@ -60,10 +53,12 @@ public class TinyBranchTrace implements TinyBranch {
 		current_hyp_estimate = new Hypothesis();
 		
 		new_seeds		= null;
-		new_seeds_test 	= null;
+//		new_seeds_test 	= null;
 
 		sphere_img = null;
-		after_conv = null;
+		
+		//after_conv = null;
+		before_conv = null;
 		
 		count = 0;
 	}
@@ -94,10 +89,12 @@ public class TinyBranchTrace implements TinyBranch {
 		current_hyp_estimate = new Hypothesis();
 
 		new_seeds 		= null;
-		new_seeds_test  = null;
+//		new_seeds_test  = null;
 		
 		sphere_img      = null;
-		after_conv = null;
+		
+		//after_conv = null;
+		before_conv = null;
 		
 		count = 0;
 	}
@@ -114,19 +111,38 @@ public class TinyBranchTrace implements TinyBranch {
 		
 		seed_radius 		= seed_hyp.getNeuriteRadius();
 		
-		storeHypothesis(seed_hyp, false);  // stores in current_hyp_estimate, centerlines, radiuses
+		// add particular hypothesis to the estimation thread
+		current_hyp_estimate.setHypothesis(seed_hyp);
+		
+		centerlines[count][0] 	= current_hyp_estimate.getPositionX();
+		centerlines[count][1] 	= current_hyp_estimate.getPositionY();
+		centerlines[count][2] 	= current_hyp_estimate.getPositionZ();
+			
+		radiuses[count] 		= current_hyp_estimate.getNeuriteRadius();
+						
+		count++;
 		
 	}
 	
-	public Hypothesis 			hyp_at(
-			double[] 			point3d,
-			IntensityCalc 		img_calc
-			){ 
-		createInitialHypothesesAndCalculateLikelihoods(point3d, img_calc);
-		setInitialPriors(); 
-		calculatePosteriors(); 
-		Hypothesis estimated_hyp 	= getMaximumPosteriorHypothesis();
-		return estimated_hyp;
+	public void storeHypothesis(Hypothesis h){
+		current_hyp_estimate.setHypothesis(h);
+		
+		centerlines[count][0] 	= current_hyp_estimate.getPositionX();
+		centerlines[count][1] 	= current_hyp_estimate.getPositionY();
+		centerlines[count][2] 	= current_hyp_estimate.getPositionZ();
+			
+		radiuses[count] 		= current_hyp_estimate.getNeuriteRadius();
+						
+		count++;
+		
+//		System.out.format("currently:\n");
+//		for (int i = 0; i < count; i++) {
+//			System.out.format("%f, %f, %f ---- %f \n", 
+//					centerlines[i][0], 
+//					centerlines[i][1], 
+//					centerlines[i][2], 
+//					radiuses[i]);
+//		}
 	}
 	
 	public void 				setPriors(Hypothesis[] hyps, double prior_value){
@@ -135,24 +151,6 @@ public class TinyBranchTrace implements TinyBranch {
 		for (int i = 0; i < hyps.length; i++) {
 			hyps[i].setPrior(prior_value);
 		}
-	}
-	
-	private double[] 			subtract(double[] a3, double[] b3){
-		double[] out3 = new double[3];
-		out3[0] = a3[0] - b3[0];
-		out3[1] = a3[1] - b3[1];
-		out3[2] = a3[2] - b3[2];
-		return out3;
-	}
-	
-	private void 				normalize(double[] in3){
-		double norm = Math.sqrt(Math.pow(in3[0], 2) + Math.pow(in3[1], 2) + Math.pow(in3[2], 2));
-		if(norm>0){
-			in3[0] /= norm;
-			in3[1] /= norm;
-			in3[2] /= norm;
-		}
-		
 	}
 	
 	public void 				setLikelihoods(Hypothesis[] hyps, double likelihood_value){
@@ -164,7 +162,7 @@ public class TinyBranchTrace implements TinyBranch {
 	
 	public void 				calculateLikelihoods(IntensityCalc img_calc){ 
 		for (int i = 0; i < trace_hyps.length; i++) {
-			trace_hyps[i].calculateLikelihood_new(img_calc, 1.0, 1.0);
+			trace_hyps[i].calculateLikelihood(img_calc, 1.0, 1.0);
 		}
 	}
 	
@@ -253,102 +251,87 @@ public class TinyBranchTrace implements TinyBranch {
 		return new_seeds;
 	}
 	
-	public double[][]			getNewSeedsTest(){
-		return new_seeds_test;
-	}
-	
-	public double[][] 			getNewSeedsCopy(){
-		double[][] out = new double[new_seeds.length][new_seeds[0].length];
-		for (int i = 0; i < new_seeds.length; i++) {
-			for (int j = 0; j < new_seeds[0].length; j++) {
-				out[i][j] = new_seeds[i][j];
-			}
-		}
-		return out;
-	}
-	
-	public Vector<Hypothesis> 	getNewSeedHypotheses(IntensityCalc img_calc){
+	public Vector<Hypothesis> 	getNewSeedHypotheses(IntensityCalc img_calc, boolean manual_start){
 		
 		Vector<Hypothesis> new_hyps = new Vector<Hypothesis>();
 		
 		if(new_seeds==null){
+			
 			return new_hyps;
+			
 		}
 		else{
-			 //Hypothesis[new_seeds.length];
+			
+			boolean expelled = false; 
+			
 			for (int i = 0; i < new_seeds.length; i++) {
-				if(new_seeds[i]!=null){
+				
+				//if(new_seeds[i]!=null){
 					
-					// check if it belongs to the current branch already
-					//System.out.println("how many centers are there yet? "+count);
-					for (int k = count-1; k >=0; k--) {
-						double dst2 = 
-								Math.pow((new_seeds[i][0]-centerlines[k][0]), 2)+
-								Math.pow((new_seeds[i][1]-centerlines[k][1]), 2)+
-								Math.pow((new_seeds[i][2]-centerlines[k][2]), 2);
-						//System.out.println("new_seed "+i+": distance "+Math.sqrt(dst2)+" radius: "+radiuses[k]);
-						if(dst2<1.5*radiuses[k]*1.5*radiuses[k]) {
+					if(!manual_start) {
+						
+						/* check if it belongs to the current branch already
+						 * chk checkings at max
+						 */
+
+						int chk = 0;
+						
+						for (int k = count-1; k >=0; k--) {
 							
-							new_seeds[i] 	= null;
-							break;
+							double dst2 = 
+									Math.pow((new_seeds[i][0]-centerlines[k][0]), 2)+
+									Math.pow((new_seeds[i][1]-centerlines[k][1]), 2)+
+									Math.pow((new_seeds[i][2]-centerlines[k][2]), 2);
+							
+							chk++;
+							
+							if(chk>3) break;
+							
+							if(dst2<1.3*radiuses[k]*1.3*radiuses[k]) {
+								
+								new_seeds[i] 	= null;
+								expelled = true;
+								break;
+								
+							}
 							
 						}
+						
 					}
 					
-					if(new_seeds[i]!=null) {
+					if(new_seeds[i]!=null) { // actually makes sense in case it is was a manual start
 					
-					Hypothesis hyp_to_add = hyp_at(new_seeds[i], img_calc);
-					
-					/*
-					 * correct for the direction (outwards)
-					 */
-					double[] S_vec = new double[3]; // seed orientation
-					S_vec[0] = new_seeds[i][0]-getCurrentTraceHypothesisCenterpoint()[0];
-					S_vec[1] = new_seeds[i][1]-getCurrentTraceHypothesisCenterpoint()[1];
-					S_vec[2] = new_seeds[i][2]-getCurrentTraceHypothesisCenterpoint()[2];
-					double S_vec_norm = Math.sqrt(S_vec[0]*S_vec[0]+S_vec[1]*S_vec[1]+S_vec[2]*S_vec[2]);
-					S_vec[0] /= S_vec_norm;
-					S_vec[1] /= S_vec_norm;
-					S_vec[2] /= S_vec_norm;
-					
-					double[] H_vec = new double[3]; // hypothesis orientation
-					
-					H_vec[0] = hyp_to_add.getOrientation()[0];
-					H_vec[1] = hyp_to_add.getOrientation()[1];
-					H_vec[2] = hyp_to_add.getOrientation()[2];
-					
-					double dot_prod = 
-							S_vec[0]*H_vec[0]+
-							S_vec[1]*H_vec[1]+
-							S_vec[2]*H_vec[2];
-					double angle = Math.acos(dot_prod);
-					
-					if(angle>=Math.PI/2){
-						H_vec[0] = -H_vec[0];
-						H_vec[1] = -H_vec[1];
-						H_vec[2] = -H_vec[2];
-						hyp_to_add.setOrientation(H_vec);
+						double[] S_vec = new double[3]; // seed orientation
+						S_vec[0] = new_seeds[i][0]-current_hyp_estimate.getPositionX();
+						S_vec[1] = new_seeds[i][1]-current_hyp_estimate.getPositionY();
+						S_vec[2] = new_seeds[i][2]-current_hyp_estimate.getPositionZ();
+						
+						// not necessary to normalize
+						double S_vec_norm = Math.sqrt(S_vec[0]*S_vec[0]+S_vec[1]*S_vec[1]+S_vec[2]*S_vec[2]);
+						S_vec[0] /= S_vec_norm;
+						S_vec[1] /= S_vec_norm;
+						S_vec[2] /= S_vec_norm;
+						
+						double r = current_hyp_estimate.getNeuriteRadius();
+						
+						Hypothesis hyp_to_add = new Hypothesis(new_seeds[i], S_vec, r, k);
+						new_hyps.add(hyp_to_add);
+
 					}
-					
-					new_hyps.add(hyp_to_add);
-					}
-					//System.out.println("centerlines nr.: "+centerlines.length);
-					//System.out.println("radiuses nr.: "+radiuses.length);
-					
-					//new_hyps[i] = ;
-					//System.out.println("seed["+i+"] is initialized");
-//					new_hyps[i] = new Hypothesis(
-//							new_seeds[i], 
-//							new_directions[i], 
-//							2.0,//current_hyp_estimate.getNeuriteRadius(), 
-//							current_hyp_estimate.getK());
-				}
-//				else{
-//					new_hyps[i] = null;
-//				}
+
+				//}
 				 
 			}
-			return new_hyps;
+			
+			if(!expelled && !manual_start){
+				new_hyps.clear();
+				return new_hyps;
+			}
+			else{
+				return new_hyps;
+			}
+			
+			 
 		}
 		
 	}
@@ -404,101 +387,10 @@ public class TinyBranchTrace implements TinyBranch {
 		
 	}
 	
-	public void 				storeHypothesis			(Hypothesis estimated_hyp, boolean printHyp){
-		
-		// add particular hypothesis to the estimation thread
-		current_hyp_estimate.setHypothesis(estimated_hyp);
-		
-		centerlines[count][0] 	= current_hyp_estimate.getPositionX();
-		centerlines[count][1] 	= current_hyp_estimate.getPositionY();
-		centerlines[count][2] 	= current_hyp_estimate.getPositionZ();
-			
-		radiuses[count] 		= current_hyp_estimate.getNeuriteRadius();
-			
-		if(printHyp) estimated_hyp.print();
-						
-		count++;
-	}
-	
-	public void 				drawTrace(ImagePlus template_rgb_image, RoiType which_shape, int color_r, int color_g, int color_b, double shift_for_plotting){
-		
-		switch(which_shape){
-		case SPHERE:
-			for (int cnt = 0; cnt < count; cnt++) {
-				(new Sphere(
-						centerlines[cnt][0]+shift_for_plotting, 
-						centerlines[cnt][1]+shift_for_plotting, 
-						centerlines[cnt][2]+shift_for_plotting, 
-						radiuses[cnt])).drawOverColorImage(
-						template_rgb_image, color_r, color_g, color_b);
-			}
-			break;
-		case CYLINDER:
-			for (int cnt = 0; cnt < count; cnt++) {
-				Cylinder c = trace_hyps[cnt].getNeuriteCylinder();
-				c.translatePos(shift_for_plotting);
-				c.drawOverColorImage(
-						template_rgb_image, color_r, color_g, color_b);
-			}
-			break;
-		default:
-			System.err.println(which_shape+" shape is not supported");
-			System.exit(1);
-			break;
-		}
-		
-	}
-
 	public	static int 			getIterationLimit(){
 		return N;
 	}
 	
-	private void 				setInitialPriors(){ 
-		for (int i = 0; i < trace_hyps.length; i++) {
-			trace_hyps[i].setPrior(1/(double)trace_hyps.length);
-		}
-	}
-	
-	private void 				createInitialHypothesesAndCalculateLikelihoods(
-			double[] 	seed_point,
-			IntensityCalc img_calc
-			){
-		
-		double[][] points 			= new double[3][N_orientations];
-		double[][] point_orients	= new double[3][N_orientations];
-		
-		(new Sphere(seed_point[0], seed_point[1], seed_point[2], 1)).generate3DFullSpherePts(
-				N_orientations, 
-				points, 
-				point_orients);
-		
-		// create initial hypotheses
-		int count_hypotheses = 0;
-		for (int hypo_idx = 0; hypo_idx < N_orientations; hypo_idx++) {
-			for (int radius_idx = 0; radius_idx < trace_rads.length; radius_idx++) {
-				
-				// set the Hypothesis
-				trace_hyps[count_hypotheses].setHypothesis(
-						seed_point[0], seed_point[1], seed_point[2], 
-						point_orients[0][hypo_idx], 
-						point_orients[1][hypo_idx], 
-						point_orients[2][hypo_idx], 
-						trace_rads[radius_idx], 
-						k,
-						4
-						); 
-
-				trace_hyps[count_hypotheses].calculateLikelihood_new(img_calc, 1.0, 1.0);
-				
-//				System.out.println(
-//						"l'hood["+count_hypotheses+"] = "+trace_hyps[count_hypotheses].getLikelihood());
-				count_hypotheses++;
-				
-			}
-		}
-		
-	}
-
 	public void					predict(){
 		
 		// form the points on sphere... they will be placed on the semi-sphere in the direction of tangent 
@@ -511,8 +403,6 @@ public class TinyBranchTrace implements TinyBranch {
 				current_hyp_estimate.getPositionY(), 
 				current_hyp_estimate.getPositionZ(), 
 				jump_ahead);  //  *current_hyp_estimate.getNeuriteRadius()
-		
-		
 		
 		double[][] points = prediction_sphere.generate3DSemiSpherePts(
 						N_orientations, 
@@ -555,25 +445,22 @@ public class TinyBranchTrace implements TinyBranch {
 		return TinyBranch.jump_ahead;
 	}
 	
-	public double				relativeBifurcationSearchDistance(){ 	// relative means it's in radiuses
-		return TinyBranch.check_bifurcations;
-	}
-	
 	public double 				getK(){
 		return TinyBranch.k;
 	}
 	
 	/*
-	 * new branches
+	 * MEAN-SHIFT to calculate 
 	 */
 	
 	public void					calculateNewSeeds(IntensityCalc img_calc){ 
 		
-		int 	MS_PTS 				= 250;
-		int 	MS_PTS_TH 			= 40;
+		int 	MS_PTS 				= 8*20;
+		int 	CPU_NR				= 8;
+		int 	MS_PTS_TH 			= 10; // depends on sensitivity
 		int 	MS_MAX_ITER 		= 100;
 		double 	MS_EPS 				= 0.001; 
-		double 	MS_NEIGHBOUR 		= 4;//deg
+		double 	MS_NEIGHBOUR 		= 2;//deg
 		double  MS_NEIGHBOUR_RAD	= (MS_NEIGHBOUR/180)*Math.PI;
 		double 	MS_ANGLE_RANGE_DEG 	= 30;
 		double 	MS_ANGLE_RANGE_RAD 	= (MS_ANGLE_RANGE_DEG/180)*Math.PI;
@@ -581,32 +468,31 @@ public class TinyBranchTrace implements TinyBranch {
 		/*
 		 *  around getCurrentTraceHypothesisCenterpoint() 
 		 */
-		double scale 					= TinyBranch.check_bifurcations*getCurrentTraceHypothesisRadius();
-		Sphere sphere_from_image 		= new Sphere(getCurrentTraceHypothesisCenterpoint(), scale);
+		double rr = current_hyp_estimate.getNeuriteRadius();
+		Sphere sphere_from_image 		= new Sphere(getCurrentTraceHypothesisCenterpoint(), ((rr<=2)? (3*rr) : (2*rr)));
 		sphere_img     					= sphere_from_image.extract(img_calc, TinyBranch.extract_sphere_resolution); 
 		
-		//OtsuBinarisation otsu = new OtsuBinarisation(sphere_img);
-		//sphere_img = otsu.run();
+		MeanShift3DSphere.load(sphere_img, sphere_from_image, MS_ANGLE_RANGE_RAD, MS_PTS, MS_MAX_ITER, MS_EPS);
+		MeanShift3DSphere ms_jobs[] = new MeanShift3DSphere[CPU_NR];
+		for (int i = 0; i < ms_jobs.length; i++) {
+			ms_jobs[i] = new MeanShift3DSphere(i * MS_PTS / CPU_NR,  (i+1) * MS_PTS / CPU_NR);
+			ms_jobs[i].start();
+		}		
+		for (int i = 0; i < ms_jobs.length; i++) {
+			try {
+				ms_jobs[i].join();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}		
+
 		
-		MeanShift3DSphere ms3dSph = new MeanShift3DSphere(sphere_img, sphere_from_image, MS_ANGLE_RANGE_RAD, MS_PTS);
+		MeanShift3DSphere.extractClusters(MS_NEIGHBOUR_RAD, MS_PTS_TH); 
 		
-		ms3dSph.run(MS_MAX_ITER, MS_EPS);
+		new_seeds 			= MeanShift3DSphere.cluster_seed;
 		
-		ms3dSph.extractClusters(MS_NEIGHBOUR_RAD, MS_PTS_TH); // cluster_seed
-		
-		//ms3dSph.extractClusters_new(MS_NEIGHBOUR_RAD, MS_PTS_TH); // cluster_seed_test
-		
-		// result is stored in fields of the ms3dSph class
-		
-		new_seeds 			= ms3dSph.getClusterSeed();
-		
-		//new_seeds_test		= ms3dSph.getClusterSeedTest();
-		
-		//System.out.print("new_seeds: ");
-		//ArrayHandling.print2DArray(new_seeds);
-		
-		boolean save_converg = true;
-		if(save_converg) after_conv = ms3dSph.getT_cartesian();
+//		System.out.println("new_seeds from ms:");
+//		ArrayHandling.print2DArray(new_seeds);
 		
 	}
 	
@@ -614,8 +500,75 @@ public class TinyBranchTrace implements TinyBranch {
 		return sphere_img;
 	}
 	
-	public double[][] 			getTcartesian(){
-		return after_conv;
+	public double[][] 			getBeforeConv(){
+		return before_conv;
 	}
 
 }
+
+//public double[][]			getNewSeedsTest(){
+//return new_seeds_test;
+//}
+
+//public double[][] 			getNewSeedsCopy(){
+//double[][] out = new double[new_seeds.length][new_seeds[0].length];
+//for (int i = 0; i < new_seeds.length; i++) {
+//	for (int j = 0; j < new_seeds[0].length; j++) {
+//		out[i][j] = new_seeds[i][j];
+//	}
+//}
+//return out;
+//}
+//private void 				setInitialPriors(){ 
+//for (int i = 0; i < trace_hyps.length; i++) {
+//	trace_hyps[i].setPrior(1/(double)trace_hyps.length);
+//}
+//}
+//private void 				createInitialHypothesesAndCalculateLikelihoods(double[] seed_point,	IntensityCalc img_calc){
+//
+//double[][] points 			= new double[3][N_orientations];
+//double[][] point_orients	= new double[3][N_orientations];
+//
+////(new Sphere(seed_point[0], seed_point[1], seed_point[2], 1)).generate3DFullSpherePts(
+////		N_orientations, 
+////		points, 
+////		point_orients);
+//
+//(new Sphere(seed_point[0], seed_point[1], seed_point[2], 1)).generate3DSemiSpherePts(
+//		N_orientations, 
+//		1, 0, 0, 
+//		points, 
+//		point_orients);
+//// create initial hypotheses
+//int count_hypotheses = 0;
+//for (int hypo_idx = 0; hypo_idx < N_orientations; hypo_idx++) {
+//	for (int radius_idx = 0; radius_idx < trace_rads.length; radius_idx++) {
+//		
+//		// set the Hypothesis
+//		trace_hyps[count_hypotheses].setHypothesis(
+//				seed_point[0], seed_point[1], seed_point[2], 
+//				point_orients[0][hypo_idx], 
+//				point_orients[1][hypo_idx], 
+//				point_orients[2][hypo_idx], 
+//				trace_rads[radius_idx], 
+//				k,
+//				2
+//				); 
+//
+//		trace_hyps[count_hypotheses].calculateLikelihood(img_calc, 1, 1);
+//		
+////		System.out.println(
+////				"l'hood["+count_hypotheses+"] = "+trace_hyps[count_hypotheses].getLikelihood());
+//		count_hypotheses++;
+//		
+//	}
+//}
+//
+//}
+//public Hypothesis 			hyp_at(double[] 		point3d, IntensityCalc 		img_calc){ 
+//	createInitialHypothesesAndCalculateLikelihoods(point3d, img_calc);
+//	setInitialPriors(); 
+//	calculatePosteriors(); 
+//	Hypothesis estimated_hyp 	= getMaximumPosteriorHypothesis();
+//	return estimated_hyp;
+//}
