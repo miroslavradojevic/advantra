@@ -71,7 +71,7 @@ public class MeanShift3DSphere extends Thread {
 	
 	public static void load(ImagePlus sphere_img, Sphere sphere_space1, double angle_range1, int N, int max_itr, double eps){
 		
-		//new FileSaver(sphere_img).saveAsTiffStack("ms_sphere.tif");
+//		new FileSaver(sphere_img).saveAsTiffStack("ms_sphere.tif");
 		
 		img_calc 				= new IntensityCalc(sphere_img.getStack());
 		angle_range 			= angle_range1;
@@ -405,7 +405,7 @@ public class MeanShift3DSphere extends Thread {
 			T_cartesian[i][0] += sphere_roi.getCenterX()+1;
 			T_cartesian[i][1] += sphere_roi.getCenterY()+1;
 			T_cartesian[i][2] += sphere_roi.getCenterZ()+1;
-			System.out.format("%.2f, %.2f, %.2f \n", T_cartesian[i][0], T_cartesian[i][1], T_cartesian[i][2]);
+			System.out.format("%.2f, %.2f, %.2f \n", T_cartesian[i][1], T_cartesian[i][0], T_cartesian[i][2]);
 		}
 		
 	}
@@ -418,7 +418,7 @@ public class MeanShift3DSphere extends Thread {
 			S_cartesian[i][0] += sphere_roi.getCenterX()+1;
 			S_cartesian[i][1] += sphere_roi.getCenterY()+1;
 			S_cartesian[i][2] += sphere_roi.getCenterZ()+1;
-			System.out.format("%.2f, %.2f, %.2f \n", S_cartesian[i][0], S_cartesian[i][1], S_cartesian[i][2]);
+			System.out.format("%.2f, %.2f, %.2f \n", S_cartesian[i][1], S_cartesian[i][0], S_cartesian[i][2]);
 		}
 		
 	}
@@ -431,7 +431,7 @@ public class MeanShift3DSphere extends Thread {
 			T_clust_cartesian[i][0] += sphere_roi.getCenterX()+1;
 			T_clust_cartesian[i][1] += sphere_roi.getCenterY()+1;
 			T_clust_cartesian[i][2] += sphere_roi.getCenterZ()+1;
-			System.out.format("%.2f, %.2f, %.2f \n", T_clust_cartesian[i][0], T_clust_cartesian[i][1], T_clust_cartesian[i][2]);
+			System.out.format("%.2f, %.2f, %.2f \n", T_clust_cartesian[i][1], T_clust_cartesian[i][0], T_clust_cartesian[i][2]);
 		}
 		
 	}
