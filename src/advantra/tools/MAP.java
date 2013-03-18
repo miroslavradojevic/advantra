@@ -178,25 +178,30 @@ public class MAP extends Thread implements Tracing {
 	
 	public static Hypothesis takeMap(){
 		
-		double max_posterior = Double.MIN_VALUE;
-		double sum_posterior = 0;
-		int idx_max = 0;
+		double 	max_posterior 	= Double.MIN_VALUE;
+		double 	sum_lhoods 		= 0;
+		int 	idx_max 		= 0;
 		
 		
 		for (int i = 0; i < total_hyps; i++) {
 			if(trace_hypotheses[i].isPosteriorCalculated()){
 				
-				sum_posterior += trace_hypotheses[i].getPosterior();
+				
+				sum_lhoods += trace_hypotheses[i].getLikelihood(); 
 				
 				if(trace_hypotheses[i].getPosterior()>max_posterior){
-					max_posterior = trace_hypotheses[i].getPosterior();
+					max_posterior = trace_hypotheses[i].getPosterior();// not normalized!
 					idx_max = i;
 				}
 				
 			}
 		}
 		
-		return (sum_posterior>0.001)? trace_hypotheses[idx_max] : null;
+//		System.out.println("sum_posterior: "+sum_posterior);
+//		System.out.println("max_posterior: "+max_posterior);
+//		System.out.println("posterior after norm: "+((max_posterior/sum_posterior)));
+		
+		return (sum_lhoods>0)? trace_hypotheses[idx_max] : null;
 		
 	}
 	

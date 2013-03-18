@@ -1,8 +1,11 @@
 package advantra.tools;
 
+import java.awt.Color;
 import java.util.Vector;
 
 import ij.ImagePlus;
+import ij.gui.Plot;
+import ij.io.FileSaver;
 import advantra.general.Transf;
 import advantra.processing.IntensityCalc;
 import advantra.shapes.Sphere;
@@ -67,6 +70,8 @@ public class MeanShift3DSphere extends Thread {
 	}
 	
 	public static void load(ImagePlus sphere_img, Sphere sphere_space1, double angle_range1, int N, int max_itr, double eps){
+		
+		//new FileSaver(sphere_img).saveAsTiffStack("ms_sphere.tif");
 		
 		img_calc 				= new IntensityCalc(sphere_img.getStack());
 		angle_range 			= angle_range1;
@@ -301,7 +306,7 @@ public class MeanShift3DSphere extends Thread {
 				T_clust[cnt][0] = T[take_one][0]; // not necessary to keep T_clust
 				T_clust[cnt][1] = T[take_one][1];
 				
-				Transf.sph2cart(1.1*sphere_space.getR(), T_clust[cnt][0], T_clust[cnt][1], cluster_seed[cnt]);
+				Transf.sph2cart(1.0*sphere_space.getR(), T_clust[cnt][0], T_clust[cnt][1], cluster_seed[cnt]);
 				
 				cluster_seed[cnt][0] += sphere_space.getCenterX();
 				cluster_seed[cnt][1] += sphere_space.getCenterY();
@@ -310,19 +315,53 @@ public class MeanShift3DSphere extends Thread {
 			}
 		}
 		
-//		if(T_clust==null){
-//			System.out.print("CLUST:NULL");
+		// plot for debug
+		
+//		if(nr_clusters_higher_than_M!=2){
+//		
+//		float[] x0 = new float[T.length];
+//		float[] y0 = new float[T.length];
+//		
+//		float[] x1 = new float[T.length];
+//		float[] y1 = new float[T.length];
+//		
+//		for (int i = 0; i < T.length; i++) {
+//			
+//			x0[i] = (float)S[i][1];
+//			y0[i] = (float)S[i][0];
+//			
+//			x1[i] = (float)T[i][1];
+//			y1[i] = (float)T[i][0];
+//			
 //		}
-//		else { //T_clust.length>2
-//			System.out.print("CLUST ("+range+")\n");
-//			ArrayHandling.print2DArray(T_clust);
-//			for (int i = 0; i < T_clust.length; i++) {
-//				for (int j = 0; j < T_clust.length; j++) {
-//					System.out.format("d(%d,%d)=%.2f ", i, j, d(T_clust[i], T_clust[j]));
-//				}
-//				System.out.format("\n");
-//			}
+//		
+//		float[] x2 = new float[nr_clusters_higher_than_M];
+//		float[] y2 = new float[nr_clusters_higher_than_M];
+//		
+//		for (int i = 0; i < nr_clusters_higher_than_M; i++) {
+//			x2[i] = (float)T_clust[i][1];
+//			y2[i] = (float)T_clust[i][0];
 //		}
+//		
+//		Plot plot = new Plot(String.format("Mean-shift,range %f",range), "phi", "theta", new double[0], new double[0]);
+//	    plot.setFrameSize(600,300);
+//	    plot.setLimits(0, 2*Math.PI, 0, 1*Math.PI);
+//	    plot.setLineWidth(2);
+//	    plot.setColor(Color.gray);
+//	    plot.addPoints(x0, y0, Plot.DOT);
+//	    plot.setColor(Color.blue);
+//	    plot.addPoints(x1, y1, Plot.X);
+//	    plot.setColor(Color.red);
+//	    plot.addPoints(x2, y2, Plot.BOX);
+//	    plot.show(); 
+//
+//	    printS();
+//	    printT();
+//	    printConv();
+//	    
+//	    
+//		}
+
 		
 	}
 	
@@ -363,9 +402,9 @@ public class MeanShift3DSphere extends Thread {
 		double[][] T_cartesian = new double[T.length][3];
 		for (int i = 0; i < T.length; i++) {
 			Transf.sph2cart(sphere_roi.getR(), T[i][0], T[i][1], T_cartesian[i]);
-			T_cartesian[i][0] += sphere_roi.getCenterX();
-			T_cartesian[i][1] += sphere_roi.getCenterY();
-			T_cartesian[i][2] += sphere_roi.getCenterZ();
+			T_cartesian[i][0] += sphere_roi.getCenterX()+1;
+			T_cartesian[i][1] += sphere_roi.getCenterY()+1;
+			T_cartesian[i][2] += sphere_roi.getCenterZ()+1;
 			System.out.format("%.2f, %.2f, %.2f \n", T_cartesian[i][0], T_cartesian[i][1], T_cartesian[i][2]);
 		}
 		
@@ -376,9 +415,9 @@ public class MeanShift3DSphere extends Thread {
 		double[][] S_cartesian = new double[S.length][3];
 		for (int i = 0; i < S.length; i++) {
 			Transf.sph2cart(sphere_roi.getR(), S[i][0], S[i][1], S_cartesian[i]);
-			S_cartesian[i][0] += sphere_roi.getCenterX();
-			S_cartesian[i][1] += sphere_roi.getCenterY();
-			S_cartesian[i][2] += sphere_roi.getCenterZ();
+			S_cartesian[i][0] += sphere_roi.getCenterX()+1;
+			S_cartesian[i][1] += sphere_roi.getCenterY()+1;
+			S_cartesian[i][2] += sphere_roi.getCenterZ()+1;
 			System.out.format("%.2f, %.2f, %.2f \n", S_cartesian[i][0], S_cartesian[i][1], S_cartesian[i][2]);
 		}
 		
@@ -389,9 +428,9 @@ public class MeanShift3DSphere extends Thread {
 		double[][] T_clust_cartesian = new double[T_clust.length][3];
 		for (int i = 0; i < T_clust.length; i++) {
 			Transf.sph2cart(sphere_roi.getR(), T_clust[i][0], T_clust[i][1], T_clust_cartesian[i]);
-			T_clust_cartesian[i][0] += sphere_roi.getCenterX();
-			T_clust_cartesian[i][1] += sphere_roi.getCenterY();
-			T_clust_cartesian[i][2] += sphere_roi.getCenterZ();
+			T_clust_cartesian[i][0] += sphere_roi.getCenterX()+1;
+			T_clust_cartesian[i][1] += sphere_roi.getCenterY()+1;
+			T_clust_cartesian[i][2] += sphere_roi.getCenterZ()+1;
 			System.out.format("%.2f, %.2f, %.2f \n", T_clust_cartesian[i][0], T_clust_cartesian[i][1], T_clust_cartesian[i][2]);
 		}
 		

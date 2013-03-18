@@ -1,15 +1,9 @@
 package advantra.trace;
 
-import java.util.Vector;
-
 import advantra.general.ArrayHandling;
 import advantra.processing.IntensityCalc;
-import advantra.shapes.Sphere;
-import advantra.tools.MeanShift3DSphere;
-import ij.ImagePlus;
 
-
-public class TinyBranchTrace implements Tracing {
+public class BranchTrace implements Tracing {
 	
 												// dimensionality
 	double[] 			seed_point; 			// 3
@@ -24,14 +18,9 @@ public class TinyBranchTrace implements Tracing {
 	
 	Hypothesis 			current_hyp_estimate;	// actual hypothesis 
 	
-	public double[][] 	new_seeds; 				// br_dirs x3 (because they're 3d space coordinates)
-	
-	ImagePlus 			sphere_img; 
-	double[][]			before_conv;
-	
 	int 				count;					// counts points on the branch
 	
-	public 		TinyBranchTrace(){ 
+	public 		BranchTrace(){ 
 		
 		this.seed_point 	= new double[3];
 		this.seed_direction = new double[3];
@@ -48,18 +37,16 @@ public class TinyBranchTrace implements Tracing {
 		
 		current_hyp_estimate = new Hypothesis();
 		
-		new_seeds		= null;
-//		new_seeds_test 	= null;
+//		new_seeds		= null;
 
-		sphere_img = null;
+//		sphere_img = null;
 		
-		//after_conv = null;
-		before_conv = null;
+//		before_conv = null;
 		
 		count = 0;
 	}
 
-	public 		TinyBranchTrace(final Hypothesis seed_hyp){ 
+	public 		BranchTrace(final Hypothesis seed_hyp){ 
 		
 		seed_point 	= new double[3];
 		seed_point[0]	= seed_hyp.getPositionX();
@@ -84,13 +71,11 @@ public class TinyBranchTrace implements Tracing {
 		
 		current_hyp_estimate = new Hypothesis();
 
-		new_seeds 		= null;
-//		new_seeds_test  = null;
+//		new_seeds 		= null;
 		
-		sphere_img      = null;
+//		sphere_img      = null;
 		
-		//after_conv = null;
-		before_conv = null;
+//		before_conv = null;
 		
 		count = 0;
 	}
@@ -243,10 +228,6 @@ public class TinyBranchTrace implements Tracing {
 		return current_hyp_estimate.getOrientationZ();
 	}	
 	
-	public int 					getCount(){
-		return count;
-	}
-	
 	public Hypothesis 			getCurrentTraceHypothesis(){
 		return current_hyp_estimate;
 	}
@@ -298,133 +279,4 @@ public class TinyBranchTrace implements Tracing {
 		return N;
 	}
 	
-	/*
-	 * MEAN-SHIFT to calculate 
-	 */
-	
-	public void					calculateNewSeeds(IntensityCalc img_calc){ 
-		
-		int 	MS_PTS_TH 			= 10; // depends on sensitivity
-		int 	MS_MAX_ITER 		= 100;
-		double 	MS_EPS 				= 0.001; 
-		double 	MS_NEIGHBOUR 		= 2;//deg
-		double  MS_NEIGHBOUR_RAD	= (MS_NEIGHBOUR/180)*Math.PI;
-		double 	MS_ANGLE_RANGE_DEG 	= 30;
-		double 	MS_ANGLE_RANGE_RAD 	= (MS_ANGLE_RANGE_DEG/180)*Math.PI;
-		
-		double rr = current_hyp_estimate.getNeuriteRadius();
-		Sphere sphere_from_image 		= new Sphere(getCurrentTraceHypothesisCenterpoint(), ((rr<=2)? (3*rr) : (2*rr)));
-		sphere_img     					= sphere_from_image.extract(img_calc, Tracing.extract_sphere_resolution); 
-		
-		MeanShift3DSphere.load(sphere_img, sphere_from_image, MS_ANGLE_RANGE_RAD, MS_PTS, MS_MAX_ITER, MS_EPS);
-		MeanShift3DSphere ms_jobs[] = new MeanShift3DSphere[CPU_NR];
-		for (int i = 0; i < ms_jobs.length; i++) {
-			ms_jobs[i] = new MeanShift3DSphere(i * MS_PTS / CPU_NR,  (i+1) * MS_PTS / CPU_NR);
-			ms_jobs[i].start();
-		}		
-		for (int i = 0; i < ms_jobs.length; i++) {
-			try {
-				ms_jobs[i].join();
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
-		}		
-
-		
-		MeanShift3DSphere.extractClusters(MS_NEIGHBOUR_RAD, MS_PTS_TH); 
-		
-		new_seeds 			= MeanShift3DSphere.cluster_seed;
-		
-	}
-	
-	public Vector<Hypothesis> 	getNewSeedHypotheses(IntensityCalc img_calc, boolean manual_start){
-		
-		Vector<Hypothesis> new_hyps = new Vector<Hypothesis>();
-		
-		if(new_seeds==null){
-			
-			System.out.print("MS-FAIL");
-			return new_hyps;
-			
-		}
-		else{
-			
-			boolean expelled = false; 
-			
-			for (int i = 0; i < new_seeds.length; i++) {
-				
-				//if(new_seeds[i]!=null){
-					
-					if(!manual_start) {
-						
-						/* check if it belongs to the current branch already
-						 * chk checkings at max
-						 */
-
-						int chk = 0;
-						
-						for (int k = count-1; k >=0; k--) {
-							
-							double dst2 = 
-									Math.pow((new_seeds[i][0]-centerlines[k][0]), 2)+
-									Math.pow((new_seeds[i][1]-centerlines[k][1]), 2)+
-									Math.pow((new_seeds[i][2]-centerlines[k][2]), 2);
-							
-							chk++;
-							
-							if(chk>STEPS_BACKWARDS) break;
-							
-							if(dst2<RADIUS_SCALE_BORDER*radiuses[k]*RADIUS_SCALE_BORDER*radiuses[k]) {
-								
-								new_seeds[i] 	= null;
-								expelled = true;
-								break;
-								
-							}
-							
-						}
-						
-					}
-					
-					if(new_seeds[i]!=null) { // actually makes sense in case it is was a manual start
-					
-						double[] S_vec = new double[3]; // seed orientation
-						S_vec[0] = new_seeds[i][0]-current_hyp_estimate.getPositionX();
-						S_vec[1] = new_seeds[i][1]-current_hyp_estimate.getPositionY();
-						S_vec[2] = new_seeds[i][2]-current_hyp_estimate.getPositionZ();
-						
-						// not necessary to normalize
-						double S_vec_norm = Math.sqrt(S_vec[0]*S_vec[0]+S_vec[1]*S_vec[1]+S_vec[2]*S_vec[2]);
-						S_vec[0] /= S_vec_norm;
-						S_vec[1] /= S_vec_norm;
-						S_vec[2] /= S_vec_norm;
-						
-						double r = current_hyp_estimate.getNeuriteRadius();
-						
-						Hypothesis hyp_to_add = new Hypothesis(new_seeds[i], S_vec, r, k);
-						new_hyps.add(hyp_to_add);
-
-					}
-
-				//}
-				 
-			}
-			
-			if(!expelled && !manual_start){
-				System.out.print("NO_EXPELL");
-				new_hyps.clear();
-				return new_hyps;
-			}
-			else{
-				return new_hyps;
-			}
-			
-			 
-		}
-		
-	}
-	
-	public double[][] 			getBeforeConv(){
-		return before_conv;
-	}
 }

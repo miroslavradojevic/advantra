@@ -23,10 +23,10 @@ public class ExtractEndpointsSWC {
 			System.exit(1);
 		}
 		
-		AnalyzeSWC a = new AnalyzeSWC(swc_path, img_path);
+		AnalyzeSWC a = new AnalyzeSWC(swc_path);
 		a.load();
 		int visualization_color = 255;
-		a.extractEndpoints(visualization_color);
+		a.extractEndpoints(img_path, visualization_color);
  		
 		System.out.println("done.");
 

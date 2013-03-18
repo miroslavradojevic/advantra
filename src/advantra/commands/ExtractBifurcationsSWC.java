@@ -38,10 +38,10 @@ public class ExtractBifurcationsSWC {
 		System.out.println("loaded files: \nSWC: "+swc_path+" ");
 		System.out.println("TIF: "+img_path);
 		
-		AnalyzeSWC a = new AnalyzeSWC(swc_path, img_path);
+		AnalyzeSWC a = new AnalyzeSWC(swc_path);
 		a.load();
 		int visualization_color = 255;
-		a.extractBifurcations(visualization_color); // extract both text file & visualize in an image stack
+		a.extractBifurcations(img_path, visualization_color); // extract both text file & visualize in an image stack
  		
 		System.out.println("done.");
 
