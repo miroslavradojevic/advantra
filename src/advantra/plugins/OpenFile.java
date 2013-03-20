@@ -26,8 +26,7 @@ public class OpenFile  implements PlugIn {
 		File dir=null;
 		JFileChooser fc = null;
 		try {fc = new JFileChooser();}
-		catch (Throwable e) {IJ.error("This plugin requires Java 2 or Swing."); return;}
-		//fc.setMultiSelectionEnabled(true);
+		catch (Throwable e) {return;}
 		if (dir==null) {
 			String sdir = OpenDialog.getDefaultDirectory();
 			if (sdir!=null)

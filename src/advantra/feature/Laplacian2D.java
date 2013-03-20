@@ -9,17 +9,14 @@ import imagescience.image.Dimensions;
 import imagescience.image.FloatImage;
 import imagescience.image.Image;
 
-public class Laplacian {
-
-	public Laplacian(){}
+public class Laplacian2D {
 	
-	public Vector<Image> run(Image input2D, double[] sigmas) {
+	public static Vector<Image> run(Image input2D, double[] sigmas) {
 		
 		Vector<Image> out = new Vector<Image>(sigmas.length);
 		
 		Image Lxx = null;
 		Image Lyy = null;
-		
 		
 		Dimensions dim = input2D.dimensions();
 		double[] aLxx = new double[dim.x];
