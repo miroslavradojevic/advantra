@@ -12,6 +12,7 @@ import imagescience.image.Image;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 
 import javax.swing.JFileChooser;
 
@@ -136,75 +137,106 @@ public class ViewFeature implements PlugIn {
 		
 		File csv_file = new File(csv_dir+open_csv.getFileName()); 
 		Instances data = loadFromCsvFile(csv_file);
+		System.out.println("data class formed!");
 		
-		Instances 		locs;
-		Instances		clss;
-		Instances 		train;
+		Instances 	x;
+		Instances	y;
 		
+		// filters
 		Remove keep12 = new Remove();
-		keep12.setInvertSelection(true); 	
-		int[] first_two = new int[]{0, 1};
-		keep12.setAttributeIndicesArray(first_two);
-		
 		Remove keepLast = new Remove();
-		keepLast.setInvertSelection(true);
-		int[] last_idx = new int[]{(data.numAttributes()-1)};
-		keepLast.setAttributeIndicesArray(last_idx);
-		
-		FastVector attributes = new FastVector();
-		for (int i = 0; i < nr; i++) {
-			String label = String.format(choices[idx]+"s_%.2f", sigma[i]);
-			attributes.addElement(new Attribute(label));
-		}
 		
 		try {
-			
-			keepLast.setInputFormat(data);
-			clss = Filter.useFilter(data, keepLast);
-			attributes.addElement(clss.attribute(0));
-			
+			keep12.setInvertSelection(true); 	
+			int[] first_two = new int[]{0, 1};
+			keep12.setAttributeIndicesArray(first_two);
 			keep12.setInputFormat(data);
-			locs = Filter.useFilter(data, keep12);
+		
+			keepLast.setInvertSelection(true);
+			int[] last_idx = new int[]{(data.numAttributes()-1)};
+			keepLast.setAttributeIndicesArray(last_idx);
+			keepLast.setInputFormat(data);
+		
+			x = Filter.useFilter(data, keep12);
+			y = Filter.useFilter(data, keepLast);
 			
-			System.out.println("extracted dataset with locations & assigned class for each.");
+			ArrayList<Instances> 		fx = new ArrayList<Instances>(nr);
+		
+			for (int i = 0; i < nr; i++) {
 			
-			train = new Instances("train", attributes, locs.numInstances());
-			for (int i = 0; i < locs.numInstances(); i++) {
-				train.add(new Instance(nr+1)); // fill them with missing values
-			}
-			train.setClassIndex(train.numAttributes()-1);
-			
-			int cnt = 0;
-			for (int loc_idx = 0; loc_idx < locs.numInstances(); loc_idx++) {
-			
-				for (int scale_idx = 0; scale_idx < nr; scale_idx++) {
+				// fx(i) form
+				FastVector attributes = new FastVector();
+				String label = String.format(choices[idx]+"_s_%.2f", sigma[i]);
+				attributes.addElement(new Attribute(label));
+				attributes.addElement(y.attribute(0));
+				Instances train = new Instances(label, attributes, x.numInstances());
+
+				int cnt = 0;
+				for (int loc_idx = 0; loc_idx < x.numInstances(); loc_idx++) {
 				
-					int col = (int)Math.round( locs.instance(loc_idx).value(0) );
-					int row = (int)Math.round( locs.instance(loc_idx).value(1) );
-					Coordinates at_pos = new Coordinates(col, row, scale_idx);
+					int col = (int)Math.round( x.instance(loc_idx).value(0) );
+					int row = (int)Math.round( x.instance(loc_idx).value(1) );
+					Coordinates at_pos = new Coordinates(col, row, i);
 					double value = feats.get(at_pos);
-					train.instance(cnt).setValue(scale_idx, value);
-					
+					train.instance(cnt).setValue(0, value);
+					train.instance(cnt).setValue(nr, y.instance(loc_idx).value(0));
+					cnt++;
+				
 				}
-				
-				train.instance(cnt).setValue(nr, clss.instance(loc_idx).value(0));
-				cnt++;
-				
+			
+			fx.set(i, train);
+			System.out.println("fx("+i+") formed!");
+			
 			}
-			
-			String train_path = System.getProperty("user.home");
-			if (!train_path.endsWith("/")) train_path += "/";
-			train_path += "train.csv";
-			
-			System.out.println("wants to save to: "+train_path);
-			
-			DataSink.write(train_path, train);
-			
-			System.out.println("done, saved to "+train_path);
 			
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
+		
+//		FastVector attributes = new FastVector();
+//		for (int i = 0; i < nr; i++) {
+//			String label = String.format(choices[idx]+"_s_%.2f", sigma[i]);
+//			attributes.addElement(new Attribute(label));
+//			attributes.addElement(Filter.useFilter(data, keepLast).attribute(0));
+//			fx.set(i, element);
+//		}
+//		try {
+//			for (int i = 0; i < locs.numInstances(); i++) {
+//				train.add(new Instance(nr+1)); // fill them with missing values
+//			}
+//			train.setClassIndex(train.numAttributes()-1);
+//			
+//			int cnt = 0;
+//			for (int loc_idx = 0; loc_idx < locs.numInstances(); loc_idx++) {
+//			
+//				for (int scale_idx = 0; scale_idx < nr; scale_idx++) {
+//				
+//					int col = (int)Math.round( locs.instance(loc_idx).value(0) );
+//					int row = (int)Math.round( locs.instance(loc_idx).value(1) );
+//					Coordinates at_pos = new Coordinates(col, row, scale_idx);
+//					double value = feats.get(at_pos);
+//					train.instance(cnt).setValue(scale_idx, value);
+//					
+//				}
+//				
+//				train.instance(cnt).setValue(nr, clss.instance(loc_idx).value(0));
+//				cnt++;
+//				
+//			}
+//			
+//			String train_path = System.getProperty("user.home");
+//			if (!train_path.endsWith("/")) train_path += "/";
+//			train_path += "train.csv";
+//			
+//			System.out.println("wants to save to: "+train_path);
+//			
+//			DataSink.write(train_path, train);
+//			
+//			System.out.println("done, saved to "+train_path);
+//			
+//		} catch (Exception e) {
+//			e.printStackTrace();
+//		}
 		
 	}
 	

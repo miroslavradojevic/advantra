@@ -15,7 +15,6 @@ import advantra.trace.NeuronTrace;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.GenericDialog;
-import ij.gui.ImageCanvas;
 import ij.measure.Calibration;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
@@ -23,13 +22,13 @@ import ij.process.ImageProcessor;
 public class NeuronTraceRecursive implements PlugInFilter, MouseListener {
 
 	ImagePlus img;
-	ImageCanvas canvas;
+	//ImageCanvas canvas;
 	int MAX_BRANCHES;
 	
 	public int 	setup (String arg, ImagePlus img){
 		
 		if(img==null){ 
-			IJ.showMessage("Plugin requires stack to be opened...");
+			IJ.showMessage("Image was null...");
 			return DONE;
 		}
 		if(img.getStack().getSize()<=1) {
