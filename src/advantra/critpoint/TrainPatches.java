@@ -75,6 +75,7 @@ public class TrainPatches implements PlugIn, ActionListener {
 	            return;
 	        }
 	        String fileName = fc.getSelectedFile().getAbsolutePath();
+	        
 	        IJ.showStatus("Opened " + fileName);
 		}
 	}
