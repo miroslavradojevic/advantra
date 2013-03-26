@@ -22,7 +22,6 @@ public FeaturePool(int N) {
 public HaarLikeFeature getFeature(int i) {
     return featurepool.get(i);
 }
-// creates 511225 possible combinations 
 
 private void createPoolAllPossible() {
     for (int y0 = 0; y0 < N; y0++) {
@@ -54,10 +53,12 @@ private void createPool() {
     for (int s = 2; s <= N; s += 2) {
         for (int y0 = 0; y0 < N - s + 1; y0++) {
             for (int x0 = 0; x0 < N - s + 1; x0++) {
-//                featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0 + s / 2, y0, s / 2, s, -1, 2));
-//                featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0, y0, s / 2, s, -1, 2));
-                featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0, y0 + s / 2, s, s / 2, -1, 2));
-//                featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0, y0, s, s / 2, -1, 2));
+            	//vertical
+                featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0 + s / 2, y0, s / 2, s, -1, 2));
+                featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0, y0, s / 2, s, -1, 2));
+                //horizontal
+//            	featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0, y0 + s / 2, s, s / 2, -1, 2));
+//              featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0, y0, s, s / 2, -1, 2));
             }
         }
     }
@@ -176,7 +177,9 @@ public void visualizeFeaturePool() {
     }
 
     ImagePlus imp = outimg.imageplus();
+    imp.setTitle("feature pool");
     imp.show();
+    // increase the size several times
     imp.getCanvas().zoomIn(0, 0);
     imp.getCanvas().zoomIn(0, 0);
     imp.getCanvas().zoomIn(0, 0);

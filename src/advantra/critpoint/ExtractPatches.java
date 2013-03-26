@@ -210,6 +210,7 @@ public class ExtractPatches implements PlugInFilter, MouseListener {
 		viz.setStack(trn);
 		viz.setTitle("train");
 		viz.show();
+		viz.getCanvas().zoomIn(0,0);
 		
 		System.out.println("layer: "+trn.getHeight()+" x "+trn.getWidth()+" , curr. stack size: "+trn.getSize());
 		
