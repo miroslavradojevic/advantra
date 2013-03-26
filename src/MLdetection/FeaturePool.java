@@ -13,7 +13,7 @@ int N; //size of the window
 
 ArrayList<HaarLikeFeature> featurepool;
 
-FeaturePool(int N) {
+public FeaturePool(int N) {
     this.N = N;
     featurepool = new ArrayList<HaarLikeFeature>();
     createPool();
@@ -49,13 +49,12 @@ private void createPoolAllPossible() {
 }
 
 private void createPool() {
-
     
     // half - stripes
     for (int s = 2; s <= N; s += 2) {
         for (int y0 = 0; y0 < N - s + 1; y0++) {
             for (int x0 = 0; x0 < N - s + 1; x0++) {
-               // featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0 + s / 2, y0, s / 2, s, -1, 2));
+//                featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0 + s / 2, y0, s / 2, s, -1, 2));
 //                featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0, y0, s / 2, s, -1, 2));
                 featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0, y0 + s / 2, s, s / 2, -1, 2));
 //                featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0, y0, s, s / 2, -1, 2));
@@ -64,6 +63,7 @@ private void createPool() {
     }
 
     // 1/3 stripes
+    if(false){
     for (int s = 3; s <= N; s += 3) {
         for (int y0 = 0; y0 < N - s + 1; y0++) {
             for (int x0 = 0; x0 < N - s + 1; x0++) {
@@ -72,8 +72,9 @@ private void createPool() {
             }
         }
     }
-
-//    // 2/4 stripes 
+    }
+    // 2/4 stripes 
+    if(false){
     for (int s = 4; s <= N; s += 4) {
         for (int y0 = 0; y0 < N - s + 1; y0++) {
             for (int x0 = 0; x0 < N - s + 1; x0++) {
@@ -83,18 +84,20 @@ private void createPool() {
             }
         }
     }
-
+    }
     // squares 
-//    for (int k = 1; k <= (N - 1) / 2; k += 1) {
-//        for (int s = 2 * k + 1 ; s <= N; s += 1) {
-//            for (int y0 = 0; y0 < N - s + 1; y0++) {
-//                for (int x0 = 0; x0 < N - s + 1; x0++) {
-//                    double w = s * s / (1.0 * (s - 2 * k) * (s - 2 * k));
-//                    featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0 + k, y0 + k, s - 2 * k, s - 2 * k, -1, w));
-//                }
-//            }
-//        }
-//    }
+    if(false){
+    for (int k = 1; k <= (N - 1) / 2; k += 1) {
+        for (int s = 2 * k + 1 ; s <= N; s += 1) {
+            for (int y0 = 0; y0 < N - s + 1; y0++) {
+                for (int x0 = 0; x0 < N - s + 1; x0++) {
+                    double w = s * s / (1.0 * (s - 2 * k) * (s - 2 * k));
+                    featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0 + k, y0 + k, s - 2 * k, s - 2 * k, -1, w));
+                }
+            }
+        }
+    }
+    }
 
 }
 

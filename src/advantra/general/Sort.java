@@ -2,7 +2,7 @@ package advantra.general;
 
 public class Sort {
 
-	public static void Ascending3   (double[] sort, int[] ind){
+	public static void 		asc3   (double[] sort, int[] ind){
 		double first   = sort[0]; 
 		double second  = sort[1];
 		double third   = sort[2]; 
@@ -60,8 +60,8 @@ public class Sort {
 			}
 		}
 	}
-	
-	public static double findMin(double[] in){
+		
+	public static double 	findMin(double[] in){
 		double min_val = in[0];
 		for (int i = 1; i < in.length; i++) {
 			if(in[i]<min_val){
@@ -71,7 +71,7 @@ public class Sort {
 		return min_val;
 	}
 	
-	public static double findMax(double[] in){
+	public static double 	findMax(double[] in){
 		double max_val = in[0];
 		for (int i = 1; i < in.length; i++) {
 			if(in[i]>max_val){
@@ -80,4 +80,21 @@ public class Sort {
 		}
 		return max_val;
 	}	
+	
+	public static float[] 	min_max(float[] a){
+		
+		float mn = a[0];
+		float mx = a[0];
+		
+		for (int i = 1; i < a.length; i++) {
+			if(a[i]<mn){
+				mn = a[i];
+			}
+			if(a[i]>mx){
+				mx = a[i];
+			}
+		}
+		
+		return new float[]{mn, mx};
+	}
 }

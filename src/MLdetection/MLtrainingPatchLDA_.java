@@ -11,7 +11,6 @@ import imagescience.image.Dimensions;
 import imagescience.image.Image;
 import imagescience.utility.Progressor;
 import java.awt.Button;
-import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Panel;
@@ -25,7 +24,6 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.ArrayList;
 import javax.swing.JFileChooser;
 
 /**
@@ -36,17 +34,17 @@ import javax.swing.JFileChooser;
  */
 public class MLtrainingPatchLDA_ implements PlugIn, ActionListener, WindowListener {
 
-private ImagePlus imp;
-private int screenWidth,  screenHeight;
-private String fileNameImage,  fileNamePositiveExamples,  fileNameNegativeExamples,  fileNameTestExamples;
-private FileWriter fw;
-private Button changeImage,  changePositiveSamples,  changeNegativeSamples,  changeTestSamples;
-private GenericDialog dlg;
-private int patchSize = 10;
-private int weakStep = 1000;
-private int adaT = 10;
-private TextField fnImage,  fnTrainP,  fnTrainN,  fnTest;
-Progressor pgs;
+		private ImagePlus imp;
+		private int screenWidth,  screenHeight;
+		private String fileNameImage,  fileNamePositiveExamples,  fileNameNegativeExamples,  fileNameTestExamples;
+		private FileWriter fw;
+		private Button changeImage,  changePositiveSamples,  changeNegativeSamples,  changeTestSamples;
+		private GenericDialog dlg;
+		private int patchSize = 10;
+		private int weakStep = 1000;
+		private int adaT = 10;
+		private TextField fnImage,  fnTrainP,  fnTrainN,  fnTest;
+		Progressor pgs;
 
 public void run(String arg0) {
 
@@ -58,7 +56,7 @@ public void run(String arg0) {
         }
     }
 
-    // get the desktop sze in order to place the "Result" and image window correctly
+    // get the desktop size in order to place the "Result" and image window correctly
     Dimension screenSize = java.awt.Toolkit.getDefaultToolkit().getScreenSize();
     screenWidth = screenSize.width;
     screenHeight = screenSize.height;

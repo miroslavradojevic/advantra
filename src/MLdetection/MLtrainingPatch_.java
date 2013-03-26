@@ -23,7 +23,6 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.ArrayList;
 import javax.swing.JFileChooser;
 
 /**
@@ -112,7 +111,7 @@ public void run(String arg0) {
     Prefs.get("miro.path", IJ.getDirectory("plugins"));
      
     /* Build dialog: */
-    dlg = new GenericDialog("Machine Leatning : Training");
+    dlg = new GenericDialog("Machine Learning : Training");
     //dlg.addNumericField("Size of the scanning window : ", patchSize, 0);
     dlg.addNumericField("Number of adaboost runs : ", adaT, 0);
     dlg.addNumericField("Search Step for weak classifier : ", weakStep, 0);
@@ -531,7 +530,7 @@ private Plot plotFearutePerAllSamples(int[][] imFeaturesP, int[][] imFeaturesN, 
 //////////////////////////////////////////////////////////////////////////////// 
 //////////////////////////////////////////////////////////////////////////////// 
 
-Panel makeButtonPanel_image(GenericDialog gd) {
+Panel makeButtonPanel_image() { //GenericDialog gd
     Panel buttons = new Panel();
     buttons.setLayout(new FlowLayout(FlowLayout.CENTER, 5, 1));
 
