@@ -12,6 +12,7 @@ import advantra.processing.IntensityCalc;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
+import ij.Prefs;
 import ij.gui.GenericDialog;
 import ij.gui.Line;
 import ij.gui.Overlay;
@@ -41,9 +42,46 @@ public class ExtractPatches implements PlugInFilter, MouseListener {
 	ImageStack 	trn;
 	ImagePlus	viz;
 	
-	private int half_diag;// = (int)Math.ceil(ptch_size/Math.sqrt(2));
+	private int half_diag;
 	
 	public void 	run(ImageProcessor arg0) {
+		
+		//modify calibration of the input image
+		Calibration cal = img.getCalibration();
+		cal.pixelWidth 	= cal.pixelHeight = cal.pixelDepth = 1;
+		cal.setUnit("pixels");
+		img.setCalibration(cal);
+		
+		s_start  = Prefs.get("advantra.critpoint.ExtractPatches.start_scale", 1.0);
+		s_end    = Prefs.get("advantra.critpoint.ExtractPatches.end_scale", 8.0);
+		s_number = Prefs.getInt("advantra.critpoint.ExtractPatches.nr_scales", 8);
+		
+		GenericDialog gd = new GenericDialog("Extract Patches");
+		gd.addNumericField("patch  size", 15, 0);
+		gd.addNumericField("start scale", s_start, 1);
+		gd.addNumericField("end   scale", s_end, 1);
+		gd.addNumericField("nr   scales", s_number, 0);
+		gd.showDialog();
+		if (gd.wasCanceled()) return;
+		ptch_size 	= (int)	gd.getNextNumber();
+		s_start 	= 		gd.getNextNumber();
+		s_end		= 		gd.getNextNumber();
+		s_number	= (int)	gd.getNextNumber();
+		
+		Prefs.set("advantra.critpoint.ExtractPatches.start_scale", s_start);
+		Prefs.set("advantra.critpoint.ExtractPatches.end_scale", s_end);
+		Prefs.set("advantra.critpoint.ExtractPatches.nr_scales", s_number);
+		
+		half_diag = (int)Math.ceil(ptch_size/Math.sqrt(2));
+		
+		s = new double[s_number];
+		for (int i = 0; i < s_number; i++) {
+			s[i] = (i==0)? s_start : s_start+i*((s_end-s_start)/(s_number-1));
+		}
+
+		trn = new ImageStack(ptch_size, ptch_size); 
+		
+		viz = new ImagePlus();
 		
 		// extract hessian eigen values and eigen vectors for different scales
 		Image im = new FloatImage(Image.wrap(img));
@@ -120,35 +158,6 @@ public class ExtractPatches implements PlugInFilter, MouseListener {
 			return DONE;
 		}
 		
-		//modify calibration 
-		Calibration cal = img.getCalibration();
-		cal.pixelWidth 	= cal.pixelHeight = cal.pixelDepth = 1;
-		cal.setUnit("pixels");
-		img.setCalibration(cal);
-		
-		GenericDialog gd = new GenericDialog("EXTRACT PATCHES");
-		gd.addNumericField("patch  size", 15, 0);
-		gd.addNumericField("start scale", 0.5, 1);
-		gd.addNumericField("end   scale", 8, 1);
-		gd.addNumericField("nr   scales", 8, 0);
-		gd.showDialog();
-		if (gd.wasCanceled()) return DONE;
-		ptch_size 	= (int)	gd.getNextNumber();
-		s_start 	= 		gd.getNextNumber();
-		s_end		= 		gd.getNextNumber();
-		s_number	= (int)	gd.getNextNumber();
-		
-		half_diag = (int)Math.ceil(ptch_size/Math.sqrt(2));
-		
-		s = new double[s_number];
-		for (int i = 0; i < s_number; i++) {
-			s[i] = (i==0)? s_start : s_start+i*((s_end-s_start)/(s_number-1));
-		}
-
-		trn = new ImageStack(ptch_size, ptch_size); 
-		
-		viz = new ImagePlus();
-		
 		return DOES_8G+NO_CHANGES;
 	}
 
@@ -173,8 +182,6 @@ public class ExtractPatches implements PlugInFilter, MouseListener {
 		int mouseX = 	img.getWindow().getCanvas().offScreenX(e.getX());
 		int mouseY = 	img.getWindow().getCanvas().offScreenY(e.getY());
 		
-		System.out.println("1/2 = "+ half_diag);
-		
 		// check whether patch can be extracted due to borders
 		if(
 				mouseX<=half_diag || mouseX>=img.getWidth()-half_diag ||
@@ -188,12 +195,11 @@ public class ExtractPatches implements PlugInFilter, MouseListener {
 		double[] vec = extractDirection(mouseX, mouseY);
 		
 		double theta = Math.atan(vec[1]/vec[0]);
-		System.out.println("theta: "+(180* (theta/Math.PI)));
 		
 		// extract locs
 		float[][] locs = extractLocs(mouseX, mouseY, theta);
 		
-		// overlay locs
+		// overlay locs - just for vizualization
 		Roi roi = new PointRoi(locs[0], locs[1], ptch_size*ptch_size);
 		Roi roi_line = new Line(mouseX, mouseY, (mouseX+vec[0]*ptch_size), (mouseY+vec[1]*ptch_size));
 		roi.setStrokeColor(Color.red);
@@ -357,15 +363,11 @@ public class ExtractPatches implements PlugInFilter, MouseListener {
 		
 	}
 
-	@Override
 	public void mouseEntered(MouseEvent e) {
-		// TODO Auto-generated method stub
 		
 	}
 
-	@Override
 	public void mouseExited(MouseEvent e) {
-		// TODO Auto-generated method stub
 		
 	}
 

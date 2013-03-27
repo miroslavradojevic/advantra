@@ -83,6 +83,7 @@ public int[] getWhiteSquare() {
 public int[] getBlackSquare() {
     return new int[]{x1, y1, u1, v1};
 }
+
 public double[] getWeights() {
     return new double[]{w0, w1};
 }

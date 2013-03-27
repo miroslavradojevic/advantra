@@ -50,44 +50,51 @@ private void createPoolAllPossible() {
 private void createPool() {
     
     // half - stripes
-    for (int s = 2; s <= N; s += 2) {
+	for (int s = 2; s <= N; s += 2) {
         for (int y0 = 0; y0 < N - s + 1; y0++) {
             for (int x0 = 0; x0 < N - s + 1; x0++) {
             	//vertical
-                featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0 + s / 2, y0, s / 2, s, -1, 2));
-                featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0, y0, s / 2, s, -1, 2));
+                featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0 + s / 2, y0, s / 2, s, -1, 2)); // + right
+                featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0,         y0, s / 2, s, -1, 2)); // + left
                 //horizontal
-//            	featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0, y0 + s / 2, s, s / 2, -1, 2));
-//              featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0, y0, s, s / 2, -1, 2));
+            	featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0, y0 + s / 2, s, s / 2, -1, 2)); // + right
+            	featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0, y0,         s, s / 2, -1, 2)); // + left
+            }
+        }
+    }
+	
+    // 1/3 stripes
+    for (int s = 3; s <= N; s += 3) {
+        for (int y0 = 0; y0 < N - s + 1; y0++) {
+            for (int x0 = 0; x0 < N - s + 1; x0++) {
+                // + inside
+            	featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0 + s / 3, y0,         s / 3, s,     -1, 3)); // ver
+                featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0,         y0 + s / 3, s,     s / 3, -1, 3)); // hor
+                // + outside
+                featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0 + s / 3, y0,         s / 3, s,     +1, -3)); // ver
+                featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0,         y0 + s / 3, s,     s / 3, +1, -3)); // hor
+                
             }
         }
     }
 
-    // 1/3 stripes
-    if(false){
-    for (int s = 3; s <= N; s += 3) {
-        for (int y0 = 0; y0 < N - s + 1; y0++) {
-            for (int x0 = 0; x0 < N - s + 1; x0++) {
-               // featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0 + s / 3, y0, s / 3, s, -1, 3));
-                featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0, y0 + s / 3, s, s / 3, -1, 3));
-            }
-        }
-    }
-    }
     // 2/4 stripes 
-    if(false){
     for (int s = 4; s <= N; s += 4) {
         for (int y0 = 0; y0 < N - s + 1; y0++) {
             for (int x0 = 0; x0 < N - s + 1; x0++) {
-                double w = s / (s / 2.0);
-               // featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0 + s / 4, y0, s / 2, s, -1, w));
-                featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0, y0 + s / 4, s, s / 2, -1, w));
+//                double w = s / (s / 2.0);
+                // + inside
+                featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0 + s / 4, y0, s / 2, s, -1, 2)); // ver
+                featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0, y0 + s / 4, s, s / 2, -1, 2)); // hor
+                // - inside
+                featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0 + s / 4, y0, s / 2, s, +1, -2)); // ver
+                featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0, y0 + s / 4, s, s / 2, +1, -2)); // hor
+                
             }
         }
     }
-    }
+
     // squares 
-    if(false){
     for (int k = 1; k <= (N - 1) / 2; k += 1) {
         for (int s = 2 * k + 1 ; s <= N; s += 1) {
             for (int y0 = 0; y0 < N - s + 1; y0++) {
@@ -98,7 +105,9 @@ private void createPool() {
             }
         }
     }
-    }
+    
+    // add diagonal chessboard pattern to cover for the diagonals (due to false in orientation)
+
 
 }
 
@@ -148,27 +157,33 @@ private void createPoolx2() {
 }
 
 public void visualizeFeaturePool() {
-    int size = featurepool.size();
-
+    
+	int size = featurepool.size();
     Dimensions dims = new Dimensions(N, N, 1, size, 1);
     Coordinates cout = new Coordinates();
     Image outimg = Image.create(dims, "imagescience.image.ByteImage");
     outimg.axes(Axes.X + Axes.Y);
-
-
+    
     for (int k = 0; k < size; k++) {
+    	
         int[] r0 = featurepool.get(k).getWhiteSquare();
         int[] r1 = featurepool.get(k).getBlackSquare();
+        
+        double[] wr = featurepool.get(k).getWeights();
+        
         double[][] imageZ = new double[N][N];
+        
+        // plot r0
         for (int j = 1; j <= r0[3]; j++) {
             for (int i = 1; i <= r0[2]; i++) {
-                imageZ[r0[1] + j - 1][r0[0] + i - 1] = 128;
+                imageZ[r0[1] + j - 1][r0[0] + i - 1] = (wr[0]<wr[1])?128:255;
             }
 
         }
+        // plot r1
         for (int j = 1; j <= r1[3]; j++) {
             for (int i = 1; i <= r1[2]; i++) {
-                imageZ[r1[1] + j - 1][r1[0] + i - 1] = 255;
+                imageZ[r1[1] + j - 1][r1[0] + i - 1] = (wr[0]<wr[1])?255:128;
             }
 
         }
@@ -180,13 +195,9 @@ public void visualizeFeaturePool() {
     imp.setTitle("feature pool");
     imp.show();
     // increase the size several times
-    imp.getCanvas().zoomIn(0, 0);
-    imp.getCanvas().zoomIn(0, 0);
-    imp.getCanvas().zoomIn(0, 0);
-    imp.getCanvas().zoomIn(0, 0);
-    imp.getCanvas().zoomIn(0, 0);
-    imp.getCanvas().zoomIn(0, 0);
-    imp.getCanvas().zoomIn(0, 0);
+    for (int i = 0; i < 7; i++) {
+    	imp.getCanvas().zoomIn(0, 0);
+    }
 
 }
 

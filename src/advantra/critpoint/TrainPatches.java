@@ -259,15 +259,21 @@ public class TrainPatches implements PlugIn, ActionListener {
 	    int m = sizeP + sizeN;
 	    double[] w = new double[m];
 	    double[][] adaboost = new double[T][3]; // [id, alpha, threshold]
-	    //initial weights
 
-	    double q = 1.0 / m;
-	    for (int i = 0; i < m; i++) {
-	        w[i] = q;
+	    //initial weights
+	    for (int i = 0; i < sizeP; i++) {
+	        w[i] = 1.0/sizeP;
 	    }
+	    for (int i = sizeP; i < m; i++) {
+			w[i] = 1.0/sizeN;
+		}
+	    
 	    int tt = T;
 	    for (int t = 0; t < T; t++) {
 	        double[][] thresh = weightedWeakClassification(imFeaturesP, imFeaturesN, w, search_step); // [feature_i][optimal threshold and the score /error]
+	        
+	        // thresh fSize x 2 (0~theta, 1~score)
+	        
 	        //find minimum error 
 	        double mineps = thresh[0][1];
 	        int bestClassifier = 0;
@@ -277,7 +283,9 @@ public class TrainPatches implements PlugIn, ActionListener {
 	                bestClassifier = k;
 	            }
 	        }
+	        
 	        adaboost[t][0] = bestClassifier;
+	        
 	        if (mineps == 0 || mineps > 0.5) {
 	            adaboost[t][1] = 1;
 	            adaboost[t][0] = bestClassifier;
@@ -290,7 +298,7 @@ public class TrainPatches implements PlugIn, ActionListener {
 	        }
 	        double beta = mineps / (1 - mineps);
 
-	        //update weights
+	        //update weights (multiply with beta if correct)
 	        for (int i = 0; i < sizeP; i++) {
 	            if (applyClassifier(imFeaturesP[i][bestClassifier], thresh[bestClassifier][0])) {
 	                w[i] *= beta;
@@ -301,6 +309,7 @@ public class TrainPatches implements PlugIn, ActionListener {
 	                w[i + sizeP] *= beta;
 	            }
 	        }
+	        
 	        adaboost[t][1] = Math.log(1 / beta);
 	        adaboost[t][2] = thresh[bestClassifier][0];
 
@@ -332,13 +341,13 @@ public class TrainPatches implements PlugIn, ActionListener {
 	    return (x >= thresh) ? true : false;
 	}
 	
-	private double[][] weightedWeakClassification(int[][] imFeaturesP, int[][] imFeaturesN,
-	        double[] w, int dt) {
-	    int sizeP = imFeaturesP.length;
+	private double[][] weightedWeakClassification(int[][] imFeaturesP, int[][] imFeaturesN, double[] w, int dt) {
+	    
+		int sizeP = imFeaturesP.length;
 	    int sizeN = imFeaturesN.length;
 	    int fSize = imFeaturesN[0].length;
 	    double[][] thresh = new double[fSize][2];
-
+	    
 	    for (int k = 0; k < fSize; k++) {
 	        // find max and min
 	        double max = imFeaturesP[0][k];
@@ -436,6 +445,3 @@ public class TrainPatches implements PlugIn, ActionListener {
 	}
 	
 }
-//for (int i = 0; i < 7; i++) {
-//imp.getCanvas().zoomIn(0, 0);
-//}

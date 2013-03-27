@@ -366,8 +366,7 @@ private double[][] getInterpolatedImage(double[][] imageZ) {
     return imageInt;
 }
 
-private int[] computeSelectedFeatures(int[][] imageInt, FeaturePool featurePool,
-                                      double[][] adaboost) {
+private int[] computeSelectedFeatures(int[][] imageInt, FeaturePool featurePool, double[][] adaboost) {
     int dimsx = imageInt[0].length;
     int dimsy = imageInt.length;
     int size = adaboost.length;
