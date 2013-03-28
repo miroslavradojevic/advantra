@@ -118,6 +118,11 @@ public class TrainPatches implements PlugIn, ActionListener {
 	        
 	    }
 	    
+//        // debug
+//        for (int i = 0; i < dims.z; i++) {
+//        	System.out.format("positive sample %d scored %d / %d at features (1147/8) \n", i, imFeaturesP[i][1146], imFeaturesP[i][1147]);
+//		}
+	    
 	    IJ.log("features computed for "+dims.z+" (+) samples");
 	    
 	    // load negatives
@@ -142,9 +147,14 @@ public class TrainPatches implements PlugIn, ActionListener {
 	    	img_in.get(coord, imageN);
 	        int[][] imageIntN = getIntegralImage(imageN);
 	        imFeaturesN[coord.z] = computeFeatures(imageIntN, featurePool);
-	    
+	        
 	    }
 
+//        // debug
+//        for (int i = 0; i < dims.z; i++) {
+//        	System.out.format("negative sample %d scored %d and %d at features (1147/8) \n", i, imFeaturesN[i][1146], imFeaturesN[i][1147]);
+//		}
+	    
 	    IJ.log("features computed for "+dims.z+" (-) samples");
 		
 	    /*

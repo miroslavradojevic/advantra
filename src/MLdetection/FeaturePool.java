@@ -55,10 +55,10 @@ private void createPool() {
             for (int x0 = 0; x0 < N - s + 1; x0++) {
             	//vertical
                 featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0 + s / 2, y0, s / 2, s, -1, 2)); // + right
-                featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0,         y0, s / 2, s, -1, 2)); // + left
+//                featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0,         y0, s / 2, s, -1, 2)); // + left
                 //horizontal
-            	featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0, y0 + s / 2, s, s / 2, -1, 2)); // + right
-            	featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0, y0,         s, s / 2, -1, 2)); // + left
+//            	featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0, y0 + s / 2, s, s / 2, -1, 2)); // + right
+//            	featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0, y0,         s, s / 2, -1, 2)); // + left
             }
         }
     }
@@ -71,8 +71,8 @@ private void createPool() {
             	featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0 + s / 3, y0,         s / 3, s,     -1, 3)); // ver
                 featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0,         y0 + s / 3, s,     s / 3, -1, 3)); // hor
                 // + outside
-                featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0 + s / 3, y0,         s / 3, s,     +1, -3)); // ver
-                featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0,         y0 + s / 3, s,     s / 3, +1, -3)); // hor
+//                featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0 + s / 3, y0,         s / 3, s,     +1, -3)); // ver
+//                featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0,         y0 + s / 3, s,     s / 3, +1, -3)); // hor
                 
             }
         }
@@ -87,8 +87,8 @@ private void createPool() {
                 featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0 + s / 4, y0, s / 2, s, -1, 2)); // ver
                 featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0, y0 + s / 4, s, s / 2, -1, 2)); // hor
                 // - inside
-                featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0 + s / 4, y0, s / 2, s, +1, -2)); // ver
-                featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0, y0 + s / 4, s, s / 2, +1, -2)); // hor
+//                featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0 + s / 4, y0, s / 2, s, +1, -2)); // ver
+//                featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0, y0 + s / 4, s, s / 2, +1, -2)); // hor
                 
             }
         }
@@ -100,7 +100,7 @@ private void createPool() {
             for (int y0 = 0; y0 < N - s + 1; y0++) {
                 for (int x0 = 0; x0 < N - s + 1; x0++) {
                     double w = s * s / (1.0 * (s - 2 * k) * (s - 2 * k));
-                    featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0 + k, y0 + k, s - 2 * k, s - 2 * k, -1, w));
+//                    featurepool.add(new HaarLikeFeature(x0, y0, s, s, x0 + k, y0 + k, s - 2 * k, s - 2 * k, -1, w));
                 }
             }
         }

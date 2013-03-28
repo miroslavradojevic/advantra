@@ -1,12 +1,19 @@
 package advantra.critpoint;
 
+import java.awt.Button;
 import java.awt.Color;
+import java.awt.Panel;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.io.File;
 import java.util.Vector;
 
+import javax.swing.JFileChooser;
+
 import advantra.feature.MyHessian;
+import advantra.file.AnalyzeCSV;
 import advantra.processing.IntensityCalc;
 
 import ij.IJ;
@@ -29,7 +36,7 @@ import imagescience.image.Dimensions;
 import imagescience.image.FloatImage;
 import imagescience.image.Image;
 
-public class ExtractPatches implements PlugInFilter, MouseListener {
+public class ExtractPatches implements PlugInFilter, MouseListener, ActionListener {
 
 	ImagePlus 	img;
 	Image 		L1scales, L2scales, v1scales, v2scales; // each will be stack with each layer corresponding to a scale
@@ -38,6 +45,8 @@ public class ExtractPatches implements PlugInFilter, MouseListener {
 	double 		s_end;
 	int 		s_number;
 	double[]	s;
+	Button 		loadPoints;
+	String 		load_points_file;
 	
 	ImageStack 	trn;
 	ImagePlus	viz;
@@ -49,18 +58,27 @@ public class ExtractPatches implements PlugInFilter, MouseListener {
 		//modify calibration of the input image
 		Calibration cal = img.getCalibration();
 		cal.pixelWidth 	= cal.pixelHeight = cal.pixelDepth = 1;
-		cal.setUnit("pixels");
+		cal.setUnit("pixel");
 		img.setCalibration(cal);
 		
-		s_start  = Prefs.get("advantra.critpoint.ExtractPatches.start_scale", 1.0);
-		s_end    = Prefs.get("advantra.critpoint.ExtractPatches.end_scale", 8.0);
-		s_number = Prefs.getInt("advantra.critpoint.ExtractPatches.nr_scales", 8);
+		s_start  = Prefs.get("advantra.critpoint.ExtractPatches.start_scale", 0.5);
+		s_end    = Prefs.get("advantra.critpoint.ExtractPatches.end_scale", 5.0);
+		s_number = Prefs.getInt("advantra.critpoint.ExtractPatches.nr_scales", 10);
 		
 		GenericDialog gd = new GenericDialog("Extract Patches");
+		
 		gd.addNumericField("patch  size", 15, 0);
 		gd.addNumericField("start scale", s_start, 1);
 		gd.addNumericField("end   scale", s_end, 1);
 		gd.addNumericField("nr   scales", s_number, 0);
+		
+		Panel buttons_panel = new Panel();
+		loadPoints = new Button("Load points");
+		loadPoints.addActionListener(this);
+		
+		buttons_panel.add(loadPoints);
+		gd.add(buttons_panel);
+		
 		gd.showDialog();
 		if (gd.wasCanceled()) return;
 		ptch_size 	= (int)	gd.getNextNumber();
@@ -147,6 +165,31 @@ public class ExtractPatches implements PlugInFilter, MouseListener {
 		
 		IJ.showMessage("Hessian calculations done.\nClick now!");
 		
+		// read locations if button selected the locations
+		
+		if(load_points_file!=null){
+			
+			AnalyzeCSV analyze_csv = new AnalyzeCSV(load_points_file);
+			System.out.println("read "+analyze_csv.getLinesNr()+" locations");
+			double[][] poss = analyze_csv.readLn(2);// col, row
+			System.out.println("loaded "+poss.length+" locations");
+			IntensityCalc im_calc = new IntensityCalc(img.getStack());
+			
+			for (int i = 0; i < poss.length; i++) {
+				
+				int x = (int)poss[i][0];
+				int y = (int)poss[i][1];
+				addPatchToStack(x, y, im_calc);
+				
+			}
+			
+			viz.setStack(trn);
+			viz.setTitle("train");
+			viz.show();
+			viz.getCanvas().zoomIn(0,0);
+			
+		}
+		
 	}
 
 	public int 		setup(String arg0, ImagePlus arg1) {
@@ -219,6 +262,23 @@ public class ExtractPatches implements PlugInFilter, MouseListener {
 		viz.getCanvas().zoomIn(0,0);
 		
 		System.out.println("layer: "+trn.getHeight()+" x "+trn.getWidth()+" , curr. stack size: "+trn.getSize());
+		
+	}
+	
+	private void addPatchToStack(int x, int y, IntensityCalc im_calc){
+		
+		// check whether patch can be extracted due to borders
+		if(x<=half_diag || x>=img.getWidth()-half_diag ||
+			y<=half_diag || y>=img.getHeight()-half_diag){
+			System.out.println("won't extract on this point");
+			return;
+		}
+		
+		// extract direction (only at selected point)
+		double[] vec = extractDirection(x, y);
+		double theta = Math.atan(vec[1]/vec[0]);
+		byte[] ptch = extractPatch(x, y, theta, im_calc);
+		trn.addSlice(new ByteProcessor(ptch_size, ptch_size, ptch));
 		
 	}
 
@@ -369,6 +429,19 @@ public class ExtractPatches implements PlugInFilter, MouseListener {
 
 	public void mouseExited(MouseEvent e) {
 		
+	}
+
+	public void actionPerformed(ActionEvent e) {
+		if(e.getSource()==loadPoints){
+			JFileChooser fc = new JFileChooser();
+			int returnVal = fc.showOpenDialog(null);
+	        if (returnVal != JFileChooser.APPROVE_OPTION) {
+	            return;
+	        }
+	        
+	        load_points_file = fc.getSelectedFile().getAbsolutePath();
+	        IJ.showStatus("Opened " + load_points_file);
+		}
 	}
 
 }
