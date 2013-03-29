@@ -61,9 +61,9 @@ public class ExtractPatches implements PlugInFilter, MouseListener, ActionListen
 		cal.setUnit("pixel");
 		img.setCalibration(cal);
 		
-		s_start  = Prefs.get("advantra.critpoint.ExtractPatches.start_scale", 0.5);
-		s_end    = Prefs.get("advantra.critpoint.ExtractPatches.end_scale", 5.0);
-		s_number = Prefs.getInt("advantra.critpoint.ExtractPatches.nr_scales", 10);
+		s_start  = Prefs.get("advantra.critpoint.start_scale", 0.5);
+		s_end    = Prefs.get("advantra.critpoint.end_scale", 5.0);
+		s_number = Prefs.getInt("advantra.critpoint.nr_scales", 10);
 		
 		GenericDialog gd = new GenericDialog("Extract Patches");
 		
@@ -86,9 +86,9 @@ public class ExtractPatches implements PlugInFilter, MouseListener, ActionListen
 		s_end		= 		gd.getNextNumber();
 		s_number	= (int)	gd.getNextNumber();
 		
-		Prefs.set("advantra.critpoint.ExtractPatches.start_scale", s_start);
-		Prefs.set("advantra.critpoint.ExtractPatches.end_scale", s_end);
-		Prefs.set("advantra.critpoint.ExtractPatches.nr_scales", s_number);
+		Prefs.set("advantra.critpoint.start_scale", s_start);
+		Prefs.set("advantra.critpoint.end_scale", s_end);
+		Prefs.set("advantra.critpoint.nr_scales", s_number);
 		
 		half_diag = (int)Math.ceil(ptch_size/Math.sqrt(2));
 		

@@ -56,9 +56,9 @@ public class TestPatches implements PlugIn, ActionListener {
 		test_file = Prefs.get("advantra.critpoint.TestPatches.test_file", "none");
 		conf_file = Prefs.get("advantra.critpoint.TestPatches.conf_file", "none");
 		
-		s_start  = Prefs.get("advantra.critpoint.ExtractPatches.start_scale", 1.0);
-		s_end    = Prefs.get("advantra.critpoint.ExtractPatches.end_scale", 8.0);
-		s_number = Prefs.getInt("advantra.critpoint.ExtractPatches.nr_scales", 8);
+		s_start  = Prefs.get("advantra.critpoint.start_scale", 1.0);
+		s_end    = Prefs.get("advantra.critpoint.end_scale", 8.0);
+		s_number = Prefs.getInt("advantra.critpoint.nr_scales", 8);
 		
 		GenericDialog gd = new GenericDialog("Test Patches");
 		
@@ -96,6 +96,9 @@ public class TestPatches implements PlugIn, ActionListener {
 	    
 	    Prefs.set("advantra.critpoint.TestPatches.test_file", test_file);
 	    Prefs.set("advantra.critpoint.TestPatches.conf_file", conf_file);
+	    Prefs.set("advantra.critpoint.start_scale", s_start);
+	    Prefs.set("advantra.critpoint.end_scale", s_end);
+	    Prefs.set("advantra.critpoint.nr_scales", s_number);
 	    
 	    s = new double[s_number];
 		for (int i = 0; i < s_number; i++) {
