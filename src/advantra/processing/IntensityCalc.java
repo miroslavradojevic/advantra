@@ -1,38 +1,32 @@
 package advantra.processing;
 
-import ij.ImagePlus;
 import ij.ImageStack;
-import ij.gui.NewImage;
-import imagescience.image.Axes;
-import imagescience.image.Coordinates;
-import imagescience.image.Image;
 
 public class IntensityCalc {
 	
 	public int H, W, L;
-	public float[][] 	img_array; // perhaps make it just 1D instead of 2D for more speed
-	double[][] temp;
+	public float[][] 	img_array; 
 	
 	public IntensityCalc(ImageStack img){
 		H = img.getHeight();
 		W = img.getWidth();
 		L = img.getSize();
 		
-		img_array = new float[L][]; //H*W
+		img_array = new float[L][]; 
 		for (int i = 0; i < L; i++) {
-			img_array[i] = (float [])img.getProcessor(i+1).convertToFloat().getPixels(); 
+			
+			byte[] lay 		= (byte[])img.getProcessor(i+1).getPixels();
+			float[] lay_fl 	= new float[H*W];
+		
+			for (int j = 0; j < lay.length; j++) {
+				lay_fl[j] = (float)(lay[j] & 0xff);
+			}
+			img_array[i] = lay_fl;
+			
+			//img_array[i] = (float [])img.getProcessor(i+1).convertToFloat().getPixels(); 
+		
 		}
 		
-		// alternative (just to test)
-		temp = new double[H][W];
-		ImagePlus  temp_ip = new ImagePlus("ij lib", img);
-		temp_ip.show();
-		
-		Image temp_img =Image.wrap(temp_ip); 
-		temp_img.name("eriks lib");
-		temp_img.imageplus().show();
-		temp_img.axes(Axes.X+Axes.Y);
-		temp_img.get(new Coordinates(), temp);
 	}
 	
 	public float 	interpolateAt(float p1, float p2){ // p1~row, p2~col
@@ -59,16 +53,7 @@ public class IntensityCalc {
 			
 			float I_1 = (1-a)*(1-b)*I11_1 + (1-a)*b*I21_1 + a*(1-b)*I12_1 + a*b*I22_1;
 			
-			System.out.format("(%.2f, %.2f), a=%.2f, b=%.2f, (%.2f (%.2f), %.2f (%.2f), %.2f (%.2f), %.2f (%.2f)), I=%.2f\n", 
-					p1, p2, a, b, 
-					I11_1, temp[p11[0]][p11[1]], 
-					I12_1, temp[p12[0]][p12[1]], 
-					I21_1, temp[p21[0]][p21[1]],
-					I22_1, temp[p22[0]][p22[1]],
-					I_1);
-			
 			value = I_1;
-			
 			
 		}
 				
