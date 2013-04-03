@@ -3,14 +3,8 @@
     	imagej packages for neuron tracing project build file
     </description>
 	<property environment="env"/> 
-	<property name="fiji.plugins" 	location="${env.HOME}/fiji/plugins/miro_plugins/"/>
 	<property name="src"    		location="src"   />
   	<property name="build"  		location="build" />
-  	<!-- <property name="dist"   		location="dist" /> -->
-	<!-- set the folder where the plugins are exported - Fiji plugins folder -->
-	<!-- fiji was installed in HOME -->
-	<!-- in case you use macros -->
-	<!-- <property name="fijiMacros"   	location="${fijiFolder}/macros/" />  -->
 	<property name="user.name" 		value="miroslavR" />
 <target name="main" depends="compress" description="Main target">
 	<echo>
@@ -21,20 +15,11 @@
 	<jar jarfile="advantra_.jar">
  		<fileset dir="."          includes="plugins.config" />
 		<fileset dir="${build}"   includes="**/*.*"         />
-		
  		<manifest>
  			 	     <attribute name="Built-By" value="${user.name}"/>
  		</manifest>
  	</jar>
-	<copy file="./advantra_.jar" 				toDir="${fiji.plugins}" /> 
-	<!-- <copy file="./advantra_.jar" 				toDir="${env.HOME}" /> -->
-	<copy file="./advantra_.jar" 				toDir="${env.HOME}/workspace/jar_library/" />
-	
-	<!-- 
-	<copy file="./src/StartupMacros.txt"    	toDir="${fijiMacros}"  />
-	<echo>
-		Copied StartupMacros.txt file in ${macrosDir}
-	</echo>	
-	-->
+	<copy file="./advantra_.jar" 				toDir="${env.HOME}/fiji/plugins/my_plugins_libraries/" /> 
+	<copy file="./advantra_.jar" 				toDir="${env.HOME}/workspace/my_plugins_libraries/" />
 </target>
 </project>

@@ -215,13 +215,13 @@ public class TestPatches implements PlugIn, ActionListener {
 	 	int margin = (int)Math.ceil(patch_size/Math.sqrt(2));
 	 	double[][] test_image = new double[patch_size][patch_size];
 	 	
-	 	for (cin.x = margin; cin.x < margin+1; cin.x++) { // dims.x-margin
-			for (cin.y = margin; cin.y < margin+1; cin.y++) { //  dims.y-margin
+	 	for (cin.x = margin; cin.x < dims.x-margin; cin.x++) { 		 
+			for (cin.y = margin; cin.y < dims.y-margin; cin.y++) {   
 				
 				// extract direction (only at selected point)
 				double[] vec = extractDirection(cin.x, cin.y);
-//				double theta = Math.atan(vec[1]/vec[0]);
-				double theta = (40/180f)*Math.PI;
+				double theta = Math.atan(vec[1]/vec[0]);
+//				double theta = (40/180f)*Math.PI;
 //				float[][] locs = extractLocs(cin.x, cin.y, theta);
 				
 				double[][] imageT = extractPatch2D(cin.x, cin.y, theta, im_calc);
@@ -516,9 +516,9 @@ public class TestPatches implements PlugIn, ActionListener {
 		Coordinates c_test = new Coordinates();
 		Image imgin = Image.wrap(img);
 		
-		double[] my_interpolation 	= new double[locs[0].length];
-		double[] ihor_implementation = new double[locs[0].length];
-		double[] nn_value 			= new double[locs[0].length];
+//		double[] my_interpolation 	= new double[locs[0].length];
+//		double[] ihor_implementation = new double[locs[0].length];
+//		double[] nn_value 			= new double[locs[0].length];
 		
 		cnt = 0;
 		for (int i = 0; i < patch_size; i++) {
@@ -529,9 +529,9 @@ public class TestPatches implements PlugIn, ActionListener {
 				
 				patch[j][i] = imgin.get(c_test);
 				
-				my_interpolation[cnt] 		= img_calc.interpolateAt(locs[1][cnt], locs[0][cnt]); // locs[0]~column, locs[1]~row;
-				ihor_implementation[cnt] 	= interpolate((double)locs[0][cnt], (double)locs[1][cnt], imageZ);
-				nn_value[cnt] 				= patch[j][i];
+//				my_interpolation[cnt] 		= img_calc.interpolateAt(locs[1][cnt], locs[0][cnt]); // locs[0]~column, locs[1]~row;
+//				ihor_implementation[cnt] 	= interpolate((double)locs[0][cnt], (double)locs[1][cnt], imageZ);
+//				nn_value[cnt] 				= patch[j][i];
 				
 				//System.out.format("index[%d,%d]=from image (row,col)[%.2f,%.2f] ", j, i, locs[1][cnt], locs[0][cnt]);
 				//patch[cnt] = (byte)Math.round(img_calc.interpolateAt(locs[1][cnt], locs[0][cnt]));
@@ -545,14 +545,14 @@ public class TestPatches implements PlugIn, ActionListener {
 //		if(x%50==0 && y%50==0){ 
 		
 		double[] mins = new double[3];
-		mins[0] = Sort.findMin(my_interpolation);
-		mins[1] = Sort.findMin(ihor_implementation);
-		mins[2] = Sort.findMin(nn_value);
+//		mins[0] = Sort.findMin(my_interpolation);
+//		mins[1] = Sort.findMin(ihor_implementation);
+//		mins[2] = Sort.findMin(nn_value);
 		
 		double[] maxs = new double[3];
-		maxs[0] = Sort.findMax(my_interpolation);
-		maxs[1] = Sort.findMax(ihor_implementation);
-		maxs[2] = Sort.findMax(nn_value);
+//		maxs[0] = Sort.findMax(my_interpolation);
+//		maxs[1] = Sort.findMax(ihor_implementation);
+//		maxs[2] = Sort.findMax(nn_value);
 		
 		//System.out.format("My min: %.2f max: %.2f \n", mins[0], maxs[0]);
 		
@@ -562,20 +562,17 @@ public class TestPatches implements PlugIn, ActionListener {
 			x_axis[i] = i;
 		}
 		
-		Plot p = new Plot(String.format("(x=%d, y=%d)", x, y), "x", "value", new double[0], new double[0]);
-		p.setLimits(0, (patch_size*patch_size), Sort.findMin(mins), Sort.findMax(maxs));
-		p.setColor(Color.RED);
-		p.addPoints(x_axis, my_interpolation, Plot.LINE);
-		p.setColor(Color.BLUE);
-		p.addPoints(x_axis, ihor_implementation, Plot.LINE);
-		p.setColor(Color.GREEN);
-		p.addPoints(x_axis, nn_value, Plot.LINE);
-		
-		p.draw();
-		p.show();
-		
+//		Plot p = new Plot(String.format("(x=%d, y=%d)", x, y), "x", "value", new double[0], new double[0]);
+//		p.setLimits(0, (patch_size*patch_size), Sort.findMin(mins), Sort.findMax(maxs));
+//		p.setColor(Color.RED);
+//		p.addPoints(x_axis, my_interpolation, Plot.LINE);
+//		p.setColor(Color.BLUE);
+//		p.addPoints(x_axis, ihor_implementation, Plot.LINE);
+//		p.setColor(Color.GREEN);
+//		p.addPoints(x_axis, nn_value, Plot.LINE);
+//		p.draw();
+//		p.show();
 //		}
-		
 //		for (int j2 = 0; j2 < patch_size; j2++) {
 //			for (int k = 0; k < patch_size; k++) {
 //				System.out.format("[%d,%d]=%.2f ", j2, k, patch[j2][k]);

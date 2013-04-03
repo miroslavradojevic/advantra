@@ -71,8 +71,28 @@ public class Sort {
 		return min_val;
 	}
 	
+	public static float 	findMin(float[] in){
+		float min_val = in[0];
+		for (int i = 1; i < in.length; i++) {
+			if(in[i]<min_val){
+				min_val = in[i];
+			}
+		}
+		return min_val;
+	}
+	
 	public static double 	findMax(double[] in){
 		double max_val = in[0];
+		for (int i = 1; i < in.length; i++) {
+			if(in[i]>max_val){
+				max_val = in[i];
+			}
+		}
+		return max_val;
+	}	
+	
+	public static float 	findMax(float[] in){
+		float max_val = in[0];
 		for (int i = 1; i < in.length; i++) {
 			if(in[i]>max_val){
 				max_val = in[i];

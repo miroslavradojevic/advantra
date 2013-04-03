@@ -1,301 +1,289 @@
 package advantra.critpoint;
 
+import java.awt.Color;
+import java.awt.image.ColorModel;
+import java.awt.image.IndexColorModel;
+
 import ij.IJ;
 import ij.ImagePlus;
+import ij.WindowManager;
 import ij.gui.GenericDialog;
-import ij.io.OpenDialog;
+import ij.gui.Plot;
 import ij.measure.Calibration;
-import ij.plugin.PlugIn;
-import imagescience.image.Coordinates;
-import imagescience.image.FloatImage;
-import imagescience.image.Image;
+import ij.plugin.filter.PlugInFilter;
+import ij.process.FloatProcessor;
+import ij.process.ImageProcessor;
+import ij.process.LUT;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
+import advantra.feature.GaborFilt2D;
+import advantra.general.Sort;
 
-import javax.swing.JFileChooser;
+public class TestGabor implements PlugInFilter {
 
-import advantra.feature.Ballness2D;
-import advantra.feature.DoH2D;
-import advantra.feature.Laplacian2D;
-import weka.core.Attribute;
-import weka.core.FastVector;
-import weka.core.Instance;
-import weka.core.Instances;
-import weka.core.converters.CSVLoader;
-import weka.core.converters.ConverterUtils.DataSink;
-import weka.filters.Filter;
-import weka.filters.unsupervised.attribute.Remove;
-
-public class ViewFeature implements PlugIn {
-
-//	String 	dir_path 		= System.getProperty("user.home")+File.separator+"train";
-//	File[] csv_files 		= null;
-//	File[] tif_files 		= null;
+	ImagePlus img;
 	
-	public void run(String arg0) {
+//	public void run(String arg0) {
 		
-		/*
-		 * open image
-		 */
+//		GenericDialog gd = new GenericDialog("Gabor filter example");
+//		gd.addMessage("Choose features");
+//		gd.addChoice("proba", choices, choices[0]);
+//		
+//		gd.addNumericField( "sigma start:", 		2, 	 0, 5, "");
+//		gd.addNumericField( "sigma end  :", 		6, 	 0, 5, "");	
+//		gd.addNumericField( "# scales   :", 		10,  0, 5, "");
+//		
+//		gd.showDialog();
+//		if (gd.wasCanceled()) return;
+//		
+//		int idx =  gd.getNextChoiceIndex();
+//		double 		sigma_1 		=  (double)gd.getNextNumber();
+//		double 		sigma_2 		=  (double)gd.getNextNumber();
+//		int 		nr				=  (int)gd.getNextNumber();
 		
-		OpenDialog open_image 	= new OpenDialog("Select image for CP feature extraction", null);
-		String image_dir = open_image.getDirectory();
-		if(image_dir!=null){
-			if (!image_dir.endsWith("/")) image_dir += "/";
-		}
-		else{
-			System.out.println("image was null!");
-			return;
-		}
-		
-		ImagePlus imp = new ImagePlus(image_dir+open_image.getFileName());
+//
+//		
+//	}
+	
+	public void run(ImageProcessor arg0) {
 		
 		// reset calibration before going further
-		Calibration cal = new Calibration(imp);
+		Calibration cal = img.getCalibration();
 		cal.pixelWidth = cal.pixelHeight = cal.pixelDepth = 1.0;
 		cal.setUnit("pixel");
-		imp.setCalibration(cal);
+		img.setCalibration(cal);
 		
-		Image im = new FloatImage(Image.wrap(imp));
+//	    byte[] pixels8 = (byte[])img.getProcessor().getPixels();
+	    
+	    
+	    img.setProcessor("testImage", img.getProcessor().convertToFloat().duplicate());
+	    
+//	    float[] pixels32 = new float[ip.getWidth()*ip.getHeight()];
+////	    if (cTable!=null && cTable.length==256) {
+////	        for (int i=0; i<width*height; i++)
+////	            pixels32[i] = cTable[pixels8[i]&255];
+////	    } else {
+//	        for (int i=0; i<ip.getWidth()*ip.getHeight(); i++)
+//	            pixels32[i] = pixels8[i]&255;
+////	    }
+//	    ColorModel cm = ip.getColorModel();
+//	    ImageProcessor ip_float = new FloatProcessor(ip.getWidth(),ip.getHeight(), pixels32, cm);
+		
+		double sigma 	= 3.0;
+		double gamma 	= 1;
+		double psi 		= 0;
+		double Fx 		= 3;
+		int nAngles		= 8;
+		
+		ImagePlus outRe = GaborFilt2D.run(img, sigma, gamma, psi, Fx, nAngles, true);
+		ImagePlus outIm = GaborFilt2D.run(img, sigma, gamma, psi, Fx, nAngles, false);
+		outRe.show();
+		outIm.show();
+		
+	}
 
-		imp.show();
+	public int setup(String arg0, ImagePlus arg1) {
 		
-		/*
-		 * select filter and scales
-		 */
+		img = arg1;
 		
-		String[] choices = new String[3];
-		choices[0] = "laplacian";
-		choices[1] = "DoH";
-		choices[2] = "abs(L1)";
-		
-		GenericDialog gd = new GenericDialog("Critical Point feature analysis");
-		gd.addMessage("Choose features");
-		gd.addChoice("proba", choices, choices[0]);
-		
-		gd.addNumericField( "sigma start:", 		2, 	 0, 5, "");
-		gd.addNumericField( "sigma end  :", 		6, 	 0, 5, "");	
-		gd.addNumericField( "# scales   :", 		10,  0, 5, "");
-		
-		gd.showDialog();
-		if (gd.wasCanceled()) return;
-		
-		int idx =  gd.getNextChoiceIndex();
-		double 		sigma_1 		=  (double)gd.getNextNumber();
-		double 		sigma_2 		=  (double)gd.getNextNumber();
-		int 		nr				=  (int)gd.getNextNumber();
-
-		double[] sigma = new double[nr];
-		for (int i = 0; i < nr; i++) {
-			sigma[i] = (i==0)? sigma_1 : sigma_1+i*((sigma_2-sigma_1)/(nr-1));
-		}
-		
-		/*
-		 * extract filter at scales
-		 */
-		
-		Image feats = new FloatImage(im.dimensions());// later on it is allocated with full range of scales, layers are added
-		
-		switch (idx) {
-		case 0:	// laplacian
-			feats = Laplacian2D.calculateImg(im, sigma);
-			feats.imageplus().show();
-			break;
-		case 1: // DoH
-			feats = DoH2D.calculateImg(im, sigma);
-			feats.imageplus().show();
-			break;
-		case 2: // abs(L1)
-			feats = Ballness2D.calculateImg(im, sigma);
-			feats.imageplus().show();
-			break;
-		default:
-			
-			break;
-		}
-		
-		/*
-		 * 
-		 */
-		
-		OpenDialog open_csv = new OpenDialog("Select csv file with CP annotations (optional)", null);
-		String csv_dir = open_csv.getDirectory();
-		if(csv_dir!=null){
-			if (!csv_dir.endsWith("/")) csv_dir += "/";
-			System.out.println("csv was loaded!");
-		}
-		else{
-			System.out.println("csv was null! won't be extracting the features");
-			return;
-		}
-		
-		/*
-		 * extract features
-		 */
-		
-		File csv_file = new File(csv_dir+open_csv.getFileName()); 
-		Instances data = loadFromCsvFile(csv_file);
-		System.out.println("data class formed!");
-		
-		Instances 	x;
-		Instances	y;
-		
-		// filters
-		Remove keep12 = new Remove();
-		Remove keepLast = new Remove();
-		
-		try {
-			keep12.setInvertSelection(true); 	
-			int[] first_two = new int[]{0, 1};
-			keep12.setAttributeIndicesArray(first_two);
-			keep12.setInputFormat(data);
-		
-			keepLast.setInvertSelection(true);
-			int[] last_idx = new int[]{(data.numAttributes()-1)};
-			keepLast.setAttributeIndicesArray(last_idx);
-			keepLast.setInputFormat(data);
-		
-			x = Filter.useFilter(data, keep12);
-			y = Filter.useFilter(data, keepLast);
-			
-			ArrayList<Instances> 		fx = new ArrayList<Instances>(nr);
-		
-			for (int i = 0; i < nr; i++) {
-			
-				// fx(i) form
-				FastVector attributes = new FastVector();
-				String label = String.format(choices[idx]+"_s_%.2f", sigma[i]);
-				attributes.addElement(new Attribute(label));
-				attributes.addElement(y.attribute(0));
-				Instances train = new Instances(label, attributes, x.numInstances());
-
-				int cnt = 0;
-				for (int loc_idx = 0; loc_idx < x.numInstances(); loc_idx++) {
-				
-					int col = (int)Math.round( x.instance(loc_idx).value(0) );
-					int row = (int)Math.round( x.instance(loc_idx).value(1) );
-					Coordinates at_pos = new Coordinates(col, row, i);
-					double value = feats.get(at_pos);
-					train.instance(cnt).setValue(0, value);
-					train.instance(cnt).setValue(nr, y.instance(loc_idx).value(0));
-					cnt++;
-				
-				}
-			
-			fx.set(i, train);
-			System.out.println("fx("+i+") formed!");
-			
-			}
-			
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		
-//		FastVector attributes = new FastVector();
-//		for (int i = 0; i < nr; i++) {
-//			String label = String.format(choices[idx]+"_s_%.2f", sigma[i]);
-//			attributes.addElement(new Attribute(label));
-//			attributes.addElement(Filter.useFilter(data, keepLast).attribute(0));
-//			fx.set(i, element);
-//		}
-//		try {
-//			for (int i = 0; i < locs.numInstances(); i++) {
-//				train.add(new Instance(nr+1)); // fill them with missing values
-//			}
-//			train.setClassIndex(train.numAttributes()-1);
-//			
-//			int cnt = 0;
-//			for (int loc_idx = 0; loc_idx < locs.numInstances(); loc_idx++) {
-//			
-//				for (int scale_idx = 0; scale_idx < nr; scale_idx++) {
-//				
-//					int col = (int)Math.round( locs.instance(loc_idx).value(0) );
-//					int row = (int)Math.round( locs.instance(loc_idx).value(1) );
-//					Coordinates at_pos = new Coordinates(col, row, scale_idx);
-//					double value = feats.get(at_pos);
-//					train.instance(cnt).setValue(scale_idx, value);
-//					
-//				}
-//				
-//				train.instance(cnt).setValue(nr, clss.instance(loc_idx).value(0));
-//				cnt++;
-//				
-//			}
-//			
-//			String train_path = System.getProperty("user.home");
-//			if (!train_path.endsWith("/")) train_path += "/";
-//			train_path += "train.csv";
-//			
-//			System.out.println("wants to save to: "+train_path);
-//			
-//			DataSink.write(train_path, train);
-//			
-//			System.out.println("done, saved to "+train_path);
-//			
-//		} catch (Exception e) {
-//			e.printStackTrace();
-//		}
-		
+		return DOES_8G+NO_CHANGES;
 	}
 	
- 	private String 		removeExt(String in_name){
-		int name_len = in_name.length();
-		if(name_len>4){
-			name_len -= 4;
-			return in_name.substring(0, name_len);
-		}
-		return "";
-	}
- 	
- 	private Instances 	loadFromCsvFile(File f)  {
- 		CSVLoader loader 	= new CSVLoader();
- 		Instances data;
- 		
- 		try {
- 			loader.setSource(f);
-			data = loader.getDataSet();
-			return data;
-		} 
- 		catch (IOException e) {
-			System.out.println("There was a problem loading "+f.getName()+" file. Returning null.");
-			e.printStackTrace();
-			return null;
-		}
+	
+//	ImageProcessor ip = img.getProcessor();
+//	
 
- 	}
-
-	public String openLocation(){
-		File dir=null;
-		JFileChooser fc = null;
-		try {fc = new JFileChooser();}
-		catch (Throwable e) {return null;}
-		if (dir==null) {
-			String sdir = OpenDialog.getDefaultDirectory();
-			if (sdir!=null)
-				dir = new File(sdir);
-		}
-		if (dir!=null)
-			fc.setCurrentDirectory(dir);
-		int returnVal = fc.showOpenDialog(IJ.getInstance());
-		if (returnVal!=JFileChooser.APPROVE_OPTION)
-			return null;
-		
-		System.out.println("The");
-		
-		File 	train_dataset_file = fc.getSelectedFile();
-		String 	train_dataset_path = fc.getSelectedFile().getAbsolutePath();
-		if(!train_dataset_file.exists()){
-			return train_dataset_path;
-		}
-		else{
-			return null;
-		}
-	}
+//	
+//	float[] pix = (float[])ip_float.getPixels();
+//	float[] axis_x = new float[pix.length];
+//	for (int i = 0; i < axis_x.length; i++) {
+//		axis_x[i] = i;
+//	}
+//	
+//	IJ.log("float "+ip_float.getMax()+"     ...     "+ip_float.maxValue());
+//	for (int i = 0; i < 10; i++) {
+//	IJ.log(i+ ": " +pix[i]+" , "+ip.getPixelValue(i, 0));
+//	}
+//	
+//	Plot p = new Plot("see it", "sample", "value", new double[0], new double[0]);
+//	p.setLimits(0, pix.length, 0, 255);
+//	
+//	p.addPoints(axis_x, pix, Plot.LINE);
+//	p.show();
+	
  	
+
+
+    double od(double v) {
+            if (v==0.0) v = 0.5;
+            return 0.434294481*Math.log(255.0/v);
+    }
 }
 
+//OpenDialog open_image 	= new OpenDialog("Select image for CP feature extraction", null);
+//String image_dir = open_image.getDirectory();
+//if(image_dir!=null){
+//	if (!image_dir.endsWith("/")) image_dir += "/";
+//}
+//else{
+//	System.out.println("image was null!");
+//	return;
+//}
+//ImagePlus imp = new ImagePlus(image_dir+open_image.getFileName());
+//Image im = new FloatImage(Image.wrap(imp));
+//imp.show();
+///*
+// * select filter and scales
+// */
+//String[] choices = new String[3];
+//choices[0] = "laplacian";
+//choices[1] = "DoH";
+//choices[2] = "abs(L1)";
+//
+//double[] sigma = new double[nr];
+//for (int i = 0; i < nr; i++) {
+//	sigma[i] = (i==0)? sigma_1 : sigma_1+i*((sigma_2-sigma_1)/(nr-1));
+//}
+//
+///*
+// * extract filter at scales
+// */
+//
+//Image feats = new FloatImage(im.dimensions());// later on it is allocated with full range of scales, layers are added
+//
+//switch (idx) {
+//case 0:	// laplacian
+//	feats = Laplacian2D.calculateImg(im, sigma);
+//	feats.imageplus().show();
+//	break;
+//case 1: // DoH
+//	feats = DoH2D.calculateImg(im, sigma);
+//	feats.imageplus().show();
+//	break;
+//default:
+//	
+//	break;
+//}
+//
+///*
+// * 
+// */
+//
+//OpenDialog open_csv = new OpenDialog("Select csv file with CP annotations (optional)", null);
+//String csv_dir = open_csv.getDirectory();
+//if(csv_dir!=null){
+//	if (!csv_dir.endsWith("/")) csv_dir += "/";
+//	System.out.println("csv was loaded!");
+//}
+//else{
+//	System.out.println("csv was null! won't be extracting the features");
+//	return;
+//}
+//
+///*
+// * extract features
+// */
+//
+//File csv_file = new File(csv_dir+open_csv.getFileName()); 
+//Instances data = loadFromCsvFile(csv_file);
+//System.out.println("data class formed!");
+//
+//Instances 	x;
+//Instances	y;
+//
+//// filters
+//Remove keep12 = new Remove();
+//Remove keepLast = new Remove();
+//
+//try {
+//	keep12.setInvertSelection(true); 	
+//	int[] first_two = new int[]{0, 1};
+//	keep12.setAttributeIndicesArray(first_two);
+//	keep12.setInputFormat(data);
+//
+//	keepLast.setInvertSelection(true);
+//	int[] last_idx = new int[]{(data.numAttributes()-1)};
+//	keepLast.setAttributeIndicesArray(last_idx);
+//	keepLast.setInputFormat(data);
+//
+//	x = Filter.useFilter(data, keep12);
+//	y = Filter.useFilter(data, keepLast);
+//	
+//	ArrayList<Instances> 		fx = new ArrayList<Instances>(nr);
+//
+//	for (int i = 0; i < nr; i++) {
+//	
+//		// fx(i) form
+//		FastVector attributes = new FastVector();
+//		String label = String.format(choices[idx]+"_s_%.2f", sigma[i]);
+//		attributes.addElement(new Attribute(label));
+//		attributes.addElement(y.attribute(0));
+//		Instances train = new Instances(label, attributes, x.numInstances());
+//
+//		int cnt = 0;
+//		for (int loc_idx = 0; loc_idx < x.numInstances(); loc_idx++) {
+//		
+//			int col = (int)Math.round( x.instance(loc_idx).value(0) );
+//			int row = (int)Math.round( x.instance(loc_idx).value(1) );
+//			Coordinates at_pos = new Coordinates(col, row, i);
+//			double value = feats.get(at_pos);
+//			train.instance(cnt).setValue(0, value);
+//			train.instance(cnt).setValue(nr, y.instance(loc_idx).value(0));
+//			cnt++;
+//		
+//		}
+//	
+//	fx.set(i, train);
+//	System.out.println("fx("+i+") formed!");
+//	
+//	}
+//	
+//} catch (Exception e) {
+//	e.printStackTrace();
+//}
+//FastVector attributes = new FastVector();
+//for (int i = 0; i < nr; i++) {
+//	String label = String.format(choices[idx]+"_s_%.2f", sigma[i]);
+//	attributes.addElement(new Attribute(label));
+//	attributes.addElement(Filter.useFilter(data, keepLast).attribute(0));
+//	fx.set(i, element);
+//}
+//try {
+//	for (int i = 0; i < locs.numInstances(); i++) {
+//		train.add(new Instance(nr+1)); // fill them with missing values
+//	}
+//	train.setClassIndex(train.numAttributes()-1);
+//	
+//	int cnt = 0;
+//	for (int loc_idx = 0; loc_idx < locs.numInstances(); loc_idx++) {
+//	
+//		for (int scale_idx = 0; scale_idx < nr; scale_idx++) {
+//		
+//			int col = (int)Math.round( locs.instance(loc_idx).value(0) );
+//			int row = (int)Math.round( locs.instance(loc_idx).value(1) );
+//			Coordinates at_pos = new Coordinates(col, row, scale_idx);
+//			double value = feats.get(at_pos);
+//			train.instance(cnt).setValue(scale_idx, value);
+//			
+//		}
+//		
+//		train.instance(cnt).setValue(nr, clss.instance(loc_idx).value(0));
+//		cnt++;
+//		
+//	}
+//	
+//	String train_path = System.getProperty("user.home");
+//	if (!train_path.endsWith("/")) train_path += "/";
+//	train_path += "train.csv";
+//	
+//	System.out.println("wants to save to: "+train_path);
+//	
+//	DataSink.write(train_path, train);
+//	
+//	System.out.println("done, saved to "+train_path);
+//	
+//} catch (Exception e) {
+//	e.printStackTrace();
+//}
 //dir_path = (new File(dir_path)).getAbsolutePath();
 //File dir = new File(dir_path);
 //if(!dir.isDirectory()){

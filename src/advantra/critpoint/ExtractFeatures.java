@@ -131,6 +131,7 @@ public class ExtractFeatures implements PlugIn {
 				"absL1", 
 				"DoH", 
 				"Laplacian"
+				
 		};
 		
 		nameFeatures = new String[nrFilters*sn];

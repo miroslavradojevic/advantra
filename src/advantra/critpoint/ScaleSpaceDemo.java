@@ -6,8 +6,6 @@ import advantra.feature.ScaleSpace;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.GenericDialog;
-import ij.gui.Plot;
-import ij.gui.PlotWindow;
 import ij.measure.Calibration;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
@@ -23,14 +21,10 @@ public class ScaleSpaceDemo implements PlugInFilter, MouseListener {
 	double[] sigma = null;
 	double[] profile = null;
 	
-	PlotWindow pw;
 	
 	public void run(ImageProcessor arg0) {
 		
-		pw = new PlotWindow("I(sigma)", "sigma", "Intensity", new double[]{1,2}, new double[]{1,2});
-		
 		GenericDialog gd = new GenericDialog("Scale space");
-		//gd.addStringField("folder with annotations", dir_path, 50);
 		gd.addMessage("Choose scales (gaussian std.)");
 		gd.addNumericField( "sigma start:", 			2, 	 0, 5, "" );
 		gd.addNumericField( "sigma end  :", 			6, 	 0, 5, "" );	
@@ -89,7 +83,6 @@ public class ScaleSpaceDemo implements PlugInFilter, MouseListener {
 		
 		// take the data out
 		
-		
 		Image sc_sp = Image.wrap(scale_space);
 		profile = new double[sc_sp.dimensions().z];
 		sc_sp.axes(Axes.Z);
@@ -97,11 +90,6 @@ public class ScaleSpaceDemo implements PlugInFilter, MouseListener {
 		coord.y = mouseY;
 		coord.x = mouseX;
 		sc_sp.get(coord, profile);
-		// show it in plot window
-		//PlotWindow pw = new PlotWindow("L(sigma)", "sigma", "Intensity", sigma, L);
-		//pw.addPoints(sigma, profile, PlotWindow.LINE);
-		pw.drawPlot(new Plot("Intensity vs. scale", "sigma", "I", sigma, profile));
-		//pw.draw();
 		
 	}
 
