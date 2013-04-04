@@ -6,6 +6,7 @@ import java.awt.image.IndexColorModel;
 
 import ij.IJ;
 import ij.ImagePlus;
+import ij.Prefs;
 import ij.WindowManager;
 import ij.gui.GenericDialog;
 import ij.gui.Plot;
@@ -22,29 +23,23 @@ public class TestGabor implements PlugInFilter {
 
 	ImagePlus img;
 	
-//	public void run(String arg0) {
-		
-//		GenericDialog gd = new GenericDialog("Gabor filter example");
-//		gd.addMessage("Choose features");
-//		gd.addChoice("proba", choices, choices[0]);
-//		
-//		gd.addNumericField( "sigma start:", 		2, 	 0, 5, "");
-//		gd.addNumericField( "sigma end  :", 		6, 	 0, 5, "");	
-//		gd.addNumericField( "# scales   :", 		10,  0, 5, "");
-//		
-//		gd.showDialog();
-//		if (gd.wasCanceled()) return;
-//		
-//		int idx =  gd.getNextChoiceIndex();
-//		double 		sigma_1 		=  (double)gd.getNextNumber();
-//		double 		sigma_2 		=  (double)gd.getNextNumber();
-//		int 		nr				=  (int)gd.getNextNumber();
-		
-//
-//		
-//	}
-	
 	public void run(ImageProcessor arg0) {
+		
+		double sigma;// 	= 3.0;
+		int M			= 8;
+		int N 			= 1;
+		
+		sigma = Prefs.get("advantra.critpoint.start_scale", 3.0);
+		
+		GenericDialog gd = new GenericDialog("Gabor demo");
+		gd.addNumericField( "sigma:", 		2, 	 0, 5, "");
+		gd.addNumericField( "N:    ", 		6, 	 0, 5, "");
+		gd.addNumericField( "M:    ", 		6, 	 0, 5, "");
+		gd.showDialog();
+		if (gd.wasCanceled()) return;
+		sigma 		=  (double)gd.getNextNumber();
+		M = (int)gd.getNextNumber();
+		N = (int)gd.getNextNumber();
 		
 		// reset calibration before going further
 		Calibration cal = img.getCalibration();
@@ -52,10 +47,8 @@ public class TestGabor implements PlugInFilter {
 		cal.setUnit("pixel");
 		img.setCalibration(cal);
 		
-//	    byte[] pixels8 = (byte[])img.getProcessor().getPixels();
-	    
-	    
-	    img.setProcessor("testImage", img.getProcessor().convertToFloat().duplicate());
+	    if(!img.getProcessor().isDefaultLut()) return;
+		img.setProcessor("testImage", img.getProcessor().convertToFloat().duplicate());
 	    
 //	    float[] pixels32 = new float[ip.getWidth()*ip.getHeight()];
 ////	    if (cTable!=null && cTable.length==256) {
@@ -68,16 +61,11 @@ public class TestGabor implements PlugInFilter {
 //	    ColorModel cm = ip.getColorModel();
 //	    ImageProcessor ip_float = new FloatProcessor(ip.getWidth(),ip.getHeight(), pixels32, cm);
 		
-		double sigma 	= 3.0;
-		double gamma 	= 1;
-		double psi 		= 0;
-		double Fx 		= 3;
-		int nAngles		= 8;
+		GaborFilt2D.run(img, N, M, sigma, sigma, true);
 		
-		ImagePlus outRe = GaborFilt2D.run(img, sigma, gamma, psi, Fx, nAngles, true);
-		ImagePlus outIm = GaborFilt2D.run(img, sigma, gamma, psi, Fx, nAngles, false);
-		outRe.show();
-		outIm.show();
+//		ImagePlus outIm = GaborFilt2D.run(img, sigma, gamma, psi, Fx, nAngles, false);
+//		outRe.show();
+//		outIm.show();
 		
 	}
 
@@ -90,9 +78,6 @@ public class TestGabor implements PlugInFilter {
 	
 	
 //	ImageProcessor ip = img.getProcessor();
-//	
-
-//	
 //	float[] pix = (float[])ip_float.getPixels();
 //	float[] axis_x = new float[pix.length];
 //	for (int i = 0; i < axis_x.length; i++) {
@@ -103,7 +88,6 @@ public class TestGabor implements PlugInFilter {
 //	for (int i = 0; i < 10; i++) {
 //	IJ.log(i+ ": " +pix[i]+" , "+ip.getPixelValue(i, 0));
 //	}
-//	
 //	Plot p = new Plot("see it", "sample", "value", new double[0], new double[0]);
 //	p.setLimits(0, pix.length, 0, 255);
 //	

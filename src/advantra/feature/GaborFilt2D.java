@@ -1,48 +1,54 @@
 package advantra.feature;
 
+import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
-import ij.plugin.ZProjector;
 import ij.plugin.filter.Convolver;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 
 public class GaborFilt2D {
 	
-	public static ImagePlus run(ImagePlus input2D, double sigma, double gamma, double psi, double Fx, int nAngles, boolean real){
-	
+	public static void run(ImagePlus input2D, int N, int M, double sigma_x, double sigma_y,  boolean real){
+		//ImagePlus
 		/*
+		 * 
 		* This method calculates a set of Gabor filters over the selected image.
+		* variables are marked as shown in http://mplab.ucsd.edu/tutorials/gabor.pdf
+		* tutorial
 		*
-		* Parameters: sigma, gamma, psi, Fx, nAngles
+		* Parameters: 
+		* a (1/sigma_x), b (1/sigma_y)	-> scaling parameters, 
+		* P         					-> phase
+		* F0        					-> spatial frequency in spherical coordinates 
+		* w0 							-> spatial frequency in spherical coordinates
+		* nAngles   					-> number of orientations
 		* 
-		* Sigma defining the size of the Gaussian envelope
-		* Aspect ratio of the Gaussian curves
-		* Phase
-		* Frequency of the sinusoidal component
-		* Number of diferent orientation angles to use
 		*/
 		
 //		Dimensions dim = input2D.dimensions();
 //		Image out = new FloatImage(new Dimensions(dim.x, dim.y, 1));
 //		out.axes(Axes.X);
 		
-		int width 	= input2D.getWidth();//dim.x;
-		int height 	= input2D.getHeight();//dim.y;
+		int width 	= input2D.getWidth();
+		int height 	= input2D.getHeight();
 		
-		double sigma_x = sigma;
-		double sigma_y = sigma / gamma;
+		// correct just in case, lower than 1 doesn't make sense
+		sigma_x = (sigma_x<1)? 1 : sigma_x;
+		sigma_y = (sigma_y<1)? 1 : sigma_y;
 		
-		int largerSigma = (sigma_x > sigma_y) ? (int) sigma_x : (int) sigma_y;
-		if(largerSigma < 1)
-		    largerSigma = 1;
+		// larger sigma_ will define the size of the patch
+		int largerSigma = (int)Math.max(sigma_x, sigma_y);
 		
-		double sigma_x2 = sigma_x * sigma_x;
-		double sigma_y2 = sigma_y * sigma_y;
+//		double a = 1 / sigma_x;
+//		double b = 1 / sigma_y;
+//		
+//		double a2 = a * a;
+//		double b2 = b * b;
 		
 		// Create set of filters
-		int filterSizeX = 19; //6 * largerSigma + 1;
-		int filterSizeY = 19; //6 * largerSigma + 1;
+		int filterSizeX = 6 * largerSigma + 1;
+		int filterSizeY = 6 * largerSigma + 1;
 		
 		int middleX = (int) Math.round(filterSizeX / 2);
 		int middleY = (int) Math.round(filterSizeY / 2);
@@ -50,39 +56,65 @@ public class GaborFilt2D {
 		ImageStack is 		= new ImageStack(width, height);
 		ImageStack kernels 	= new ImageStack(filterSizeX, filterSizeY);
 		 
-		double rotationAngle = Math.PI/(double)nAngles;
+		IJ.log("generated kernel size "+filterSizeX+"  x  "+filterSizeY);
 		
-		for (int i=0; i<nAngles; i++){   
-		    double theta = rotationAngle * i;
-		    ImageProcessor filter = new FloatProcessor(filterSizeX, filterSizeY);  
-		    for (int x=-middleX; x<=middleX; x++){
-		        for (int y=-middleY; y<=middleY; y++){           
-		        	
-		        	double  xPrime = (double)x * Math.cos(theta) + (double)y * Math.sin(theta);
-		        	double  yPrime = (double)y * Math.cos(theta) - (double)x * Math.sin(theta);
-		                 
-		            double a = 1.0 / ( 2.0 * Math.PI * sigma_x * sigma_y ) *
-		                            Math.exp(-0.5 * (xPrime*xPrime / sigma_x2 + yPrime*yPrime / sigma_y2) );
-		            double c;
-		            if(real){
-		            	c = Math.cos( 2.0 * Math.PI * (Fx * xPrime) / filterSizeX + psi);
-		            }
-		            else{
-		            	c = Math.sin( 2.0 * Math.PI * (Fx * xPrime) / filterSizeX + psi);
-		            }
-		             
-		            filter.setf(x+middleX, y+middleY, (float)(a*c) );
-		        }
-		    }
-		    kernels.addSlice("kernel angle = " + theta, filter);
+		double rotationAngle = Math.PI/(double)M;
+		
+		for (int n = 0; n < N; n++) {
+			
+			double an = sigma_x * Math.pow(2, n);
+			double bn = sigma_y * Math.pow(2, n);
+			
+			for (int m=0; m<M; m++){  
+				
+				double theta = rotationAngle * m;
+				
+				ImageProcessor filter = new FloatProcessor(filterSizeX, filterSizeY); 
+				
+				// x0 and y0 at patch center (0,0)
+			    for (int x=-middleX; x<=middleX; x++){
+			        for (int y=-middleY; y<=middleY; y++){           
+			        	
+			        	double  xr = (double)x * Math.cos(theta) + (double)y * Math.sin(theta);
+			        	double  yr = (double)y * Math.cos(theta) - (double)x * Math.sin(theta);
+			        	
+			        	double env = (1.0 / ( 2.0 * Math.PI * an * bn )) * Math.exp(- 0.5 *((xr*xr)/(an*an) + (yr*yr)/(bn*bn)));
+			        	
+			        	double carr;
+			        	if(real){
+			            	carr = Math.cos( (Math.PI / Math.pow(2, (n+1))) * xr);
+			            }
+			            else{
+			            	carr = Math.sin( (Math.PI / Math.pow(2, (n+1))) * xr);
+			            }
+			        	
+			        	filter.setf(x+middleX, y+middleY, (float)(env*carr) );
+			        	
+			        }
+			    }
+				
+			    kernels.addSlice("kernel,theta=" + IJ.d2s(theta,2) + ",an=" + an + ",bn=" + bn, filter);
+				
+			}
 		}
 		
 		// Show kernels
 		ImagePlus ip_kernels = new ImagePlus("kernels", kernels);
 		ip_kernels.show();
 		
+		ip_kernels.getCanvas().zoomIn(0, 0);
+		ip_kernels.getCanvas().zoomIn(0, 0);
+		ip_kernels.getCanvas().zoomIn(0, 0);
+		ip_kernels.getCanvas().zoomIn(0, 0);
+		ip_kernels.getCanvas().zoomIn(0, 0);
+		ip_kernels.getCanvas().zoomIn(0, 0);
+		ip_kernels.getCanvas().zoomIn(0, 0);
+		ip_kernels.getCanvas().zoomIn(0, 0);
+		
+		if(true) return;
+		
 		// Apply kernels
-		for (int i=0; i<nAngles; i++){
+		for (int i=0; i<M; i++){
 		    
 		    Convolver c = new Convolver();                
 		    c.setNormalize(false);
@@ -98,8 +130,10 @@ public class GaborFilt2D {
 		
 		ImagePlus projectStack = new ImagePlus("filtered stack",is);
 		
+		
+		
 		ImageStack resultStack = new ImageStack(width, height);
-        
+		/*
 		ZProjector zp = new ZProjector(projectStack);
 		zp.setStopSlice(is.getSize());
 		for (int i=0;i<=nAngles; i++)
@@ -110,11 +144,12 @@ public class GaborFilt2D {
 		            +"_"+sigma+"_" + gamma + "_"+ (int) (psi / (Math.PI/4) ) +"_"+Fx, 
 		            zp.getProjection().getChannelProcessor());
 		}
+		*/
 		 
 		// Display filtered images
-		(new ImagePlus("gabor, sigma="+sigma+" gamma="+gamma+ " psi="+psi, is)).show();
+//		(new ImagePlus("gabor, sigma="+sigma+" gamma="+gamma+ " psi="+psi, is)).show();
 		 
-		ImagePlus result = new ImagePlus ("Gabor stack projections", resultStack) ;
+		ImagePlus result = new ImagePlus ("Gabor stack projections", is) ;
 		
 //		double[][] aIn 			= new double[height][width];
 //		Coordinates coords 	= new Coordinates();
@@ -133,7 +168,7 @@ public class GaborFilt2D {
 //			}
 //		}
 		
-		return result;
+//		return result;
 		
 	}
 
