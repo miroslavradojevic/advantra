@@ -1,5 +1,7 @@
 package advantra.critpoint;
 
+import java.util.Vector;
+
 import ij.ImagePlus;
 import ij.Prefs;
 import ij.gui.GenericDialog;
@@ -7,6 +9,7 @@ import ij.measure.Calibration;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
 import advantra.feature.GaborFilt2D;
+import advantra.general.Transf;
 
 public class TestGabor implements PlugInFilter {
 
@@ -14,21 +17,34 @@ public class TestGabor implements PlugInFilter {
 	
 	public void run(ImageProcessor arg0) {
 		
-		double sigma;
-		int M			= 8;
-		int N 			= 1;
+		double 	s1, s2;
+		int 	sn;
+		double 	lambda 		= 0; // will be determined by sigma
+		double 	bandwidth 	= 1; // to correlate lambda & sigma
+		int 	M;
+		double 	psi 		= 0;
 		
-		sigma = Prefs.get("advantra.critpoint.start_scale", 3.0);
+		s1 		= Prefs.get("advantra.critpoint.start_scale", 	2.0);
+		s2    	= Prefs.get("advantra.critpoint.end_scale", 	5.0);
+		sn   	= (int)Prefs.get("advantra.critpoint.nr_scales", 4);
+		M 		= (int)Prefs.get("advantra.critpoint.nr_angles", 8);
 		
 		GenericDialog gd = new GenericDialog("Gabor demo");
-		gd.addNumericField( "sigma:", 		2, 	 0, 5, "");
-		gd.addNumericField( "M:    ", 		M, 	 0, 5, "");
-		gd.addNumericField( "N:    ", 		N, 	 0, 5, "");
+		gd.addNumericField( "sigma start:", s1, 	 	2, 5, "");
+		gd.addNumericField( "sigma end  :", s2, 	 	2, 5, "");
+		gd.addNumericField( "sigma nr   :", sn, 	 	0, 5, "");
+		gd.addNumericField( "M:    ", 		M, 	 		0, 5, "");
 		gd.showDialog();
 		if (gd.wasCanceled()) return;
-		sigma 		= (double)gd.getNextNumber();
-		M 			= (int)gd.getNextNumber();
-		N 			= (int)gd.getNextNumber();
+		s1 		= gd.getNextNumber();
+		s2 		= gd.getNextNumber();
+		sn 		= (int)gd.getNextNumber();
+		M 		= (int)gd.getNextNumber();
+		
+		Prefs.set("advantra.critpoint.start_scale", s1);
+		Prefs.set("advantra.critpoint.end_scale", s2);
+		Prefs.set("advantra.critpoint.nr_scales", sn);
+		Prefs.set("advantra.critpoint.nr_angles", M);
 		
 		// reset calibration before going further
 		Calibration cal = img.getCalibration();
@@ -36,23 +52,76 @@ public class TestGabor implements PlugInFilter {
 		cal.setUnit("pixel");
 		img.setCalibration(cal);
 		
+		// form scales vector
+		double[] s = new double[sn];
+		for (int i = 0; i < sn; i++) {
+			s[i] = (i==0)? s1 : s1+i*((s2-s1)/(sn-1));
+		}
+		
 	    if(!img.getProcessor().isDefaultLut()) return;
 		img.setProcessor("testImage", img.getProcessor().convertToFloat().duplicate());
 	    
-//	    float[] pixels32 = new float[ip.getWidth()*ip.getHeight()];
-////	    if (cTable!=null && cTable.length==256) {
-////	        for (int i=0; i<width*height; i++)
-////	            pixels32[i] = cTable[pixels8[i]&255];
-////	    } else {
-//	        for (int i=0; i<ip.getWidth()*ip.getHeight(); i++)
-//	            pixels32[i] = pixels8[i]&255;
-////	    }
-//	    ImageProcessor ip_float = new FloatProcessor(ip.getWidth(),ip.getHeight(), pixels32, cm);
+		Vector<ImagePlus> g = GaborFilt2D.runAll(img, M, s, lambda, bandwidth, psi, true);
 		
-		ImagePlus outRe = GaborFilt2D.run(img, N, M, sigma, true);
-		ImagePlus outIm = GaborFilt2D.run(img, N, M, sigma, false);
-		outRe.show();
-		outIm.show();
+		for (int i = 0; i < g.size(); i++) {
+			g.get(i).show();
+		}
+		
+		// now design filter 
+		// filter params
+		double 		angStep = (10/180f)*Math.PI;
+		int 		Nang 	= 36;
+		double[] 	ro 		= new double[]{0, 3, 6};
+		
+		double[][] rofi = new double[(ro.length-1)*Nang+1][];
+		rofi[0] = new double[]{ro[0], 0};
+		
+		int idx = 1;
+		
+		for (int i = 1; i < ro.length; i++) {
+			
+			for (int j = 0; j < Nang; j++) {
+				
+				double ang = j*(2*Math.PI/Nang);
+				rofi[idx] = new double[]{ro[i], ang};
+				System.out.println("rofi["+idx+"]: "+ro[i]+" , "+ang);
+				idx++;
+				
+			}
+			
+		}
+		
+		
+		
+		// create ro/fi pairs
+//		
+		
+//		for (int i = 0; i < fi.length; i++) {
+//			fi[i] = i * (2*Math.PI) / M1;
+//		}
+		// configuration (extracts tuples, considers surrounding locations)
+		
+		
+//		ImagePlus outIm = GaborFilt2D.run(img, M, sigma, lambda, bandwidth, psi, false);
+//		outRe.show();
+//		outIm.show();
+
+		
+		
+//		ImagePlus projectStack = new ImagePlus("filtered stack",filtered);
+//		ImageStack resultStack = new ImageStack(width, height);
+		/*
+		ZProjector zp = new ZProjector(projectStack);
+		zp.setStopSlice(is.getSize());
+		for (int i=0;i<=nAngles; i++)
+		{
+		    zp.setMethod(i);
+		    zp.doProjection();
+		    resultStack.addSlice("Gabor_" + i 
+		            +"_"+sigma+"_" + gamma + "_"+ (int) (psi / (Math.PI/4) ) +"_"+Fx, 
+		            zp.getProjection().getChannelProcessor());
+		}
+		*/
 		
 	}
 
@@ -63,7 +132,7 @@ public class TestGabor implements PlugInFilter {
 		return DOES_8G+NO_CHANGES;
 	}
 	
-	
+}
 //	ImageProcessor ip = img.getProcessor();
 //	float[] pix = (float[])ip_float.getPixels();
 //	float[] axis_x = new float[pix.length];
@@ -81,14 +150,7 @@ public class TestGabor implements PlugInFilter {
 //	p.addPoints(axis_x, pix, Plot.LINE);
 //	p.show();
 	
- 	
 
-
-    double od(double v) {
-            if (v==0.0) v = 0.5;
-            return 0.434294481*Math.log(255.0/v);
-    }
-}
 
 //OpenDialog open_image 	= new OpenDialog("Select image for CP feature extraction", null);
 //String image_dir = open_image.getDirectory();
