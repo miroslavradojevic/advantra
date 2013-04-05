@@ -1,23 +1,12 @@
 package advantra.critpoint;
 
-import java.awt.Color;
-import java.awt.image.ColorModel;
-import java.awt.image.IndexColorModel;
-
-import ij.IJ;
 import ij.ImagePlus;
 import ij.Prefs;
-import ij.WindowManager;
 import ij.gui.GenericDialog;
-import ij.gui.Plot;
 import ij.measure.Calibration;
 import ij.plugin.filter.PlugInFilter;
-import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
-import ij.process.LUT;
-
 import advantra.feature.GaborFilt2D;
-import advantra.general.Sort;
 
 public class TestGabor implements PlugInFilter {
 
@@ -25,7 +14,7 @@ public class TestGabor implements PlugInFilter {
 	
 	public void run(ImageProcessor arg0) {
 		
-		double sigma;// 	= 3.0;
+		double sigma;
 		int M			= 8;
 		int N 			= 1;
 		
@@ -33,13 +22,13 @@ public class TestGabor implements PlugInFilter {
 		
 		GenericDialog gd = new GenericDialog("Gabor demo");
 		gd.addNumericField( "sigma:", 		2, 	 0, 5, "");
-		gd.addNumericField( "N:    ", 		6, 	 0, 5, "");
-		gd.addNumericField( "M:    ", 		6, 	 0, 5, "");
+		gd.addNumericField( "M:    ", 		M, 	 0, 5, "");
+		gd.addNumericField( "N:    ", 		N, 	 0, 5, "");
 		gd.showDialog();
 		if (gd.wasCanceled()) return;
-		sigma 		=  (double)gd.getNextNumber();
-		M = (int)gd.getNextNumber();
-		N = (int)gd.getNextNumber();
+		sigma 		= (double)gd.getNextNumber();
+		M 			= (int)gd.getNextNumber();
+		N 			= (int)gd.getNextNumber();
 		
 		// reset calibration before going further
 		Calibration cal = img.getCalibration();
@@ -58,14 +47,12 @@ public class TestGabor implements PlugInFilter {
 //	        for (int i=0; i<ip.getWidth()*ip.getHeight(); i++)
 //	            pixels32[i] = pixels8[i]&255;
 ////	    }
-//	    ColorModel cm = ip.getColorModel();
 //	    ImageProcessor ip_float = new FloatProcessor(ip.getWidth(),ip.getHeight(), pixels32, cm);
 		
-		GaborFilt2D.run(img, N, M, sigma, sigma, true);
-		
-//		ImagePlus outIm = GaborFilt2D.run(img, sigma, gamma, psi, Fx, nAngles, false);
-//		outRe.show();
-//		outIm.show();
+		ImagePlus outRe = GaborFilt2D.run(img, N, M, sigma, true);
+		ImagePlus outIm = GaborFilt2D.run(img, N, M, sigma, false);
+		outRe.show();
+		outIm.show();
 		
 	}
 
