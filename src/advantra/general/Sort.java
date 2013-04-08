@@ -117,4 +117,51 @@ public class Sort {
 		
 		return new float[]{mn, mx};
 	}
+
+	public static double[] min_max(double[] a){
+		
+		double mn = a[0];
+		double mx = a[0];
+		
+		for (int i = 1; i < a.length; i++) {
+			if(a[i]<mn){
+				mn = a[i];
+			}
+			if(a[i]>mx){
+				mx = a[i];
+			}
+		}
+		
+		return new double[]{mn, mx};
+	}
+	
+	public static double sum(double[] a){
+		double out = a[0];
+		for (int i = 1; i < a.length; i++) {
+			out += a[i];
+		}
+		return out;
+	}
+	
+	public static double[] sum_pos_neg(double[] a){
+		double[] out = new double[2];
+		for (int i = 0; i < a.length; i++) {
+			if(a[i]>=0){
+				out[0] += a[i];
+			}
+			else{
+				out[1] += a[i];
+			}
+		}
+		return out;
+	}
+	
+	public static float sum(float[] a){
+		float out = a[0];
+		for (int i = 1; i < a.length; i++) {
+			out += a[i];
+		}
+		return out;
+	}
+	
 }

@@ -1,31 +1,38 @@
 package advantra.critpoint;
 
-import java.util.Vector;
-
+import java.awt.Color;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.Prefs;
 import ij.gui.GenericDialog;
+import ij.gui.Plot;
 import ij.measure.Calibration;
 import ij.plugin.ZProjector;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
+import imagescience.image.Axes;
+import imagescience.image.Coordinates;
+import imagescience.image.Image;
 import advantra.feature.GaborFilt2D;
 import advantra.general.Sort;
 
-public class TestGabor implements PlugInFilter {
+public class TestGabor implements PlugInFilter, MouseListener {
 
-	ImagePlus img;
+	ImagePlus 	img;
+	ImagePlus 	circ_img;
+	int 		M;
+	float 		circ_img_max, circ_img_min;
 	
 	public void run(ImageProcessor arg0) {
 		
 		double 	s1, s2;
 		int 	sn;
-		double 	lambda 		= 0; // will be determined by sigma
+//		double 	lambda 		= 0; // will be determined by sigma
 		double 	bandwidth 	= 1; // to correlate lambda & sigma
-		int 	M;
 		double 	psi 		= 0;
 		
 		s1 		= Prefs.get("advantra.critpoint.start_scale", 	2.0);
@@ -34,10 +41,10 @@ public class TestGabor implements PlugInFilter {
 		M 		= (int)Prefs.get("advantra.critpoint.nr_angles", 8);
 		
 		GenericDialog gd = new GenericDialog("Gabor demo");
-		gd.addNumericField( "sigma start:", s1, 	 	2, 5, "");
-		gd.addNumericField( "sigma end  :", s2, 	 	2, 5, "");
-		gd.addNumericField( "sigma nr   :", sn, 	 	0, 5, "");
-		gd.addNumericField( "M:    ", 		M, 	 		0, 5, "");
+		gd.addNumericField( "sigma start	:", s1, 	 	2, 5, "");
+		gd.addNumericField( "sigma end  	:", s2, 	 	2, 5, "");
+		gd.addNumericField( "sigma nr   	:", sn, 	 	0, 5, "");
+		gd.addNumericField( "angles per pi	:", M, 	 		0, 5, "");
 		gd.showDialog();
 		if (gd.wasCanceled()) return;
 		s1 		= gd.getNextNumber();
@@ -70,7 +77,7 @@ public class TestGabor implements PlugInFilter {
 				thetas_2pi[i] = thetas_pi[i] = i*Math.PI/M;
 			}
 			else{
-				thetas_2pi[i] = thetas_2pi[i-M];
+				thetas_2pi[i] = thetas_2pi[i-M]+Math.PI;
 			}
 		}
 		
@@ -98,19 +105,19 @@ public class TestGabor implements PlugInFilter {
 		gim.show();
 		
 		// now design entropy filter 
-		int 	margin 	= (int)Math.ceil(s2);
-		double	ro 		= s2;
-
 		
-		ImageStack		circ_stack 	= new ImageStack(img.getWidth(), img.getHeight());
+		double		ro 		= 1.5*s2;
+		int 		margin 	= (int)Math.ceil(ro);
+
+		ImageStack	circ_stack 	= new ImageStack(img.getWidth(), img.getHeight());
 		
 		// define a shift for every position on the circle
-		for (int i = 0; i < 2; i++) { // 2*M
+		for (int i = 0; i < 2*M; i++) {
 			
 			double dx = ro*Math.sin(thetas_2pi[i]);
 			double dy = -ro*Math.cos(thetas_2pi[i]);
 			
-			System.out.print("\nshifting theta="+thetas_2pi[i]+" ...");
+//			System.out.print("\n"+IJ.d2s(dx)+", "+IJ.d2s(dy));
 			
 			ImageProcessor 	circ_vals 	= new FloatProcessor(img.getWidth(), img.getHeight());
 			
@@ -119,89 +126,155 @@ public class TestGabor implements PlugInFilter {
 				for (int y = margin; y < img.getHeight()-margin; y++) {
 					int src_x = (int)Math.round(x+dx);
 					int src_y = (int)Math.round(y+dy);
-					// !!! not from original!
-					circ_vals.setf(x, y, img.getProcessor().getPixelValue(src_x, src_y));
+					
+					if(i<M){
+						circ_vals.setf(x, y, gim.getStack().getProcessor(i+1).getPixelValue(src_x, src_y)); // * gim.getStack().getProcessor(i+1).getPixelValue(x, y)
+					}
+					else{
+						circ_vals.setf(x, y, gim.getStack().getProcessor(i-M+1).getPixelValue(src_x, src_y)); // * gim.getStack().getProcessor(i-M+1).getPixelValue(x, y)
+					}
+					
 				}
 			}
 			
 			// add it to the output stack
 			circ_stack.addSlice(circ_vals);
-			
-			System.out.print("done.");
+//			System.out.print("done.");
 			
 		}
 		
-		ImagePlus		circ_img = new ImagePlus("circular", circ_stack);
+		circ_img = new ImagePlus("circular", circ_stack);
 		circ_img.show();
+		circ_img.getCanvas().addMouseListener(this);
+		img.getCanvas().addMouseListener(this);
 		
-//		double[][] rofi = new double[(ro.length-1)*Nang+1][];
-//		rofi[0] = new double[]{ro[0], 0};
-//		
-//		int idx = 1;
+		// find min/max of the total circular response
+		circ_img_min = Float.MAX_VALUE;
+		circ_img_max = Float.MIN_VALUE;
 		
-//		for (int i = 1; i < ro.length; i++) {
-//			
-//			for (int j = 0; j < Nang; j++) {
-//				
-//				double ang = j*(2*Math.PI/Nang);
-//				rofi[idx] = new double[]{ro[i], ang};
-//				idx++;
-//				
+		for (int z = 0; z < circ_img.getStackSize(); z++) {
+			for (int x = 0; x < circ_img.getWidth(); x++) {
+				for (int y = 0; y < circ_img.getHeight(); y++) {
+					
+					float take_val = circ_img.getStack().getProcessor(z+1).getPixelValue(x, y);
+					if(take_val<circ_img_min){
+						circ_img_min = take_val;
+					}
+					if(take_val>circ_img_max){
+						circ_img_max = take_val;
+					}
+					
+				}
+			}
+		}
+		
+//		// Suppress those lower than some ratio of the max
+//		boolean suppress = false;
+//		if(suppress){
+//			for (int z = 0; z < circ_img.getStackSize(); z++) {
+//				for (int x = 0; x < circ_img.getWidth(); x++) {
+//					for (int y = 0; y < circ_img.getHeight(); y++) {
+//						
+//						float take_val = circ_img.getStack().getProcessor(z+1).getPixelValue(x, y);
+//						if(take_val<0.1*circ_img_max){
+//							circ_img.getStack().getProcessor(z+1).setf(x, y, 0);
+//						}
+//						
+//					}
+//				}
 //			}
-//			
 //		}
 		
+		// extract the circular features out the circ_img with angular responses
 		
+		// local max
 		
-		// configuration (extracts tuples, considers surrounding locations)
-		
-//		ImagePlus outIm = GaborFilt2D.run(img, M, sigma, lambda, bandwidth, psi, false);
-//		outRe.show();
-//		outIm.show();
-
-//		ImagePlus projectStack = new ImagePlus("filtered stack",filtered);
-//		ImageStack resultStack = new ImageStack(width, height);
-		/*
-		ZProjector zp = new ZProjector(projectStack);
-		zp.setStopSlice(is.getSize());
-		for (int i=0;i<=nAngles; i++)
-		{
-		    zp.setMethod(i);
-		    zp.doProjection();
-		    resultStack.addSlice("Gabor_" + i 
-		            +"_"+sigma+"_" + gamma + "_"+ (int) (psi / (Math.PI/4) ) +"_"+Fx, 
-		            zp.getProjection().getChannelProcessor());
-		}
-		*/
 		
 	}
 
 	public int setup(String arg0, ImagePlus arg1) {
 		
 		img = arg1;
-		
 		return DOES_8G+NO_CHANGES;
+		
 	}
+
+	public void mouseClicked(MouseEvent e) {
+
+		// location
+		int mouseX = 	img.getWindow().getCanvas().offScreenX(e.getX());
+		int mouseY = 	img.getWindow().getCanvas().offScreenY(e.getY());
+		
+		// angles
+		double[] phis = new double[2*M];
+		
+		for (int i = 0; i < 2*M; i++) {
+			phis[i] = i*(2*Math.PI)/(2*M);
+		}
+		
+		Image read_img = Image.wrap(circ_img);
+		read_img.axes(Axes.Z);
+		double[] circ_vals = new double[2*M];
+		Coordinates coord = new Coordinates(mouseX, mouseY);
+		read_img.get(coord, circ_vals);
+		
+		double circ_vals_min = Sort.findMin(circ_vals);
+		double circ_vals_max = Sort.findMax(circ_vals);
+		double[] circ_vals_sum_pos_neg = Sort.sum_pos_neg(circ_vals);
+		
+		// min-max normalize
+		double[] mn_mx = new double[circ_vals.length];
+		for (int i = 0; i < circ_vals.length; i++) {
+			mn_mx[i] = (circ_vals[i]-circ_vals_min)/circ_vals_max;
+		}
+		// normalize
+		double[] norm = new double[circ_vals.length];
+		for (int i = 0; i < circ_vals.length; i++) {
+			if(circ_vals[i]>=0){
+				norm[i] = circ_vals[i]/circ_vals_sum_pos_neg[0];
+			}
+			else{
+				norm[i] = circ_vals[i]/circ_vals_sum_pos_neg[1];
+			}
+		}
+		
+		// plot
+	    ImagePlus 	show_gabor_img = new ImagePlus();
+	    ImageStack 	show_gabor_stk = new ImageStack(528, 255);
+	    
+	    Plot plot = new Plot("At,X="+mouseX+",Y="+mouseY, "angle [rad]", "gabor filter output");
+	    plot.setLimits(0, 2*Math.PI, circ_img_min, circ_img_max); 
+	    plot.setColor(Color.RED);
+	    plot.addPoints(phis, circ_vals, Plot.LINE);
+	    
+	    show_gabor_stk.addSlice("orig", plot.getProcessor());
+	    
+	    plot = new Plot("At,X="+mouseX+",Y="+mouseY, "angle [rad]", "gabor filter output");
+	    plot.setLimits(0, 2*Math.PI, 0, 1); 
+	    plot.addPoints(phis, mn_mx, Plot.LINE);
+	    plot.setColor(Color.BLUE);
+	    show_gabor_stk.addSlice("min max normalized", plot.getProcessor());
+	    
+	    plot = new Plot("At,X="+mouseX+",Y="+mouseY, "angle [rad]", "gabor filter output");
+	    plot.setLimits(0, 2*Math.PI, -1, 1); 
+	    plot.addPoints(phis, norm, Plot.LINE);
+	    plot.setColor(Color.GREEN);
+	    show_gabor_stk.addSlice("normalized", plot.getProcessor());
+
+	    show_gabor_img.setStack("gabor data", show_gabor_stk);
+	    show_gabor_img.show();
+	    
+	}
+
+	public void mousePressed(MouseEvent e) {}
+
+	public void mouseReleased(MouseEvent e) {}
+
+	public void mouseEntered(MouseEvent e) {}
+
+	public void mouseExited(MouseEvent e) {}
 	
 }
-//	ImageProcessor ip = img.getProcessor();
-//	float[] pix = (float[])ip_float.getPixels();
-//	float[] axis_x = new float[pix.length];
-//	for (int i = 0; i < axis_x.length; i++) {
-//		axis_x[i] = i;
-//	}
-//	
-//	IJ.log("float "+ip_float.getMax()+"     ...     "+ip_float.maxValue());
-//	for (int i = 0; i < 10; i++) {
-//	IJ.log(i+ ": " +pix[i]+" , "+ip.getPixelValue(i, 0));
-//	}
-//	Plot p = new Plot("see it", "sample", "value", new double[0], new double[0]);
-//	p.setLimits(0, pix.length, 0, 255);
-//	
-//	p.addPoints(axis_x, pix, Plot.LINE);
-//	p.show();
-	
-
 
 //OpenDialog open_image 	= new OpenDialog("Select image for CP feature extraction", null);
 //String image_dir = open_image.getDirectory();
