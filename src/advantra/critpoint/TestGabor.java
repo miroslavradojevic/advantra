@@ -2,14 +2,18 @@ package advantra.critpoint;
 
 import java.util.Vector;
 
+import ij.IJ;
 import ij.ImagePlus;
+import ij.ImageStack;
 import ij.Prefs;
 import ij.gui.GenericDialog;
 import ij.measure.Calibration;
+import ij.plugin.ZProjector;
 import ij.plugin.filter.PlugInFilter;
+import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 import advantra.feature.GaborFilt2D;
-import advantra.general.Transf;
+import advantra.general.Sort;
 
 public class TestGabor implements PlugInFilter {
 
@@ -52,62 +56,109 @@ public class TestGabor implements PlugInFilter {
 		cal.setUnit("pixel");
 		img.setCalibration(cal);
 		
-		// form scales vector
+		// sigmas
 		double[] s = new double[sn];
 		for (int i = 0; i < sn; i++) {
 			s[i] = (i==0)? s1 : s1+i*((s2-s1)/(sn-1));
 		}
 		
+		double[] thetas_pi = new double[M];
+		double[] thetas_2pi = new double[2*M];
+		
+		for (int i = 0; i < 2*M; i++) {
+			if(i<M){
+				thetas_2pi[i] = thetas_pi[i] = i*Math.PI/M;
+			}
+			else{
+				thetas_2pi[i] = thetas_2pi[i-M];
+			}
+		}
+		
 	    if(!img.getProcessor().isDefaultLut()) return;
 		img.setProcessor("testImage", img.getProcessor().convertToFloat().duplicate());
 	    
-		Vector<ImagePlus> g = GaborFilt2D.runAll(img, M, s, lambda, bandwidth, psi, true);
+		// calculate g_theta_lambda for every theta 0-pi
+		// take g_ value by maximizing over scales
 		
-		for (int i = 0; i < g.size(); i++) {
-			g.get(i).show();
+		ImageStack gst = new ImageStack(img.getWidth(), img.getHeight()); 
+		
+		ZProjector zp = new ZProjector();
+		for (int i = 0; i < M; i++) {
+			double current_theta = thetas_pi[i];
+			ImagePlus g_theta = GaborFilt2D.run(img, current_theta, s, new double[s.length], bandwidth, psi, true);
+			zp.setImage(g_theta);
+			zp.setStartSlice(1);
+			zp.setStopSlice(g_theta.getStackSize());
+			zp.setMethod(ZProjector.MAX_METHOD);
+			zp.doProjection();
+			gst.addSlice("theta="+IJ.d2s(current_theta, 2), zp.getProjection().getChannelProcessor());
 		}
 		
-		// now design filter 
-		// filter params
-		double 		angStep = (10/180f)*Math.PI;
-		int 		Nang 	= 36;
-		double[] 	ro 		= new double[]{0, 3, 6};
+		ImagePlus gim = new ImagePlus("gabor_responses_per_scale", gst);
+		gim.show();
 		
-		double[][] rofi = new double[(ro.length-1)*Nang+1][];
-		rofi[0] = new double[]{ro[0], 0};
+		// now design entropy filter 
+		int 	margin 	= (int)Math.ceil(s2);
+		double	ro 		= s2;
+
 		
-		int idx = 1;
+		ImageStack		circ_stack 	= new ImageStack(img.getWidth(), img.getHeight());
 		
-		for (int i = 1; i < ro.length; i++) {
+		// define a shift for every position on the circle
+		for (int i = 0; i < 2; i++) { // 2*M
 			
-			for (int j = 0; j < Nang; j++) {
-				
-				double ang = j*(2*Math.PI/Nang);
-				rofi[idx] = new double[]{ro[i], ang};
-				System.out.println("rofi["+idx+"]: "+ro[i]+" , "+ang);
-				idx++;
-				
+			double dx = ro*Math.sin(thetas_2pi[i]);
+			double dy = -ro*Math.cos(thetas_2pi[i]);
+			
+			System.out.print("\nshifting theta="+thetas_2pi[i]+" ...");
+			
+			ImageProcessor 	circ_vals 	= new FloatProcessor(img.getWidth(), img.getHeight());
+			
+			// set values of circ_vals
+			for (int x = margin; x < img.getWidth()-margin; x++) {
+				for (int y = margin; y < img.getHeight()-margin; y++) {
+					int src_x = (int)Math.round(x+dx);
+					int src_y = (int)Math.round(y+dy);
+					// !!! not from original!
+					circ_vals.setf(x, y, img.getProcessor().getPixelValue(src_x, src_y));
+				}
 			}
 			
+			// add it to the output stack
+			circ_stack.addSlice(circ_vals);
+			
+			System.out.print("done.");
+			
 		}
 		
+		ImagePlus		circ_img = new ImagePlus("circular", circ_stack);
+		circ_img.show();
 		
-		
-		// create ro/fi pairs
+//		double[][] rofi = new double[(ro.length-1)*Nang+1][];
+//		rofi[0] = new double[]{ro[0], 0};
 //		
+//		int idx = 1;
 		
-//		for (int i = 0; i < fi.length; i++) {
-//			fi[i] = i * (2*Math.PI) / M1;
+//		for (int i = 1; i < ro.length; i++) {
+//			
+//			for (int j = 0; j < Nang; j++) {
+//				
+//				double ang = j*(2*Math.PI/Nang);
+//				rofi[idx] = new double[]{ro[i], ang};
+//				idx++;
+//				
+//			}
+//			
 //		}
-		// configuration (extracts tuples, considers surrounding locations)
 		
+		
+		
+		// configuration (extracts tuples, considers surrounding locations)
 		
 //		ImagePlus outIm = GaborFilt2D.run(img, M, sigma, lambda, bandwidth, psi, false);
 //		outRe.show();
 //		outIm.show();
 
-		
-		
 //		ImagePlus projectStack = new ImagePlus("filtered stack",filtered);
 //		ImageStack resultStack = new ImageStack(width, height);
 		/*
