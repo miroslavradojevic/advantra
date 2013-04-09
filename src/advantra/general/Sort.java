@@ -1,5 +1,7 @@
 package advantra.general;
 
+import java.util.Vector;
+
 public class Sort {
 
 	public static void 		asc3   (double[] sort, int[] ind){
@@ -161,6 +163,41 @@ public class Sort {
 		for (int i = 1; i < a.length; i++) {
 			out += a[i];
 		}
+		return out;
+	}
+	
+	public static Vector<Integer> localMax(float[] a, int N){
+		
+		Vector<Integer> out = new Vector<Integer>();
+		
+		for (int i = 0; i < a.length; i++) {
+			
+			float 	curr_max 		= Float.MIN_VALUE;
+			int		curr_max_idx 	= 0;
+			
+			for (int j = i-(N/2); j <= i+(N/2); j++) {
+				
+				float read_val;
+				if(j<0 || j>=a.length){
+					read_val = Float.MIN_VALUE;
+				}
+				else{
+					read_val = a[j];
+				}
+				
+				if(read_val>curr_max){
+					curr_max = read_val;
+					curr_max_idx = j;
+				}
+				
+			}
+			
+			if(i==curr_max_idx){
+				out.add(i);
+			}
+			
+		}
+		
 		return out;
 	}
 	

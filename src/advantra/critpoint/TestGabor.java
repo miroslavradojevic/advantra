@@ -3,6 +3,8 @@ package advantra.critpoint;
 import java.awt.Color;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+
+import flanagan.analysis.Stat;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
@@ -16,6 +18,8 @@ import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 import imagescience.image.Axes;
 import imagescience.image.Coordinates;
+import imagescience.image.Dimensions;
+import imagescience.image.FloatImage;
 import imagescience.image.Image;
 import advantra.feature.GaborFilt2D;
 import advantra.general.Sort;
@@ -186,9 +190,44 @@ public class TestGabor implements PlugInFilter, MouseListener {
 //		}
 		
 		// extract the circular features out the circ_img with angular responses
+		Image inimg = Image.wrap(circ_img);
+		inimg.axes(Axes.Z);
+		Dimensions outd = new Dimensions(inimg.dimensions().x, inimg.dimensions().y);
+		Image outimg_entropy = new FloatImage(outd);
+		outimg_entropy.axes(Axes.X+Axes.Y);
 		
-		// local max
+		double[] circ_vals = new double[inimg.dimensions().z];
+		Coordinates coord = new Coordinates();
 		
+		for (coord.x = 0; coord.x < inimg.dimensions().x; coord.x++) {
+			for (coord.y = 0; coord.y < inimg.dimensions().y; coord.y++) {
+				inimg.get(coord, circ_vals);
+				
+				double circ_vals_min = Sort.findMin(circ_vals);
+				double circ_vals_max = Sort.findMax(circ_vals);
+				double entropy = 0;
+				
+				if(Math.abs(circ_vals_max-circ_vals_min)>0.0001){
+				
+				double[][] distr = Stat.histogramBins(
+			    		circ_vals, 
+			    		(circ_vals_max-circ_vals_min)/10, 
+			    		circ_vals_min, 
+			    		circ_vals_max);
+				
+			    double hist_norm = Sort.sum(distr[1]);
+			    for (int i = 0; i < distr[1].length; i++) {
+					double p = distr[1][i]/hist_norm;
+			    	entropy += p * Math.log(p);
+				}
+			    
+				}
+				
+			    outimg_entropy.set(coord, -entropy);
+			    
+			}
+		}
+		outimg_entropy.imageplus().show();
 		
 	}
 
@@ -246,20 +285,31 @@ public class TestGabor implements PlugInFilter, MouseListener {
 	    plot.setLimits(0, 2*Math.PI, circ_img_min, circ_img_max); 
 	    plot.setColor(Color.RED);
 	    plot.addPoints(phis, circ_vals, Plot.LINE);
-	    
 	    show_gabor_stk.addSlice("orig", plot.getProcessor());
 	    
 	    plot = new Plot("At,X="+mouseX+",Y="+mouseY, "angle [rad]", "gabor filter output");
 	    plot.setLimits(0, 2*Math.PI, 0, 1); 
-	    plot.addPoints(phis, mn_mx, Plot.LINE);
 	    plot.setColor(Color.BLUE);
+	    plot.addPoints(phis, mn_mx, Plot.LINE);
 	    show_gabor_stk.addSlice("min max normalized", plot.getProcessor());
 	    
 	    plot = new Plot("At,X="+mouseX+",Y="+mouseY, "angle [rad]", "gabor filter output");
 	    plot.setLimits(0, 2*Math.PI, -1, 1); 
-	    plot.addPoints(phis, norm, Plot.LINE);
 	    plot.setColor(Color.GREEN);
+	    plot.addPoints(phis, norm, Plot.LINE);
 	    show_gabor_stk.addSlice("normalized", plot.getProcessor());
+	    
+	    double[][] distr = Stat.histogramBins(
+	    		circ_vals, 
+	    		(circ_vals_max-circ_vals_min)/10, 
+	    		circ_vals_min, 
+	    		circ_vals_max);
+	    
+	    plot = new Plot("At,X="+mouseX+",Y="+mouseY, "angle [rad]", "gabor filter output");
+	    plot.setLimits(Sort.findMin(distr[0]), Sort.findMax(distr[0]), Sort.findMin(distr[1]), Sort.findMax(distr[1])); 
+	    plot.setColor(Color.YELLOW);
+	    plot.addPoints(distr[0], distr[1], Plot.LINE);
+	    show_gabor_stk.addSlice("histogram", plot.getProcessor());
 
 	    show_gabor_img.setStack("gabor data", show_gabor_stk);
 	    show_gabor_img.show();
