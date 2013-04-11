@@ -25,6 +25,8 @@ public class GaborFilt2D {
 	 *  e.g. BANDWITH = 1 will result in the slratio = 0.56 
 	 */
 	
+	public static int W = 6;
+	
 	public static ImagePlus run(
 			ImagePlus input2D, 
 			double theta, 
@@ -97,8 +99,8 @@ public class GaborFilt2D {
 		}
 		
 		// Create set of filters
-		int filterSizeX = 6 * (int)sigma + 1;
-		int filterSizeY = 6 * (int)sigma + 1;
+		int filterSizeX = W * (int)sigma + 1;
+		int filterSizeY = W * (int)sigma + 1;
 		
 		int middleX = (int) Math.round(filterSizeX / 2);
 		int middleY = (int) Math.round(filterSizeY / 2);
@@ -156,30 +158,7 @@ public class GaborFilt2D {
 	    String slice_name = ((real)?"real":"imag") + "_kernel,theta=" + IJ.d2s(theta,2) + ",sigma=" + IJ.d2s(sigma,2);
 	    kernels.addSlice(slice_name, filter);
 	    
-//		double rotationAngle = Math.PI/(double)M;
-//		for (int m=0; m<M; m++){  
-//			double theta = rotationAngle * m;
-		    // normalize - ensure that the integral of the kernel is 0
-//		    // to check
-//		    float sum = 0;
-//		    for (int x=0; x<filterSizeX; x++){
-//		        for (int y=0; y<filterSizeY; y++){
-//		        	sum += filter.getPixelValue(x, y);
-//		        }
-//		    }
-//		    System.out.format("patch m=%d sigma=%.2f has sum %.2f \n", m, sigma, sum);
-//		}
-		
-//		// Show kernels
-//		if(false){
-//		ImagePlus ip_kernels = new ImagePlus("kernels", kernels);
-//		ip_kernels.show();
-//			for (int i = 0; i < 8; i++) {
-//				ip_kernels.getCanvas().zoomIn(0, 0);
-//			}
-//		}
-//		
-		Convolver c = new Convolver();                
+	    Convolver c = new Convolver();                
 		c.setNormalize(false); // important not to normalize (did my own normalization)
     
 		float[] kernel = (float[]) kernels.getProcessor(1).getPixels();
@@ -193,6 +172,103 @@ public class GaborFilt2D {
 		
 		ImagePlus result = new ImagePlus (result_name, filtered) ;
 		return result;
+		
+	}
+	
+	public ImagePlus showKernel(
+			int 		M, 
+			double 		sigma, 
+			double 		lambda, 
+			double 		bandwidth, 
+			double 		psi,
+			boolean 	real){
+		
+		double slratio = 
+				(1/Math.PI) * Math.sqrt((Math.log(2)/2)) * ((Math.pow(2,bandwidth)+1) / (Math.pow(2,bandwidth) - 1) );
+		
+		if(sigma==0){
+			sigma = slratio * lambda;
+		}
+		else if(lambda==0){
+			lambda = sigma / slratio;
+		}
+		
+		int filterSizeX =  W * (int)sigma + 1;
+		int filterSizeY =  W * (int)sigma + 1;
+		
+		int middleX = (int) Math.round(filterSizeX / 2);
+		int middleY = (int) Math.round(filterSizeY / 2);
+		
+		ImageStack kernels 		= new ImageStack(filterSizeX, filterSizeY);
+		ImageProcessor filter 	= new FloatProcessor(filterSizeX, filterSizeY);  
+		
+		double rotationAngle = Math.PI/(double)M;
+		
+		for (int m=0; m<M; m++){  
+			
+			double theta = rotationAngle * m;
+			
+			float sumPos = 0;
+			float sumNeg = 0;
+			
+			// x0 and y0 at patch center (0,0)
+		    for (int x=-middleX; x<=middleX; x++){
+		        for (int y=-middleY; y<=middleY; y++){           
+			        	
+		        	double  xr = (double)x * Math.cos(theta) + (double)y * Math.sin(theta);
+		        	double  yr = (double)y * Math.cos(theta) - (double)x * Math.sin(theta);
+			        	
+		        	double env = (1.0/(2.0 * Math.PI * sigma*sigma)) * 
+		        			Math.exp(- 0.5 *((xr*xr)/(sigma*sigma) + (yr*yr)/(sigma*sigma)));
+			        	
+		        	double carr;
+		        	if(real){
+		            	carr = Math.cos(2 * Math.PI * xr / lambda + psi);
+		            }
+		            else{
+		            	carr = Math.sin(2 * Math.PI * xr / lambda + psi);
+		            }
+		        	
+		        	float coeff = (float)(env*carr);
+		        	
+		        	filter.setf(x+middleX, y+middleY, coeff);
+		        	
+		        	if(coeff>=0){
+		        		sumPos += coeff;
+		        	}
+		        	else{
+		        		sumNeg += Math.abs(coeff);
+		        	}
+			        
+		        }
+		    }
+		    
+		    // normalize
+		    for (int x=0; x<filterSizeX; x++){
+		        for (int y=0; y<filterSizeY; y++){
+		        	float val = filter.getPixelValue(x, y);
+		        	if(val>=0){
+		        		filter.setf(x, y, val/sumPos);
+		        	}
+		        	else{
+		        		filter.setf(x, y, val/sumNeg);
+		        	}
+		        }
+		    }
+		    
+		    String slice_name = ((real)?"real":"imag") + "_kernel,theta=" + IJ.d2s(theta,2) + ",sigma=" + IJ.d2s(sigma,2);
+		    kernels.addSlice(slice_name, filter);
+			
+		}
+
+		ImagePlus ip_kernels = new ImagePlus("kernels", kernels);
+		
+//		ip_kernels.show();
+//		for (int i = 0; i < 8; i++) {
+//			ip_kernels.getCanvas().zoomIn(0, 0);
+//		}
+		
+		return ip_kernels;
 		
 	}
 
