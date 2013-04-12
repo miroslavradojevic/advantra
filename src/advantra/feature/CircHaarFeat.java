@@ -1,16 +1,10 @@
 package advantra.feature;
 
-import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.process.ByteProcessor;
-import ij.process.FloatProcessor;
-import ij.process.ImageProcessor;
 
 import java.util.ArrayList;
-import java.util.Vector;
-
-import advantra.general.ArrayHandling;
 
 public class CircHaarFeat {
 
@@ -49,32 +43,35 @@ public class CircHaarFeat {
 //				System.out.format("%.2f , ", vec[i]);
 //			}
 			
-			System.out.println();
 			feats.add(vec);
 			
 		}
 		
 		System.out.println("ON/OFF x2 feature...");
 		
-		int count = 0;
-		for (int s1 = 1; s1 <= M-1; s1++) {
-			for (int s2 = 0; s2 < M-1; s2++) {
-				for (int s3 = 0; s3 < M-1; s3++) {
+		for (int s1 = 1; s1 <= M-3; s1++) {
+			for (int s2 = 1; s2 <= M-3; s2++) {
+				for (int s3 = 1; s3 <= M-3; s3++) {
 					// s1 1st ON
 					if(s1+s2+s3<=M-1){
 						
 						float[] vec = new float[M];
 						for (int i = 0; i < vec.length; i++) {
-							if(i<s){
-								vec[i] = 1/(float)s; // ON
+							if(i<s1){
+								vec[i] = 1/(float)s1; // ON
+							}
+							else if(i>=s1 && i<s1+s2){
+								vec[i] = -1/(float)s2; // OFF
+							}
+							else if(i>=s1+s2 && i<s1+s2+s3){
+								vec[i] = 1/(float)s3; // ON
 							}
 							else{
-								vec[i] = -1/(float)(M-s); // OFF
+								vec[i] = -1/(float)(M-(s1+s2+s3)); // OFF
 							}
 						}
 						
-						feats.add(new float[M]);
-						count++;
+						feats.add(vec);
 					}
 				}
 			}
@@ -131,19 +128,6 @@ public class CircHaarFeat {
 
 	}
 	
-	
-	private void shift(float[] in){
-		
-		float temp = in[in.length-1]; // last
-		
-		for (int i = 1; i < in.length; i++) {
-			in[i] = in[i-1];
-		}
-		
-		in[0] = temp;
-		
-	}
-	
 	private float[] shiftVals(float[] in, int shift){
 		
 		float[] out = new float[in.length];
@@ -153,8 +137,6 @@ public class CircHaarFeat {
 		for (int i = 0; i < shift; i++) {
 			tmp[i] = in[in.length-1-i];
 		}
-		
-		float temp = in[in.length-1]; // last
 		
 		for (int i = in.length-1; i >= shift; i--) {
 			out[i] = in[i-shift];

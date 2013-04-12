@@ -1,10 +1,7 @@
 package advantra.critpoint;
 
 import advantra.feature.CircHaarFeat;
-import ij.ImagePlus;
 import ij.plugin.PlugIn;
-import ij.plugin.filter.PlugInFilter;
-import ij.process.ImageProcessor;
 
 public class TestCircHaarFeat implements PlugIn {
 
