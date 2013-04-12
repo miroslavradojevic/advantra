@@ -2,7 +2,8 @@ package advantra.critpoint;
 
 import java.awt.Color;
 import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
+import java.io.File;
+import java.util.ArrayList;
 
 import flanagan.analysis.Stat;
 import ij.IJ;
@@ -14,17 +15,16 @@ import ij.gui.Plot;
 import ij.measure.Calibration;
 import ij.plugin.ZProjector;
 import ij.plugin.filter.PlugInFilter;
-import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 import imagescience.image.Axes;
 import imagescience.image.Coordinates;
-import imagescience.image.Dimensions;
-import imagescience.image.FloatImage;
 import imagescience.image.Image;
 import advantra.feature.GaborFilt2D;
+import advantra.file.AnalyzeCSV;
 import advantra.general.Sort;
+import advantra.plugins.MyOpener;
 
-public class TestGabor implements PlugInFilter, MouseListener {
+public class TestDetection implements PlugInFilter {
 
 	ImagePlus 	img;
 	ImagePlus 	gabor_circ;
@@ -32,13 +32,15 @@ public class TestGabor implements PlugInFilter, MouseListener {
 	
 	int 		M;
 	float 		circ_img_max, circ_img_min;
-	float gabor_angle_min, gabor_angle_max;
+	float 		gabor_angle_min, gabor_angle_max;
+	
+	ArrayList<float[]> 	pos_fts;
+	ArrayList<float[]>	neg_fts;
 	
 	public void run(ImageProcessor arg0) {
 		
 		double 	s1, s2;
 		int 	sn;
-//		double 	lambda 		= 0; // will be determined by sigma
 		double 	bandwidth 	= 1; // to correlate lambda & sigma
 		double 	psi 		= 0;
 		
@@ -63,6 +65,30 @@ public class TestGabor implements PlugInFilter, MouseListener {
 		Prefs.set("advantra.critpoint.end_scale", s2);
 		Prefs.set("advantra.critpoint.nr_scales", sn);
 		Prefs.set("advantra.critpoint.nr_angles", M);
+		
+		String pos_path = MyOpener.open("Open Positives");
+		String neg_path = MyOpener.open("Open Negatives");
+		
+		pos_path = new File(pos_path).getAbsolutePath();
+		neg_path = new File(neg_path).getAbsolutePath();
+		
+		AnalyzeCSV loader;
+		double[][] read;
+		
+		loader = new AnalyzeCSV(pos_path);
+		read = loader.readLn(2);
+		
+		System.out.println(""+read.length+" x "+read[0].length+" positives loaded");
+		
+		loader = new AnalyzeCSV(neg_path);
+		read = loader.readLn(2);
+		
+		System.out.println(""+read.length+" x "+read[0].length+" positives loaded");
+		
+//		IJ.open(pos_path);
+//		IJ.open(neg_path);
+		
+		if(true) return;
 		
 		// reset calibration before going further
 		Calibration cal = img.getCalibration();
@@ -100,7 +126,7 @@ public class TestGabor implements PlugInFilter, MouseListener {
 		for (int i = 0; i < M; i++) {
 			
 			double current_theta = thetas_pi[i];
-			System.out.println("gabor for theta = "+current_theta);
+			System.out.println("gabor for theta = "+current_theta+" / PI");
 			
 			ImagePlus g_theta = GaborFilt2D.run(img, current_theta, s, new double[s.length], bandwidth, psi, true);
 			
@@ -116,7 +142,8 @@ public class TestGabor implements PlugInFilter, MouseListener {
 		gabor_angle = new ImagePlus("gabor_responses_per_angle", gst);
 		gabor_angle.show();
 		
-		System.out.println("gabor features per angle calculated!");
+		System.out.println("gabor features per angle [0, pi) calculated!");
+		
 		
 		float[] min_max = calculateStackMinMax(gabor_angle.getStack());
 		gabor_angle_min = min_max[0];
@@ -124,104 +151,13 @@ public class TestGabor implements PlugInFilter, MouseListener {
 		
 		System.out.println("min: "+min_max[0]+"max:"+min_max[1]);
 		
-		img.getCanvas().addMouseListener(this);
-		if(true) return;
+//		img.getCanvas().addMouseListener(this);
 		
-		// now design entropy filter 
-		double 		surr 	= 3;
-		double		ro 		= surr*s2;
-		int 		margin 	= (int)Math.ceil(ro);
-
-		ImageStack	circ_stack 	= new ImageStack(img.getWidth(), img.getHeight());
+		// extract features for pos. locations
 		
-		// define a shift for every position on the circle
-		for (int i = 0; i < 2*M; i++) {
-			
-			double dx = ro*Math.sin(thetas_2pi[i]);
-			double dy = -ro*Math.cos(thetas_2pi[i]);
-			
-			ImageProcessor 	circ_vals 	= new FloatProcessor(img.getWidth(), img.getHeight());
-			
-			// set values of circ_vals
-			for (int x = margin; x < img.getWidth()-margin; x++) {
-				for (int y = margin; y < img.getHeight()-margin; y++) {
-					int src_x = (int)Math.round(x+dx);
-					int src_y = (int)Math.round(y+dy);
-					
-					if(i<M){
-						circ_vals.setf(x, y, gabor_angle.getStack().getProcessor(i+1).getPixelValue(src_x, src_y)); // * gim.getStack().getProcessor(i+1).getPixelValue(x, y)
-					}
-					else{
-						circ_vals.setf(x, y, gabor_angle.getStack().getProcessor(i-M+1).getPixelValue(src_x, src_y)); // * gim.getStack().getProcessor(i-M+1).getPixelValue(x, y)
-					}
-					
-				}
-			}
-			
-			// add it to the output stack
-			circ_stack.addSlice(circ_vals);
-			
-		}
 		
-		gabor_circ = new ImagePlus("circular", circ_stack);
-		gabor_circ.show();
+		// extract features for neg. locations
 		
-//		// Suppress those lower than some ratio of the max
-//		boolean suppress = false;
-//		if(suppress){
-//			for (int z = 0; z < circ_img.getStackSize(); z++) {
-//				for (int x = 0; x < circ_img.getWidth(); x++) {
-//					for (int y = 0; y < circ_img.getHeight(); y++) {
-//						
-//						float take_val = circ_img.getStack().getProcessor(z+1).getPixelValue(x, y);
-//						if(take_val<0.1*circ_img_max){
-//							circ_img.getStack().getProcessor(z+1).setf(x, y, 0);
-//						}
-//						
-//					}
-//				}
-//			}
-//		}
-		
-		// extract the circular features out the circ_img with angular responses
-		Image inimg = Image.wrap(gabor_circ);
-		inimg.axes(Axes.Z);
-		Dimensions outd = new Dimensions(inimg.dimensions().x, inimg.dimensions().y);
-		Image outimg_entropy = new FloatImage(outd);
-		outimg_entropy.axes(Axes.X+Axes.Y);
-		
-		double[] circ_vals = new double[inimg.dimensions().z];
-		Coordinates coord = new Coordinates();
-		
-		for (coord.x = 0; coord.x < inimg.dimensions().x; coord.x++) {
-			for (coord.y = 0; coord.y < inimg.dimensions().y; coord.y++) {
-				inimg.get(coord, circ_vals);
-				
-				double circ_vals_min = Sort.findMin(circ_vals);
-				double circ_vals_max = Sort.findMax(circ_vals);
-				double entropy = 0;
-				
-				if(Math.abs(circ_vals_max-circ_vals_min)>0.0001){
-				
-				double[][] distr = Stat.histogramBins(
-			    		circ_vals, 
-			    		(circ_vals_max-circ_vals_min)/10, 
-			    		circ_vals_min, 
-			    		circ_vals_max);
-				
-			    double hist_norm = Sort.sum(distr[1]);
-			    for (int i = 0; i < distr[1].length; i++) {
-					double p = distr[1][i]/hist_norm;
-			    	entropy += p * Math.log(p);
-				}
-			    
-				}
-				
-			    outimg_entropy.set(coord, -entropy);
-			    
-			}
-		}
-		outimg_entropy.imageplus().show();
 		
 	}
 
@@ -232,7 +168,7 @@ public class TestGabor implements PlugInFilter, MouseListener {
 		
 	}
 
-	public float[] calculateStackMinMax(ImageStack instack){
+	private float[] calculateStackMinMax(ImageStack instack){
 		
 		// find min/max of the total image stack
 		float[] mnmx = new float[2];
@@ -258,6 +194,58 @@ public class TestGabor implements PlugInFilter, MouseListener {
 		}
 		
 		return mnmx;
+		
+	}
+	
+
+	private float conv(float[] a, float[] b){
+		
+		float c = 0;
+		
+		for (int i = 0; i < b.length; i++) {
+			c += a[i]*b[i];
+		}
+		
+		return c;
+	}
+	
+	private float featScore(float[] a, float[][] b){
+		
+		// each row in b[][] contains filter coeffs 
+		float total_score 	= Float.MIN_VALUE;
+		float curr_score 	= 0;
+		
+		for (int i = 0; i < b.length; i++) {
+			
+			curr_score = conv(a, b[i]);
+			
+			if(curr_score>total_score){
+				total_score = curr_score;
+			}
+			
+		}
+		
+		return total_score;
+		
+	}
+	
+	private float featScore(float[] a, ArrayList<float[]> b){
+		
+		// each row in b[][] contains filter coeffs 
+		float total_score 	= Float.MIN_VALUE;
+		float curr_score 	= 0;
+		
+		for (int i = 0; i < b.size(); i++) {
+			
+			curr_score = conv(a, b.get(i));
+			
+			if(curr_score>total_score){
+				total_score = curr_score;
+			}
+			
+		}
+		
+		return total_score;
 		
 	}
 	

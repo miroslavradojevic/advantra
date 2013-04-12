@@ -6,16 +6,12 @@ import javax.swing.JFileChooser;
 
 import ij.IJ;
 import ij.io.OpenDialog;
-import ij.plugin.PlugIn;
 
-public class OpenFile  implements PlugIn {
+public class MyOpener {
 	
-	String 	train_dataset_path    = "";
-	File 	train_dataset_file;
-	
-	public void run(String arg0) {
+	public static String open(String message) {
 		
-		IJ.showMessage("Open some file");
+		IJ.showMessage(message);
 		
 		/*
 		 * based on File_Opener.java ij source code 
@@ -26,7 +22,7 @@ public class OpenFile  implements PlugIn {
 		File dir=null;
 		JFileChooser fc = null;
 		try {fc = new JFileChooser();}
-		catch (Throwable e) {return;}
+		catch (Throwable e) {return null;}
 		if (dir==null) {
 			String sdir = OpenDialog.getDefaultDirectory();
 			if (sdir!=null)
@@ -36,16 +32,21 @@ public class OpenFile  implements PlugIn {
 			fc.setCurrentDirectory(dir);
 		int returnVal = fc.showOpenDialog(IJ.getInstance());
 		if (returnVal!=JFileChooser.APPROVE_OPTION)
-			return;
-		train_dataset_file = fc.getSelectedFile();
-		train_dataset_path = fc.getSelectedFile().getAbsolutePath();
+			return null;
+		
+		File train_dataset_file = fc.getSelectedFile();
+		
+		String train_dataset_path = fc.getSelectedFile().getAbsolutePath();
+		
 		if(!train_dataset_file.exists()){
 			IJ.showMessage("file "+train_dataset_path+" does not exist");
-			return;
+			return null;
 		}
 		else{
-			IJ.showMessage("opened file path"+train_dataset_path);
+			IJ.showMessage("opened    "+train_dataset_path);
 		}
+		
+		return fc.getSelectedFile().getAbsolutePath();
 		
 	}
 
