@@ -43,7 +43,7 @@ public class MyOpener {
 			return null;
 		}
 		else{
-			IJ.showMessage("opened    "+train_dataset_path);
+			IJ.showMessage("selected    "+train_dataset_path);
 		}
 		
 		return fc.getSelectedFile().getAbsolutePath();

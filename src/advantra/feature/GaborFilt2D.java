@@ -175,7 +175,7 @@ public class GaborFilt2D {
 		
 	}
 	
-	public ImagePlus showKernel(
+	public static ImagePlus getKernel(
 			int 		M, 
 			double 		sigma, 
 			double 		lambda, 
@@ -200,11 +200,12 @@ public class GaborFilt2D {
 		int middleY = (int) Math.round(filterSizeY / 2);
 		
 		ImageStack kernels 		= new ImageStack(filterSizeX, filterSizeY);
-		ImageProcessor filter 	= new FloatProcessor(filterSizeX, filterSizeY);  
 		
 		double rotationAngle = Math.PI/(double)M;
 		
 		for (int m=0; m<M; m++){  
+			
+			ImageProcessor filter 	= new FloatProcessor(filterSizeX, filterSizeY);
 			
 			double theta = rotationAngle * m;
 			

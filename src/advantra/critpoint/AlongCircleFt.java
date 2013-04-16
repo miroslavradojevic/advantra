@@ -27,23 +27,25 @@ import imagescience.image.Image;
 
 public class AlongCircleFt implements PlugInFilter, MouseListener {
 
-	int 		N = 50;
+	// gabor filter extractions params
+	double 		t1, t2; 
+	int 		tn; 
+	int			M; // number of angles per pi
+	
 	double[][] 	o;
 	double[] 	s;
 	double[] 	theta;
 	ImagePlus 	img;
 	String 		img_path;
-	double 		s1, s2; 
-	int 		sn; 
-	double 		circ = 3.0;
+	double 		radius = 10.0; // fixed
 	double[][] 	aDx;
 	double[][] 	aDy;
 	
 	public void run(ImageProcessor arg0) {
 		
-		s1  	= Prefs.get("advantra.critpoint.start_scale", 1.0);
-		s2    	= Prefs.get("advantra.critpoint.end_scale", 8.0);
-		sn 		= (int)Prefs.get("advantra.critpoint.nr_scales", 8);
+		t1  	= Prefs.get("advantra.critpoint.start_scale", 	2.0);
+		t2    	= Prefs.get("advantra.critpoint.end_scale", 	4.0);
+		tn 		= (int)Prefs.get("advantra.critpoint.nr_scales", 8);
 		
 		GenericDialog gd = new GenericDialog("F1");
 		
