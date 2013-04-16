@@ -319,7 +319,7 @@ public class TestDetection implements PlugInFilter, MouseListener {
 		for (int i = 0; i < adaboost.length; i++) {
 			selected_f[i] = (int)adaboost[i][0];
 		}
-		circft.showFeatures(selected_f).show();
+		circft.showFeatures(selected_f);
 		
 //		if(true) return;
 		
