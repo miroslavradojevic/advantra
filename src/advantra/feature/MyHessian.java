@@ -159,7 +159,7 @@ public class MyHessian extends Hessian {
 			Hxx.name("L2(FLAN.)");
 			Hyy.name("L1(FLAN.)");
 			V1.name("V11(FLAN.)");
-			V2.name("V12(FLAN.)");
+			V2.name("V12(FLAN.)");// where L1 < L2 or |L1|<|L2|
 			
 			Hxx.aspects(asps.duplicate());
 			Hyy.aspects(asps.duplicate());
