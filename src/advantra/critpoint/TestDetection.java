@@ -183,7 +183,7 @@ public class TestDetection implements PlugInFilter, MouseListener {
 		 */
 		
 		for (int i = 0; i < t.length; i++) {
-			ImagePlus krn = GaborFilt2D.getKernel(M, t[i], 0, bandwidth, psi, true);
+			ImagePlus krn = GaborFilt2D.run(null, 0, t[i], 0, bandwidth, psi, 0.25, true);
 			krn.setTitle("gabor_kernel_scale"+IJ.d2s(t[i],2));
 			krn.show();
 			for (int j = 0; j < 5; j++) {
@@ -202,7 +202,7 @@ public class TestDetection implements PlugInFilter, MouseListener {
 			System.out.println("processing theta = "+i+" / "+ (M-1));
 			
 			ImagePlus g_theta = GaborFilt2D.run(
-					img, current_theta, t, new double[t.length], bandwidth, psi, true);
+					img, current_theta, t, new double[t.length], bandwidth, psi, 0.25, true);
 			
 			zmax.setImage(g_theta);
 			zmax.setStartSlice(1);
@@ -342,7 +342,8 @@ public class TestDetection implements PlugInFilter, MouseListener {
 		for (int i = 0; i < M; i++) {
 			double current_theta = thetas_pi[i];
 			System.out.println("gabor for theta = "+current_theta+" / PI");
-			ImagePlus g_theta = GaborFilt2D.run(test_img, current_theta, s, new double[s.length], bandwidth, psi, true);
+			ImagePlus g_theta = GaborFilt2D.run(
+					test_img, current_theta, s, new double[s.length], bandwidth, psi, 0.25, true);
 			zp.setImage(g_theta);
 			zp.setStartSlice(1);
 			zp.setStopSlice(g_theta.getStackSize());
