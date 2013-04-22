@@ -13,9 +13,9 @@ import ij.ImagePlus;
 import ij.ImageStack;
 import ij.Prefs;
 import ij.gui.GenericDialog;
+import ij.gui.Line;
 import ij.gui.Overlay;
 import ij.gui.Plot;
-import ij.gui.PointRoi;
 import ij.measure.Calibration;
 import ij.plugin.ZProjector;
 import ij.plugin.filter.PlugInFilter;
@@ -29,6 +29,9 @@ public class AlongCircleFt implements PlugInFilter, MouseListener {
 
 	ImagePlus 	img, gab, gabAll;
 	ImagePlus	weighted;
+	ImagePlus	vector_field;
+	ImagePlus	neuriteness;
+	ImagePlus 	Vx, Vy;
 	Image		inimg; // imagescience version
 	
 	// gabor filter extractions params
@@ -45,12 +48,10 @@ public class AlongCircleFt implements PlugInFilter, MouseListener {
 	boolean 	isReal = true;
 	double 		radius; // fixed
 	
+	int W, H;
+	
 	double 		gab_min, gab_max;
 	double		img_min, img_max;
-	
-	
-	Plot p = new Plot("profile", "angle [rad]", "value");
-	
 	
 	public void run(ImageProcessor arg0) {
 		
@@ -88,7 +89,7 @@ public class AlongCircleFt implements PlugInFilter, MouseListener {
 			s[i] = Math.sqrt(t[i]);
 		}
 		
-		radius = 4*Math.sqrt(t[t.length-1]); // xGaussianStd.
+		radius = 3*Math.sqrt(t[t.length-1]); // xGaussianStd.
 		IJ.log("surrounding radius is " + radius);
 		
 		// angles theta angle it makes with x axis (angle it makes with the first row)
@@ -105,14 +106,19 @@ public class AlongCircleFt implements PlugInFilter, MouseListener {
 		 *  convert to float , prepare image
 		 */
 		IJ.log("converting, preparing image...");
-				// reset the calibration
-				Calibration c = img.getCalibration();
-				c.pixelWidth 	= c.pixelHeight = c.pixelDepth = 1;
-				c.setUnit("pixel");
-				img.setCalibration(c);
+		// reset the calibration
+		Calibration c = img.getCalibration();
+		c.pixelWidth 	= c.pixelHeight = c.pixelDepth = 1;
+		c.setUnit("pixel");
+		img.setCalibration(c);
+		
 		if(!img.getProcessor().isDefaultLut()) return;
 		img.setProcessor("testImage", img.getProcessor().convertToFloat().duplicate());
 		img.getWindow().getCanvas().addMouseListener(this);
+		
+		H = img.getHeight();
+		W = img.getWidth();
+		
 		IJ.log("listening mouse on the original image...");
 		inimg = Image.wrap(img); inimg.axes(Axes.X+Axes.Y);
 		
@@ -124,6 +130,7 @@ public class AlongCircleFt implements PlugInFilter, MouseListener {
 		/*
 		 * show gabor kernels for selected scales
 		 */
+		if(false){
 		for (int i = 0; i < t.length; i++) {
 			
 			ImagePlus krn = GaborFilt2D.run(null, theta_pi, t[i], 0, bandwidth, psi, gamma, isReal);
@@ -134,10 +141,11 @@ public class AlongCircleFt implements PlugInFilter, MouseListener {
 			}
 			
 		}
-		
+		}
 		/*
 		 * extract directional gabor responses
 		 */
+if(true){
 		IJ.log("extract directional gabor responses...");
 		gab = extractDirectionalGabor(img, theta_pi, t, bandwidth, psi, gamma, isReal); 
 		
@@ -145,10 +153,11 @@ public class AlongCircleFt implements PlugInFilter, MouseListener {
 		gab_min = mn_mx[0];
 		gab_max = mn_mx[1];
 		IJ.log("gabor outputs: "+gab_min+" / "+gab_max);
-		
+}
 		/*
 		 * extract maximal directional gabor response in every point
 		 */
+if(true){
 		IJ.log("maximal directional response in every point...");
 		ZProjector zmax = new ZProjector();
 		zmax.setImage(gab);
@@ -157,25 +166,117 @@ public class AlongCircleFt implements PlugInFilter, MouseListener {
 		zmax.setMethod(ZProjector.MAX_METHOD);
 		zmax.doProjection();
 		gabAll = new ImagePlus("allThetas", zmax.getProjection().getChannelProcessor());
+		//gabAll.show();
 		
 		mn_mx = calculateStackMinMax(gabAll.getStack());
 		gab_min = mn_mx[0];
 		gab_max = mn_mx[1];
 		IJ.log("redefining gabor extrema : "+gab_min+" / "+gab_max);
 		
-		weighted = imageIntensityMetric(img, img_max, 5);
+		weighted = imageIntensityMetric(gabAll, gab_max, 0.4, 2);
 		weighted.show();
 		
-		// extract vector field - show it on separate image
+}
+		/*
+		 *  extract neuriteness
+		 */
+
+		neuriteness = new ImagePlus("neuriteness", new FloatProcessor(W, H));
+		Vx 			= new ImagePlus("neuriteness", new FloatProcessor(W, H));
+		Vy 			= new ImagePlus("neuriteness", new FloatProcessor(W, H));
+		
 		MyHessian myhess = new MyHessian();
-		Vector<Image> hessian_analysis = myhess.eigs(inimg, s[0], true);
 		
-		System.out.println("size= "+hessian_analysis.size());
+		for (int i = 0; i < s.length; i++) {
+			
+			System.out.println("processing scale " + t[i] + ", with sigma" + s[i]);
+			
+			Vector<Image> h1 = myhess.eigs(inimg.duplicate(), s[i], false);
+			Vector<Image> h2 = myhess.eigs(inimg.duplicate(), s[i], true);
+			
+			ImagePlus L2 	= h1.get(0).imageplus();
+			ImagePlus L1 	= h1.get(1).imageplus();
+			
+			ImagePlus V1 	= h2.get(4).imageplus();
+			ImagePlus V2 	= h2.get(5).imageplus();
+			
+			// smallest lambda over pixels
+			float[] mn_mx_L = calculateStackMinMax(L1.getStack());
+			float minL1 = mn_mx_L[0];
+			
+			for (int j = 0; j < W*H; j++) {
+				
+				float ll1 = L1.getProcessor().getf(j);
+				float ll2 = L2.getProcessor().getf(j);
+				float ll = (Math.abs(ll1)>Math.abs(ll2))?ll1:ll2; // larger in magnitude over 2 values
+				if(ll<0){
+					
+					float ro = ll/minL1;
+					if(ro>neuriteness.getProcessor().getf(j)){
+						
+						neuriteness.getProcessor().setf(j, ro);
+						Vx.getProcessor().setf(j, V1.getProcessor().getf(j));
+						Vy.getProcessor().setf(j, V2.getProcessor().getf(j));
+						
+					}
+						
+				}
+				else{
+					neuriteness.getProcessor().setf(j, 0);
+				}
+				
+			}
 		
-//		hessian_analysis.get(0).imageplus().show();
-//		hessian_analysis.get(1).imageplus().show();
-//		hessian_analysis.get(2).imageplus().show();
-//		hessian_analysis.get(3).imageplus().show();
+		}
+		
+		neuriteness.show();
+		
+		/*
+		 * eigenvec on neuriteness
+		 */
+		Overlay ovlyV = new Overlay();
+		for (int row = 0; row < neuriteness.getHeight(); row++) {
+			for (int col = 0; col < neuriteness.getWidth(); col++) {
+				double vx 	= Vx.getProcessor().getf(col, row);
+				double vy 	= Vy.getProcessor().getf(col, row);
+				float mult 	= neuriteness.getProcessor().getf(col, row);
+				if(mult>0)
+				ovlyV.add(new Line(col+0.5, row+0.5, col+0.5+mult*vx, row+0.5+mult*vy));
+			}
+		}
+		//neuriteness.setOverlay(ovlyV);
+
+		/*
+		 * eigenvec on gabAll
+		 */
+		Overlay ovlyV1 = new Overlay();
+		for (int row = 0; row < weighted.getHeight(); row++) {
+			for (int col = 0; col < weighted.getWidth(); col++) {
+				double vx 	= Vx.getProcessor().getf(col, row);
+				double vy 	= Vy.getProcessor().getf(col, row);
+				float mult 	= weighted.getProcessor().getf(col, row);
+				if(mult>0)
+				ovlyV1.add(new Line(col+0.5, row+0.5, col+0.5+mult*vx, row+0.5+mult*vy));
+			}
+		}
+		//weighted.setOverlay(ovlyV1);
+		
+		/*
+		 * eigenvec on img
+		 */
+		Overlay ovlyV2 = new Overlay();
+		for (int row = 0; row < img.getHeight(); row++) {
+			for (int col = 0; col < img.getWidth(); col++) {
+				double vx 	= Vx.getProcessor().getf(col, row);
+				double vy 	= Vy.getProcessor().getf(col, row);
+				float mult 	= img.getProcessor().getf(col, row);
+				if(mult>0)
+				ovlyV2.add(new Line(col+0.5, row+0.5, col+0.5+mult*vx, row+0.5+mult*vy));
+			}
+		}
+//		img.setOverlay(ovlyV2);
+		System.out.println("click!");
+		
 		
 	}
 
@@ -184,7 +285,7 @@ public class AlongCircleFt implements PlugInFilter, MouseListener {
 		return DOES_8G+NO_CHANGES;
 	}
 
-	public ImagePlus imageIntensityMetric(ImagePlus in, double in_max, double lmbda){
+	public ImagePlus imageIntensityMetric(ImagePlus in, double in_max, double a, double lmbda){
 		
 		int w = in.getWidth();
 		int h = in.getHeight();
@@ -206,7 +307,7 @@ public class AlongCircleFt implements PlugInFilter, MouseListener {
 				//ip.setf(i, (float)Math.exp(lmbda*((temp[i]/in_max)-1)));
 				
 				// sigmoid
-				double a = 0.5f;
+//				double a = 0.5f;
 				double ImRatio = a*in_max;
 				double t = ((temp[i]-ImRatio)/ImRatio);
 				float val = (float)( 1 / (1+Math.exp(-lmbda*t)) );
@@ -294,149 +395,268 @@ public class AlongCircleFt implements PlugInFilter, MouseListener {
 		int mouseX = 	img.getWindow().getCanvas().offScreenX(e.getX());
 		int mouseY = 	img.getWindow().getCanvas().offScreenY(e.getY());
 		
+		Overlay ov = new Overlay();
+		
+		int startX 	= mouseX-20;
+		startX = startX>=0? startX : 0;
+		int stopX	= mouseX+20;
+		stopX = stopX>=img.getWidth()? (img.getWidth()-1) : stopX;
+		int startY 	= mouseY-20;
+		startY = startY>=0? startY : 0;
+		int stopY	= mouseY+20;
+		stopY = stopY>=img.getHeight()? (img.getHeight()-1) : stopY;
+		
+		for (int i = startX; i <= stopX; i++) {
+			for (int j = startY; j <= stopY; j++) {
+				float mult = neuriteness.getProcessor().getPixelValue(i, j);
+				float v1 = Vx.getProcessor().getPixelValue(i, j);
+				float v2 = Vy.getProcessor().getPixelValue(i, j);
+				ov.add(new Line(i+0.5, j+0.5, i+0.5+mult*v1, j+0.5+mult*v2));
+			}
+		}
+		
+		double dr = 1;
+		double darc = 1;
+		double rratio = 0.2;
+		
+		// count the number of points
+		int cnt = 0;
+		for (double r = radius; r >= radius*rratio; r-=dr) {
+			for (double arc = 0; arc < 2*r*Math.PI; arc+=darc) {
+				cnt++;
+			}
+		}
+		
+		System.out.println("test... " + cnt);
+		
+		double[] orts		= new double[cnt];
+		
+		double[] profile1  	= new double[cnt];
+		double[] coeffs1  	= new double[cnt];
+		
+		double[] profile2  	= new double[cnt];
+		double[] coeffs2  	= new double[cnt];
+		
+		double[] profile3  	= new double[cnt];
+		double[] coeffs3  	= new double[cnt];
+		
+		cnt = 0;
+		for (double r = radius; r >= radius*rratio; r-=dr) {
+			for (double arc = 0; arc < 2*r*Math.PI; arc+=darc) {
+				
+				double ang = arc/r;
+//				int idxAng = (int)Math.floor(ang/(2*Math.PI/(2*M)));
+				
+				double d1 = Math.sin(ang);
+				double d2 = -Math.cos(ang);
+				
+				double x2 = mouseX + r * d1;
+				double y2 = mouseY + r * d2;
+				
+				ov.add(new Line(x2+0.5, y2+0.5, x2+0.5+1*d1, y2+0.5+1*d2));
+				//ov.add(new PointRoi(x2+0.5, y2+0.5));
+				
+				int x_loc = (int)Math.round(x2);
+				int y_loc = (int)Math.round(y2);
+				
+				float mult1 = weighted.getProcessor().getPixelValue(x_loc, y_loc);
+				float mult2 = neuriteness.getProcessor().getPixelValue(x_loc, y_loc);
+				float mult3 = img.getProcessor().getPixelValue(x_loc, y_loc); 
+				
+				float v1 = Vx.getProcessor().getPixelValue(x_loc, y_loc);
+				float v2 = Vy.getProcessor().getPixelValue(x_loc, y_loc);
+				
+				profile1[cnt] = Math.abs(mult1*v1*d1+mult1*v2*d2);
+				profile2[cnt] = Math.abs(mult2*v1*d1+mult2*v2*d2);
+				profile3[cnt] = Math.abs(mult3*v1*d1+mult3*v2*d2);
+				
+				orts[cnt]		= ang*360/(2*Math.PI);
+				
+				coeffs1[cnt]	= mult1;
+				coeffs2[cnt]	= mult2;
+				coeffs3[cnt]	= mult3;
+				
+				cnt++;
+				
+			}
+			
+		}
+		
+		double profile1_max = Double.MIN_VALUE;
+		double profile2_max = Double.MIN_VALUE;
+		double profile3_max = Double.MIN_VALUE;
+		
+		double profile1_min = Double.MAX_VALUE;
+		double profile2_min = Double.MAX_VALUE;
+		double profile3_min = Double.MAX_VALUE;
+		
+		for (int k = 0; k < cnt; k++) {
+			if(coeffs1[k]>profile1_max) profile1_max = coeffs1[k];
+			if(coeffs1[k]<profile1_min) profile1_min = coeffs1[k];
+			
+			if(coeffs2[k]>profile2_max) profile2_max = coeffs2[k];
+			if(coeffs2[k]<profile2_min) profile2_min = coeffs2[k];
+			
+			if(coeffs3[k]>profile3_max) profile3_max = coeffs3[k];
+			if(coeffs3[k]<profile3_min) profile3_min = coeffs3[k];
+		}
+		
+//		double[] angles = new double[2*M];
+//		for (int i = 0; i < 2*M; i++) {
+//			angles[i] = i*(2*180/(2*M));
+//		}
+		
+		System.out.println("ready to add");
+		
+		ImageStack show_profiles = new ImageStack(600, 300);  
+
+		Plot p1 = new Plot("", "angle [deg]", "gaborAng");
+		p1.setLimits(0, 360, profile1_min-1, profile1_max+1);
+		p1.setSize(600, 300);
+		p1.setColor(Color.RED);
+		p1.addPoints(orts, profile1, Plot.BOX);
+		p1.setColor(Color.BLACK);
+		p1.addPoints(orts, coeffs1, Plot.X);
+		//p1.draw();
+		//
+		show_profiles.addSlice(p1.getProcessor());
+		
+		Plot p2 = new Plot("", "angle [deg]", "neurness");
+		p2.setLimits(0, 360, profile2_min-1, profile2_max+1);
+		p2.setSize(600, 300);
+		p2.setColor(Color.RED);
+		p2.addPoints(orts, profile2, Plot.BOX);
+		p2.setColor(Color.BLACK);
+		p2.addPoints(orts, coeffs2, Plot.X);
+		//p2.draw();
+		show_profiles.addSlice(p2.getProcessor());
+		
+		Plot p3 = new Plot("", "angle [deg]", "orig.");
+		p3.setLimits(0, 360, profile3_min-1, profile3_max+1);
+		p3.setSize(600, 300);
+		p3.setColor(Color.RED);
+		p3.addPoints(orts, profile3, Plot.BOX);
+		p3.setColor(Color.BLACK);
+		p3.addPoints(orts, coeffs3, Plot.X);
+		//p3.draw();
+		show_profiles.addSlice(p3.getProcessor());
+		
+		new ImagePlus("response", show_profiles).show();
+		
+		img.setOverlay(ov);
+		
+		System.out.println("done. ");
+		
+	}	
 		/*
 		 * radial profile (image of the profile and inside)
 		 */
 		
-	    int Q = 5;
-	    double[] r = new double[Q];
-	    for (int l = 0; l < Q; l++) {
-	    	r[l] = (l+1)*(radius/(double)Q);
-	    }
-		
-	    Overlay ov1 = new Overlay();
-	    
-	    ImageStack  	circular_profile_stack 	= new ImageStack(2*M, Q);
-	    ImageProcessor 	circular_profile1 		= new FloatProcessor(2*M, Q);
-	    ImageProcessor 	circular_profile2 		= new FloatProcessor(2*M, Q);
-	    ImageProcessor 	circular_profile3 		= new FloatProcessor(2*M, Q);
-	    
-	    for (int l = 0; l < Q; l++) {
-	    	for (int k = 0; k < 2*M; k++) {
-
-				double x2 = mouseX + r[l] * Math.sin(theta_2pi[k]);
-				double y2 = mouseY - r[l] * Math.cos(theta_2pi[k]);
-				ov1.add(new PointRoi(x2, y2));
-				
-				circular_profile1.setf(k, l, (float)gabAll.getProcessor().getInterpolatedValue(x2, y2));
-				circular_profile2.setf(k, l, (float)img.getProcessor().getInterpolatedValue(x2, y2));
-				circular_profile3.setf(k, l, (float)weighted.getProcessor().getInterpolatedValue(x2, y2));
-				
-			}
-		}
-	    
-	    circular_profile_stack.addSlice(circular_profile1);
-	    circular_profile_stack.addSlice(circular_profile2);
-	    circular_profile_stack.addSlice(circular_profile3);
-	    
-	    ImagePlus circular_profile_image = new ImagePlus("circular_profile", circular_profile_stack);
-	    circular_profile_image.show();
-	    
-	    for (int i = 0; i < 8; i++) {circular_profile_image.getCanvas().zoomIn(0, 0);}
-	    
-	    img.setOverlay(ov1);
+//		if(false){
+//		
+//	    int Q = 5;
+//	    double[] r = new double[Q];
+//	    for (int l = 0; l < Q; l++) {
+//	    	r[l] = (l+1)*(radius/(double)Q);
+//	    }
+//		
+//	    Overlay ov1 = new Overlay();
+//	    
+//	    ImageStack  	circular_profile_stack 	= new ImageStack(2*M, Q);
+//	    ImageProcessor 	circular_profile1 		= new FloatProcessor(2*M, Q);
+//	    ImageProcessor 	circular_profile2 		= new FloatProcessor(2*M, Q);
+//	    ImageProcessor 	circular_profile3 		= new FloatProcessor(2*M, Q);
+//	    
+//	    for (int l = 0; l < Q; l++) {
+//	    	for (int k = 0; k < 2*M; k++) {
+//
+//				double x2 = mouseX + r[l] * Math.sin(theta_2pi[k]);
+//				double y2 = mouseY - r[l] * Math.cos(theta_2pi[k]);
+//				ov1.add(new PointRoi(x2, y2));
+//				
+//				circular_profile1.setf(k, l, (float)gabAll.getProcessor().getInterpolatedValue(x2, y2));
+//				circular_profile2.setf(k, l, (float)img.getProcessor().getInterpolatedValue(x2, y2));
+//				circular_profile3.setf(k, l, (float)weighted.getProcessor().getInterpolatedValue(x2, y2));
+//				
+//			}
+//		}
+//	    
+//	    circular_profile_stack.addSlice(circular_profile1);
+//	    circular_profile_stack.addSlice(circular_profile2);
+//	    circular_profile_stack.addSlice(circular_profile3);
+//	    
+//	    ImagePlus circular_profile_image = new ImagePlus("circular_profile", circular_profile_stack);
+//	    circular_profile_image.show();
+//	    
+//	    for (int i = 0; i < 8; i++) {circular_profile_image.getCanvas().zoomIn(0, 0);}
+//	    
+//	    img.setOverlay(ov1);
+//	    
+//		}
 	    
 	    /*
 	     * line profiles
 	     */
 	    
-		Overlay ov = new Overlay();
-		
-		ov.add(new PointRoi(mouseX, mouseY));
-		
 //		double[] profile1 = new double[theta_2pi.length];
-		double[] profile2 = new double[theta_2pi.length];
-		double[] profile3 = new double[theta_2pi.length];
-		
-		// use circular_profile to obtain line profile4
-		double[] profile4 = new double[circular_profile3.getWidth()];
-		double[] profile5 = new double[circular_profile3.getWidth()];
+//		double[] profile2 = new double[theta_2pi.length];
+//		double[] profile3 = new double[theta_2pi.length];
+//		// use circular_profile to obtain line profile4
+//		double[] profile4 = new double[circular_profile3.getWidth()];
+//		double[] profile5 = new double[circular_profile3.getWidth()];
 		
 //		int capture = (2*M)/4;
 		
-		for (int i = 0; i < circular_profile3.getWidth(); i++) {
-//			IJ.log("--->"+i+" : (capture "+capture);
-			double 	sum = 0;
-			int 	cnt = 0;
-			double 	prod = 1;
-			
-			for (int j = 0; j < circular_profile3.getHeight(); j++) {
-				
-				sum 	+= circular_profile3.getPixelValue(i, j);
-				prod 	*= circular_profile3.getPixelValue(i, j);
-				cnt++;
-				
-				/*
-				int range = (int)Math.floor(-capture*  (j/(double)circular_profile3.getHeight())  +  capture);
-//				IJ.log("radial distance "+j+" : +/-  "+range);
-				for (int k = i-range; k <= i+range; k++) {
-					int s = (k<0)?(k+(2*M)):(k>=(2*M))?(k-(2*M)):k;
-//					IJ.log(s+",");
-					sum += circular_profile3.getPixelValue(s, j);
-					cnt++;
-				}
-				*/
-				
-			}
-			
-			IJ.log(i+" :  sum "+sum+", prod = "+prod+" (cnt="+cnt+")");
-			
-			profile4[i] = sum;
-			profile5[i] = prod;
-			
-		}
+//		for (int i = 0; i < circular_profile3.getWidth(); i++) {
+////			IJ.log("--->"+i+" : (capture "+capture);
+//			double 	sum = 0;
+//			int 	cnt = 0;
+//			double 	prod = 1;
+//			
+//			for (int j = 0; j < circular_profile3.getHeight(); j++) {
+//				
+//				sum 	+= circular_profile3.getPixelValue(i, j);
+//				prod 	*= circular_profile3.getPixelValue(i, j);
+//				cnt++;
+//				
+//				/*
+//				int range = (int)Math.floor(-capture*  (j/(double)circular_profile3.getHeight())  +  capture);
+////				IJ.log("radial distance "+j+" : +/-  "+range);
+//				for (int k = i-range; k <= i+range; k++) {
+//					int s = (k<0)?(k+(2*M)):(k>=(2*M))?(k-(2*M)):k;
+////					IJ.log(s+",");
+//					sum += circular_profile3.getPixelValue(s, j);
+//					cnt++;
+//				}
+//				*/
+//				
+//			}
+//			
+//			IJ.log(i+" :  sum "+sum+", prod = "+prod+" (cnt="+cnt+")");
+//			
+//			profile4[i] = sum;
+//			profile5[i] = prod;
+//			
+//		}
 		
-		// normalize
-		double sm = 0;
-		for (int i = 0; i < profile5.length; i++) {
-			sm += profile5[i];
-		}
-		for (int i = 0; i < profile5.length; i++) {
-			profile5[i] = profile5[i]/sm;
-		}
+//		// normalize
+//		double sm = 0;
+//		for (int i = 0; i < profile5.length; i++) {
+//			sm += profile5[i];
+//		}
+//		for (int i = 0; i < profile5.length; i++) {
+//			profile5[i] = profile5[i]/sm;
+//		}
 		
-		for (int k = 0; k < theta_2pi.length; k++) {
-			
-			double x2 = mouseX + radius * Math.sin(theta_2pi[k]);
-			double y2 = mouseY - radius * Math.cos(theta_2pi[k]);
-			PointRoi pt = new PointRoi(x2, y2);
-			ov.add(pt);
-			
+		//PointRoi center = ;
+		//center.setColor(Color.GREEN);
+		//ov.add(new PointRoi(mouseX+0.5, mouseY+0.5));
+		
+
 //			int k1 = (k>=theta_pi.length)? k-theta_pi.length : k ;
 //			profile1[k] = gab.getStack().getProcessor(k1+1).getInterpolatedValue(x2, y2);
-			profile2[k] = gabAll.getProcessor().getInterpolatedValue(x2, y2);
-			profile3[k] = img.getProcessor().getInterpolatedValue(x2, y2);
-			
-		}
-		
-//		img.setOverlay(ov);
-		
-		ImageStack show_profiles = new ImageStack(528, 255); // 
-		
-		p.setLimits(0, 2*Math.PI, gab_min, gab_max);
-		p.addPoints(theta_2pi, profile2, Plot.LINE);
-		show_profiles.addSlice(p.getProcessor().duplicate());
-		
-		p.setLimits(0, 2*Math.PI, 0, Q);
-		p.addPoints(theta_2pi, profile4, Plot.LINE);
-		show_profiles.addSlice(p.getProcessor().duplicate());
-		
-		p.setLimits(0, 2*Math.PI, 0, 1);
-		p.addPoints(theta_2pi, profile5, Plot.LINE);
-		show_profiles.addSlice(p.getProcessor().duplicate());
-		
-		new ImagePlus("profiles", show_profiles).show();
-//	    p.setColor(Color.RED);
-//	    p.addPoints(theta_2pi, profile1, Plot.BOX);
-	    
-	    
-//	    p.setColor(Color.BLUE);
-//	    p.addPoints(theta_2pi, profile3, Plot.LINE);
-//	    p.setColor(Color.RED);
-//	    p.addPoints(theta_2pi, profile4, Plot.BOX);
-//	    p.setLineWidth(2);
-
-	}
+//			profile2[k] = gabAll.getProcessor().getInterpolatedValue(x2, y2);
+//			profile3[k] = img.getProcessor().getInterpolatedValue(x2, y2);
 
 	public void mousePressed(MouseEvent e) {}
 

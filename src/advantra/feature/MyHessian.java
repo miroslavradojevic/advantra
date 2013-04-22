@@ -51,19 +51,24 @@ public class MyHessian extends Hessian {
 			final Image Hxx = differentiator.run(smoothImage.duplicate(),scale,2,0,0); 	// lambda2 will be here (the higher one)
 			final Image Hxy = differentiator.run(smoothImage.duplicate(),scale,1,1,0); 	// lambda1 will be here (smaller one)
 			final Image Hyy = differentiator.run(smoothImage,scale,0,2,0);
-			final Image V1  = new FloatImage(smoothImage.dimensions());					// v1(1) will be here (first coord)
-			final Image V2  = new FloatImage(smoothImage.dimensions());					// v1(2) will be here (second coord)
+			final Image V21  = new FloatImage(smoothImage.dimensions());			// v2(1) will be here (first coord)
+			final Image V22  = new FloatImage(smoothImage.dimensions());			// v2(2) will be here (second coord)
+			final Image V11  = new FloatImage(smoothImage.dimensions());			// v1(1) will be here (first coord)
+			final Image V12  = new FloatImage(smoothImage.dimensions());			// v1(2) will be here (second coord)
 			
 			Hxx.axes(Axes.X); Hxy.axes(Axes.X); Hyy.axes(Axes.X);
-			V1.axes(Axes.X);  V2.axes(Axes.X);	
+			V21.axes(Axes.X);  V22.axes(Axes.X);
+			V11.axes(Axes.X);  V12.axes(Axes.X);
 			
 			// arrays to facilitate the value filling-up of the Image instances
 			final double[] ahxx = new double[dims.x];
 			final double[] ahxy = new double[dims.x];
 			final double[] ahyy = new double[dims.x];
 			
-			final double[] av1  = new double[dims.x];
-			final double[] av2  = new double[dims.x];
+			final double[] av21  = new double[dims.x];
+			final double[] av22  = new double[dims.x];
+			final double[] av11  = new double[dims.x];
+			final double[] av12  = new double[dims.x];
 			
 			Matrix hess_mat = new Matrix(new double[2][2]);
 			
@@ -98,20 +103,26 @@ public class MyHessian extends Hessian {
 								if (absh1 > absh2) {
 									ahxx[x] = absh1;
 									ahyy[x] = absh2;
-									av1[x]  = eig_vecs[1][0];
-									av2[x]  = eig_vecs[1][1];
+									av21[x]  = eig_vecs[0][0];
+									av22[x]  = eig_vecs[0][1];
+									av11[x]  = eig_vecs[1][0];
+									av12[x]  = eig_vecs[1][1];
 								} else {
 									ahxx[x] = absh2;
 									ahyy[x] = absh1;
-									av1[x]  = eig_vecs[0][0];
-									av2[x]  = eig_vecs[0][1];
+									av21[x]  = eig_vecs[1][0];
+									av22[x]  = eig_vecs[1][1];
+									av11[x]  = eig_vecs[0][0];
+									av12[x]  = eig_vecs[0][1];
 								}
 							}
 							
 							Hxx.set(coords,ahxx);
 							Hyy.set(coords,ahyy);
-							V1.set(coords,av1);
-							V2.set(coords,av2);
+							V21.set(coords,av21);
+							V22.set(coords,av22);
+							V11.set(coords,av11);
+							V12.set(coords,av12);
 						}
 			} else {
 				for (coords.c=0; coords.c<dims.c; ++coords.c)
@@ -140,37 +151,49 @@ public class MyHessian extends Hessian {
 								if (h1 > h2) {
 									ahxx[x] = h1;
 									ahyy[x] = h2;
-									av1[x]  = eig_vecs[1][0];
-									av2[x]  = eig_vecs[1][1];
+									av21[x]  = eig_vecs[0][0];
+									av22[x]  = eig_vecs[0][1];
+									av11[x]  = eig_vecs[1][0];
+									av12[x]  = eig_vecs[1][1];
 								} else {
 									ahxx[x] = h2;
 									ahyy[x] = h1;
-									av1[x]  = eig_vecs[0][0];
-									av2[x]  = eig_vecs[0][1];
+									av21[x]  = eig_vecs[1][0];
+									av22[x]  = eig_vecs[1][1];
+									av11[x]  = eig_vecs[0][0];
+									av12[x]  = eig_vecs[0][1];
 								}
 							}
 							Hxx.set(coords,ahxx);
 							Hyy.set(coords,ahyy);
-							V1.set(coords,av1);
-							V2.set(coords,av2);
+							V21.set(coords,av21);
+							V22.set(coords,av22);
+							V11.set(coords,av11);
+							V12.set(coords,av12);
 						}
 			}
 			
 			Hxx.name("L2(FLAN.)");
 			Hyy.name("L1(FLAN.)");
-			V1.name("V11(FLAN.)");
-			V2.name("V12(FLAN.)");// where L1 < L2 or |L1|<|L2|
+			V21.name("V21(FLAN.)");
+			V22.name("V22(FLAN.)");
+			V11.name("V11(FLAN.)");
+			V12.name("V12(FLAN.)");
 			
 			Hxx.aspects(asps.duplicate());
 			Hyy.aspects(asps.duplicate());
-			V1.aspects(asps.duplicate());
-			V2.aspects(asps.duplicate());
+			V21.aspects(asps.duplicate());
+			V22.aspects(asps.duplicate());
+			V11.aspects(asps.duplicate());
+			V12.aspects(asps.duplicate());
 			
 			eigenimages = new Vector<Image>(4); // lambda1,2 and v1(1,2)
 			eigenimages.add(Hxx); 
 			eigenimages.add(Hyy);
-			eigenimages.add(V1);
-			eigenimages.add(V2);
+			eigenimages.add(V21);
+			eigenimages.add(V22);
+			eigenimages.add(V11);
+			eigenimages.add(V12);
 			
 		} else { // 3D case
 			
