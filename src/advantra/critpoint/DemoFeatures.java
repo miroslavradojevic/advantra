@@ -3,14 +3,17 @@ package advantra.critpoint;
 import java.awt.Color;
 
 import advantra.feature.CircHaarFeat;
+import advantra.feature.ProfileFeatures;
 import advantra.general.Sort;
 import ij.IJ;
 import ij.gui.Plot;
 import ij.plugin.PlugIn;
 
-public class TestCircHaarFeat implements PlugIn {
+public class DemoFeatures implements PlugIn {
 
 	public void run(String arg0) {
+		
+if(false){		
 		
 		CircHaarFeat circhaar = new CircHaarFeat(16);
 		circhaar.createFeatures();
@@ -38,18 +41,42 @@ public class TestCircHaarFeat implements PlugIn {
 		p.addPoints(indx, res, Plot.LINE);
 		p.draw();
 		p.show();
-//		for (int i = 0; i < res.length; i++) {
-//			System.out.print(IJ.d2s(res[i], 2)+" , ");
-//		}
+}
+
+		/*
+		 * test profile features
+		 */
 		
-//		// zoom several times
-//	    for (int i = 0; i < 7; i++) {
-//	    	IJ.get
-//	    	im.getCanvas().zoomIn(0, 0);
-//	    }
-	    
-//	    ImagePlus im1 = circhaar.showFeature(0);
-//	    im1.show();
+		// create angular profile
+		double radius		= 10;
+		double dr 			= 1;
+		double darc 		= 1;
+		double rratio 		= 0.2;
+		
+		// count the number of points
+		int cnt = 0;
+		for (double r = radius; r >= radius*rratio; r-=dr) {
+			for (double arc = 0; arc < 2*r*Math.PI; arc+=darc) {
+				cnt++;
+			}
+		}
+		
+		double[] angProfile 	= new double[cnt];
+		
+		cnt = 0;
+		for (double r = radius; r >= radius*rratio; r-=dr) {
+			for (double arc = 0; arc < 2*r*Math.PI; arc+=darc) {
+				angProfile[cnt++] = arc/r;
+				
+			}
+		}
+		
+		System.out.println("created " + cnt + " angles");
+		int nrFeats = 128;
+		double angStep = Math.PI/8;
+		ProfileFeatures pft = new ProfileFeatures(nrFeats, angStep);
+		pft.createFeatures();
+		pft.showFeatures();
 	    
 	}
 

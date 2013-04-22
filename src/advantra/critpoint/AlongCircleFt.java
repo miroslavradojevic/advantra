@@ -166,7 +166,7 @@ if(true){
 		zmax.setMethod(ZProjector.MAX_METHOD);
 		zmax.doProjection();
 		gabAll = new ImagePlus("allThetas", zmax.getProjection().getChannelProcessor());
-		//gabAll.show();
+		gabAll.show();
 		
 		mn_mx = calculateStackMinMax(gabAll.getStack());
 		gab_min = mn_mx[0];
@@ -230,52 +230,27 @@ if(true){
 		}
 		
 		neuriteness.show();
+		//Vx.show();
+		//Vy.show();
 		
 		/*
-		 * eigenvec on neuriteness
+		 * eigenvec on original
 		 */
-		Overlay ovlyV = new Overlay();
-		for (int row = 0; row < neuriteness.getHeight(); row++) {
-			for (int col = 0; col < neuriteness.getWidth(); col++) {
+		vector_field = new ImagePlus("vector_field", img.getProcessor());
+		Overlay eigenVecs = new Overlay();
+		for (int row = 0; row < H; row++) {
+			for (int col = 0; col < W; col++) {
 				double vx 	= Vx.getProcessor().getf(col, row);
 				double vy 	= Vy.getProcessor().getf(col, row);
-				float mult 	= neuriteness.getProcessor().getf(col, row);
-				if(mult>0)
-				ovlyV.add(new Line(col+0.5, row+0.5, col+0.5+mult*vx, row+0.5+mult*vy));
+				//float mult 	= neuriteness.getProcessor().getf(col, row);
+				if(vx*vx+vy*vy>0)
+					eigenVecs.add(new Line(col+0.5, row+0.5, col+0.5+vx, row+0.5+vy));
 			}
 		}
-		//neuriteness.setOverlay(ovlyV);
+		vector_field.setOverlay(eigenVecs);
+		vector_field.show();
 
-		/*
-		 * eigenvec on gabAll
-		 */
-		Overlay ovlyV1 = new Overlay();
-		for (int row = 0; row < weighted.getHeight(); row++) {
-			for (int col = 0; col < weighted.getWidth(); col++) {
-				double vx 	= Vx.getProcessor().getf(col, row);
-				double vy 	= Vy.getProcessor().getf(col, row);
-				float mult 	= weighted.getProcessor().getf(col, row);
-				if(mult>0)
-				ovlyV1.add(new Line(col+0.5, row+0.5, col+0.5+mult*vx, row+0.5+mult*vy));
-			}
-		}
-		//weighted.setOverlay(ovlyV1);
-		
-		/*
-		 * eigenvec on img
-		 */
-		Overlay ovlyV2 = new Overlay();
-		for (int row = 0; row < img.getHeight(); row++) {
-			for (int col = 0; col < img.getWidth(); col++) {
-				double vx 	= Vx.getProcessor().getf(col, row);
-				double vy 	= Vy.getProcessor().getf(col, row);
-				float mult 	= img.getProcessor().getf(col, row);
-				if(mult>0)
-				ovlyV2.add(new Line(col+0.5, row+0.5, col+0.5+mult*vx, row+0.5+mult*vy));
-			}
-		}
-//		img.setOverlay(ovlyV2);
-		System.out.println("click!");
+		System.out.println("click now!");
 		
 		
 	}
@@ -395,57 +370,83 @@ if(true){
 		int mouseX = 	img.getWindow().getCanvas().offScreenX(e.getX());
 		int mouseY = 	img.getWindow().getCanvas().offScreenY(e.getY());
 		
-		Overlay ov = new Overlay();
+		Overlay ov1 = new Overlay();
+		Overlay ov2 = new Overlay();
+		Overlay ov3 = new Overlay();
 		
-		int startX 	= mouseX-20;
+		int startX 	= mouseX-15;
 		startX = startX>=0? startX : 0;
-		int stopX	= mouseX+20;
+		int stopX	= mouseX+15;
 		stopX = stopX>=img.getWidth()? (img.getWidth()-1) : stopX;
-		int startY 	= mouseY-20;
+		int startY 	= mouseY-15;
 		startY = startY>=0? startY : 0;
-		int stopY	= mouseY+20;
+		int stopY	= mouseY+15;
 		stopY = stopY>=img.getHeight()? (img.getHeight()-1) : stopY;
 		
 		for (int i = startX; i <= stopX; i++) {
 			for (int j = startY; j <= stopY; j++) {
-				float mult = neuriteness.getProcessor().getPixelValue(i, j);
+				
+				float mult1 = weighted.getProcessor().getPixelValue(i, j);
+				float mult2 = neuriteness.getProcessor().getPixelValue(i, j);
+				float mult3 = img.getProcessor().getPixelValue(i, j); 
+				
 				float v1 = Vx.getProcessor().getPixelValue(i, j);
 				float v2 = Vy.getProcessor().getPixelValue(i, j);
-				ov.add(new Line(i+0.5, j+0.5, i+0.5+mult*v1, j+0.5+mult*v2));
+				
+				ov1.add(new Line(i+0.5, j+0.5, i+0.5+mult1*v1, j+0.5+mult1*v2));
+				ov2.add(new Line(i+0.5, j+0.5, i+0.5+mult2*v1, j+0.5+mult2*v2));
+				ov3.add(new Line(i+0.5, j+0.5, i+0.5+mult3*v1, j+0.5+mult3*v2));
+				
 			}
 		}
 		
-		double dr = 1;
-		double darc = 1;
-		double rratio = 0.2;
+		weighted.setOverlay(ov1);
+		neuriteness.setOverlay(ov2);
+		img.setOverlay(ov3);
 		
-		// count the number of points
-		int cnt = 0;
-		for (double r = radius; r >= radius*rratio; r-=dr) {
-			for (double arc = 0; arc < 2*r*Math.PI; arc+=darc) {
-				cnt++;
-			}
-		}
 		
-		System.out.println("test... " + cnt);
 		
-		double[] orts		= new double[cnt];
+		double dr 		= 1;
+		double darc 	= 1;
+		double rratio 	= 0.2;
 		
-		double[] profile1  	= new double[cnt];
-		double[] coeffs1  	= new double[cnt];
+		int nrang 		= (int)Math.ceil((Math.PI*2)/(darc/radius));
 		
-		double[] profile2  	= new double[cnt];
-		double[] coeffs2  	= new double[cnt];
+//		// count the number of points
+//		int cnt = 0;
+//		for (double r = radius; r >= radius*rratio; r-=dr) {
+//			for (double arc = 0; arc < 2*r*Math.PI; arc+=darc) {
+//				cnt++;
+//			}
+//		}
 		
-		double[] profile3  	= new double[cnt];
-		double[] coeffs3  	= new double[cnt];
+		System.out.print("extracting " + nrang + " directional responses... ");
 		
-		cnt = 0;
+		double[] 	orts			= new double[nrang];
+		
+		double[] 	profile1  		= new double[nrang];
+		int[]		profile1_cnt	= new int[nrang];
+		double 		profile1_max 	= Double.MIN_VALUE;
+		double 		profile1_min 	= Double.MAX_VALUE;
+		double[] 	coeffs1  		= new double[nrang];
+		
+		double[] 	profile2  		= new double[nrang];
+		int[]		profile2_cnt	= new int[nrang];
+		double 		profile2_max 	= Double.MIN_VALUE;
+		double 		profile2_min 	= Double.MAX_VALUE;
+		double[] 	coeffs2  		= new double[nrang];
+		
+		double[] 	profile3  		= new double[nrang];
+		int[]		profile3_cnt	= new int[nrang];
+		double 		profile3_max 	= Double.MIN_VALUE;
+		double 		profile3_min 	= Double.MAX_VALUE;
+		double[] 	coeffs3  		= new double[nrang];
+		
+		//int cnt = 0;
 		for (double r = radius; r >= radius*rratio; r-=dr) {
 			for (double arc = 0; arc < 2*r*Math.PI; arc+=darc) {
 				
 				double ang = arc/r;
-//				int idxAng = (int)Math.floor(ang/(2*Math.PI/(2*M)));
 				
 				double d1 = Math.sin(ang);
 				double d2 = -Math.cos(ang);
@@ -453,7 +454,7 @@ if(true){
 				double x2 = mouseX + r * d1;
 				double y2 = mouseY + r * d2;
 				
-				ov.add(new Line(x2+0.5, y2+0.5, x2+0.5+1*d1, y2+0.5+1*d2));
+				//ov3.add(new Line(x2+0.5, y2+0.5, x2+0.5+1*d1, y2+0.5+1*d2));
 				//ov.add(new PointRoi(x2+0.5, y2+0.5));
 				
 				int x_loc = (int)Math.round(x2);
@@ -466,31 +467,50 @@ if(true){
 				float v1 = Vx.getProcessor().getPixelValue(x_loc, y_loc);
 				float v2 = Vy.getProcessor().getPixelValue(x_loc, y_loc);
 				
-				profile1[cnt] = Math.abs(mult1*v1*d1+mult1*v2*d2);
-				profile2[cnt] = Math.abs(mult2*v1*d1+mult2*v2*d2);
-				profile3[cnt] = Math.abs(mult3*v1*d1+mult3*v2*d2);
+				int idxAng = (int)Math.floor(ang/(2*Math.PI/nrang));
+
+				// avg for the profile elements
+				profile1[idxAng] 		+= Math.abs(mult1*v1*d1+mult1*v2*d2);
+				profile1_cnt[idxAng]	+= 1;
+				profile2[idxAng] 		+= Math.abs(mult2*v1*d1+mult2*v2*d2);
+				profile2_cnt[idxAng]	+= 1;
+				profile3[idxAng] 		+= Math.abs(mult3*v1*d1+mult3*v2*d2);
+				profile3_cnt[idxAng]	+= 1;
 				
-				orts[cnt]		= ang*360/(2*Math.PI);
+				//orts[idxAng]			= ang*360/(2*Math.PI);
 				
-				coeffs1[cnt]	= mult1;
-				coeffs2[cnt]	= mult2;
-				coeffs3[cnt]	= mult3;
+				coeffs1[idxAng]			+= mult1;
+				coeffs2[idxAng]			+= mult2;
+				coeffs3[idxAng]			+= mult3;
 				
-				cnt++;
+				//cnt++;
 				
 			}
 			
 		}
 		
-		double profile1_max = Double.MIN_VALUE;
-		double profile2_max = Double.MIN_VALUE;
-		double profile3_max = Double.MIN_VALUE;
+		// avg calc
+		for (int k = 0; k < nrang; k++) {
+			
+			if(profile1_cnt[k]>1){
+				profile1[k] = profile1[k] / profile1_cnt[k]; 
+				coeffs1[k]  = coeffs1[k] / profile1_cnt[k];
+			}
+			
+			if(profile2_cnt[k]>1){
+				profile2[k] = profile2[k] / profile2_cnt[k]; 
+				coeffs2[k]  = coeffs2[k] / profile2_cnt[k];
+			}
+			
+			if(profile3_cnt[k]>1){
+				profile3[k] = profile3[k] / profile3_cnt[k]; 
+				coeffs3[k]  = coeffs3[k] / profile3_cnt[k];
+			}
+			
+		}
 		
-		double profile1_min = Double.MAX_VALUE;
-		double profile2_min = Double.MAX_VALUE;
-		double profile3_min = Double.MAX_VALUE;
-		
-		for (int k = 0; k < cnt; k++) {
+		for (int k = 0; k < nrang; k++) {
+			
 			if(coeffs1[k]>profile1_max) profile1_max = coeffs1[k];
 			if(coeffs1[k]<profile1_min) profile1_min = coeffs1[k];
 			
@@ -499,53 +519,45 @@ if(true){
 			
 			if(coeffs3[k]>profile3_max) profile3_max = coeffs3[k];
 			if(coeffs3[k]<profile3_min) profile3_min = coeffs3[k];
+			
 		}
 		
-//		double[] angles = new double[2*M];
-//		for (int i = 0; i < 2*M; i++) {
-//			angles[i] = i*(2*180/(2*M));
-//		}
+		System.out.println("done");
 		
-		System.out.println("ready to add");
+		for (int i = 0; i < nrang; i++) {
+			orts[i] = i*(2*Math.PI/nrang);
+		}
 		
-		ImageStack show_profiles = new ImageStack(600, 300);  
+		ImageStack show_profiles = new ImageStack(800, 400);  
 
-		Plot p1 = new Plot("", "angle [deg]", "gaborAng");
-		p1.setLimits(0, 360, profile1_min-1, profile1_max+1);
-		p1.setSize(600, 300);
+		Plot p1 = new Plot("", "angle", "gaborAng");
+		p1.setLimits(0, 2*Math.PI, profile1_min-1, profile1_max+1);
+		p1.setSize(800, 400);
 		p1.setColor(Color.RED);
 		p1.addPoints(orts, profile1, Plot.BOX);
 		p1.setColor(Color.BLACK);
 		p1.addPoints(orts, coeffs1, Plot.X);
-		//p1.draw();
-		//
 		show_profiles.addSlice(p1.getProcessor());
 		
-		Plot p2 = new Plot("", "angle [deg]", "neurness");
-		p2.setLimits(0, 360, profile2_min-1, profile2_max+1);
-		p2.setSize(600, 300);
+		Plot p2 = new Plot("", "angle", "neurness");
+		p2.setLimits(0, 2*Math.PI, profile2_min-1, profile2_max+1);
+		p2.setSize(800, 400);
 		p2.setColor(Color.RED);
 		p2.addPoints(orts, profile2, Plot.BOX);
 		p2.setColor(Color.BLACK);
 		p2.addPoints(orts, coeffs2, Plot.X);
-		//p2.draw();
 		show_profiles.addSlice(p2.getProcessor());
 		
-		Plot p3 = new Plot("", "angle [deg]", "orig.");
-		p3.setLimits(0, 360, profile3_min-1, profile3_max+1);
-		p3.setSize(600, 300);
+		Plot p3 = new Plot("", "angle", "pix.val");
+		p3.setLimits(0, 2*Math.PI, 0-5, profile3_max+5);
+		p3.setSize(800, 400);
 		p3.setColor(Color.RED);
 		p3.addPoints(orts, profile3, Plot.BOX);
 		p3.setColor(Color.BLACK);
 		p3.addPoints(orts, coeffs3, Plot.X);
-		//p3.draw();
 		show_profiles.addSlice(p3.getProcessor());
 		
-		new ImagePlus("response", show_profiles).show();
-		
-		img.setOverlay(ov);
-		
-		System.out.println("done. ");
+		new ImagePlus("resp", show_profiles).show();
 		
 	}	
 		/*

@@ -27,7 +27,7 @@ public class CircHaarFeat {
 		
 		System.out.println("Creating features with "+M+" angular responses per 360 degrees...");
 		
-		int scale_limit = 1;// (int)Math.round(M/9);// roughly  
+		int scale_limit = 1;
 		
 		int cnt;
 		
@@ -214,7 +214,7 @@ public class CircHaarFeat {
 	
 	}
 	
-	public void 		showFeature(int index){
+	public void 			showFeature(int index){
 		
 		byte[] fill 	= new byte[M*M];
 		float[] shifted = new float[M];
