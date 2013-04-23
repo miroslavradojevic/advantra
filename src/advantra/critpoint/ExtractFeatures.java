@@ -7,6 +7,7 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.util.Vector;
 
+import advantra.feature.GaborFilt2D;
 import advantra.file.AnalyzeCSV;
 
 import ij.IJ;
@@ -17,7 +18,9 @@ import ij.gui.GenericDialog;
 import ij.gui.Overlay;
 import ij.gui.Plot;
 import ij.gui.PointRoi;
+import ij.measure.Calibration;
 import ij.plugin.PlugIn;
+import ij.plugin.ZProjector;
 import imagescience.feature.Differentiator;
 import imagescience.feature.Hessian;
 import imagescience.image.Axes;
@@ -28,45 +31,108 @@ import imagescience.image.Image;
 
 public class ExtractFeatures implements PlugIn {
 
+	ImagePlus 	img, gab, gabAll, weighted, neuriteness, Vx, Vy;
+	Image		inimg;
+	
 	String 		train_folder, test_folder;
-	double 		s1, s2; 
-	int 		sn;
-	String[] nameFeatures;
+	
+	// multi-scale
+	double 		t1, t2; 
+	int 		tn;
+	double[] 	s, t;
+	
+	// gabor
+	int			M;
+	double[] 	theta_2pi;
+	double[]  	theta_pi;
+	double 		bandwidth = 1;
+	double 		psi = 0;
+	double 		gamma = 1.0;
+	boolean 	isReal = true;
+	
+	// circ features
+	double 		radius; // calculated wrt. hughest scale but can be fixed
+	double 		dr, darc, dratio;
+	
+	int 		W, H;
 	
 	public void run(String arg0) {
 		
-		s1  	= Prefs.get("advantra.critpoint.start_scale", 1.0);
-		s2    	= Prefs.get("advantra.critpoint.end_scale", 5.0);
-		sn 		= (int)Prefs.get("advantra.critpoint.nr_scales", 5);
+		
+		t1  	= Prefs.get("advantra.critpoint.start_scale", 		3.0);
+		t2    	= Prefs.get("advantra.critpoint.end_scale", 		11.0);
+		tn 		= (int)Prefs.get("advantra.critpoint.nr_scales", 	5);
+		M		= (int)Prefs.getInt("advantra.critpoint.nr_angles", 8);
+		dr    	= Prefs.get("advantra.critpoint.dr", 				1.0);
+		darc    = Prefs.get("advantra.critpoint.darc", 				1.0);
+		dratio	= Prefs.get("advantra.critpoint.dratio", 			0.2);
+		
+		
 		train_folder = (String)Prefs.get("advantra.critpoint.train_folder", 
 				(System.getProperty("user.home")+File.separator));
 		test_folder = (String)Prefs.get("advantra.critpoint.test_folder", 
 				(System.getProperty("user.home")+File.separator));
 		
-		GenericDialog gd = new GenericDialog("Extract Features");
-		gd.addNumericField("start scale", s1, 1);
-		gd.addNumericField("end   scale", s2, 1);
-		gd.addNumericField("nr   scales", sn, 0);
-		gd.addStringField("folder with images & markers: ", train_folder, 	50);
-		gd.addStringField("folder with test images     : ", test_folder, 	50);
+		GenericDialog gd = new GenericDialog("ExtractFeatures");
+		gd.addNumericField("start scale", t1, 1);
+		gd.addNumericField("end   scale", t2, 1);
+		gd.addNumericField("nr   scales", tn, 0);
+		
+		gd.addNumericField("angles(per 180 deg)", M,	0, 5, "");
+		
+		gd.addNumericField("radius step", 		dr, 1);
+		gd.addNumericField("arc    step", 		darc, 1);
+		gd.addNumericField("rratio step", 		dratio, 1);
+		
+		gd.addStringField("train folder : ", train_folder, 	50);
+		gd.addStringField("test  folder : ", test_folder, 	50);
+		
 		gd.showDialog();
 		if (gd.wasCanceled()) return;
-		s1 	= 		gd.getNextNumber();
-		s2	= 		gd.getNextNumber();
-		sn	= (int)	gd.getNextNumber();
-		train_folder = gd.getNextString();
-		test_folder = gd.getNextString();
+		t1 	= 		gd.getNextNumber();
+		t2	= 		gd.getNextNumber();
+		tn	= (int)	gd.getNextNumber();
 		
-		Prefs.set("advantra.critpoint.start_scale", s1);
-		Prefs.set("advantra.critpoint.end_scale", s2);
-		Prefs.set("advantra.critpoint.nr_scales", sn);
+		M 	= (int)	gd.getNextNumber();
+		
+		dr  = 			gd.getNextNumber();
+		darc  = 		gd.getNextNumber();
+		dratio  = 		gd.getNextNumber();
+		
+		train_folder = 	gd.getNextString();
+		test_folder = 	gd.getNextString();
+		
+		Prefs.set("advantra.critpoint.start_scale", t1);
+		Prefs.set("advantra.critpoint.end_scale", 	t2);
+		Prefs.set("advantra.critpoint.nr_scales", 	tn);
+		
+		Prefs.set("advantra.critpoint.nr_angles", 	M);
+		Prefs.set("advantra.critpoint.dr", 			dr);
+		Prefs.set("advantra.critpoint.darc", 		darc);
+		Prefs.set("advantra.critpoint.dratio", 		dratio);
+		
 		Prefs.set("advantra.critpoint.train_folder", train_folder);
 		Prefs.set("advantra.critpoint.test_folder", test_folder);
 		
+		
 		// scales
-		double[] s = new double[sn];
-		for (int i = 0; i < sn; i++) {
-			s[i] = (i==0)? s1 : s1+i*((s2-s1)/(sn-1));
+		t = new double[tn];
+		s = new double[tn];
+		for (int i = 0; i < tn; i++) {
+			t[i] = (i==0)? t1 : t1+i*((t2-t1)/(tn-1));
+			s[i] = Math.sqrt(t[i]);
+		}
+				
+		radius = 3*Math.sqrt(t[t.length-1]); // xGaussianStd.
+			
+		// angles theta angle it makes with x axis (angle it makes with the first row)
+		theta_pi 	= new double[M];
+		theta_2pi	= new double[2*M];
+		for (int i = 0; i < 2*M; i++) {
+			theta_2pi[i] = i * (Math.PI/(double)(M));
+		}
+		for (int i = 0; i < M; i++) {
+			theta_pi[i] = i * (Math.PI/(double)M);
 		}
 		
 		File dir = new File(train_folder);
@@ -77,388 +143,95 @@ public class ExtractFeatures implements PlugIn {
 		}
 		
 		File[] files_tif = listFilesEndingWith(dir, ".tif");
-		File[] files_bif = new File[files_tif.length];
-		File[] files_oth = new File[files_tif.length];
+		File[] files_pos = new File[files_tif.length];
+		File[] files_neg = new File[files_tif.length];
 		Vector<double[][]> locs_pos = new Vector<double[][]>(files_tif.length);
 		Vector<double[][]> locs_neg = new Vector<double[][]>(files_tif.length);
 		
 		int total_pos = 0;
 		int total_neg = 0;
+		int curr_pos = 0;
+		int curr_neg = 0;
 		
-		/*
-		 * 
-		 */
-		
-		System.out.println("###TRAINING###");
+		System.out.println("## TRAINING ##  "+train_folder);
 		
 		for (int i = 0; i < files_tif.length; i++) { // for each tif file
 			
-			System.out.print(files_tif[i].getName()+"  ->  ");
+			System.out.println("\n "+files_tif[i].getName()+"  ...  ");
+			
+			curr_pos = 0;
+			curr_neg = 0;
 			
 			AnalyzeCSV readCSV;
-			
 			File[] check;
+			String suffix;
+			String file_name = files_tif[i].getName();
+			file_name = file_name.substring(0, file_name.length()-4);
 			
-			check = listFilesEndingWith(dir, files_tif[i].getName()+".bif.marker");
-			if(check==null || check.length<=0){
-				System.out.println("incomplete annotations"); return;
+			suffix = file_name+".pos";
+			check = listFilesEndingWith(dir, suffix);
+			if(check!=null && check.length>0){
+				files_pos[i] = check[0];
+				readCSV = new AnalyzeCSV(files_pos[i].getAbsolutePath());
+				double[][] bifsColRow = readCSV.readLn(2);
+				locs_pos.add(bifsColRow);
+				curr_neg = bifsColRow.length;
+				total_pos += bifsColRow.length;
+				System.out.println(bifsColRow.length+" positives ");
 			}
-			files_bif[i] = check[0];
-			readCSV = new AnalyzeCSV(files_bif[i].getAbsolutePath());
-			double[][] bifsColRow = readCSV.readLn(2);
-			locs_pos.add(bifsColRow);
-			total_pos += bifsColRow.length;
-			System.out.print(bifsColRow.length+" positives ");
-			
-			check = listFilesEndingWith(dir, files_tif[i].getName()+".oth.marker");
-			if(check==null || check.length<=0){
-				System.out.println("incomplete annotations"); return;
+			else{
+				locs_pos.add(null);
+				System.out.println("no poss");
 			}
-			files_oth[i] = check[0];
-			readCSV = new AnalyzeCSV(files_oth[i].getAbsolutePath());
-			double[][] othsColRow = readCSV.readLn(2);
-			locs_neg.add(othsColRow);
-			total_neg += othsColRow.length;
-			System.out.print(othsColRow.length+" negatives ");
 			
-			System.out.println();
+			suffix = file_name+".neg";
+			check = listFilesEndingWith(dir, suffix);
+			if(check!=null && check.length>0){
+				files_neg[i] = check[0];
+				readCSV = new AnalyzeCSV(files_neg[i].getAbsolutePath());
+				double[][] othsColRow = readCSV.readLn(2);
+				locs_neg.add(othsColRow);
+				curr_pos = othsColRow.length;
+				total_neg += othsColRow.length;
+				System.out.println(othsColRow.length+" negatives ");
+			}
+			else{
+				locs_neg.add(null);
+				System.out.println("no negs");
+			}
+			
+			/*
+			 * actual feature extraction
+			 */
+			if(curr_pos>0 || curr_neg>0){
+				
+				System.out.println("...extract features...");
+				
+				img = new ImagePlus(files_tif[i].getAbsolutePath());
+				resetCalibration();
+				convertToFloatImage();
+				IJ.freeMemory();
+				
+				H = img.getHeight();
+				W = img.getWidth();
+				
+				inimg = Image.wrap(img); inimg.axes(Axes.X+Axes.Y);
+				inimg.name("input_image");
+				
+				img.show();
+				//gab = extractDirectionalGabor(img, theta_pi, t, bandwidth, psi, gamma, isReal); 
+				
+				
+				img.close();
+				
+				
+			}
+			
 			
 		}
 		
-		int nrFilters = 4;
-		String[] nameFilters = new String[]{
-				"Gradient", 
-				"absL1", 
-				"DoH", 
-				"Laplacian"
-				
-		};
-		
-		nameFeatures = new String[nrFilters*sn];
-		for (int scale_idx = 0; scale_idx < sn; scale_idx++) {
-			for (int f = 0; f < nrFilters; f++) {
-				nameFeatures[scale_idx*nrFilters+f] = 
-						String.format("%s_scale_%.2f", nameFilters[f], s[scale_idx]);
-			}
-		}
-		
-		int total_feats = nrFilters*sn;
-		
-		double[][] featsPos = new double[total_pos][total_feats];
-		double[][] featsNeg = new double[total_neg][total_feats];
-		
-		System.out.println("# positives "+total_pos+" from "+locs_pos.size()+" files");
-		System.out.println("# negatives "+total_neg+" from "+locs_neg.size()+" files");
-		System.out.println("# features  "+total_feats);
-		
-		int start_row_pos = 0;
-		int start_row_neg = 0;
-		int start_col = 0;
-		
-		for (int file_idx = 0; file_idx < files_tif.length; file_idx++) { // for each tif file
-			
-			ImagePlus img = new ImagePlus(files_tif[file_idx].getAbsolutePath());
-			Overlay ovl = new Overlay();
-			
-			Differentiator 	diff 	= new Differentiator();
-			Hessian			hess 	= new Hessian();
-			
-			Image Dx, Dy, Dxx, Dyy, Dxy, L1, L2;
-			double[][] aDx 	= new double[img.getHeight()][img.getWidth()];
-			double[][] aDy 	= new double[img.getHeight()][img.getWidth()];
-			double[][] aDxx = new double[img.getHeight()][img.getWidth()];
-			double[][] aDxy = new double[img.getHeight()][img.getWidth()];
-			double[][] aDyy = new double[img.getHeight()][img.getWidth()];
-			double[][] aL1 	= new double[img.getHeight()][img.getWidth()];
-			double[][] aL2 	= new double[img.getHeight()][img.getWidth()];
-			
-			start_col = 0;
-			
-			for (int scale_idx = 0; scale_idx < sn; scale_idx++) {
-				
-				// process image at this scale
-				Dx = diff.run(Image.wrap(img), s[scale_idx], 1, 0, 0); Dx.axes(Axes.X+Axes.Y);
-				Dy = diff.run(Image.wrap(img), s[scale_idx], 0, 1, 0); Dy.axes(Axes.X+Axes.Y);
-				Dxx = diff.run(Image.wrap(img), s[scale_idx], 2, 0, 0); Dxx.axes(Axes.X+Axes.Y);
-				Dxy = diff.run(Image.wrap(img), s[scale_idx], 1, 1, 0); Dxy.axes(Axes.X+Axes.Y);
-				Dyy = diff.run(Image.wrap(img), s[scale_idx], 0, 2, 0); Dyy.axes(Axes.X+Axes.Y);
-				Vector<Image> out = hess.run(Image.wrap(img), s[scale_idx], true);
-				L2 = out.get(0); L2.axes(Axes.X+Axes.Y);
-				L1 = out.get(1); L1.axes(Axes.X+Axes.Y);
-				Coordinates coord = new Coordinates();
-				Dx.get(coord, aDx);
-				Dy.get(coord, aDy);
-				Dxx.get(coord, aDxx);
-				Dxy.get(coord, aDxy);
-				Dyy.get(coord, aDyy);
-				L2.get(coord, aL2);
-				L1.get(coord, aL1);
-				
-				/*
-				 * add positives
-				 */
-				
-				for (int k = 0; k < locs_pos.get(file_idx).length; k++) {
-					
-					int col = (int)Math.round(locs_pos.get(file_idx)[k][0]);
-					int row = (int)Math.round(locs_pos.get(file_idx)[k][1]);
-					
-					ovl.add(new PointRoi(col, row));
-					
-					for (int l = 0; l < nrFilters; l++) {
-						
-						double val = Double.NaN;
-						switch(l){
-							case 0:
-								// Gradient Intensity
-								val = Math.sqrt(Math.pow(aDx[row][col], 2)+Math.pow(aDy[row][col], 2));
-								break;
-							case 1:
-								// abs(L1)
-								val = Math.abs(aL1[row][col]);
-								break;
-							case 2:
-								// DoH
-								val = aDxx[row][col]*aDyy[row][col]-aDxy[row][col]*aDxy[row][col];
-								break;
-							case 3:
-								// Laplacian
-								val = aDxx[row][col]+aDyy[row][col];
-								break;
-							default:
-								break;
-						}
-						
-						featsPos[start_row_pos+k][start_col+l] = val;
-						
-					}
-					
-				}
-				
-				/*
-				 * add negatives
-				 */
-				
-				for (int k = 0; k < locs_neg.get(file_idx).length; k++) {
-					
-					int col = (int)Math.round(locs_neg.get(file_idx)[k][0]);
-					int row = (int)Math.round(locs_neg.get(file_idx)[k][1]);
-					
-					ovl.add(new PointRoi(col, row));
-					
-					for (int l = 0; l < nrFilters; l++) {
-						
-						double val = Double.NaN;
-						switch(l){
-							case 0:
-								// Gradient Intensity
-								val = Math.sqrt(Math.pow(aDx[row][col], 2)+Math.pow(aDy[row][col], 2));
-								break;
-							case 1:
-								// abs(L1)
-								val = Math.abs(aL1[row][col]);
-								break;
-							case 2:
-								// DoH
-								val = aDxx[row][col]*aDyy[row][col]-aDxy[row][col]*aDxy[row][col];
-								break;
-							case 3:
-								// Laplacian
-								val = aDxx[row][col]+aDyy[row][col];
-								break;
-							default:
-								break;
-						}
-						
-						featsNeg[start_row_neg+k][start_col+l] = val;
-
-					}
-					
-				}
-				
-				start_col += nrFilters;
-				
-			}
-			
-			img.getProcessor().drawOverlay(ovl);
-			img.show();
-		
-			start_row_pos += locs_pos.get(file_idx).length;
-			start_row_neg += locs_neg.get(file_idx).length;
-			
-		} 
-		
-		System.out.println("done extracting features");
-		System.out.println("positives "+featsPos.length+" x "+featsPos[0].length);
-		System.out.println("negatives "+featsNeg.length+" x "+featsNeg[0].length);
-		
-		// train classifier
-		int Tloops = 5;
-		double[][] adaboost = trueAdaBoost(featsPos, featsNeg, Tloops); // T x [id, alpha, threshold]
-		
-	    // save the adaboost config file 
-	    try {
-	    	FileWriter fw;
-	        fw = new FileWriter(train_folder+File.separator+"train" + "." + Tloops + ".adaboost");
-	        
-	        fw.write(IJ.d2s(s1, 2) + "\r\n");
-	        fw.write(IJ.d2s(s2, 2) + "\r\n");
-	        fw.write(IJ.d2s(sn, 0) + "\r\n");
-	        fw.write(IJ.d2s(adaboost.length, 0) + "\r\n");
-	        
-	        for (int i = 0; i < adaboost.length; i++) {
-	            fw.write(IJ.d2s(adaboost[i][0], 0) + "\r\n");
-	            fw.write(IJ.d2s(adaboost[i][1], 6) + "\r\n");
-	            fw.write(IJ.d2s(adaboost[i][2], 6) + "\r\n");
-	        }
-	        fw.close();
-	    } 
-	    catch (IOException e) {
-	    }
-	    
-	    // plot selected features with thresholds 
-	    ImagePlus imp1 = new ImagePlus();
-	    ImageStack imstack = new ImageStack(528, 255);
-	    for (int i = 0; i < adaboost.length; i++) {
-	        Plot plot = plotFearutePerAllSamples(featsPos, featsNeg, (int) adaboost[i][0], adaboost[i][2]);
-	        imstack.addSlice("thresh = " + IJ.d2s(adaboost[i][2], 3), plot.getProcessor());
-	    }
-	    imp1.setStack("adaboost train", imstack);
-	    imp1.show();
-	    
-	    /*
-	     * 
-	     */
-	    
-	    int[] feature_idx = new int[adaboost.length];
-	    int[] scale_idx = new int[adaboost.length];
-	    int[] filter_idx = new int[adaboost.length];
-	    
-	    for (int i = 0; i < adaboost.length; i++) {
-			feature_idx[i] = (int)adaboost[i][0];
-			scale_idx[i] = feature_idx[i]/nrFilters;
-			filter_idx[i] = feature_idx[i]%nrFilters;
-			System.out.println("feature: "+feature_idx[i]+" scale: "+scale_idx[i]+" filter: "+filter_idx[i]);
-		}
-	    
-	    /*
-	     * 
-	     */
-	    
-	    
-	    System.out.println("###TESTING###");
-	    dir = new File(test_folder);
-	    test_folder = dir.getAbsolutePath();
-		if(!dir.isDirectory() ){
-			IJ.error("Wrong directory!");
-			return;
-		}
-		
-		files_tif = listFilesEndingWith(dir, ".tif");
-		
-		for (int i = 0; i < files_tif.length; i++) { 
-			
-			System.out.print(files_tif[i].getName()+"  ->  ");
-			
-			ImagePlus img = new ImagePlus(files_tif[i].getAbsolutePath());
-			//Overlay ovl = new Overlay();
-			
-			Differentiator 	diff 	= new Differentiator();
-			Hessian			hess 	= new Hessian();
-			
-			Image Dx, Dy, Dxx, Dyy, Dxy, L1, L2;
-			double[][] aDx 	= new double[img.getHeight()][img.getWidth()];
-			double[][] aDy 	= new double[img.getHeight()][img.getWidth()];
-			double[][] aDxx = new double[img.getHeight()][img.getWidth()];
-			double[][] aDxy = new double[img.getHeight()][img.getWidth()];
-			double[][] aDyy = new double[img.getHeight()][img.getWidth()];
-			double[][] aL1 	= new double[img.getHeight()][img.getWidth()];
-			double[][] aL2 	= new double[img.getHeight()][img.getWidth()];
-			
-			// create image with selected features
-			Dimensions dims = new Dimensions(img.getWidth(), img.getHeight(), 1, adaboost.length);
-			Image featsT = new FloatImage(dims); featsT.axes(Axes.X+Axes.Y);
-			double[][] aFeatsT = new double[img.getHeight()][img.getWidth()];
-			
-			for (int k = 0; k < adaboost.length; k++) {
-				
-				double choose_scale 	= s[scale_idx[k]];
-				int    choose_filter 	= filter_idx[k];
-				
-				Dx = diff.run(Image.wrap(img), choose_scale, 1, 0, 0); Dx.axes(Axes.X+Axes.Y);
-				Dy = diff.run(Image.wrap(img), choose_scale, 0, 1, 0); Dy.axes(Axes.X+Axes.Y);
-				Dxx = diff.run(Image.wrap(img), choose_scale, 2, 0, 0); Dxx.axes(Axes.X+Axes.Y);
-				Dxy = diff.run(Image.wrap(img), choose_scale, 1, 1, 0); Dxy.axes(Axes.X+Axes.Y);
-				Dyy = diff.run(Image.wrap(img), choose_scale, 0, 2, 0); Dyy.axes(Axes.X+Axes.Y);
-				Vector<Image> out = hess.run(Image.wrap(img), choose_scale, true);
-				L2 = out.get(0); L2.axes(Axes.X+Axes.Y);
-				L1 = out.get(1); L1.axes(Axes.X+Axes.Y);
-				Coordinates coord = new Coordinates();
-				Dx.get(coord, aDx);
-				Dy.get(coord, aDy);
-				Dxx.get(coord, aDxx);
-				Dxy.get(coord, aDxy);
-				Dyy.get(coord, aDyy);
-				L2.get(coord, aL2);
-				L1.get(coord, aL1);
-				
-				//
-				for (int row = 0; row < img.getHeight(); row++) {
-					for (int col = 0; col < img.getWidth(); col++) {
-						
-						double val = Double.NaN;
-						switch(choose_filter){
-							case 0:
-								// Gradient Intensity
-								val = Math.sqrt(Math.pow(aDx[row][col], 2)+Math.pow(aDy[row][col], 2));
-								break;
-							case 1:
-								// abs(L1)
-								val = Math.abs(aL1[row][col]);
-								break;
-							case 2:
-								// DoH
-								val = aDxx[row][col]*aDyy[row][col]-aDxy[row][col]*aDxy[row][col];
-								break;
-							case 3:
-								// Laplacian
-								val = aDxx[row][col]+aDyy[row][col];
-								break;
-							default:
-								break;
-						}
-						
-						aFeatsT[row][col] = val;
-						
-					}
-				}
-				
-				featsT.set(new Coordinates(0, 0, 0, k), aFeatsT);
-				
-			}
-			featsT.axes(Axes.T);
-			
-			// output image
-			dims = new Dimensions(img.getWidth(), img.getHeight(), 1, 1);
-			Image out = new FloatImage(dims); out.axes(Axes.X+Axes.Y);
-			
-			Coordinates read_coord = new Coordinates();
-			double[] takeFeats = new double[adaboost.length];
-			for (read_coord.x = 0; read_coord.x < dims.x; read_coord.x++) {
-				for (read_coord.y = 0; read_coord.y < dims.y; read_coord.y++) {
-					featsT.get(read_coord, takeFeats);
-					int cls = applyAdaBoost(adaboost, takeFeats);
-	                if (cls == 1) {
-	                    out.set(read_coord, 255);
-	                }
-				}
-			}
-			
-			out.name("afterclassification");
-			out.imageplus().show();
-			
-		} // loop test images
-	    
+		System.out.println("////\n total (+) : "+total_pos);
+		System.out.println(" total (-) : "+total_neg+"\n////\n");
 		
 	}
 	
@@ -534,7 +307,7 @@ public class ExtractFeatures implements PlugIn {
 	        // number of runs - id of the feature - alpha - threshold - error 
 	        IJ.log(
 	        		"t = " + (t + 1) + " -> best classifier:" + 
-	        		IJ.d2s(adaboost[t][0] + 1, 0) + "(" + nameFeatures[(int)adaboost[t][0]] +")"+
+	        		IJ.d2s(adaboost[t][0] + 1, 0) + "("+")"+ // nameFeatures[(int)adaboost[t][0]] +
 	        		" Math.log(1 / beta):  " +
 	                IJ.d2s(adaboost[t][1], 4) + "  optimal threshold: " + IJ.d2s(adaboost[t][2], 4) + "  error:   " +
 	                IJ.d2s(mineps, 6));
@@ -697,4 +470,62 @@ public class ExtractFeatures implements PlugIn {
 		return tif_train;
 	}
 	
+	private void resetCalibration(){
+		
+		// reset the calibration
+		Calibration c = img.getCalibration();
+		c.pixelWidth 	= c.pixelHeight = c.pixelDepth = 1;
+		c.setUnit("pixel");
+		img.setCalibration(c);
+				
+	}
+	
+	private void convertToFloatImage(){
+		
+		if(!img.getProcessor().isDefaultLut()) return;
+		img.setProcessor("input_image", img.getProcessor().convertToFloat().duplicate());
+		
+	}
+	
+	private ImagePlus extractDirectionalGabor(
+			ImagePlus input, 
+			double[] angles_pi, 
+			double[] t, 
+			double bw, 
+			double psi, 
+			double gamma,
+			boolean isReal){
+		
+		int w = input.getWidth();
+		int h = input.getHeight();
+		
+		ImageStack 	angul = new ImageStack(w, h); 
+		
+		ZProjector zmax = new ZProjector();
+		
+		System.out.print("gabor filtering ");
+		
+		for (int i = 0; i < angles_pi.length; i++) {
+			
+			double current_theta = angles_pi[i];
+			
+			System.out.print(".");
+			
+			ImagePlus g_theta = GaborFilt2D.run(
+					input, current_theta, t, new double[t.length], bw, psi, gamma, isReal);
+			
+			zmax.setImage(g_theta);
+			zmax.setStartSlice(1);
+			zmax.setStopSlice(g_theta.getStackSize());
+			zmax.setMethod(ZProjector.MAX_METHOD);
+			zmax.doProjection();
+			angul.addSlice("theta="+IJ.d2s(current_theta, 2), zmax.getProjection().getChannelProcessor());
+
+		}
+		
+		System.out.print(" done.");
+		
+		return new ImagePlus("gabor_per_angle", angul);
+
+	}
 }

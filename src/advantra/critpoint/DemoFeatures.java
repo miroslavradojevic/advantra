@@ -3,7 +3,7 @@ package advantra.critpoint;
 import java.awt.Color;
 
 import advantra.feature.CircHaarFeat;
-import advantra.feature.ProfileFeatures;
+import advantra.feature.ProfileFilters;
 import advantra.general.Sort;
 import ij.IJ;
 import ij.gui.Plot;
@@ -61,22 +61,11 @@ if(false){
 			}
 		}
 		
-		double[] angProfile 	= new double[cnt];
-		
-		cnt = 0;
-		for (double r = radius; r >= radius*rratio; r-=dr) {
-			for (double arc = 0; arc < 2*r*Math.PI; arc+=darc) {
-				angProfile[cnt++] = arc/r;
-				
-			}
-		}
-		
-		System.out.println("created " + cnt + " angles");
-		int nrFeats = 128;
+		int nrFeats = 128; // nr feats does not depend on this one
 		double angStep = Math.PI/8;
-		ProfileFeatures pft = new ProfileFeatures(nrFeats, angStep);
-		pft.createFeatures();
-		pft.showFeatures();
+		ProfileFilters pft = new ProfileFilters(nrFeats, angStep);
+		pft.create();
+		pft.showFilters();
 	    
 	}
 

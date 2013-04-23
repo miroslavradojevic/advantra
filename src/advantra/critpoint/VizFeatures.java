@@ -25,7 +25,7 @@ import ij.process.ImageProcessor;
 import imagescience.image.Axes;
 import imagescience.image.Image;
 
-public class AlongCircleFt implements PlugInFilter, MouseListener {
+public class VizFeatures implements PlugInFilter, MouseListener {
 
 	ImagePlus 	img, gab, gabAll;
 	ImagePlus	weighted;
@@ -46,27 +46,36 @@ public class AlongCircleFt implements PlugInFilter, MouseListener {
 	double 		psi = 0;
 	double 		gamma = 1.0;
 	boolean 	isReal = true;
-	double 		radius; // fixed
 	
-	int W, H;
+	// circ features
+	double 		radius; // calculated wrt. hughest scale but can be fixed
+	double 		dr, darc, dratio;
 	
-	double 		gab_min, gab_max;
-	double		img_min, img_max;
+	int 		W, H;
 	
 	public void run(ImageProcessor arg0) {
 		
-		t1  	= Prefs.get("advantra.critpoint.start_scale", 		2.0);
-		t2    	= Prefs.get("advantra.critpoint.end_scale", 		4.0);
-		tn 		= (int)Prefs.get("advantra.critpoint.nr_scales", 	3);
+		t1  	= Prefs.get("advantra.critpoint.start_scale", 		3.0);
+		t2    	= Prefs.get("advantra.critpoint.end_scale", 		11.0);
+		tn 		= (int)Prefs.get("advantra.critpoint.nr_scales", 	5);
 		M		= (int)Prefs.getInt("advantra.critpoint.nr_angles", 8);
+		dr    	= Prefs.get("advantra.critpoint.dr", 				1.0);
+		darc    = Prefs.get("advantra.critpoint.darc", 				1.0);
+		dratio	= Prefs.get("advantra.critpoint.dratio", 			0.2);
 		
-		GenericDialog gd = new GenericDialog("F1");
+		GenericDialog gd = new GenericDialog("VizFeatures");
 		
 		gd.addNumericField("start scale", 		t1, 2);
 		gd.addNumericField("end   scale", 		t2, 4);
 		gd.addNumericField("nr   scales", 		tn, 0, 5, "");
 		gd.addNumericField("angles(per 180 deg)",M,	0, 5, "");
-		gd.addNumericField("", gamma, 2);
+		
+		gd.addMessage("circular extraction parameters");// NumericField("", gamma, 2);
+		
+		gd.addNumericField("radius step", 		dr, 1);
+		gd.addNumericField("arc    step", 		darc, 1);
+		gd.addNumericField("rratio step", 		dratio, 1);
+		
 		gd.showDialog();
 		if (gd.wasCanceled()) return;
 		
@@ -74,12 +83,17 @@ public class AlongCircleFt implements PlugInFilter, MouseListener {
 		t2	= 		gd.getNextNumber();
 		tn	= (int)	gd.getNextNumber();
 		M 	= (int)	gd.getNextNumber();
-		gamma = 	gd.getNextNumber();
+		dr  = 		gd.getNextNumber();
+		darc  = 		gd.getNextNumber();
+		dratio  = 		gd.getNextNumber();
 		
 		Prefs.set("advantra.critpoint.start_scale", t1);
 		Prefs.set("advantra.critpoint.end_scale", 	t2);
 		Prefs.set("advantra.critpoint.nr_scales", 	tn);
 		Prefs.set("advantra.critpoint.nr_angles", 	M);
+		Prefs.set("advantra.critpoint.dr", 			dr);
+		Prefs.set("advantra.critpoint.darc", 		darc);
+		Prefs.set("advantra.critpoint.dratio", 		dratio);
 		
 		// scales
 		t = new double[tn];
@@ -90,7 +104,7 @@ public class AlongCircleFt implements PlugInFilter, MouseListener {
 		}
 		
 		radius = 3*Math.sqrt(t[t.length-1]); // xGaussianStd.
-		IJ.log("surrounding radius is " + radius);
+		System.out.println("surrounding radius is " + radius);
 		
 		// angles theta angle it makes with x axis (angle it makes with the first row)
 		theta_pi 	= new double[M];
@@ -105,7 +119,6 @@ public class AlongCircleFt implements PlugInFilter, MouseListener {
 		/*
 		 *  convert to float , prepare image
 		 */
-		IJ.log("converting, preparing image...");
 		// reset the calibration
 		Calibration c = img.getCalibration();
 		c.pixelWidth 	= c.pixelHeight = c.pixelDepth = 1;
@@ -119,13 +132,7 @@ public class AlongCircleFt implements PlugInFilter, MouseListener {
 		H = img.getHeight();
 		W = img.getWidth();
 		
-		IJ.log("listening mouse on the original image...");
-		inimg = Image.wrap(img); inimg.axes(Axes.X+Axes.Y);
-		
 		float[] mn_mx = calculateStackMinMax(img.getStack());
-		img_min = mn_mx[0];
-		img_max = mn_mx[1];
-		IJ.log("image range: "+img_min+" / "+img_max);
 		
 		/*
 		 * show gabor kernels for selected scales
@@ -146,13 +153,9 @@ public class AlongCircleFt implements PlugInFilter, MouseListener {
 		 * extract directional gabor responses
 		 */
 if(true){
-		IJ.log("extract directional gabor responses...");
 		gab = extractDirectionalGabor(img, theta_pi, t, bandwidth, psi, gamma, isReal); 
-		
 		mn_mx = calculateStackMinMax(gab.getStack());
-		gab_min = mn_mx[0];
-		gab_max = mn_mx[1];
-		IJ.log("gabor outputs: "+gab_min+" / "+gab_max);
+		IJ.log("gabor outputs: "+mn_mx[0]+" / "+mn_mx[1]);
 }
 		/*
 		 * extract maximal directional gabor response in every point
@@ -169,17 +172,17 @@ if(true){
 		gabAll.show();
 		
 		mn_mx = calculateStackMinMax(gabAll.getStack());
-		gab_min = mn_mx[0];
-		gab_max = mn_mx[1];
-		IJ.log("redefining gabor extrema : "+gab_min+" / "+gab_max);
+		IJ.log("redefining gabor extrema : "+mn_mx[0]+" / "+mn_mx[1]);
 		
-		weighted = imageIntensityMetric(gabAll, gab_max, 0.4, 2);
+		weighted = imageIntensityMetric(gabAll, mn_mx[1], 0.4, 2);
 		weighted.show();
 		
 }
 		/*
-		 *  extract neuriteness
+		 *  extract neuriteness & eigen vecs
 		 */
+
+		inimg = Image.wrap(img); inimg.axes(Axes.X+Axes.Y);
 
 		neuriteness = new ImagePlus("neuriteness", new FloatProcessor(W, H));
 		Vx 			= new ImagePlus("neuriteness", new FloatProcessor(W, H));
@@ -232,7 +235,7 @@ if(true){
 		neuriteness.show();
 		//Vx.show();
 		//Vy.show();
-		
+		// done  with neuriteness
 		/*
 		 * eigenvec on original
 		 */
@@ -362,6 +365,75 @@ if(true){
 		}
 		
 		return mnmx;
+		
+	}
+	
+	public Vector<ImagePlus> extractNeuritenessAndEigenVec(ImagePlus in, double[] s){
+		
+		int H = in.getHeight();
+		int W = in.getWidth();
+		
+		Image inimg = Image.wrap(in); inimg.axes(Axes.X+Axes.Y);
+		
+		Vector<ImagePlus> out = new Vector<ImagePlus>(3);
+		
+		ImagePlus neuriteness 	= new ImagePlus("neuriteness", new FloatProcessor(W, H));
+		ImagePlus Vx 			= new ImagePlus("neuriteness", new FloatProcessor(W, H));
+		ImagePlus Vy 			= new ImagePlus("neuriteness", new FloatProcessor(W, H));
+		
+		////
+		
+		MyHessian myhess = new MyHessian();
+		
+		for (int i = 0; i < s.length; i++) {
+			
+			System.out.println("processing scale " + (s[i]*s[i]) + ", with sigma" + s[i]);
+			
+			Vector<Image> h1 = myhess.eigs(inimg.duplicate(), s[i], false);
+			Vector<Image> h2 = myhess.eigs(inimg.duplicate(), s[i], true);
+			
+			ImagePlus L2 	= h1.get(0).imageplus();
+			ImagePlus L1 	= h1.get(1).imageplus();
+			
+			ImagePlus V1 	= h2.get(4).imageplus();
+			ImagePlus V2 	= h2.get(5).imageplus();
+			
+			// smallest lambda over pixels
+			float[] mn_mx_L = calculateStackMinMax(L1.getStack());
+			float minL1 = mn_mx_L[0];
+			
+			for (int j = 0; j < W*H; j++) {
+				
+				float ll1 = L1.getProcessor().getf(j);
+				float ll2 = L2.getProcessor().getf(j);
+				float ll = (Math.abs(ll1)>Math.abs(ll2))?ll1:ll2; // larger in magnitude over 2 values
+				if(ll<0){
+					
+					float ro = ll/minL1;
+					if(ro>neuriteness.getProcessor().getf(j)){
+						
+						neuriteness.getProcessor().setf(j, ro);
+						Vx.getProcessor().setf(j, V1.getProcessor().getf(j));
+						Vy.getProcessor().setf(j, V2.getProcessor().getf(j));
+						
+					}
+						
+				}
+				else{
+					neuriteness.getProcessor().setf(j, 0);
+				}
+				
+			}
+		
+		}
+		
+		////
+		
+		out.set(0, neuriteness);
+		out.set(1, Vx);
+		out.set(2, Vy);
+		
+		return out;
 		
 	}
 	
