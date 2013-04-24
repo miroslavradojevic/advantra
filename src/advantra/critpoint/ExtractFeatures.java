@@ -219,6 +219,7 @@ public class ExtractFeatures implements PlugIn {
 				inimg.name("input_image");
 				
 				img.show();
+				
 				//gab = extractDirectionalGabor(img, theta_pi, t, bandwidth, psi, gamma, isReal); 
 				
 				

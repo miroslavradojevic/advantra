@@ -7,6 +7,8 @@ import java.util.Vector;
 
 import advantra.feature.GaborFilt2D;
 import advantra.feature.MyHessian;
+import advantra.tools.MeanShift3DSphere;
+import advantra.trace.Tracing;
 
 import ij.IJ;
 import ij.ImagePlus;
@@ -149,14 +151,83 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 			
 		}
 		}
+		
+		
 		/*
 		 * extract directional gabor responses
 		 */
-if(true){
-		gab = extractDirectionalGabor(img, theta_pi, t, bandwidth, psi, gamma, isReal); 
+		
+
+		
+		int nr_proc = 4;
+		int nr_splits = 4;
+		
+		GaborFilt2D.load(
+				img, 
+				nr_splits, 
+				theta_pi,
+				t,
+				new double[t.length],
+				bandwidth,
+				psi,
+				gamma,
+				isReal);
+		
+		long t11 = System.currentTimeMillis();
+
+		int how_many_patches = GaborFilt2D.ptches.size();
+		
+		GaborFilt2D gab_jobs[] = new GaborFilt2D[nr_proc];
+		for (int i = 0; i < gab_jobs.length; i++) {
+			
+			int start_interval 	= i*how_many_patches/nr_proc;
+			int end_interval	= (i+1)*how_many_patches/nr_proc;
+			
+			gab_jobs[i] = new GaborFilt2D(start_interval,  end_interval);
+			gab_jobs[i].start();
+		}
+		for (int i = 0; i < gab_jobs.length; i++) {
+			try {
+				gab_jobs[i].join();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+		
+//		for (int i = 0; i < GaborFilt2D.ptches_out.size(); i++) {
+//			System.out.println(
+//					i+" "+
+//					GaborFilt2D.ptches_out.get(i).getHeight()+" x "+
+//					GaborFilt2D.ptches_out.get(i).getWidth()+" x "+
+//					GaborFilt2D.ptches_out.get(i).getStackSize()+" at "+
+//					GaborFilt2D.ptch_root_x.get(i)+" , "+
+//					GaborFilt2D.ptch_root_y.get(i)
+//					);
+//			//GaborFilt2D.ptches_out.get(i).show();
+//		}
+		
+		
+		ImagePlus atlast = GaborFilt2D.concatenateOutput();
+		
+		long t12 = System.currentTimeMillis();
+		
+		System.out.println("parallel threading took: "+((t12-t11)/1000f)+" s.");
+		
+		atlast.show();
+		
+		long t21 = System.currentTimeMillis();
+		gab = GaborFilt2D.extractDirectionalGabor(img, theta_pi, t, bandwidth, psi, gamma, isReal); 
+		long t22 = System.currentTimeMillis();
+		
+		System.out.println("without 	threading took: "+((t22-t21)/1000f)+" s.");
+		
+		gab.show();
+		
+		if(true) return;
+		
 		mn_mx = calculateStackMinMax(gab.getStack());
-		IJ.log("gabor outputs: "+mn_mx[0]+" / "+mn_mx[1]);
-}
+		System.out.println("gabor outputs: "+mn_mx[0]+" / "+mn_mx[1]);
+		
 		/*
 		 * extract maximal directional gabor response in every point
 		 */
@@ -182,6 +253,17 @@ if(true){
 		 *  extract neuriteness & eigen vecs
 		 */
 
+		t11 = System.currentTimeMillis();
+		Vector<ImagePlus> nness = extractNeuritenessAndEigenVec(img, s);
+		System.out.println("to get nness: "+((System.currentTimeMillis()-t11)/1000f)+"  size is "+nness.size());
+		
+		nness.get(0).setTitle("nness(try)");
+		nness.get(0).show();
+		nness.get(1).setTitle("Vx(try)");
+		nness.get(1).show();
+		nness.get(2).setTitle("Vy(try)");
+		nness.get(2).show();
+		
 		inimg = Image.wrap(img); inimg.axes(Axes.X+Axes.Y);
 
 		neuriteness = new ImagePlus("neuriteness", new FloatProcessor(W, H));
@@ -232,9 +314,14 @@ if(true){
 		
 		}
 		
-		neuriteness.show();
-		//Vx.show();
-		//Vy.show();
+		neuriteness.setTitle("nness(orig.)");
+		neuriteness.show(); 
+		Vx.setTitle("Vx(orig.)");
+		Vx.show();
+		Vy.setTitle("Vy(orig.)");
+		Vy.show();
+		
+		if(true) return;
 		// done  with neuriteness
 		/*
 		 * eigenvec on original
@@ -299,44 +386,6 @@ if(true){
 		
 		return out;
 		
-	}
-	
-	public ImagePlus extractDirectionalGabor(
-			ImagePlus input, 
-			double[] angles_pi, 
-			double[] t, 
-			double bw, 
-			double psi, 
-			double gamma,
-			boolean isReal){
-		
-		int w = input.getWidth();
-		int h = input.getHeight();
-		
-		ImageStack 	angul = new ImageStack(w, h); 
-		
-		ZProjector zmax = new ZProjector();
-		
-		for (int i = 0; i < angles_pi.length; i++) {
-			
-			double current_theta = angles_pi[i];
-			
-			System.out.println("processing theta = "+i+" / "+ (angles_pi.length-1));
-			
-			ImagePlus g_theta = GaborFilt2D.run(
-					input, current_theta, t, new double[t.length], bw, psi, gamma, isReal);
-			
-			zmax.setImage(g_theta);
-			zmax.setStartSlice(1);
-			zmax.setStopSlice(g_theta.getStackSize());
-			zmax.setMethod(ZProjector.MAX_METHOD);
-			zmax.doProjection();
-			angul.addSlice("theta="+IJ.d2s(current_theta, 2), zmax.getProjection().getChannelProcessor());
-
-		}
-		
-		return new ImagePlus("gabor_per_angle", angul);
-
 	}
 	
 	public float[] calculateStackMinMax(ImageStack instack){
@@ -429,9 +478,9 @@ if(true){
 		
 		////
 		
-		out.set(0, neuriteness);
-		out.set(1, Vx);
-		out.set(2, Vy);
+		out.add(neuriteness);
+		out.add(Vx);
+		out.add(Vy);
 		
 		return out;
 		
