@@ -21,18 +21,10 @@ import ij.gui.PointRoi;
 import ij.measure.Calibration;
 import ij.plugin.PlugIn;
 import ij.plugin.ZProjector;
-import imagescience.feature.Differentiator;
-import imagescience.feature.Hessian;
-import imagescience.image.Axes;
-import imagescience.image.Coordinates;
-import imagescience.image.Dimensions;
-import imagescience.image.FloatImage;
-import imagescience.image.Image;
 
 public class ExtractFeatures implements PlugIn {
 
 	ImagePlus 	img, gab, gabAll, weighted, neuriteness, Vx, Vy;
-	Image		inimg;
 	
 	String 		train_folder, test_folder;
 	
@@ -50,23 +42,26 @@ public class ExtractFeatures implements PlugIn {
 	double 		gamma = 1.0;
 	boolean 	isReal = true;
 	
-	// circ features
+	// features
 	double 		radius; // calculated wrt. hughest scale but can be fixed
-	double 		dr, darc, dratio;
+	double 		dr, darc, rratio;
+	int			surr=3;
 	
 	int 		W, H;
+	
+	int			nr_proc;
 	
 	public void run(String arg0) {
 		
 		
 		t1  	= Prefs.get("advantra.critpoint.start_scale", 		3.0);
-		t2    	= Prefs.get("advantra.critpoint.end_scale", 		11.0);
-		tn 		= (int)Prefs.get("advantra.critpoint.nr_scales", 	5);
-		M		= (int)Prefs.getInt("advantra.critpoint.nr_angles", 8);
+		t2    	= Prefs.get("advantra.critpoint.end_scale", 		7.0);
+		tn 		= (int)Prefs.get("advantra.critpoint.nr_scales", 	3);
+		M		= (int)Prefs.get("advantra.critpoint.nr_angles", 	8);
 		dr    	= Prefs.get("advantra.critpoint.dr", 				1.0);
 		darc    = Prefs.get("advantra.critpoint.darc", 				1.0);
-		dratio	= Prefs.get("advantra.critpoint.dratio", 			0.2);
-		
+		rratio	= Prefs.get("advantra.critpoint.dratio", 			0.2);
+		nr_proc = (int)Prefs.get("advantra.critpoint.nr_proc", 		4);
 		
 		train_folder = (String)Prefs.get("advantra.critpoint.train_folder", 
 				(System.getProperty("user.home")+File.separator));
@@ -76,43 +71,50 @@ public class ExtractFeatures implements PlugIn {
 		GenericDialog gd = new GenericDialog("ExtractFeatures");
 		gd.addNumericField("start scale", t1, 1);
 		gd.addNumericField("end   scale", t2, 1);
-		gd.addNumericField("nr   scales", tn, 0);
-		
+		gd.addNumericField("nr   scales", tn, 			0, 5, "");
 		gd.addNumericField("angles(per 180 deg)", M,	0, 5, "");
 		
+		gd.addMessage("circular extraction parameters");
+		gd.addNumericField("x(lagest scale std)",	surr, 	0);
 		gd.addNumericField("radius step", 		dr, 1);
 		gd.addNumericField("arc    step", 		darc, 1);
-		gd.addNumericField("rratio step", 		dratio, 1);
+		gd.addNumericField("rratio step", 		rratio, 1);
 		
-		gd.addStringField("train folder : ", train_folder, 	50);
-		gd.addStringField("test  folder : ", test_folder, 	50);
+		gd.addStringField("train folder : ", train_folder, 	80);
+		gd.addStringField("test  folder : ", test_folder, 	80);
+		
+		gd.addMessage("parallelization");
+		gd.addNumericField("CPU #",					nr_proc, 0);
 		
 		gd.showDialog();
 		if (gd.wasCanceled()) return;
 		t1 	= 		gd.getNextNumber();
 		t2	= 		gd.getNextNumber();
 		tn	= (int)	gd.getNextNumber();
-		
 		M 	= (int)	gd.getNextNumber();
 		
+		surr = (int)gd.getNextNumber();
 		dr  = 			gd.getNextNumber();
 		darc  = 		gd.getNextNumber();
-		dratio  = 		gd.getNextNumber();
+		rratio  = 		gd.getNextNumber();
 		
 		train_folder = 	gd.getNextString();
 		test_folder = 	gd.getNextString();
 		
+		nr_proc = (int)gd.getNextNumber();
+		
 		Prefs.set("advantra.critpoint.start_scale", t1);
 		Prefs.set("advantra.critpoint.end_scale", 	t2);
 		Prefs.set("advantra.critpoint.nr_scales", 	tn);
-		
 		Prefs.set("advantra.critpoint.nr_angles", 	M);
 		Prefs.set("advantra.critpoint.dr", 			dr);
 		Prefs.set("advantra.critpoint.darc", 		darc);
-		Prefs.set("advantra.critpoint.dratio", 		dratio);
+		Prefs.set("advantra.critpoint.dratio", 		rratio);
 		
 		Prefs.set("advantra.critpoint.train_folder", train_folder);
 		Prefs.set("advantra.critpoint.test_folder", test_folder);
+		
+		Prefs.set("advantra.critpoint.nr_proc", 	nr_proc);
 		
 		
 		// scales
@@ -123,7 +125,7 @@ public class ExtractFeatures implements PlugIn {
 			s[i] = Math.sqrt(t[i]);
 		}
 				
-		radius = 3*Math.sqrt(t[t.length-1]); // xGaussianStd.
+		radius = surr*Math.sqrt(t[t.length-1]); // xGaussianStd.
 			
 		// angles theta angle it makes with x axis (angle it makes with the first row)
 		theta_pi 	= new double[M];
@@ -157,7 +159,7 @@ public class ExtractFeatures implements PlugIn {
 		
 		for (int i = 0; i < files_tif.length; i++) { // for each tif file
 			
-			System.out.println("\n "+files_tif[i].getName()+"  ...  ");
+			System.out.println("\n "+files_tif[i].getName()+" "+i+"/"+(files_tif.length-1)+"  ...  ");
 			
 			curr_pos = 0;
 			curr_neg = 0;
@@ -215,21 +217,95 @@ public class ExtractFeatures implements PlugIn {
 				H = img.getHeight();
 				W = img.getWidth();
 				
-				inimg = Image.wrap(img); inimg.axes(Axes.X+Axes.Y);
-				inimg.name("input_image");
+				//img.show();
 				
-				img.show();
+				System.out.print("...gabor...");
+				int N 				= theta_pi.length; // parallelize
 				
-				//gab = extractDirectionalGabor(img, theta_pi, t, bandwidth, psi, gamma, isReal); 
+				GaborFilt2D.load(
+						img, 
+						theta_pi,
+						t,
+						new double[t.length],
+						bandwidth,
+						psi,
+						gamma,
+						isReal);
+
+				long t0, t1;
+				t0 = System.currentTimeMillis();
+				GaborFilt2D gab_jobs[] = new GaborFilt2D[nr_proc];
+				for (int l = 0; l < gab_jobs.length; l++) {
+					
+					int start_interval 	= l*N/nr_proc;
+					int end_interval	= (l+1)*N/nr_proc;
+					
+					gab_jobs[l] = new GaborFilt2D(start_interval,  end_interval);
+					gab_jobs[l].start();
+				}
+				for (int l = 0; l < gab_jobs.length; l++) {
+					try {
+						gab_jobs[l].join();
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+				}
+				
+				gab = new ImagePlus("", GaborFilt2D.gabor_directional_responses);
+				gab.setTitle("gabor filter, directional responses");
+				t1 = System.currentTimeMillis();
+				System.out.println("done, "+((t1-t0)/1000f)+" seconds");
+				//gab.show();
+				
+				/*
+				 * extract maximal directional gabor response in every point
+				 */
+
+				ZProjector zmax = new ZProjector();
+				zmax.setImage(gab);
+				zmax.setStartSlice(1);	
+				zmax.setStopSlice(gab.getStackSize());
+				zmax.setMethod(ZProjector.MAX_METHOD);
+				zmax.doProjection();
+				gabAll = new ImagePlus("gabor filter, directional responses, max", zmax.getProjection().getChannelProcessor());
+				//gabAll.show();
+				
+				boolean normalize = false;
+				if(normalize){
+					weighted = new ImagePlus("gabor filter, directional responses, max, min-max normalized", 
+							VizFeatures.normalizeStackMinMax(gabAll.getStack()));
+				}
+				else{
+					weighted = new ImagePlus("gabor filter, directional responses, max, min-max normalized", 
+							gabAll.getStack());
+				}
 				
 				
-				img.close();
+				/*
+				 *  extract neuriteness & eigen vecs
+				 */
+
+				System.out.print("...neuriteness...");
+				
+				long t11 = System.currentTimeMillis();
+				Vector<ImagePlus> nness = VizFeatures.extractNeuritenessAndEigenVec(img, s);
+				System.out.println("done, "+((System.currentTimeMillis()-t11)/1000f)+" seconds");
+				
+				neuriteness = nness.get(0);
+				neuriteness.setTitle("neuriteness");
+				neuriteness.show();
+				
+				Vx = nness.get(1);
+				Vx.setTitle("Vx");
+				
+				Vy = nness.get(2);
+				Vy.setTitle("Vy");
 				
 				
 			}
 			
 			
-		}
+		} // loop files
 		
 		System.out.println("////\n total (+) : "+total_pos);
 		System.out.println(" total (-) : "+total_neg+"\n////\n");
@@ -441,7 +517,7 @@ public class ExtractFeatures implements PlugIn {
 	    
 	}
 	
-	 int applyAdaBoost(double[][] adaboost, double[] imFeaturesT) {
+	private int applyAdaBoost(double[][] adaboost, double[] imFeaturesT) {
 		    double res = 0;
 		    double object_res = 0;
 		    for (int i = 0; i < adaboost.length; i++) {
@@ -488,45 +564,4 @@ public class ExtractFeatures implements PlugIn {
 		
 	}
 	
-	private ImagePlus extractDirectionalGabor(
-			ImagePlus input, 
-			double[] angles_pi, 
-			double[] t, 
-			double bw, 
-			double psi, 
-			double gamma,
-			boolean isReal){
-		
-		int w = input.getWidth();
-		int h = input.getHeight();
-		
-		ImageStack 	angul = new ImageStack(w, h); 
-		
-		ZProjector zmax = new ZProjector();
-		
-		System.out.print("gabor filtering ");
-		
-		for (int i = 0; i < angles_pi.length; i++) {
-			
-			double current_theta = angles_pi[i];
-			
-			System.out.print(".");
-			
-			ImagePlus g_theta = GaborFilt2D.run(
-					input, current_theta, t, new double[t.length], bw, psi, gamma, isReal);
-			
-			zmax.setImage(g_theta);
-			zmax.setStartSlice(1);
-			zmax.setStopSlice(g_theta.getStackSize());
-			zmax.setMethod(ZProjector.MAX_METHOD);
-			zmax.doProjection();
-			angul.addSlice("theta="+IJ.d2s(current_theta, 2), zmax.getProjection().getChannelProcessor());
-
-		}
-		
-		System.out.print(" done.");
-		
-		return new ImagePlus("gabor_per_angle", angul);
-
-	}
 }

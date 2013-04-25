@@ -9,13 +9,13 @@ import ij.plugin.ZProjector;
 import ij.plugin.filter.Convolver;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
-import imagescience.image.Axes;
-import imagescience.image.Coordinates;
-import imagescience.image.Dimensions;
-import imagescience.image.FloatImage;
-import imagescience.image.Image;
 
-public class GaborFilt2D extends Thread { // 
+public class GaborFilt2D extends Thread { 
+	
+	/*
+	 * this implementation was chosen since parallelizing per angles was faster and 
+	 * there was no loss in information
+	 */
 	
 	/* calculates bank of Gabor filters over the selected image.
 	* 	sigma				-> gaussian envelope, 
@@ -46,12 +46,13 @@ public class GaborFilt2D extends Thread { //
 	public static double	gamma;
 	public static boolean	real;
 	
-	// parallel
-	public static Vector<ImagePlus> ptches;
-	public static int ptch_len;
-	public static Vector<ImagePlus> ptches_out;
-	public static Vector<Integer> ptch_root_x;
-	public static Vector<Integer> ptch_root_y;
+	/*
+	 * thetas will be processed in parallel
+	 */
+	
+	public static ImageStack	gabor_directional_responses; // will be stack with lambdas layers		
+	public static ImageProcessor input_ip;
+	public static Vector<ImageStack> kernels;
 	
 	private int n0, n1;
 	
@@ -59,28 +60,9 @@ public class GaborFilt2D extends Thread { //
 		this.n0 = n0;
 		this.n1 = n1;
 	}
-	
-	public void 	run(){
-		
-		// run one part of the whole job, one range of patches that make the whole image
-		
-//		System.out.println("calculating range: "+n0+" to "+(n1-1));
-		
-		for (int i = n0; i < n1; i++) {
-			
-			ImagePlus to_add = extractDirectionalGabor(ptches.get(i), thetas, sigmas, bandwidth, psi, gamma, real);
-			//IJ.log("extracted "+to_add.getHeight()+" x "+to_add.getWidth()+" x "+to_add.getStackSize());
-			ptches_out.set(i, to_add);
-			//IJ.log("current size: "+ptches_out.size()+" ");
-			//IJ.log("added  to "+i);
-			
-		}
-		
-	}	
-	
+
 	public static void load(
-			ImagePlus 	input_img, 
-			int 		number_of_patches, 
+			ImagePlus 	input_img99, 
 			double[] 	thetas99, 
 			double[] 	sigmas99, 
 			double[] 	lambdas99, 
@@ -88,9 +70,6 @@ public class GaborFilt2D extends Thread { //
 			double 		psi99,
 			double		gamma99,
 			boolean		real99){
-		
-		
-		System.out.println("how much "+thetas99.length);
 		
 		thetas = new double[thetas99.length];
 		for (int i = 0; i < thetas99.length; i++) {
@@ -112,265 +91,169 @@ public class GaborFilt2D extends Thread { //
 		gamma = gamma99;
 		real = real99;
 		
-		Ht = input_img.getHeight();
-		Wt = input_img.getWidth();
+		Ht = input_img99.getHeight();
+		Wt = input_img99.getWidth();
 		
-		ptch_len = (int)Math.ceil(Math.sqrt((Ht*Wt)/number_of_patches));
+		input_ip = input_img99.getProcessor().convertToFloat().duplicate();
 		
-		ptches 		= new Vector<ImagePlus>();
-		ptches_out 	= new Vector<ImagePlus>();
-		ptch_root_x = new Vector<Integer>();
-		ptch_root_y = new Vector<Integer>();
+		gabor_directional_responses = new ImageStack(Wt, Ht, thetas.length);
 		
-		// split into patches ptch_len x ptch_len
-		// easier wrapped in imagescience
+		// create filters
+		kernels = new Vector<ImageStack>(sigmas.length);
+
+		double slratio = 
+				(1/Math.PI) * 
+				Math.sqrt((Math.log(2)/2)) * 
+				((Math.pow(2,bandwidth)+1)/(Math.pow(2,bandwidth)-1));
 		
-		double[][] aPtch = new double[ptch_len][ptch_len];
-		
-		Image input_image = Image.wrap(input_img);
-		input_image.axes(Axes.X+Axes.Y);
-		
-		Image output_patch = new FloatImage(new Dimensions(ptch_len, ptch_len));
-		output_patch.axes(Axes.X+Axes.Y);
-		
-		Coordinates crd = new Coordinates();
-		for (int row = 0; row < Ht; row+=ptch_len) {
-			for (int col = 0; col < Wt; col+=ptch_len) {
-				
-				if(row+ptch_len>Ht){
-					aPtch = new double[ptch_len][ptch_len];
-				}
-				
-				if(col+ptch_len>Wt){
-					aPtch = new double[ptch_len][ptch_len];
-				}
-				
-				crd.x = col;//Wt-ptch_len+1;
-				crd.y = row;//Ht-ptch_len+1;
-				input_image.get(crd, aPtch);
-				
-				crd.x = 0;
-				crd.y = 0;
-				output_patch.set(crd, aPtch);
-				
-//				output_patch.imageplus().show();
-				
-				// add it to Vector
-				ptches.add(output_patch.duplicate().imageplus());
-				ptches_out.add(new ImagePlus("", new FloatProcessor(ptch_len, ptch_len)));
-				ptch_root_x.add(col);
-				ptch_root_y.add(row);
-				
+		for (int scaleIdx = 0; scaleIdx < sigmas.length; scaleIdx++) {
+			
+			if(sigmas[scaleIdx]==0){
+				sigmas[scaleIdx] = slratio * lambdas[scaleIdx];
 			}
+			else if(lambdas[scaleIdx]==0){
+				lambdas[scaleIdx] = sigmas[scaleIdx] / slratio;
+			}
+			
+			double sigma_x = sigmas[scaleIdx];
+			double sigma_y = sigmas[scaleIdx] / gamma;
+			double larger_sigma = (sigma_x>sigma_y)? sigma_x : sigma_y ;
+			
+			int filterSizeX = W * (int)larger_sigma + 1;
+			int filterSizeY = W * (int)larger_sigma + 1;
+			
+			int middleX = (int) Math.round(filterSizeX / 2);
+			int middleY = (int) Math.round(filterSizeY / 2);
+			
+			ImageStack kernel_stack = new ImageStack(filterSizeX, filterSizeY);
+			
+			for (int angIdx = 0; angIdx < thetas.length; angIdx++) {
+				
+				double curr_angle = thetas[angIdx]; 
+				double lambda = lambdas[scaleIdx];
+				
+				ImageProcessor filter = new FloatProcessor(filterSizeX, filterSizeY);  
+				
+				float sumPos = 0;
+				float sumNeg = 0;
+				
+				// x0 and y0 at patch center (0,0)
+			    for (int x=-middleX; x<=middleX; x++){
+			        for (int y=-middleY; y<=middleY; y++){           
+				        	
+			        	double  xr = (double)x * Math.cos(curr_angle) + (double)y * Math.sin(curr_angle);
+			        	double  yr = (double)y * Math.cos(curr_angle) - (double)x * Math.sin(curr_angle);
+				        	
+			        	double env = (1.0/(2.0 * Math.PI * sigma_x*sigma_y)) * 
+			        			Math.exp(- 0.5 *((xr*xr)/(sigma_x*sigma_x) + (yr*yr)/(sigma_y*sigma_y)));
+				        	
+			        	double carr;
+			        	if(real){
+			            	carr = Math.cos(2 * Math.PI * xr / lambda + psi);
+			            }
+			            else{
+			            	carr = Math.sin(2 * Math.PI * xr / lambda + psi);
+			            }
+			        	
+			        	float coeff = (float)(env*carr);
+			        	
+			        	filter.setf(x+middleX, y+middleY, coeff);
+			        	
+			        	if(coeff>=0){
+			        		sumPos += coeff;
+			        	}
+			        	else{
+			        		sumNeg += Math.abs(coeff);
+			        	}
+				        
+			        }
+			    }
+			    
+			    for (int x=0; x<filterSizeX; x++){
+			        for (int y=0; y<filterSizeY; y++){
+			        	float val = filter.getPixelValue(x, y);
+			        	if(val>=0){
+			        		filter.setf(x, y, val/sumPos);
+			        	}
+			        	else{
+			        		filter.setf(x, y, val/sumNeg);
+			        	}
+			        }
+			    }
+				
+			    kernel_stack.addSlice("", filter);
+				
+			} // loop thetas
+			
+			kernels.add(kernel_stack);
+			
 		}
 		
-		
-		
-		// allocate the outputs so that the future 
-		//ptches_out.set(0, ptches.get(0));
-		
-		System.out.println("formed "+ptches.size()+" input patches and allocated "+ptches_out.size()+" output patches");
-		
-	}
-
-	public static ImagePlus concatenateOutput(){
-		
-		Image			out_image = new FloatImage(new Dimensions(Wt, Ht, thetas.length));//Image.wrap(out_im);
-		out_image.axes(Axes.X+Axes.Y+Axes.Z);
-		
-		double[][][] aPatch = new double[thetas.length][ptch_len][ptch_len];
-		
-		Coordinates crd = new Coordinates();
-
-		for (int i = 0; i < ptches_out.size(); i++) {  
-			
-			Image this_ptch = Image.wrap(ptches_out.get(i));
-			this_ptch.axes(Axes.X+Axes.Y+Axes.Z);
-
-			crd.x = 0;
-			crd.y = 0;
-			
-			this_ptch.get(crd, aPatch);
-			
-			crd.x = ptch_root_x.get(i);
-			crd.y = ptch_root_y.get(i);
-			
-			out_image.set(crd, aPatch);
-			
-		}
-		
-		return out_image.imageplus();
+//		for (int i = 0; i < kernels.size(); i++) {
+//			new ImagePlus("", kernels.get(i)).show();
+//		}
 		
 	}
 	
-	public static ImagePlus run(
-			ImagePlus input2D, 
-			double theta, 
-			double[] sigmas, 
-			double[] lambdas, 
-			double bandwidth,
-			double psi,
-			double gamma,
-			boolean real){
+	public void 	run(){
 		
-		ImageStack result_stack = new ImageStack(input2D.getWidth(), input2D.getHeight());
+		// run one part of the whole job, one range of patches that make the whole image
+		ZProjector zmax1 = new ZProjector();
+		for (int i = n0; i < n1; i++) {
+			
+			ImagePlus g_theta = runTheta(i);
+
+			zmax1.setImage(g_theta);
+			zmax1.setStartSlice(1);
+			zmax1.setStopSlice(g_theta.getStackSize());
+			zmax1.setMethod(ZProjector.MAX_METHOD);
+			zmax1.doProjection();
+			gabor_directional_responses.setPixels(
+					zmax1.getProjection().getChannelProcessor().getPixels(), 
+					i+1);
+
+		}
+		
+	}	
+	
+	public static ImagePlus runTheta(
+			int theta_idx
+			){
+		
+		ImageStack result_stack = new ImageStack(Wt, Ht);
 		
 		for (int i = 0; i < sigmas.length; i++) {
 			
 			result_stack.addSlice(
-					"gabor,theta=" + IJ.d2s(theta, 2) + ",sigma=" + IJ.d2s(sigmas[i], 2),
-					run(input2D, theta, sigmas[i], lambdas[i], bandwidth, psi, gamma, real).getProcessor());
+					"gabor,theta=" + IJ.d2s(thetas[theta_idx], 2) + ",sigma=" + IJ.d2s(sigmas[i], 2),
+					runOne(theta_idx, i)
+					);
 			
 		}
 		
-		String result_name = ((real)?"real":"imag")+"_gabor_filt_per_scales";
+//		String result_name = ((real)?"real":"imag")+"_gabor_filt_per_scales";
 		
-		return new ImagePlus (result_name, result_stack);
-		
-	}
-	
-	public static ImagePlus run(
-			ImagePlus input2D,
-			double[] thetas, 
-			double sigma, 
-			double lambda, 
-			double bandwidth, 
-			double psi, 
-			double gamma,
-			boolean real){
-
-		// if input2D is null just give kernels (for visualization)
-		if(input2D==null){
-			ImageStack result_kernel = run(null, thetas[0], sigma, lambda, bandwidth, psi, gamma, real).getStack();
-			for (int i = 1; i < thetas.length; i++) {
-				result_kernel.addSlice(run(null, thetas[i], sigma, lambda, bandwidth, psi, gamma, real).getProcessor());
-			}
-			return new ImagePlus("gabor_kernels", result_kernel);
-		}
-		
-		ImageStack result_stack = new ImageStack(input2D.getWidth(), input2D.getHeight());
-		
-		for (int i = 0; i < thetas.length; i++) {
-			
-			result_stack.addSlice(
-					"gabor,theta=" + IJ.d2s(thetas[i], 2) + ",sigma=" + IJ.d2s(sigma, 2),
-					run(input2D, thetas[i], sigma, lambda, bandwidth, psi, gamma, real).getProcessor());
-		}
-		
-		String result_name = ((real)?"real":"imag")+"_gabor_filt_per_thetas";
-		
-		return new ImagePlus (result_name, result_stack);
+		return new ImagePlus ("", result_stack);
 		
 	}
 	
-	public static ImagePlus run(
-			ImagePlus input2D, 
-			double theta, 
-			double sigma, 
-			double lambda, 
-			double bandwidth, 
-			double psi, 
-			double gamma,
-			boolean real){
+	public static ImageProcessor runOne(
+			int theta_idx,
+			int sigma_idx 
+			){
 
-		double slratio = 
-				(1/Math.PI) * Math.sqrt((Math.log(2)/2)) * ((Math.pow(2,bandwidth)+1) / (Math.pow(2,bandwidth) - 1) );
-		
-		if(sigma==0){
-			sigma = slratio * lambda;
-		}
-		else if(lambda==0){
-			lambda = sigma / slratio;
-		}
-		
-		double sigma_x = sigma;
-		double sigma_y = sigma / gamma;
-		double larger_sigma = (sigma_x>sigma_y)? sigma_x : sigma_y ;
-		
-		// Create set of filters
-		int filterSizeX = W * (int)larger_sigma + 1;
-		int filterSizeY = W * (int)larger_sigma + 1;
-		
-		int middleX = (int) Math.round(filterSizeX / 2);
-		int middleY = (int) Math.round(filterSizeY / 2);
-		
-		ImageStack kernels 	= new ImageStack(filterSizeX, filterSizeY);
-		ImageProcessor filter = new FloatProcessor(filterSizeX, filterSizeY);  
-		
-		float sumPos = 0;
-		float sumNeg = 0;
-		
-		// x0 and y0 at patch center (0,0)
-	    for (int x=-middleX; x<=middleX; x++){
-	        for (int y=-middleY; y<=middleY; y++){           
-		        	
-	        	double  xr = (double)x * Math.cos(theta) + (double)y * Math.sin(theta);
-	        	double  yr = (double)y * Math.cos(theta) - (double)x * Math.sin(theta);
-		        	
-	        	double env = (1.0/(2.0 * Math.PI * sigma_x*sigma_y)) * 
-	        			Math.exp(- 0.5 *((xr*xr)/(sigma_x*sigma_x) + (yr*yr)/(sigma_y*sigma_y)));
-		        	
-	        	double carr;
-	        	if(real){
-	            	carr = Math.cos(2 * Math.PI * xr / lambda + psi);
-	            }
-	            else{
-	            	carr = Math.sin(2 * Math.PI * xr / lambda + psi);
-	            }
-	        	
-	        	float coeff = (float)(env*carr);
-	        	
-	        	filter.setf(x+middleX, y+middleY, coeff);
-	        	
-	        	if(coeff>=0){
-	        		sumPos += coeff;
-	        	}
-	        	else{
-	        		sumNeg += Math.abs(coeff);
-	        	}
-		        
-	        }
-	    }
-	    
-	    for (int x=0; x<filterSizeX; x++){
-	        for (int y=0; y<filterSizeY; y++){
-	        	float val = filter.getPixelValue(x, y);
-	        	if(val>=0){
-	        		filter.setf(x, y, val/sumPos);
-	        	}
-	        	else{
-	        		filter.setf(x, y, val/sumNeg);
-	        	}
-	        }
-	    }
-		
-	    String slice_name = ((real)?"real":"imag") + "_kernel,theta=" + IJ.d2s(theta,2) + ",sigma=" + IJ.d2s(sigma,2);
-	    kernels.addSlice(slice_name, filter);
-	    
-	    if(input2D==null){
-	    	return new ImagePlus ("gabor_kernels", kernels);
-	    }
-	    
-	    /*
-	     * convolution
-	     */
-	    
+		//convolution
 	    Convolver c = new Convolver();                
 		c.setNormalize(false); // important not to normalize (did my own normalization)
-    
-		float[] kernel = (float[]) kernels.getProcessor(1).getPixels();
-		ImageProcessor ip = input2D.getProcessor().convertToFloat().duplicate();
+		
+		float[] kernel = (float[]) kernels.get(sigma_idx).getProcessor(theta_idx+1).getPixels();
+		
+		int filterSizeX = kernels.get(sigma_idx).getWidth();
+		int filterSizeY = kernels.get(sigma_idx).getHeight();
+		
+		ImageProcessor ip = input_ip.duplicate(); // needs to be float stack
 		c.convolveFloat(ip, kernel, filterSizeX, filterSizeY);      
- 
-		int width 	= input2D.getWidth();
-		int height 	= input2D.getHeight();
-		
-		ImageStack filtered	= new ImageStack(width, height);
-		filtered.addSlice("gabor,theta=" + IJ.d2s(theta, 2) + ",sigma=" + IJ.d2s(sigma, 2), ip);
-		
-		String result_name = ((real)?"real":"imag")+"_gabor_filt";
-		
-		return new ImagePlus (result_name, filtered) ;
+		return ip;
 		
 	}
 	
@@ -394,10 +277,7 @@ public class GaborFilt2D extends Thread { //
 			
 			double current_theta = angles_pi[i];
 			
-			//System.out.println("processing theta = "+i+" / "+ (angles_pi.length-1));
-			
-			ImagePlus g_theta = run(
-					input, current_theta, t, new double[t.length], bw, psi, gamma, isReal);
+			ImagePlus g_theta = runTheta(i);
 			
 			zmax.setImage(g_theta);
 			zmax.setStartSlice(1);
@@ -405,10 +285,10 @@ public class GaborFilt2D extends Thread { //
 			zmax.setMethod(ZProjector.MAX_METHOD);
 			zmax.doProjection();
 			angul.addSlice("theta="+IJ.d2s(current_theta, 2), zmax.getProjection().getChannelProcessor());
-
+			
 		}
 		
-		return new ImagePlus("gabor_per_angle", angul);
+		return new ImagePlus("gabor_per_angle_reg", angul);
 
 	}
 	
