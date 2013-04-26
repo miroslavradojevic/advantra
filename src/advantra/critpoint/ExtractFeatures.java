@@ -1,6 +1,7 @@
 package advantra.critpoint;
 
 import java.awt.Color;
+import java.awt.image.ColorModel;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.FilenameFilter;
@@ -8,12 +9,15 @@ import java.io.IOException;
 import java.util.Vector;
 
 import advantra.feature.GaborFilt2D;
+import advantra.feature.ProfileFilters;
 import advantra.file.AnalyzeCSV;
+import advantra.shapes.Point;
 
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.Prefs;
+import ij.gui.EllipseRoi;
 import ij.gui.GenericDialog;
 import ij.gui.Overlay;
 import ij.gui.Plot;
@@ -21,6 +25,7 @@ import ij.gui.PointRoi;
 import ij.measure.Calibration;
 import ij.plugin.PlugIn;
 import ij.plugin.ZProjector;
+import ij.process.FloatProcessor;
 
 public class ExtractFeatures implements PlugIn {
 
@@ -51,6 +56,12 @@ public class ExtractFeatures implements PlugIn {
 	
 	int			nr_proc;
 	
+	// output will be examples (pos. and neg.)
+	ImageStack pos_examples_profile;
+	ImageStack pos_examples_patch;// not used now
+	ImageStack neg_examples_profile;
+	ImageStack neg_examples_patch;// not used now
+	
 	public void run(String arg0) {
 		
 		
@@ -59,6 +70,7 @@ public class ExtractFeatures implements PlugIn {
 		tn 		= (int)Prefs.get("advantra.critpoint.nr_scales", 	3);
 		M		= (int)Prefs.get("advantra.critpoint.nr_angles", 	8);
 		dr    	= Prefs.get("advantra.critpoint.dr", 				1.0);
+		
 		darc    = Prefs.get("advantra.critpoint.darc", 				1.0);
 		rratio	= Prefs.get("advantra.critpoint.dratio", 			0.2);
 		nr_proc = (int)Prefs.get("advantra.critpoint.nr_proc", 		4);
@@ -155,6 +167,12 @@ public class ExtractFeatures implements PlugIn {
 		int curr_pos = 0;
 		int curr_neg = 0;
 		
+		
+		int angular_resolution = (int)Math.ceil((Math.PI*2)/(darc/radius));// highest
+//		int angular_resolution = 64;
+		pos_examples_profile = new ImageStack(angular_resolution, 1);
+		neg_examples_profile = new ImageStack(angular_resolution, 1);
+		
 		System.out.println("## TRAINING ##  "+train_folder);
 		
 		for (int i = 0; i < files_tif.length; i++) { // for each tif file
@@ -213,11 +231,10 @@ public class ExtractFeatures implements PlugIn {
 				resetCalibration();
 				convertToFloatImage();
 				IJ.freeMemory();
+				//img.show();
 				
 				H = img.getHeight();
 				W = img.getWidth();
-				
-				//img.show();
 				
 				System.out.print("...gabor...");
 				int N 				= theta_pi.length; // parallelize
@@ -292,7 +309,7 @@ public class ExtractFeatures implements PlugIn {
 				
 				neuriteness = nness.get(0);
 				neuriteness.setTitle("neuriteness");
-				neuriteness.show();
+				//neuriteness.show();
 				
 				Vx = nness.get(1);
 				Vx.setTitle("Vx");
@@ -300,30 +317,91 @@ public class ExtractFeatures implements PlugIn {
 				Vy = nness.get(2);
 				Vy.setTitle("Vy");
 				
-				// there are 3 input images and locations
+				// there are 4 options for input images and locations: neuriteness, gabAll, weighted, img
 				
 				// take those locations
-//				double[][] = locs_pos.get(i);
-				int[][] xy_positive = new int[curr_pos][2];
+				
+				Overlay ovly = new Overlay();
+				
+				
 				for (int k = 0; k < curr_pos; k++) {
-					xy_positive[k][0] = (int)locs_pos.get(i)[k][0];
-					xy_positive[k][1] = (int)locs_pos.get(i)[k][1];
+					
+					int atX = (int)locs_pos.get(i)[k][0];
+					int atY = (int)locs_pos.get(i)[k][1];
+					
+					double[] extracted_profile = VizFeatures.extractProfile(img, Vx, Vy, atX, atY, radius, dr, darc, rratio, angular_resolution);
+					
+					FloatProcessor fp = new FloatProcessor(angular_resolution, 1, extracted_profile);
+					
+					pos_examples_profile.addSlice(fp);
+					
+					EllipseRoi pt = new EllipseRoi(atX-2.5, atY-2.5, atX+2.5, atY+2.5, 1);
+					pt.setColor(Color.RED);
+					ovly.addElement(pt);
+					
 				}
 				
-				int[][] xy_negative = new int[curr_neg][2];
 				for (int k = 0; k < curr_neg; k++) {
-					xy_negative[k][0] = ;
-					xy_negative[k][1] = ;
+					
+					int atX = (int)locs_neg.get(i)[k][0];
+					int atY = (int)locs_neg.get(i)[k][1];
+					
+					double[] extracted_profile = VizFeatures.extractProfile(img, Vx, Vy, atX, atY, radius, dr, darc, rratio, angular_resolution);
+					
+					FloatProcessor fp = new FloatProcessor(angular_resolution, 1, extracted_profile);
+					
+					neg_examples_profile.addSlice(fp);
+					
+					PointRoi pt = new PointRoi(atX, atY);
+					pt.setColor(Color.BLUE);
+					ovly.addElement(pt);
+					
 				}
 				
+				ImagePlus showIt = new ImagePlus("VIZ_"+files_tif[i].getName(), img.getProcessor());
+				ovly.setFillColor(Color.RED);
+				showIt.setOverlay(ovly);
+				showIt.show();
 				
-			}
+			} // if there were some
 			
 			
 		} // loop files
 		
 		System.out.println("////\n total (+) : "+total_pos);
 		System.out.println(" total (-) : "+total_neg+"\n////\n");
+		
+		ImagePlus pos_examples_image =  new ImagePlus("positive examples", pos_examples_profile);
+		pos_examples_image.show();
+		pos_examples_image.getCanvas().zoomIn(0, 0);
+		pos_examples_image.getCanvas().zoomIn(0, 0);
+		pos_examples_image.getCanvas().zoomIn(0, 0);
+		pos_examples_image.getCanvas().zoomIn(0, 0);
+		pos_examples_image.getCanvas().zoomIn(0, 0);
+		pos_examples_image.getCanvas().zoomIn(0, 0);
+		
+		ImagePlus neg_examples_image =  new ImagePlus("negative examples", neg_examples_profile);
+		neg_examples_image.show();
+		neg_examples_image.getCanvas().zoomIn(0, 0);
+		neg_examples_image.getCanvas().zoomIn(0, 0);
+		neg_examples_image.getCanvas().zoomIn(0, 0);
+		neg_examples_image.getCanvas().zoomIn(0, 0);
+		neg_examples_image.getCanvas().zoomIn(0, 0);
+		neg_examples_image.getCanvas().zoomIn(0, 0);
+		
+		/*
+		 * generate filters to score on example profiles
+		 */
+		double angStep = Math.PI/8;
+		ProfileFilters pft = new ProfileFilters(angular_resolution, angStep);
+		pft.create();
+		pft.showFilters();
+		
+		/*
+		 * calculate features (filter scores)
+		 */
+		
+		
 		
 	}
 	

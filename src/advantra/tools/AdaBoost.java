@@ -52,7 +52,7 @@ public class AdaBoost {
 	    int tt = T;
 	    for (int t = 0; t < T; t++) {
 	    	
-	        double[][] thresh = weightedWeakClassification(featsPos, featsNeg, w, search_step); 
+	        double[][] thresh = weightedWeakClassification(featsPos, featsNeg, w, search_step);
 	        // [feature_i][optimal threshold and the score /error]
 	        
 	        // thresh fSize x 2 (0~theta, 1~score)

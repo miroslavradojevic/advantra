@@ -3,6 +3,7 @@ package advantra.feature;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.Plot;
+import ij.process.FloatProcessor;
 
 import java.awt.Color;
 import java.util.Vector;
@@ -245,7 +246,21 @@ public class ProfileFilters {
 	
 	public void 		showFilters(){
 		
-		ImageStack viz_stk 		=  	new ImageStack(featLen, featLen);
+		ImageStack viz_stk 		=  	new ImageStack(featLen, 1);
+		for (int i = 0; i < feat.size(); i++) {
+			FloatProcessor fp = new FloatProcessor(featLen, 1, feat.get(i));
+			viz_stk.addSlice(fp);
+		}
+		
+		ImagePlus viz_img =  new ImagePlus("features", viz_stk);
+		
+		viz_img.show();
+		viz_img.getCanvas().zoomIn(0, 0);
+		viz_img.getCanvas().zoomIn(0, 0);
+		viz_img.getCanvas().zoomIn(0, 0);
+		viz_img.getCanvas().zoomIn(0, 0);
+		viz_img.getCanvas().zoomIn(0, 0);
+		viz_img.getCanvas().zoomIn(0, 0);
 		
 		ImageStack plot_stack 	= 	new ImageStack(800, 400);
 		for (int i = 0; i < feat.size(); i++) {
@@ -259,6 +274,27 @@ public class ProfileFilters {
 		
 		new ImagePlus("features", plot_stack).show();
 		
+		
+		
 	}
-	
+
+	public double[]		calculateProfileFeatures(double[] profile){
+		
+		double[] score = new double[feat.size()];
+		
+		for (int i = 0; i < feat.size(); i++) {
+			
+			score[i] = 0;
+			
+			for (int j = 0; j < score.length; j++) {
+				
+				score[i]  += feat.get(i)[j] * profile[j];
+				
+			}
+			
+		}
+		
+		return score;
+		
+	}
 }

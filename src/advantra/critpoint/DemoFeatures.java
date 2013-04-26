@@ -12,8 +12,10 @@ import ij.plugin.PlugIn;
 public class DemoFeatures implements PlugIn {
 
 	public void run(String arg0) {
+	
+		boolean exec = false;
 		
-if(false){		
+if(exec){		
 		
 		CircHaarFeat circhaar = new CircHaarFeat(16);
 		circhaar.createFeatures();
@@ -46,20 +48,6 @@ if(false){
 		/*
 		 * test profile features
 		 */
-		
-		// create angular profile
-		double radius		= 10;
-		double dr 			= 1;
-		double darc 		= 1;
-		double rratio 		= 0.2;
-		
-		// count the number of points
-		int cnt = 0;
-		for (double r = radius; r >= radius*rratio; r-=dr) {
-			for (double arc = 0; arc < 2*r*Math.PI; arc+=darc) {
-				cnt++;
-			}
-		}
 		
 		int nrFeats = 128; // nr feats does not depend on this one
 		double angStep = Math.PI/8;
