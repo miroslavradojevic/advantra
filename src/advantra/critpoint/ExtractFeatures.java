@@ -175,15 +175,15 @@ public class ExtractFeatures implements PlugIn {
 			if(check!=null && check.length>0){
 				files_pos[i] = check[0];
 				readCSV = new AnalyzeCSV(files_pos[i].getAbsolutePath());
-				double[][] bifsColRow = readCSV.readLn(2);
-				locs_pos.add(bifsColRow);
-				curr_neg = bifsColRow.length;
-				total_pos += bifsColRow.length;
-				System.out.println(bifsColRow.length+" positives ");
+				double[][] A = readCSV.readLn(2);
+				locs_pos.add(A);
+				curr_pos = A.length;
+				total_pos += A.length;
+				System.out.println(A.length+" positives ");
 			}
 			else{
 				locs_pos.add(null);
-				System.out.println("no poss");
+				System.out.println("no positives");
 			}
 			
 			suffix = file_name+".neg";
@@ -191,15 +191,15 @@ public class ExtractFeatures implements PlugIn {
 			if(check!=null && check.length>0){
 				files_neg[i] = check[0];
 				readCSV = new AnalyzeCSV(files_neg[i].getAbsolutePath());
-				double[][] othsColRow = readCSV.readLn(2);
-				locs_neg.add(othsColRow);
-				curr_pos = othsColRow.length;
-				total_neg += othsColRow.length;
-				System.out.println(othsColRow.length+" negatives ");
+				double[][] B = readCSV.readLn(2);
+				locs_neg.add(B);
+				curr_neg = B.length;
+				total_neg += B.length;
+				System.out.println(B.length+" negatives ");
 			}
 			else{
 				locs_neg.add(null);
-				System.out.println("no negs");
+				System.out.println("no negatives");
 			}
 			
 			/*
@@ -280,7 +280,6 @@ public class ExtractFeatures implements PlugIn {
 							gabAll.getStack());
 				}
 				
-				
 				/*
 				 *  extract neuriteness & eigen vecs
 				 */
@@ -300,6 +299,22 @@ public class ExtractFeatures implements PlugIn {
 				
 				Vy = nness.get(2);
 				Vy.setTitle("Vy");
+				
+				// there are 3 input images and locations
+				
+				// take those locations
+//				double[][] = locs_pos.get(i);
+				int[][] xy_positive = new int[curr_pos][2];
+				for (int k = 0; k < curr_pos; k++) {
+					xy_positive[k][0] = (int)locs_pos.get(i)[k][0];
+					xy_positive[k][1] = (int)locs_pos.get(i)[k][1];
+				}
+				
+				int[][] xy_negative = new int[curr_neg][2];
+				for (int k = 0; k < curr_neg; k++) {
+					xy_negative[k][0] = ;
+					xy_negative[k][1] = ;
+				}
 				
 				
 			}

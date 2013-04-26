@@ -694,7 +694,7 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 		
 	}
 	
-	public Vector<double[]> extractProfiles(Vector<ImagePlus> imgs, ImagePlus Vx, ImagePlus Vy, int atX, int atY, double radius, double dr, double darc, double rratio){
+	public static Vector<double[]> extractProfiles(Vector<ImagePlus> imgs, ImagePlus Vx, ImagePlus Vy, int atX, int atY, double radius, double dr, double darc, double rratio){
 		
 		int nrang 		= (int)Math.ceil((Math.PI*2)/(darc/radius));
 		
@@ -756,6 +756,9 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 		
 	}
 
+	//add version for only one image
+	
+	
 	public void mousePressed(MouseEvent e) {}
 
 	public void mouseReleased(MouseEvent e) {}
@@ -797,14 +800,6 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 //	IJ.log(i+" :  sum "+sum+", prod = "+prod+" (cnt="+cnt+")");
 //	profile4[i] = sum;
 //	profile5[i] = prod;
-//}
-//// normalize
-//double sm = 0;
-//for (int i = 0; i < profile5.length; i++) {
-//	sm += profile5[i];
-//}
-//for (int i = 0; i < profile5.length; i++) {
-//	profile5[i] = profile5[i]/sm;
 //}
 //PointRoi center = ;
 //center.setColor(Color.GREEN);
