@@ -1,12 +1,10 @@
 package advantra.critpoint;
 
-import java.awt.Color;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.io.File;
 import java.util.ArrayList;
 
-import flanagan.analysis.Stat;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
@@ -178,19 +176,6 @@ public class TestDetection implements PlugInFilter, MouseListener {
 		Lnorm.name("Normalized_Ridgeness");
 		Lnorm.imageplus().show();
 		
-		/*
-		 * show gabor kernels
-		 */
-		
-		for (int i = 0; i < t.length; i++) {
-			ImagePlus krn = GaborFilt2D.run(null, 0, t[i], 0, bandwidth, psi, 0.25, true);
-			krn.setTitle("gabor_kernel_scale"+IJ.d2s(t[i],2));
-			krn.show();
-			for (int j = 0; j < 5; j++) {
-				krn.getCanvas().zoomIn(0, 0);
-			}
-		}
-		
 		ImageStack 	angul = new ImageStack(w, h); 
 		
 		ZProjector zmax = new ZProjector();
@@ -201,8 +186,9 @@ public class TestDetection implements PlugInFilter, MouseListener {
 			
 			System.out.println("processing theta = "+i+" / "+ (M-1));
 			
-			ImagePlus g_theta = GaborFilt2D.run(
-					img, current_theta, t, new double[t.length], bandwidth, psi, 0.25, true);
+			ImagePlus g_theta = null;
+//			GaborFilt2D.run(
+//					img, current_theta, t, new double[t.length], bandwidth, psi, 0.25, true);
 			
 			zmax.setImage(g_theta);
 			zmax.setStartSlice(1);
@@ -342,8 +328,10 @@ public class TestDetection implements PlugInFilter, MouseListener {
 		for (int i = 0; i < M; i++) {
 			double current_theta = thetas_pi[i];
 			System.out.println("gabor for theta = "+current_theta+" / PI");
-			ImagePlus g_theta = GaborFilt2D.run(
-					test_img, current_theta, s, new double[s.length], bandwidth, psi, 0.25, true);
+			ImagePlus g_theta = null;
+					
+//			GaborFilt2D.run(
+//					test_img, current_theta, s, new double[s.length], bandwidth, psi, 0.25, true);
 			zp.setImage(g_theta);
 			zp.setStartSlice(1);
 			zp.setStopSlice(g_theta.getStackSize());

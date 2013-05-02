@@ -5,42 +5,40 @@ import ij.ImageStack;
 import ij.gui.Plot;
 import ij.process.FloatProcessor;
 
-import java.awt.Color;
 import java.util.Vector;
 
 public class ProfileFilters {
 	
 	/*
 	 * feature is a vector corresponding to directional response
-	 * the aim of the feature is to count the number of peaks
-	 * of the directional response, borders and filter levels
-	 * example feature 
-	 * ON OFF 
-	 * ON OFF ON OFF
-	 * ON OFF ON OFF ON OFF
+	 * the aim of the feature is to count the number of peaks, emulate the distribution
+	 * of the directional profile (response)
 	 */
 	
-	private Vector<float[]> 	feat;
+	private Vector<float[][]> 	feat;
 	private int					featLen;
 	
-//	private double				angStep;
 	private int					angStepLen;
+	private int					nrRots;
 	
-	private float[] 			angProfile; // will be used to guide the construction of steps
+	private float[] 			anglesRad; // will be used to guide the construction of steps
 	
 	public ProfileFilters(int featLen, double angStep){
 		
-		this.feat 		= new Vector<float[]>();
+		this.feat 		= new Vector<float[][]>();
 		this.featLen 	= featLen;
 		
-//		this.angStep 	= angStep;
 		this.angStepLen = (int)Math.ceil((angStep/(2*Math.PI))*featLen);
+		this.nrRots 	= (featLen%angStepLen==0)? (featLen/angStepLen-1) : (featLen/angStepLen) ; 
 		
-		this.angProfile = new float[featLen];
+		this.anglesRad = new float[featLen];
 		for (int i = 0; i < featLen; i++) {
-			this.angProfile[i] = (float) (i*2*Math.PI/featLen);
+			this.anglesRad[i] = (float) (i*2*Math.PI/featLen);
 		}
 		
+		System.out.println(""+featLen);
+		System.out.println(""+angStepLen);
+		System.out.println(""+nrRots);
 	}
 	
 	public void 		create(){
@@ -52,29 +50,39 @@ public class ProfileFilters {
 		// 1x
 		for (int s = 1; s <= sLim; s++) { 
 			
-			float[] vec = new float[featLen];
+			float[][] rotd = new float[nrRots+1][];
+			float[] base = new float[featLen];
+			rotd[0] = new float[featLen];
+			
 			sumNeg = sumPos = 0;
 			
 			for (int i = 0; i < featLen; i++){
 				
-				if(i<s*angStepLen){
-					vec[i] = +1;
+				// inflection point
+				int flex1 = s*angStepLen;
+				
+				if(i<flex1){
+					base[i] = +1;
 					sumPos ++;
 				}
 				else{
-					vec[i] = -1;
+					base[i] = -1;
 					sumNeg ++;
 				}
 				
 			}
 			
-//			System.out.println("poss: "+sumPos+"  negs "+sumNeg+ " total "+(sumPos+sumNeg));
-			
+			//j==0
 			for (int i = 0; i < featLen; i++){
-				vec[i] = (vec[i]>0)? vec[i]/sumPos : vec[i]/sumNeg ;
+				rotd[0][i] = (base[i]>0)? base[i]*((float)sumNeg/sumPos) : base[i] ;
 			}
 			
-			feat.add(vec);
+			// rotated (for orientation invariance)
+			for (int j = 1; j <= nrRots; j++) {
+				rotd[j] = shiftVals(rotd[0], j*angStepLen);
+			}
+			
+			feat.add(rotd);
 			cnt++;
 			
 		}
@@ -82,36 +90,50 @@ public class ProfileFilters {
 		//2x
 		for (int s1 = 1; s1 <= sLim; s1++) { 
 			for (int s2 = 1; s2 <= sLim; s2++) {
-				for (int w1 = 1; w1 <= featLen; w1++) {
-				
+				for (int w1 = 1; w1 <= nrRots; w1++) {
 					
-					if(s1*angStepLen+w1*angStepLen+s2*angStepLen<featLen){
+					int flex1 = s1*angStepLen;
+					int flex2 = flex1 + w1*angStepLen;
+					int flex3 = flex2 + s2*angStepLen;
+					
+					if(flex3<featLen){
 						
-						float[] vec = new float[featLen];
+						float[][] rotd = new float[nrRots+1][];
+						float[] base = new float[featLen];
+						rotd[0] = new float[featLen];
+						
 						sumNeg = sumPos = 0;
 						
-						for (int i = 0; i < vec.length; i++) {
-							if(i<s1*angStepLen){
-								vec[i] = +1; sumPos ++;
+						for (int i = 0; i < featLen; i++) {
+							if(i<flex1){
+								base[i] = +1; 
+								sumPos ++;
 							}
-							else if(i>=s1*angStepLen && i<s1*angStepLen+w1*angStepLen){
-								vec[i] = -1; sumNeg ++;
+							else if(i>=flex1 && i<flex2){
+								base[i] = -1; 
+								sumNeg ++;
 							}
-							else if(i>=s1*angStepLen+w1*angStepLen && i<s1*angStepLen+w1*angStepLen+s2*angStepLen){
-								vec[i] = +1; sumPos ++;
+							else if(i>=flex2 && i<flex3){
+								base[i] = +1; 
+								sumPos ++;
 							}
 							else{
-								vec[i] = -1; sumNeg ++;
+								base[i] = -1; 
+								sumNeg ++;
 							}
 						}
 						
-//						System.out.println("poss: "+sumPos+"  negs "+sumNeg+ " total "+(sumPos+sumNeg));
-						
+						//j==0
 						for (int i = 0; i < featLen; i++){
-							vec[i] = (vec[i]>0)? vec[i]/sumPos : vec[i]/sumNeg ;
+							rotd[0][i] = (base[i]>0)? base[i]*((float)sumNeg/sumPos) : base[i] ;
 						}
 						
-						feat.add(vec);
+						// rotated (for orientation invariance)
+						for (int j = 1; j <= nrRots; j++) {
+							rotd[j] = shiftVals(rotd[0], j*angStepLen);
+						}
+						
+						feat.add(rotd);
 						cnt++;
 						
 					}
@@ -123,41 +145,61 @@ public class ProfileFilters {
 		for (int s1 = 1; s1 <= sLim; s1++) { 
 			for (int s2 = 1; s2 <= sLim; s2++) {
 				for (int s3 = 1; s3 <= sLim; s3++) {
-					for (int w1 = 1; w1 <= featLen; w1++) {
-						for (int w2 = 1; w2 <= featLen; w2++) {
-							if(s1*angStepLen+w1*angStepLen+s2*angStepLen+w2*angStepLen+s3*angStepLen<featLen){
+					for (int w1 = 1; w1 <= nrRots; w1++) {
+						for (int w2 = 1; w2 <= nrRots; w2++) {
+							
+							int flex1 = s1*angStepLen;
+							int flex2 = flex1 + w1*angStepLen;
+							int flex3 = flex2 + s2*angStepLen;
+							int flex4 = flex3 + w2*angStepLen;
+							int flex5 = flex4 + s3*angStepLen;
+							
+							if(flex5<featLen){
 								
-								float[] vec = new float[featLen];
+								float[][] rotd = new float[nrRots+1][];
+								float[] base = new float[featLen];
+								rotd[0] = new float[featLen];
+								
 								sumNeg = sumPos = 0;
 								
-								for (int i = 0; i < vec.length; i++) {
-									if(i<s1*angStepLen){
-										vec[i] = +1; sumPos ++;
+								for (int i = 0; i < featLen; i++) {
+									if(i<flex1){
+										base[i] = +1; 
+										sumPos ++;
 									}
-									else if(i>=s1*angStepLen && i<s1*angStepLen+w1*angStepLen){
-										vec[i] = -1; sumNeg ++;
+									else if(i>=flex1 && i<flex2){
+										base[i] = -1; 
+										sumNeg ++;
 									}
-									else if(i>=s1*angStepLen+w1*angStepLen && i<s1*angStepLen+w1*angStepLen+s2*angStepLen){
-										vec[i] = +1; sumPos ++;
+									else if(i>=flex2 && i<flex3){
+										base[i] = +1; 
+										sumPos ++;
 									}
-									else if(i>=s1*angStepLen+w1*angStepLen+s2*angStepLen && i<s1*angStepLen+w1*angStepLen+s2*angStepLen+w2*angStepLen){
-										vec[i] = -1; sumNeg ++;
+									else if(i>=flex3 && i<flex4){
+										base[i] = -1; 
+										sumNeg ++;
 									}
-									else if(i>=s1*angStepLen+w1*angStepLen+s2*angStepLen+w2*angStepLen && i<s1*angStepLen+w1*angStepLen+s2*angStepLen+w2*angStepLen+s3*angStepLen){
-										vec[i] = +1; sumPos ++;
+									else if(i>=flex4 && i<flex5){
+										base[i] = +1; 
+										sumPos ++;
 									}
 									else{
-										vec[i] = -1; sumNeg ++;
+										base[i] = -1; 
+										sumNeg ++;
 									}
 								}
 								
-//								System.out.println("poss: "+sumPos+"  negs "+sumNeg+ " total "+(sumPos+sumNeg));
-								
+								//j==0
 								for (int i = 0; i < featLen; i++){
-									vec[i] = (vec[i]>0)? vec[i]/sumPos : vec[i]/sumNeg ;
+									rotd[0][i] = (base[i]>0)? base[i]*((float)sumNeg/sumPos) : base[i] ;
 								}
 								
-								feat.add(vec);
+								// rotated (for orientation invariance)
+								for (int j = 1; j <= nrRots; j++) {
+									rotd[j] = shiftVals(rotd[0], j*angStepLen);
+								}
+								
+								feat.add(rotd);
 								cnt++;
 								
 							}
@@ -172,57 +214,72 @@ public class ProfileFilters {
 			for (int s2 = 1; s2 <= sLim; s2++) {
 				for (int s3 = 1; s3 <= sLim; s3++) {
 					for (int s4 = 1; s4 <= sLim; s4++) {
-						for (int w1 = 1; w1 <= featLen; w1++) {
-							for (int w2 = 1; w2 <= featLen; w2++) {
-								for (int w3 = 1; w3 <= featLen; w3++) {
+						for (int w1 = 1; w1 <= nrRots; w1++) {
+							for (int w2 = 1; w2 <= nrRots; w2++) {
+								for (int w3 = 1; w3 <= nrRots; w3++) {
 									
-									int Y1 = s1*angStepLen;
-									int N1 = w1*angStepLen;
-									int Y2 = s2*angStepLen;
-									int N2 = w2*angStepLen;
-									int Y3 = s3*angStepLen;
-									int N3 = w3*angStepLen;
-									int Y4 = s4*angStepLen;
+									int flex1 = s1*angStepLen;
+									int flex2 = flex1 + w1*angStepLen;
+									int flex3 = flex2 + s2*angStepLen;
+									int flex4 = flex3 + w2*angStepLen;
+									int flex5 = flex4 + s3*angStepLen;
+									int flex6 = flex5 + w3*angStepLen;
+									int flex7 = flex6 + s4*angStepLen;
 									
-									if(Y1+N1+Y2+N2+Y3+N3+Y4<featLen){
+									if(flex7<featLen){
 										
-										float[] vec = new float[featLen];
+										float[][] rotd = new float[nrRots+1][];
+										float[] base = new float[featLen];
+										rotd[0] = new float[featLen];
+										
 										sumNeg = sumPos = 0;
 										
-										for (int i = 0; i < vec.length; i++) {
-											if(i<Y1){
-												vec[i] = +1; sumPos ++;
+										for (int i = 0; i < featLen; i++) {
+											if(i<flex1){
+												base[i] = +1; 
+												sumPos ++;
 											}
-											else if(i>=Y1 && i<Y1+N1){
-												vec[i] = -1; sumNeg ++;
+											else if(i>=flex1 && i<flex2){
+												base[i] = -1; 
+												sumNeg ++;
 											}
-											else if(i>=Y1+N1 && i<Y1+N1+Y2){
-												vec[i] = +1; sumPos ++;
+											else if(i>=flex2 && i<flex3){
+												base[i] = +1; 
+												sumPos ++;
 											}
-											else if(i>=Y1+N1+Y2 && i<Y1+N1+Y2+N2){
-												vec[i] = -1; sumNeg ++;
+											else if(i>=flex3 && i<flex4){
+												base[i] = -1; 
+												sumNeg ++;
 											}
-											else if(i>=Y1+N1+Y2+N2 && i<Y1+N1+Y2+N2+Y3){
-												vec[i] = +1; sumPos ++;
+											else if(i>=flex4 && i<flex5){
+												base[i] = +1; 
+												sumPos ++;
 											}
-											else if(i>=Y1+N1+Y2+N2+Y3 && i<Y1+N1+Y2+N2+Y3+N3){
-												vec[i] = -1; sumNeg ++;
+											else if(i>=flex5 && i<flex6){
+												base[i] = -1; 
+												sumNeg ++;
 											}
-											else if(i>=Y1+N1+Y2+N2+Y3+N3 && i<Y1+N1+Y2+N2+Y3+N3+Y4){
-												vec[i] = +1; sumPos ++;
+											else if(i>=flex6 && i<flex7){
+												base[i] = +1; 
+												sumPos ++;
 											}
 											else{
-												vec[i] = -1; sumNeg ++;
+												base[i] = -1; 
+												sumNeg ++;
 											}
 										}
 										
-//										System.out.println("poss: "+sumPos+"  negs "+sumNeg+ " total "+(sumPos+sumNeg));
-										
+										//j==0
 										for (int i = 0; i < featLen; i++){
-											vec[i] = (vec[i]>0)? vec[i]/sumPos : vec[i]/sumNeg ;
+											rotd[0][i] = (base[i]>0)? base[i]*((float)sumNeg/sumPos) : base[i] ;
 										}
 										
-										feat.add(vec);
+										// rotated (for orientation invariance)
+										for (int j = 1; j <= nrRots; j++) {
+											rotd[j] = shiftVals(rotd[0], j*angStepLen);
+										}
+										
+										feat.add(rotd);
 										cnt++;
 										
 									}
@@ -234,7 +291,7 @@ public class ProfileFilters {
 			}
 		}		
 		
-		System.out.println("total " + cnt + " feats");
+		System.out.println("created total " + cnt + " feats");
 		
 	}
 	
@@ -244,15 +301,28 @@ public class ProfileFilters {
 	
 	}
 	
+	public float[]		getBaseFilter(int filterIdx){
+		return feat.get(filterIdx)[0];
+	}
+	
 	public void 		showFilters(){
 		
-		ImageStack viz_stk 		=  	new ImageStack(featLen, 1);
+		ImageStack viz_stk 		=  	new ImageStack(featLen, nrRots+1);
 		for (int i = 0; i < feat.size(); i++) {
-			FloatProcessor fp = new FloatProcessor(featLen, 1, feat.get(i));
+			
+			FloatProcessor fp = new FloatProcessor(featLen, nrRots+1);
+			
+			float[][] current_filt = feat.get(i);
+			for (int k = 0; k < current_filt.length; k++) {
+				for (int l = 0; l < current_filt[0].length; l++) {
+					fp.setf(l, k, current_filt[k][l]);
+				}
+			}
+			
 			viz_stk.addSlice(fp);
 		}
 		
-		ImagePlus viz_img =  new ImagePlus("features", viz_stk);
+		ImagePlus viz_img =  new ImagePlus("filters", viz_stk);
 		
 		viz_img.show();
 		viz_img.getCanvas().zoomIn(0, 0);
@@ -264,37 +334,166 @@ public class ProfileFilters {
 		
 		ImageStack plot_stack 	= 	new ImageStack(800, 400);
 		for (int i = 0; i < feat.size(); i++) {
-			Plot p = new Plot("feat"+i, "angle", "filter");
+			Plot p = new Plot("feat"+i, "angle", "weight", anglesRad, feat.get(i)[0]);
 			p.setSize(800, 400);
-			p.setLimits(0, 2*Math.PI, -1, +1);
-			p.setColor(Color.RED);
-			p.addPoints(angProfile, feat.get(i), Plot.LINE);
 			plot_stack.addSlice("feat"+i, p.getProcessor());
 		}
-		
-		new ImagePlus("features", plot_stack).show();
-		
-		
+		new ImagePlus("filters", plot_stack).show();
 		
 	}
 
+	public void 		showFilters(int idx){
+		
+//		ImageStack viz_stk 		=  	new ImageStack(featLen, nrRots);
+//		for (int i = 0; i < feat.size(); i++) {
+			FloatProcessor fp = new FloatProcessor(featLen, nrRots);
+			
+			float[][] current_filt = feat.get(idx);
+			for (int k = 0; k < current_filt.length; k++) {
+				for (int l = 0; l < current_filt[0].length; l++) {
+					fp.setf(l, k, current_filt[k][l]);
+				}
+			}
+			
+//			viz_stk.addSlice(fp);
+//		}
+		
+		ImagePlus viz_img =  new ImagePlus("filter", fp);
+		
+		viz_img.show();
+		viz_img.getCanvas().zoomIn(0, 0);
+		viz_img.getCanvas().zoomIn(0, 0);
+		viz_img.getCanvas().zoomIn(0, 0);
+		viz_img.getCanvas().zoomIn(0, 0);
+		viz_img.getCanvas().zoomIn(0, 0);
+		viz_img.getCanvas().zoomIn(0, 0);
+		
+//		ImageStack plot_stack 	= 	new ImageStack(800, 400);
+//		for (int i = 0; i < feat.size(); i++) {
+			Plot p = new Plot("feat"+idx, "angle", "weight", anglesRad, feat.get(idx)[0]);
+			p.setSize(800, 400);
+//			p.setLimits(0, 2*Math.PI, -1, +1);
+//			p.setColor(Color.RED);
+//			p.addPoints(angProfile, feat.get(i), Plot.LINE);
+//			plot_stack.addSlice("feat"+idx, p.getProcessor());
+//		}
+		
+		new ImagePlus("feat"+idx, p.getProcessor()).show();
+		
+		
+	}
+	
 	public double[]		calculateProfileFeatures(double[] profile){
 		
 		double[] score = new double[feat.size()];
 		
 		for (int i = 0; i < feat.size(); i++) {
 			
-			score[i] = 0;
+			double max_score = Double.MIN_VALUE;
 			
-			for (int j = 0; j < score.length; j++) {
+			for (int j = 0; j < feat.get(i).length; j++) {
 				
-				score[i]  += feat.get(i)[j] * profile[j];
+				double scr = 0;
+				for (int k = 0; k < feat.get(i)[0].length; k++) {
+					scr  += feat.get(i)[j][k] * profile[k];
+				}	
+				
+				if(scr>max_score){
+					max_score = scr;
+				}
 				
 			}
+			
+			score[i] = max_score;
 			
 		}
 		
 		return score;
 		
 	}
+
+//	public float[] 			allFeatScore(double[] profile){ //, int shiftStep
+//		
+//		float[] out = new float[feat.size()];
+//		
+//		for (int i = 0; i < 1; i++) {//feat.size()
+//			out[i] = featScore(profile, feat.get(i)); //, shiftStep
+//		}
+//		
+//		return out;
+//		
+//	}
+	
+//	private float featScore(double[] profile, float[] feature){//, int shiftStep
+//		
+//		float curr_score 	= conv(profile, feature);
+//		float total_score 	= curr_score;//conv(profile, feature);//Float.MIN_VALUE;
+//		
+//		ImageStack feat_shifts = new ImageStack(800, 400);
+//		feat_shifts.addSlice("shf"+0, VizFeatures.plotValues(feature, Plot.BOX));
+////		
+//		
+//		for (int d = angStepLen; d < feature.length; d+=angStepLen) {
+//			
+//			float[] f_sh = shiftVals(feature, d);
+//			
+//			feat_shifts.addSlice("shf"+d, VizFeatures.plotValues(f_sh, Plot.BOX));
+//			
+//			curr_score = conv(profile, f_sh);
+//			
+//			if(curr_score>total_score){
+//				total_score = curr_score;
+//			}
+//			
+//		}
+//		
+//		new ImagePlus ("shf"+0, ).show();
+//		
+//		return total_score;
+//		
+//	}
+	
+	private float[] shiftVals(float[] in, int shift){
+		
+		if(shift==0){
+			return in;
+		}
+		
+		float[] out = new float[in.length];
+		float[] tmp = new float[shift];
+		
+		// store last shift values, starting from the last
+		for (int i = 0; i < shift; i++) {
+			tmp[i] = in[in.length-1-i];
+		}
+		
+		for (int i = in.length-1; i >= shift; i--) {
+			out[i] = in[i-shift];
+		}
+		
+		int cnt = 0;
+		for (int i = shift-1; i >= 0; i--) {
+			out[i] = tmp[cnt]; 
+			cnt++;
+		}
+		
+		return out;
+		
+	}
+	
+//	private float conv(double[] a, float[] b){
+////		System.out.print("\nconvolving with: ");
+////		for (int i = 0; i < b.length; i++) {
+////			System.out.print(IJ.d2s(b[i], 2)+", ");
+////		}
+////		
+//		float c = 0;
+//		
+//		for (int i = 0; i < b.length; i++) {
+//			c += a[i]*b[i];
+//		}
+//		
+//		return c;
+//	}
+
 }

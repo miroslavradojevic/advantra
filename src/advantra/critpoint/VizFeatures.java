@@ -1,10 +1,10 @@
 package advantra.critpoint;
 
-import java.awt.Color;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.util.Vector;
 
+import advantra.feature.CircularFilterSet;
 import advantra.feature.GaborFilt2D;
 import advantra.feature.MyHessian;
 
@@ -183,7 +183,7 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 		gab.setTitle("gabor filter, directional responses");
 		t1 = System.currentTimeMillis();
 		System.out.println("done, "+((t1-t0)/1000f)+" seconds");
-		gab.show();
+		//gab.show();
 		
 		/*
 		 * extract maximal directional gabor response in every point
@@ -196,7 +196,7 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 		zmax.setMethod(ZProjector.MAX_METHOD);
 		zmax.doProjection();
 		gabAll = new ImagePlus("gabor filter, directional responses, max", zmax.getProjection().getChannelProcessor());
-		gabAll.show();
+		//gabAll.show();
 		
 		boolean normalize = false;
 		if(normalize){
@@ -208,7 +208,7 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 					gabAll.getStack());
 		}
 		
-		weighted.show();
+		//weighted.show();
 		
 		/*
 		 *  extract neuriteness & eigen vecs
@@ -220,7 +220,7 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 		
 		neuriteness = nness.get(0);
 		neuriteness.setTitle("neuriteness");
-		neuriteness.show();
+		//neuriteness.show();
 		
 		Vx = nness.get(1);
 		Vx.setTitle("Vx");
@@ -244,15 +244,9 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 			}
 		}
 		vector_field.setOverlay(eigenVecs);
-		vector_field.show();
+		//vector_field.show();
 
 		System.out.println("click now to see features at the  point!");
-		
-//		for (int i = 0; i < a.size(); i++) {
-//			new ImagePlus("source"+i, plotValues(x_val, a.get(i))).show();
-//		}
-		
-		System.out.println("done");
 		
 	}
 
@@ -478,26 +472,23 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 		}
 		*/
 		
-		int nrang 		= (int)Math.ceil((Math.PI*2)/(darc/radius));
-		
-		System.out.print("extracting " + nrang + " directional responses... ");
+		//int nrang 		= (int)Math.ceil((Math.PI*2)/(darc/radius));
+		int nrang    	= 128;
+		System.out.print("\nextracting " + nrang + " directional responses... \n");
 		
 		double[] 	orts			= new double[nrang];
 		
 		double[] 	profile1;//  		= new double[nrang];
-		//int[]		profile1_cnt	= new int[nrang];
 		double 		profile1_max 	= Double.MIN_VALUE;
 		double 		profile1_min 	= Double.MAX_VALUE;
 		double[] 	coeffs1;//  		= new double[nrang];
 		
 		double[] 	profile2;//  		= new double[nrang];
-		//int[]		profile2_cnt	= new int[nrang];
 		double 		profile2_max 	= Double.MIN_VALUE;
 		double 		profile2_min 	= Double.MAX_VALUE;
 		double[] 	coeffs2;//  		= new double[nrang];
 		
 		double[] 	profile3;//  		= new double[nrang];
-		//int[]		profile3_cnt	= new int[nrang];
 		double 		profile3_max 	= Double.MIN_VALUE;
 		double 		profile3_min 	= Double.MAX_VALUE;
 		double[] 	coeffs3;//  		= new double[nrang];
@@ -516,12 +507,12 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 		}
 		
 		ImageStack show_profiles1 = new ImageStack(800, 400);
-		show_profiles1.addSlice(plotValues(orts, profile1, Plot.LINE));
-		show_profiles1.addSlice(plotValues(orts, coeffs1, Plot.CROSS));
-		show_profiles1.addSlice(plotValues(orts, profile2, Plot.LINE));
-		show_profiles1.addSlice(plotValues(orts, coeffs2, Plot.CROSS));
-		show_profiles1.addSlice(plotValues(orts, profile3, Plot.LINE));
-		show_profiles1.addSlice(plotValues(orts, coeffs3, Plot.CROSS));
+		show_profiles1.addSlice("gabor+dotProd", plotValues(orts, profile1, Plot.LINE));
+		show_profiles1.addSlice("gabor", plotValues(orts, coeffs1, Plot.CROSS));
+		show_profiles1.addSlice("nness+dotProd", plotValues(orts, profile2, Plot.LINE));
+		show_profiles1.addSlice("nness", plotValues(orts, coeffs2, Plot.CROSS));
+		show_profiles1.addSlice("pixVals+dotProd", plotValues(orts, profile3, Plot.LINE));
+		show_profiles1.addSlice("pixVals", plotValues(orts, coeffs3, Plot.CROSS));
 		new ImagePlus("profiles", show_profiles1).show();
 		
 		for (double r = radius; r >= radius*rratio; r-=dr) {
@@ -553,7 +544,9 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 			
 		}
 		
-		ImageStack show_profiles = new ImageStack(800, 400);  
+		weighted.setOverlay(ov1);
+		neuriteness.setOverlay(ov2);
+		img.setOverlay(ov3);
 
 		for (int k = 0; k < nrang; k++) {
 			
@@ -567,6 +560,10 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 			if(coeffs3[k]<profile3_min) profile3_min = coeffs3[k];
 			
 		}
+		/*
+		 * 
+		 * 
+		ImageStack show_profiles = new ImageStack(800, 400); 		 * 
 		
 		Plot p1 = new Plot("", "angle", "gaborAng");
 		p1.setLimits(0, 2*Math.PI, profile1_min-0.1*Math.abs(profile1_min), profile1_max+0.1*Math.abs(profile1_max));
@@ -596,21 +593,44 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 		show_profiles.addSlice(p3.getProcessor());
 		
 		new ImagePlus("resp", show_profiles).show();
+		*/
+//		Vector<ImagePlus> imgs = new Vector<ImagePlus>();
+//		imgs.add(weighted);
+//		imgs.add(neuriteness);
+//		imgs.add(img);
+//		// use the function to extract the profiles (just for the check here - should be used with automatic extraction)
+//		Vector<double[]> a = extractProfiles(imgs, Vx, Vy, mouseX, mouseY, radius, dr, darc, rratio);
+//		double[] x_val = new double[a.get(0).length];
+//		for (int i = 0; i < x_val.length; i++) x_val[i] = i;
+//		new ImagePlus("", plotValues(x_val, a)).show();
+
+		// find the feature with highest response
+		int[] angleRes = new int[]{30};
+		CircularFilterSet cft = new CircularFilterSet(angleRes);		
 		
-		weighted.setOverlay(ov1);
-		neuriteness.setOverlay(ov2);
-		img.setOverlay(ov3);
+		long t00 = System.currentTimeMillis();
+		double[] scores = cft.calculateScore(profile2);
+		long t01 = System.currentTimeMillis();
+		System.out.println("to calculate features for one example: "+((t01-t00)/1000f)+" sec.");
 		
-		Vector<ImagePlus> imgs = new Vector<ImagePlus>();
-		imgs.add(weighted);
-		imgs.add(neuriteness);
-		imgs.add(img);
+		for (int i = 0; i < scores.length; i++) {
+			System.out.println("scores["+i+"] = "+scores[i]);
+		}
 		
-		// use the function to extract the profiles (just for the check here - should be used with automatic extraction)
-		Vector<double[]> a = extractProfiles(imgs, Vx, Vy, mouseX, mouseY, radius, dr, darc, rratio);
-		double[] x_val = new double[a.get(0).length];
-		for (int i = 0; i < x_val.length; i++) x_val[i] = i;
-		new ImagePlus("", plotValues(x_val, a)).show();
+		// find the best score feature
+		int max_scoreIdx = 0;
+		double max_score = scores[0];
+		for (int i = 1; i < scores.length; i++) {
+			if(scores[i]>max_score){
+				max_score = scores[i];
+				max_scoreIdx = i;
+			}
+		}
+		
+		cft.showConfigs(max_scoreIdx);
+		
+//		ImagePlus show_best = new ImagePlus("", plotValues(pft.getFilter(max_scoreIdx), Plot.CIRCLE));
+//		show_best.show();
 		
 	}
 	
@@ -637,7 +657,55 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 		return p.getProcessor();
 		
 	}
-	
+
+	public static ImageProcessor plotValues(double[] y_val, int shape){
+		
+		double[] x_val = new double[y_val.length];
+		for (int i = 0; i < y_val.length; i++) {
+			x_val[i] = i;
+		}
+		
+		double y_val_min = Double.MAX_VALUE;
+		double y_val_max = Double.MIN_VALUE;
+		
+		for (int i = 0; i < y_val.length; i++) {
+			if(y_val[i]<y_val_min) y_val_min = y_val[i];
+			if(y_val[i]>y_val_max) y_val_max = y_val[i];
+		}
+		
+		Plot p = new Plot("", "", "");
+		p.setLimits(0, y_val.length, y_val_min-0.1*Math.abs(y_val_min), y_val_max+0.1*Math.abs(y_val_max)); // dangerous if limits are same
+		p.setSize(800, 400);
+		p.addPoints(x_val, y_val, shape);
+		
+		return p.getProcessor();
+		
+	}
+
+	public static ImageProcessor plotValues(float[] y_val, int shape){
+		
+		float[] x_val = new float[y_val.length];
+		for (int i = 0; i < y_val.length; i++) {
+			x_val[i] = i;
+		}
+		
+		float y_val_min = Float.MAX_VALUE;
+		float y_val_max = Float.MIN_VALUE;
+		
+		for (int i = 0; i < y_val.length; i++) {
+			if(y_val[i]<y_val_min) y_val_min = y_val[i];
+			if(y_val[i]>y_val_max) y_val_max = y_val[i];
+		}
+		
+		Plot p = new Plot("", "", "");
+		p.setLimits(0, y_val.length, y_val_min-0.1*Math.abs(y_val_min), y_val_max+0.1*Math.abs(y_val_max)); // dangerous if limits are same
+		p.setSize(800, 400);
+		p.addPoints(x_val, y_val, shape);
+		
+		return p.getProcessor();
+		
+	}
+
 	public ImageStack plotValues(double[] x_val, Vector<double[]> y_val){
 		
 		ImageStack show_profiles = new ImageStack(800, 400);
