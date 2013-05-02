@@ -506,14 +506,14 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 			orts[i] = i*(2*Math.PI/nrang);
 		}
 		
-		ImageStack show_profiles1 = new ImageStack(800, 400);
+		ImageStack show_profiles1 = new ImageStack(600, 300);
 		show_profiles1.addSlice("gabor+dotProd", plotValues(orts, profile1, Plot.LINE));
 		show_profiles1.addSlice("gabor", plotValues(orts, coeffs1, Plot.CROSS));
 		show_profiles1.addSlice("nness+dotProd", plotValues(orts, profile2, Plot.LINE));
 		show_profiles1.addSlice("nness", plotValues(orts, coeffs2, Plot.CROSS));
 		show_profiles1.addSlice("pixVals+dotProd", plotValues(orts, profile3, Plot.LINE));
 		show_profiles1.addSlice("pixVals", plotValues(orts, coeffs3, Plot.CROSS));
-		new ImagePlus("profiles", show_profiles1).show();
+		//new ImagePlus("profiles", show_profiles1).show();
 		
 		for (double r = radius; r >= radius*rratio; r-=dr) {
 			for (double arc = 0; arc < 2*r*Math.PI; arc+=darc) {
@@ -605,17 +605,32 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 //		new ImagePlus("", plotValues(x_val, a)).show();
 
 		// find the feature with highest response
-		int[] angleRes = new int[]{30};
+		int[] angleRes = new int[]{60};
 		CircularFilterSet cft = new CircularFilterSet(angleRes);		
+		//cft.showConfigs();
+		
+		/*
+		 * 
+		 * 
+		 * 
+		 * 
+		 * 
+		 * 
+		 * 
+		 * 
+		 */
 		
 		long t00 = System.currentTimeMillis();
-		double[] scores = cft.calculateScore(profile2);
+		double[] scores = cft.calculateScore(profile1);
 		long t01 = System.currentTimeMillis();
 		System.out.println("to calculate features for one example: "+((t01-t00)/1000f)+" sec.");
 		
-		for (int i = 0; i < scores.length; i++) {
-			System.out.println("scores["+i+"] = "+scores[i]);
-		}
+		ImagePlus im = new ImagePlus("scores per configuration", plotValues(scores, Plot.CIRCLE));
+		im.show();
+		
+//		for (int i = 0; i < scores.length; i++) {
+//			System.out.println("scores["+i+"] = "+scores[i]);
+//		}
 		
 		// find the best score feature
 		int max_scoreIdx = 0;
@@ -636,6 +651,8 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 	
 	public ImageProcessor plotValues(double[] x_val, double[] y_val, int shape){
 		
+		double margin  = 0.25;
+		
 		// range
 		double x_val_min = Double.MAX_VALUE;
 		double x_val_max = Double.MIN_VALUE;
@@ -650,8 +667,8 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 		}
 		
 		Plot p = new Plot("", "", "");
-		p.setLimits(x_val_min, x_val_max, y_val_min-0.1*Math.abs(y_val_min), y_val_max+0.1*Math.abs(y_val_max)); // dangerous if limits are same
-		p.setSize(800, 400);
+		p.setLimits(x_val_min, x_val_max, y_val_min-margin*Math.abs(y_val_min), y_val_max+margin*Math.abs(y_val_max)); // dangerous if limits are same
+		p.setSize(600, 300);
 		p.addPoints(x_val, y_val, shape);
 		
 		return p.getProcessor();
@@ -675,7 +692,7 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 		
 		Plot p = new Plot("", "", "");
 		p.setLimits(0, y_val.length, y_val_min-0.1*Math.abs(y_val_min), y_val_max+0.1*Math.abs(y_val_max)); // dangerous if limits are same
-		p.setSize(800, 400);
+		p.setSize(600, 300);
 		p.addPoints(x_val, y_val, shape);
 		
 		return p.getProcessor();

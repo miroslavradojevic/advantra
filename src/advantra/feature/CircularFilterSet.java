@@ -23,11 +23,13 @@ public class CircularFilterSet {
 			int currentScale = angScaleDegrees[takeScale];
 			
 			// 1x
-			//filts.add(new CircularFilterConfiguration(currentScale, new int[]{360}));
+			if(true){
+			filts.add(new CircularFilterConfiguration(currentScale, new int[]{360}));
+			}
 			
 			// 2x
-			for (int alfa = currentScale; alfa < 360; alfa+=currentScale) {
-				for (int beta = currentScale; beta < 360; beta+=currentScale) {
+			for (int alfa = currentScale; alfa < 360; alfa+=currentScale/2) {
+				for (int beta = currentScale; beta < 360; beta+=currentScale/2) {
 					if(alfa + beta == 360){
 						
 						// check if it exists already
@@ -62,9 +64,9 @@ public class CircularFilterSet {
 			}
 			
 			// 3x
-			for (int alfa = currentScale; alfa < 360; alfa+=currentScale) {
-				for (int beta = currentScale; beta < 360; beta+=currentScale) {
-					for (int gamma = currentScale; gamma < 360; gamma+=currentScale) {
+			for (int alfa = currentScale; alfa < 360; alfa+=currentScale/2) {
+				for (int beta = currentScale; beta < 360; beta+=currentScale/2) {
+					for (int gamma = currentScale; gamma < 360; gamma+=currentScale/2) {
 						if(alfa + beta + gamma == 360){
 						
 							// check if it exists already
@@ -109,10 +111,11 @@ public class CircularFilterSet {
 			}
 			
 			// 4x
-			for (int alfa = currentScale; alfa < 360; alfa+=currentScale) {
-				for (int beta = currentScale; beta < 360; beta+=currentScale) {
-					for (int gamma = currentScale; gamma < 360; gamma+=currentScale) {
-						for (int delta = currentScale; delta < 360; delta+=currentScale) {
+			if(true){
+			for (int alfa = currentScale; alfa < 360; alfa+=currentScale/2) {
+				for (int beta = currentScale; beta < 360; beta+=currentScale/2) {
+					for (int gamma = currentScale; gamma < 360; gamma+=currentScale/2) {
+						for (int delta = currentScale; delta < 360; delta+=currentScale/2) {
 							if(alfa + beta + gamma + delta == 360){
 							
 								// check if it exists already
@@ -169,6 +172,7 @@ public class CircularFilterSet {
 					}
 				}
 			}
+			}
 			
 		} // scale loop
 		
@@ -195,7 +199,7 @@ public class CircularFilterSet {
 			CircularFilterConfiguration currentFilter = filts.get(i);
 			
 			String name;
-			name = "R="+currentFilter.angResDeg;
+			name = "CONF_"+i+",R="+currentFilter.angResDeg;
 			if(currentFilter.nrPeaks>=1){
 				name+=",alfa="+currentFilter.angBtwPeakDeg[0];
 			}
@@ -210,6 +214,8 @@ public class CircularFilterSet {
 			}
 			
 			new ImagePlus(name, currentFilter.plot()).show();
+			
+			//new ImagePlus(name, currentFilter.plotFilter()).show();
 			
 		}
 		
@@ -220,7 +226,7 @@ public class CircularFilterSet {
 			CircularFilterConfiguration currentFilter = filts.get(idx);
 			
 			String name;
-			name = "R="+currentFilter.angResDeg;
+			name = "CONF_"+idx+",R="+currentFilter.angResDeg;
 			if(currentFilter.nrPeaks>=1){
 				name+=",alfa="+currentFilter.angBtwPeakDeg[0];
 			}
@@ -235,6 +241,8 @@ public class CircularFilterSet {
 			}
 			
 			new ImagePlus(name, currentFilter.plot()).show();
+			
+			//new ImagePlus(name, currentFilter.plotFilter()).show();
 		
 	}
 	

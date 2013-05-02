@@ -1,7 +1,10 @@
 package advantra.feature;
 
+import java.awt.Color;
+
 import ij.ImageStack;
 import ij.gui.Plot;
+import ij.process.ImageProcessor;
 
 public class CircularFilterConfiguration {
 
@@ -65,8 +68,14 @@ public class CircularFilterConfiguration {
 		 * that configuration to be rotationally invariant
 		 */
 		
-		double score = Double.MIN_VALUE;
+		double 	score = Double.NEGATIVE_INFINITY;//Double.MIN_VALUE;
+		int 	scoreIdx = -1;
 		double[] filt = new double[profile_2PI.length];
+		double[] best_filt = new double[profile_2PI.length];
+		for (int i = 0; i < best_filt.length; i++) {
+			best_filt[i] = -1.05;
+		}
+		
 		int sumPos, sumNeg;
 		
 		for (int r = 0; r < nrRot; r++) {
@@ -99,10 +108,15 @@ public class CircularFilterConfiguration {
 			}
 			
 			// normalize filt[]
+			if(false){
 			for (int i = 0; i < filt.length; i++) {
 				if(filt[i]>0){
-					filt[i] = filt[i] * (sumNeg/sumPos);
+					filt[i] = filt[i] / (float)sumPos;// * ((float)sumNeg/(float)sumPos);
 				}
+				else{
+					filt[i] = filt[i] / (float)sumNeg;
+				}
+			}
 			}
 			
 			// score for this filt[]
@@ -111,12 +125,90 @@ public class CircularFilterConfiguration {
 				sc += filt[i]*profile_2PI[i];
 			}
 			
-			if(sc>score) 
+			if(sc>score){
 				score = sc;
+				scoreIdx = r;
+				for (int i = 0; i < best_filt.length; i++) {
+					best_filt[i] = filt[i];
+				}
+				
+			}
+				
+		}
+		
+//		double[] xValues = new double[filt.length];
+//		for (int i = 0; i < filt.length; i++) {
+//			xValues[i] = i*(360f/filt.length);
+//		}
+//		
+//		Plot p = new Plot("", "ang [deg]", "");
+//		p.setLimits(0, 360, -1.1, 1.1);
+//		p.addPoints(xValues, profile_2PI, Plot.LINE);//, xValues, profile_2PI);
+//		p.addPoints(xValues, best_filt, Plot.BOX);
+//		
+//		p.setSize(400, 200);
+//		p.show();
+		
+		return score;
+	}
+	
+	public ImageStack plotFilter(){
+		
+		ImageStack viz_is = new ImageStack(600, 300);
+		
+		int res = 128;
+		
+		for (int rotIdx = 0; rotIdx < nrRot; rotIdx++) {
+			
+			double[] filt = new double[res];
+			double[] angles = new double[res];
+			
+			int sumPos = 0;
+			int sumNeg = 0;
+			
+			for (int i = 0; i < res; i++) {
+				
+				double angle = i * (2*Math.PI / res);
+				angles[i] = angle;
+				
+				boolean isON = false;
+				// check if it belongs to ON
+				for (int p = 0; p < nrPeaks; p++) {
+					if(Math.abs(wrap_PI(angle-peaksRad[rotIdx][p])) <= wdthRad/2){
+						isON = true;
+						break;
+					}
+				}
+				
+				if(isON){
+					filt[i] = +1;
+					sumPos++;
+				}
+				else{
+					filt[i] = -1;
+					sumNeg++;
+				}
+				
+			}
+			
+			// normalize filt[]
+			if(false){
+			for (int i = 0; i < filt.length; i++) {
+				if(filt[i]>0){
+					filt[i] = filt[i] * ((float)sumNeg/(float)sumPos);
+				}
+			}
+			}
+			
+			Plot p = new Plot("filter","angle","filter value", angles, filt);
+			p.setSize(600, 300);
+			
+			viz_is.addSlice("rot."+rotIdx+"/"+nrRot, p.getProcessor());
 			
 		}
 		
-		return score;
+		return viz_is;
+		
 	}
 	
 	public ImageStack plot(){
