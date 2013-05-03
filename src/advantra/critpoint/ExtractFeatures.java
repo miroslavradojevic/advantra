@@ -1,17 +1,13 @@
 package advantra.critpoint;
 
 import java.awt.Color;
-import java.awt.image.ColorModel;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.FilenameFilter;
-import java.io.IOException;
 import java.util.Vector;
 
+import advantra.feature.CircularFilterSet;
 import advantra.feature.GaborFilt2D;
-import advantra.feature.ProfileFilters;
 import advantra.file.AnalyzeCSV;
-import advantra.shapes.Point;
 
 import ij.IJ;
 import ij.ImagePlus;
@@ -168,8 +164,8 @@ public class ExtractFeatures implements PlugIn {
 		int curr_neg = 0;
 		
 		
-		int angular_resolution = (int)Math.ceil((Math.PI*2)/(darc/radius));// highest
-//		int angular_resolution = 64;
+		//int angular_resolution = (int)Math.ceil((Math.PI*2)/(darc/radius));// highest
+		int angular_resolution = 128;
 		pos_examples_profile = new ImageStack(angular_resolution, 1);
 		neg_examples_profile = new ImageStack(angular_resolution, 1);
 		
@@ -329,14 +325,13 @@ public class ExtractFeatures implements PlugIn {
 					int atX = (int)locs_pos.get(i)[k][0];
 					int atY = (int)locs_pos.get(i)[k][1];
 					
-					double[] extracted_profile = VizFeatures.extractProfile(img, Vx, Vy, atX, atY, radius, dr, darc, rratio, angular_resolution);
+					double[] extracted_profile = VizFeatures.extractProfile(neuriteness, Vx, Vy, atX, atY, radius, dr, darc, rratio, angular_resolution);
 					
 					FloatProcessor fp = new FloatProcessor(angular_resolution, 1, extracted_profile);
 					
 					pos_examples_profile.addSlice(fp);
 					
 					EllipseRoi pt = new EllipseRoi(atX-2.5, atY-2.5, atX+2.5, atY+2.5, 1);
-					pt.setColor(Color.RED);
 					ovly.addElement(pt);
 					
 				}
@@ -346,14 +341,14 @@ public class ExtractFeatures implements PlugIn {
 					int atX = (int)locs_neg.get(i)[k][0];
 					int atY = (int)locs_neg.get(i)[k][1];
 					
-					double[] extracted_profile = VizFeatures.extractProfile(img, Vx, Vy, atX, atY, radius, dr, darc, rratio, angular_resolution);
+					double[] extracted_profile = 
+							VizFeatures.extractProfile(img, Vx, Vy, atX, atY, radius, dr, darc, rratio, angular_resolution);
 					
 					FloatProcessor fp = new FloatProcessor(angular_resolution, 1, extracted_profile);
 					
 					neg_examples_profile.addSlice(fp);
 					
 					PointRoi pt = new PointRoi(atX, atY);
-					pt.setColor(Color.BLUE);
 					ovly.addElement(pt);
 					
 				}
@@ -392,16 +387,26 @@ public class ExtractFeatures implements PlugIn {
 		/*
 		 * generate filters to score on example profiles
 		 */
-		double angStep = Math.PI/8;
-		ProfileFilters pft = new ProfileFilters(angular_resolution, angStep);
-		pft.create();
-		pft.showFilters();
+//		double angStep = Math.PI/8;
+//		ProfileFilters pft = new ProfileFilters(angular_resolution, angStep);
+//		pft.create();
+//		pft.showFilters();
+		int[] angleRes = new int[]{60};
+		CircularFilterSet cft = new CircularFilterSet(angleRes);		
+		cft.showConfigs();
+		
 		
 		/*
 		 * calculate features (filter scores)
 		 */
+		//profile will be take from image stacks with examples
+		double[][] featsP; 
+		double[][] featsN;
+		//double[] scores = cft.calculateScore(profile2);
 		
-		
+		// train
+		int T = 5;
+		//trueAdaBoost(featsP, featsN, T);
 		
 	}
 	

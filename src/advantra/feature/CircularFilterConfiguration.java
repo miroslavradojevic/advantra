@@ -69,7 +69,7 @@ public class CircularFilterConfiguration {
 		 */
 		
 		double 	score = Double.NEGATIVE_INFINITY;//Double.MIN_VALUE;
-		int 	scoreIdx = -1;
+		//int 	scoreIdx = -1;
 		double[] filt = new double[profile_2PI.length];
 		double[] best_filt = new double[profile_2PI.length];
 		for (int i = 0; i < best_filt.length; i++) {
@@ -77,6 +77,8 @@ public class CircularFilterConfiguration {
 		}
 		
 		int sumPos, sumNeg;
+		
+		double max_filt = Double.MIN_VALUE;
 		
 		for (int r = 0; r < nrRot; r++) {
 			
@@ -108,14 +110,15 @@ public class CircularFilterConfiguration {
 			}
 			
 			// normalize filt[]
-			if(false){
+			if(true){
 			for (int i = 0; i < filt.length; i++) {
 				if(filt[i]>0){
-					filt[i] = filt[i] / (float)sumPos;// * ((float)sumNeg/(float)sumPos);
+					filt[i] = filt[i] * ((float)sumNeg/(float)sumPos);// / (float)sumPos;// 
+					if(filt[i]>max_filt) max_filt = filt[i];
 				}
-				else{
-					filt[i] = filt[i] / (float)sumNeg;
-				}
+//				else{
+//					filt[i] = filt[i];// / (float)sumNeg;
+//				}
 			}
 			}
 			
@@ -127,7 +130,6 @@ public class CircularFilterConfiguration {
 			
 			if(sc>score){
 				score = sc;
-				scoreIdx = r;
 				for (int i = 0; i < best_filt.length; i++) {
 					best_filt[i] = filt[i];
 				}
@@ -136,18 +138,17 @@ public class CircularFilterConfiguration {
 				
 		}
 		
-//		double[] xValues = new double[filt.length];
-//		for (int i = 0; i < filt.length; i++) {
-//			xValues[i] = i*(360f/filt.length);
-//		}
-//		
-//		Plot p = new Plot("", "ang [deg]", "");
-//		p.setLimits(0, 360, -1.1, 1.1);
-//		p.addPoints(xValues, profile_2PI, Plot.LINE);//, xValues, profile_2PI);
-//		p.addPoints(xValues, best_filt, Plot.BOX);
-//		
-//		p.setSize(400, 200);
-//		p.show();
+		double[] xValues = new double[filt.length];
+		for (int i = 0; i < filt.length; i++) {
+			xValues[i] = i*(360f/filt.length);
+		}
+		
+		Plot p = new Plot("", "ang [deg]", "");
+		p.setLimits(0, 360, -1.1, max_filt);
+		p.addPoints(xValues, profile_2PI, Plot.X);
+		p.addPoints(xValues, best_filt, Plot.LINE);
+		p.setSize(400, 200);
+		p.show();
 		
 		return score;
 	}
@@ -192,7 +193,7 @@ public class CircularFilterConfiguration {
 			}
 			
 			// normalize filt[]
-			if(false){
+			if(true){
 			for (int i = 0; i < filt.length; i++) {
 				if(filt[i]>0){
 					filt[i] = filt[i] * ((float)sumNeg/(float)sumPos);
