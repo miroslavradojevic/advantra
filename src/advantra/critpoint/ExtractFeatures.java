@@ -2,7 +2,9 @@ package advantra.critpoint;
 
 import java.awt.Color;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.FilenameFilter;
+import java.io.IOException;
 import java.util.Vector;
 
 import advantra.feature.CircularFilterSet;
@@ -58,6 +60,9 @@ public class ExtractFeatures implements PlugIn {
 	ImageStack neg_examples_profile;
 	ImageStack neg_examples_patch;// not used now
 	
+	double[][] featsP; 
+	double[][] featsN;
+	
 	public void run(String arg0) {
 		
 		
@@ -76,7 +81,13 @@ public class ExtractFeatures implements PlugIn {
 		test_folder = (String)Prefs.get("advantra.critpoint.test_folder", 
 				(System.getProperty("user.home")+File.separator));
 		
+		String[] extract_opts = new String[3];
+		extract_opts[0] = "orig.pix.";
+		extract_opts[1] = "neuriteness";
+		extract_opts[2] = "gabor.res.";
+		
 		GenericDialog gd = new GenericDialog("ExtractFeatures");
+		
 		gd.addNumericField("start scale", t1, 1);
 		gd.addNumericField("end   scale", t2, 1);
 		gd.addNumericField("nr   scales", tn, 			0, 5, "");
@@ -88,11 +99,14 @@ public class ExtractFeatures implements PlugIn {
 		gd.addNumericField("arc    step", 		darc, 1);
 		gd.addNumericField("rratio step", 		rratio, 1);
 		
-		gd.addStringField("train folder : ", train_folder, 	80);
-		gd.addStringField("test  folder : ", test_folder, 	80);
+		gd.addStringField("train folder : ", train_folder, 	40);
+		gd.addStringField("test  folder : ", test_folder, 	40);
 		
 		gd.addMessage("parallelization");
 		gd.addNumericField("CPU #",					nr_proc, 0);
+		
+		gd.addMessage("source");
+		gd.addChoice("choose: ", extract_opts, extract_opts[0]);
 		
 		gd.showDialog();
 		if (gd.wasCanceled()) return;
@@ -111,6 +125,8 @@ public class ExtractFeatures implements PlugIn {
 		
 		nr_proc = (int)gd.getNextNumber();
 		
+		int choose_source = gd.getNextChoiceIndex();
+		
 		Prefs.set("advantra.critpoint.start_scale", t1);
 		Prefs.set("advantra.critpoint.end_scale", 	t2);
 		Prefs.set("advantra.critpoint.nr_scales", 	tn);
@@ -123,7 +139,6 @@ public class ExtractFeatures implements PlugIn {
 		Prefs.set("advantra.critpoint.test_folder", test_folder);
 		
 		Prefs.set("advantra.critpoint.nr_proc", 	nr_proc);
-		
 		
 		// scales
 		t = new double[tn];
@@ -173,7 +188,7 @@ public class ExtractFeatures implements PlugIn {
 		
 		for (int i = 0; i < files_tif.length; i++) { // for each tif file
 			
-			System.out.println("\n "+files_tif[i].getName()+" "+i+"/"+(files_tif.length-1)+"  ...  ");
+			System.out.print(""+files_tif[i].getName()+" "+i+"/"+(files_tif.length-1)+"  ...  ");
 			
 			curr_pos = 0;
 			curr_neg = 0;
@@ -193,11 +208,11 @@ public class ExtractFeatures implements PlugIn {
 				locs_pos.add(A);
 				curr_pos = A.length;
 				total_pos += A.length;
-				System.out.println(A.length+" positives ");
+				System.out.print("\t "+A.length+" positives ");
 			}
 			else{
 				locs_pos.add(null);
-				System.out.println("no positives");
+				System.out.print("\t no positives");
 			}
 			
 			suffix = file_name+".neg";
@@ -209,19 +224,22 @@ public class ExtractFeatures implements PlugIn {
 				locs_neg.add(B);
 				curr_neg = B.length;
 				total_neg += B.length;
-				System.out.println(B.length+" negatives ");
+				System.out.print("\t "+B.length+" negatives ");
 			}
 			else{
 				locs_neg.add(null);
-				System.out.println("no negatives");
+				System.out.print("\t no negatives");
 			}
+			
+			System.out.println();
 			
 			/*
 			 * actual feature extraction
 			 */
+			
 			if(curr_pos>0 || curr_neg>0){
 				
-				System.out.println("...extract features...");
+				System.out.println("...extracting profiles...");
 				
 				img = new ImagePlus(files_tif[i].getAbsolutePath());
 				resetCalibration();
@@ -232,7 +250,13 @@ public class ExtractFeatures implements PlugIn {
 				H = img.getHeight();
 				W = img.getWidth();
 				
-				System.out.print("...gabor...");
+				/*
+				 * gabor
+				 */
+				
+if(choose_source==2){
+				
+				System.out.println("...gabor...");
 				int N 				= theta_pi.length; // parallelize
 				
 				GaborFilt2D.load(
@@ -293,11 +317,17 @@ public class ExtractFeatures implements PlugIn {
 							gabAll.getStack());
 				}
 				
+}
+else{
+	System.out.println("...skipping gabor...");
+	gab = gabAll = weighted = img;
+}
+				
 				/*
 				 *  extract neuriteness & eigen vecs
 				 */
 
-				System.out.print("...neuriteness...");
+				System.out.println("...neuriteness...");
 				
 				long t11 = System.currentTimeMillis();
 				Vector<ImagePlus> nness = VizFeatures.extractNeuritenessAndEigenVec(img, s);
@@ -314,24 +344,44 @@ public class ExtractFeatures implements PlugIn {
 				Vy.setTitle("Vy");
 				
 				// there are 4 options for input images and locations: neuriteness, gabAll, weighted, img
+				ImagePlus extract_from;
 				
-				// take those locations
+				switch (choose_source) {
+				case 0:
+					System.out.println("TO EXTRACT PROFILE: " + extract_opts[0]);
+					extract_from = img;
+					break;
+				case 1:
+					System.out.println("TO EXTRACT PROFILE: " + extract_opts[1]);
+					extract_from = neuriteness;
+					break;
+					
+				case 2:
+					System.out.println("TO EXTRACT PROFILE: " + extract_opts[2]);
+					extract_from = weighted;
+					break;
+				default:
+					extract_from = img;
+					break;
+				}
 				
 				Overlay ovly = new Overlay();
-				
 				
 				for (int k = 0; k < curr_pos; k++) {
 					
 					int atX = (int)locs_pos.get(i)[k][0];
 					int atY = (int)locs_pos.get(i)[k][1];
 					
-					double[] extracted_profile = VizFeatures.extractProfile(neuriteness, Vx, Vy, atX, atY, radius, dr, darc, rratio, angular_resolution);
+					double[] extracted_profile = 
+							VizFeatures.extractProfile(extract_from, Vx, Vy, atX, atY, radius, dr, darc, rratio, angular_resolution);
 					
 					FloatProcessor fp = new FloatProcessor(angular_resolution, 1, extracted_profile);
 					
 					pos_examples_profile.addSlice(fp);
 					
-					EllipseRoi pt = new EllipseRoi(atX-2.5, atY-2.5, atX+2.5, atY+2.5, 1);
+					PointRoi pt = new PointRoi(atX, atY);
+					pt.setStrokeWidth(3.0);
+					pt.setStrokeColor(Color.RED);
 					ovly.addElement(pt);
 					
 				}
@@ -342,19 +392,19 @@ public class ExtractFeatures implements PlugIn {
 					int atY = (int)locs_neg.get(i)[k][1];
 					
 					double[] extracted_profile = 
-							VizFeatures.extractProfile(img, Vx, Vy, atX, atY, radius, dr, darc, rratio, angular_resolution);
+							VizFeatures.extractProfile(extract_from, Vx, Vy, atX, atY, radius, dr, darc, rratio, angular_resolution);
 					
 					FloatProcessor fp = new FloatProcessor(angular_resolution, 1, extracted_profile);
 					
 					neg_examples_profile.addSlice(fp);
 					
 					PointRoi pt = new PointRoi(atX, atY);
+					pt.setStrokeColor(Color.BLUE);
 					ovly.addElement(pt);
 					
 				}
 				
 				ImagePlus showIt = new ImagePlus("VIZ_"+files_tif[i].getName(), img.getProcessor());
-				ovly.setFillColor(Color.RED);
 				showIt.setOverlay(ovly);
 				showIt.show();
 				
@@ -365,6 +415,10 @@ public class ExtractFeatures implements PlugIn {
 		
 		System.out.println("////\n total (+) : "+total_pos);
 		System.out.println(" total (-) : "+total_neg+"\n////\n");
+		
+		/*
+		 * show examples
+		 */
 		
 		ImagePlus pos_examples_image =  new ImagePlus("positive examples", pos_examples_profile);
 		pos_examples_image.show();
@@ -385,28 +439,90 @@ public class ExtractFeatures implements PlugIn {
 		neg_examples_image.getCanvas().zoomIn(0, 0);
 		
 		/*
-		 * generate filters to score on example profiles
+		 * generate filters to score on example profiles (calculate features)
 		 */
-//		double angStep = Math.PI/8;
-//		ProfileFilters pft = new ProfileFilters(angular_resolution, angStep);
-//		pft.create();
-//		pft.showFilters();
-		int[] angleRes = new int[]{60};
-		CircularFilterSet cft = new CircularFilterSet(angleRes);		
-		cft.showConfigs();
 		
+		int[] angleRes = new int[]{60};
+		CircularFilterSet cft = new CircularFilterSet(angleRes);	
+		int nrFilters = cft.filts.size();
 		
 		/*
-		 * calculate features (filter scores)
+		 * calculate features
 		 */
-		//profile will be take from image stacks with examples
-		double[][] featsP; 
-		double[][] featsN;
-		//double[] scores = cft.calculateScore(profile2);
 		
-		// train
+		System.out.print("calculate features...");
+		
+		featsP = new double[pos_examples_profile.getSize()][nrFilters];
+		featsN = new double[neg_examples_profile.getSize()][nrFilters];
+		
+		for (int exampleIdx = 0; exampleIdx < pos_examples_profile.getSize(); exampleIdx++) {
+			featsP[exampleIdx] = cft.calculateScore((float[])pos_examples_profile.getProcessor(exampleIdx+1).getPixels()); 
+		}
+		
+		for (int exampleIdx = 0; exampleIdx < featsN.length; exampleIdx++) {
+			featsN[exampleIdx] = cft.calculateScore((float[])neg_examples_profile.getProcessor(exampleIdx+1).getPixels());
+		}
+		
+		System.out.println(" done.");
+		
+		/*
+		 *  train
+		 */
+		
+		System.out.print("training AdaBoost...");
 		int T = 5;
-		//trueAdaBoost(featsP, featsN, T);
+		double[][] adaboost = trueAdaBoost(featsP, featsN, T);
+		System.out.println("done.");
+		
+		for (int i = 0; i < adaboost.length; i++) {
+			for (int j = 0; j < adaboost[0].length; j++) {
+				System.out.print("\t"+IJ.d2s(adaboost[i][j], 2));
+			}
+			System.out.println();
+		}
+		System.out.println();
+		
+		// save AdaBoost configuration file
+		String file_name = "train"+"."+T+"."+"adaboost";
+		FileWriter fw;
+		try {
+	        fw = new FileWriter(file_name);
+	        fw.write("parameters here..." + "\r\n"); // IJ.d2s(patchSize, 0)
+//	        fw.write(IJ.d2s(adaboost.length, 0) + "\r\n");
+//	        for (int i = 0; i < adaboost.length; i++) {
+//	            fw.write(IJ.d2s(adaboost[i][0], 0) + "\r\n");
+//	            fw.write(IJ.d2s(adaboost[i][1], 6) + "\r\n");
+//	            fw.write(IJ.d2s(adaboost[i][2], 6) + "\r\n");
+//	        }
+	        fw.close();
+	    } catch (IOException e) {
+	        ij.IJ.error("Unable to save particle positions");
+	    }
+	    
+	    // show the best features
+	    for (int i = 0; i < adaboost.length; i++) {
+			cft.showConfigs((int)adaboost[i][0]);
+		}
+	    
+	    /*
+	     * test folder
+	     */
+	    
+	    File dir_test = new File(test_folder);
+	    test_folder = dir.getAbsolutePath();
+		if(!dir_test.isDirectory() ){ 
+			IJ.error("Wrong directory!");
+			return;
+		}
+		
+		File[] test_files_tif = listFilesEndingWith(dir_test, ".tif");
+		for (int i = 0; i < test_files_tif.length; i++) { // for each tif file
+			System.out.print(""+test_files_tif[i].getName()+" "+i+"/"+(test_files_tif.length-1)+"  ...  ");
+			System.out.println();
+		}
+		
+		ImagePlus im = new ImagePlus("/home/miroslav/test");
+		im.show();
 		
 	}
 	
@@ -481,8 +597,8 @@ public class ExtractFeatures implements PlugIn {
 	        }
 	        // number of runs - id of the feature - alpha - threshold - error 
 	        IJ.log(
-	        		"t = " + (t + 1) + " -> best classifier:" + 
-	        		IJ.d2s(adaboost[t][0] + 1, 0) + "("+")"+ // nameFeatures[(int)adaboost[t][0]] +
+	        		"t = " + (t + 1) + " -> best classifier idx:" + 
+	        		IJ.d2s(adaboost[t][0], 0) + "("+")"+ // nameFeatures[(int)adaboost[t][0]] +
 	        		" Math.log(1 / beta):  " +
 	                IJ.d2s(adaboost[t][1], 4) + "  optimal threshold: " + IJ.d2s(adaboost[t][2], 4) + "  error:   " +
 	                IJ.d2s(mineps, 6));

@@ -481,19 +481,4 @@ public class ProfileFilters {
 		
 	}
 	
-//	private float conv(double[] a, float[] b){
-////		System.out.print("\nconvolving with: ");
-////		for (int i = 0; i < b.length; i++) {
-////			System.out.print(IJ.d2s(b[i], 2)+", ");
-////		}
-////		
-//		float c = 0;
-//		
-//		for (int i = 0; i < b.length; i++) {
-//			c += a[i]*b[i];
-//		}
-//		
-//		return c;
-//	}
-
 }

@@ -1,10 +1,7 @@
 package advantra.feature;
 
-import java.awt.Color;
-
 import ij.ImageStack;
 import ij.gui.Plot;
-import ij.process.ImageProcessor;
 
 public class CircularFilterConfiguration {
 
@@ -69,16 +66,11 @@ public class CircularFilterConfiguration {
 		 */
 		
 		double 	score = Double.NEGATIVE_INFINITY;//Double.MIN_VALUE;
-		//int 	scoreIdx = -1;
 		double[] filt = new double[profile_2PI.length];
-		double[] best_filt = new double[profile_2PI.length];
-		for (int i = 0; i < best_filt.length; i++) {
-			best_filt[i] = -1.05;
-		}
 		
 		int sumPos, sumNeg;
 		
-		double max_filt = Double.MIN_VALUE;
+//		double max_filt = Double.MIN_VALUE;
 		
 		for (int r = 0; r < nrRot; r++) {
 			
@@ -114,11 +106,8 @@ public class CircularFilterConfiguration {
 			for (int i = 0; i < filt.length; i++) {
 				if(filt[i]>0){
 					filt[i] = filt[i] * ((float)sumNeg/(float)sumPos);// / (float)sumPos;// 
-					if(filt[i]>max_filt) max_filt = filt[i];
+//					if(filt[i]>max_filt) max_filt = filt[i];
 				}
-//				else{
-//					filt[i] = filt[i];// / (float)sumNeg;
-//				}
 			}
 			}
 			
@@ -130,26 +119,82 @@ public class CircularFilterConfiguration {
 			
 			if(sc>score){
 				score = sc;
-				for (int i = 0; i < best_filt.length; i++) {
-					best_filt[i] = filt[i];
-				}
 				
 			}
 				
 		}
 		
-		double[] xValues = new double[filt.length];
-		for (int i = 0; i < filt.length; i++) {
-			xValues[i] = i*(360f/filt.length);
+//		double[] xValues = new double[filt.length];
+//		for (int i = 0; i < filt.length; i++) {
+//			xValues[i] = i*(360f/filt.length);
+//		}
+		
+//		Plot p = new Plot("", "ang [deg]", "");
+//		p.setLimits(0, 360, -1.1, max_filt);
+//		p.addPoints(xValues, profile_2PI, Plot.X);
+//		p.addPoints(xValues, best_filt, Plot.LINE);
+//		p.setSize(400, 200);
+//		p.show();
+		
+		return score;
+	}
+	
+	public double calculateScore(float[] profile_2PI){
+		
+		double 	score 	= Double.NEGATIVE_INFINITY;
+		float[] filt 	= new float[profile_2PI.length];
+		
+		int sumPos, sumNeg;
+		
+		for (int r = 0; r < nrRot; r++) {
+			
+			sumPos = sumNeg = 0;
+			
+			for (int i = 0; i < profile_2PI.length; i++) {
+				
+				double angle = i*((2*Math.PI)/profile_2PI.length);
+				
+				boolean isON = false;
+				for (int p = 0; p < nrPeaks; p++) {
+					if(Math.abs(wrap_PI(angle-peaksRad[r][p])) <= wdthRad/2){
+						isON = true;
+						break;
+					}
+				}
+				
+				if(isON){
+					filt[i] = +1;
+					sumPos++;
+				}
+				else{
+					filt[i] = -1;
+					sumNeg++;
+				}
+				
+			}
+			
+			// normalize filt[]
+			if(true){
+			for (int i = 0; i < filt.length; i++) {
+				if(filt[i]>0){
+					filt[i] = filt[i] * ((float)sumNeg/(float)sumPos);// / (float)sumPos;// 
+				}
+			}
+			}
+			
+			// score for this filt[]
+			double sc = 0;
+			for (int i = 0; i < filt.length; i++) {
+				sc += filt[i]*profile_2PI[i];
+			}
+			
+			if(sc>score){
+				score = sc;
+				
+			}
+				
 		}
-		
-		Plot p = new Plot("", "ang [deg]", "");
-		p.setLimits(0, 360, -1.1, max_filt);
-		p.addPoints(xValues, profile_2PI, Plot.X);
-		p.addPoints(xValues, best_filt, Plot.LINE);
-		p.setSize(400, 200);
-		p.show();
-		
+
 		return score;
 	}
 	

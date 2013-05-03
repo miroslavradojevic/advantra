@@ -192,6 +192,18 @@ public class CircularFilterSet {
 		return score;
 	}
 	
+	public double[] calculateScore(float[] angularProfile){
+		double[] score = new double[filts.size()];
+		
+		for (int i = 0; i < filts.size(); i++) {
+			
+			score[i] = filts.get(i).calculateScore(angularProfile);
+			
+		}
+		
+		return score;
+	}
+	
 	public void showConfigs(){
 		
 		for (int i = 0; i < filts.size(); i++) {
