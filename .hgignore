@@ -10,6 +10,8 @@ syntax: glob
 *~
 *.jar
 *.class
+*.iml
+*.properties
 advantra/*.jar
 advantra/*.class
 advantra/build
@@ -21,3 +23,4 @@ advantra/bin
 .externalToolBuilders
 .settings
 .metadata
+.idea

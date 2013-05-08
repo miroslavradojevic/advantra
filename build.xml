@@ -19,7 +19,6 @@
  			 	     <attribute name="Built-By" value="${user.name}"/>
  		</manifest>
  	</jar>
-	<copy file="./advantra_.jar" 				toDir="${env.HOME}/fiji/plugins/my_plugins_libraries/" /> 
-	<copy file="./advantra_.jar" 				toDir="${env.HOME}/workspace/my_plugins_libraries/" />
+	<copy file="./advantra_.jar" 				toDir="${env.HOME}/ImageJ/plugins/" />
 </target>
 </project>

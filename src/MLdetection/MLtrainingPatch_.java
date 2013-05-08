@@ -163,7 +163,7 @@ public void run(String arg0) {
     // create the feature pool 
     FeaturePool featurePool = new FeaturePool(patchSize);
     int fSize = featurePool.getSize();
-    IJ.write("the fearute pool of size " + fSize + " is created");
+    IJ.log("the fearute pool of size " + fSize + " is created");
     featurePool.visualizeFeaturePool();
     ij.WindowManager.getCurrentWindow().setLocationAndSize(10, screenHeight - 350, 200, 200);
 
@@ -277,7 +277,7 @@ private double[][] trueAdaBoost(int[][] imFeaturesP, int[][] imFeaturesN, int T)
             adaboost[t][0] = bestClassifier;
             adaboost[t][2] = thresh[bestClassifier][0];
 
-            IJ.write(t + " min eps = " + mineps + "   " +
+            IJ.log(t + " min eps = " + mineps + "   " +
                     bestClassifier + "   " + thresh[bestClassifier][0]);
             tt = t;
             break;
@@ -307,7 +307,7 @@ private double[][] trueAdaBoost(int[][] imFeaturesP, int[][] imFeaturesN, int T)
             w[i] /= sum;
         }
         // number of runs - id of the feature - alpha - threshold - error 
-        IJ.write("t = " + (t + 1) + " -> best classifier:" + IJ.d2s(adaboost[t][0] + 1, 0) + " Math.log(1 / beta):  " +
+        IJ.log("t = " + (t + 1) + " -> best classifier:" + IJ.d2s(adaboost[t][0] + 1, 0) + " Math.log(1 / beta):  " +
                 IJ.d2s(adaboost[t][1], 4) + "  optimal threshold: " + IJ.d2s(adaboost[t][2], 4) + "  error:   " +
                 IJ.d2s(mineps, 6));
     }

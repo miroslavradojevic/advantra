@@ -147,7 +147,7 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 		W = img.getWidth();
 		
 		/*
-		 * extract directional gabor responses
+		 * extract directional Gabor-filter responses
 		 */
 		
 		System.out.print("extracting gabor, "+t.length+" scales, "+theta_pi.length+" angles... ");
@@ -375,12 +375,12 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 	}
 	
 	public static Vector<ImagePlus> extractNeuritenessAndEigenVec(ImagePlus in, double[] s){
-		
+
 		int H = in.getHeight();
 		int W = in.getWidth();
-		
+
 		Image inimg = Image.wrap(in); inimg.axes(Axes.X+Axes.Y);
-		
+
 		Vector<ImagePlus> out = new Vector<ImagePlus>(3);
 		
 		ImagePlus neuriteness 	= new ImagePlus("neuriteness", new FloatProcessor(W, H));
@@ -388,7 +388,7 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 		ImagePlus Vy 			= new ImagePlus("neuriteness", new FloatProcessor(W, H));
 		
 		MyHessian myhess = new MyHessian();
-		
+
 		for (int i = 0; i < s.length; i++) {
 			
 			System.out.println("eigen analysis at scale = " + IJ.d2s(s[i]*s[i], 2) + ", with Gaussian sigma = " + IJ.d2s(s[i], 2));
@@ -473,7 +473,7 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 		show_profiles = new ImagePlus("profiles", show_profiles1);
 		show_profiles.show();
 		
-		int[] angleRes = new int[]{60};
+		int[] angleRes = new int[]{40, 60};
 		CircularFilterSet cft = new CircularFilterSet(angleRes);		
 		cft.showConfigs();
 		
@@ -699,23 +699,129 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 		
 	}
 	
-	public static Vector<double[]> extractProfiles(Vector<ImagePlus> imgs, ImagePlus Vx, ImagePlus Vy, int atX, int atY, double radius, double dr, double darc, double rratio){
+//	public static Vector<double[]> extractProfiles(Vector<ImagePlus> imgs, ImagePlus Vx, ImagePlus Vy, int atX, int atY, double radius, double dr, double darc, double rratio){
+//
+//		int nrang 		= (int)Math.ceil((Math.PI*2)/(darc/radius));
+//
+//		Vector<double[]> 	profile 		= new Vector<double[]>(imgs.size());
+//		Vector<int[]> 		profile_cnt 	= new Vector<int[]>(imgs.size());
+//		//Vector<Double> 		profile_min 	= new Vector<Double>(imgs.size());
+//		//Vector<Double> 		profile_max 	= new Vector<Double>(imgs.size());
+//
+//		for (int i = 0; i < imgs.size(); i++) {
+//
+//			profile.add(new double[nrang]);
+//			profile_cnt.add(new int[nrang]);
+//			//profile_min.add(Double.MAX_VALUE);
+//			//profile_max.add(Double.MIN_VALUE);
+//
+//		}
+//
+//		for (double r = radius; r >= radius*rratio; r-=dr) {
+//			for (double arc = 0; arc < 2*r*Math.PI; arc+=darc) {
+//
+//				double ang = arc/r;
+//
+//				double d1 = Math.sin(ang);
+//				double d2 = -Math.cos(ang);
+//
+//				double x2 = atX + r * d1;
+//				double y2 = atY + r * d2;
+//
+//				int x_loc = (int)Math.round(x2);
+//				int y_loc = (int)Math.round(y2);
+//
+//				float v1 = Vx.getProcessor().getPixelValue(x_loc, y_loc);
+//				float v2 = Vy.getProcessor().getPixelValue(x_loc, y_loc);
+//
+//				int idxAng = (int)Math.floor(ang/(2*Math.PI/nrang));
+//
+//				for (int i = 0; i < imgs.size(); i++) {
+//
+//					float mult = imgs.get(i).getProcessor().getPixelValue(x_loc, y_loc);
+//					profile.get(i)[idxAng] 		+= Math.abs(mult*v1*d1+mult*v2*d2);
+//					profile_cnt.get(i)[idxAng]	+= 1;
+//
+//				}
+//
+//			}
+//		}
+//
+//		for (int i = 0; i < profile.size(); i++) {
+//			for (int k = 0; k < nrang; k++) {
+//				if(profile_cnt.get(i)[k]>1){
+//					profile.get(i)[k] = profile.get(i)[k] / profile_cnt.get(i)[k];
+//				}
+//			}
+//		}
+//
+//		return profile;
+//
+//	}
+
+    public static float[] extractProfilePatch(
+            ImagePlus img,
+            ImagePlus Vx,
+            ImagePlus Vy,
+            int atX,
+            int atY,
+            float[] radiuses,
+            double darc,
+            int nrang
+    ){
+
+        float[] out_profile = new float[radiuses.length*nrang];
+
+        float radius = radiuses[0];
+
+        for (int rIdx = 0; rIdx < radiuses.length; rIdx++) {
+
+            float r = radiuses[rIdx];
+
+            //for (double arc = 0; arc < 2*r*Math.PI; arc+=darc) {
+            for (int aIdx = 0; aIdx < nrang; aIdx++){
+
+                double ang = aIdx * (2*Math.PI/nrang); // arc/r;
+
+                double d1 = Math.sin(ang);
+                double d2 = -Math.cos(ang);
+
+                double x2 = atX + r * d1;
+                double y2 = atY + r * d2;
+
+                int x_loc = (int)Math.round(x2);
+                int y_loc = (int)Math.round(y2);
+
+                float v1 = Vx.getProcessor().getPixelValue(x_loc, y_loc);
+                float v2 = Vy.getProcessor().getPixelValue(x_loc, y_loc);
+
+//                int idxAng = (int)Math.floor(ang/(2*Math.PI/nrang));
+
+                float mult = img.getProcessor().getPixelValue(x_loc, y_loc);
+                out_profile[rIdx*nrang+aIdx] = (float)Math.abs(mult*v1*d1+mult*v2*d2);
+
+            }
+
+        }
+
+        return out_profile;
+    }
+
+	public static double[] extractProfile(
+            ImagePlus img,
+            ImagePlus Vx,
+            ImagePlus Vy,
+            int atX,
+            int atY,
+            double radius,
+            double dr,
+            double darc,
+            double rratio,
+            int nrang
+    ){
 		
-		int nrang 		= (int)Math.ceil((Math.PI*2)/(darc/radius));
-		
-		Vector<double[]> 	profile 		= new Vector<double[]>(imgs.size());
-		Vector<int[]> 		profile_cnt 	= new Vector<int[]>(imgs.size());
-		//Vector<Double> 		profile_min 	= new Vector<Double>(imgs.size());
-		//Vector<Double> 		profile_max 	= new Vector<Double>(imgs.size());
-		
-		for (int i = 0; i < imgs.size(); i++) {
-			
-			profile.add(new double[nrang]);
-			profile_cnt.add(new int[nrang]);
-			//profile_min.add(Double.MAX_VALUE);
-			//profile_max.add(Double.MIN_VALUE);
-			
-		}
+		double[] out_profile = new double[nrang];
+		int[] out_profile_cnt = new int[nrang];
 		
 		for (double r = radius; r >= radius*rratio; r-=dr) {
 			for (double arc = 0; arc < 2*r*Math.PI; arc+=darc) {
@@ -736,55 +842,6 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 				
 				int idxAng = (int)Math.floor(ang/(2*Math.PI/nrang));
 				
-				for (int i = 0; i < imgs.size(); i++) {
-					
-					float mult = imgs.get(i).getProcessor().getPixelValue(x_loc, y_loc);
-					profile.get(i)[idxAng] 		+= Math.abs(mult*v1*d1+mult*v2*d2);
-					profile_cnt.get(i)[idxAng]	+= 1;
-					
-				}
-				
-			}
-		}
-		
-		for (int i = 0; i < profile.size(); i++) {
-			for (int k = 0; k < nrang; k++) {
-				if(profile_cnt.get(i)[k]>1){
-					profile.get(i)[k] = profile.get(i)[k] / profile_cnt.get(i)[k];
-				}
-			}
-		}
-		
-		return profile;
-		
-	}
-	
-	public static double[] extractProfile(ImagePlus img, ImagePlus Vx, ImagePlus Vy, int atX, int atY, double radius, double dr, double darc, double rratio, int nrang){
-		
-		int angular_resolution = nrang;
-		
-		double[] out_profile = new double[angular_resolution];
-		int[] out_profile_cnt = new int[angular_resolution];
-		
-		for (double r = radius; r >= radius*rratio; r-=dr) {
-			for (double arc = 0; arc < 2*r*Math.PI; arc+=darc) {
-				
-				double ang = arc/r;
-				
-				double d1 = Math.sin(ang);
-				double d2 = -Math.cos(ang);
-				
-				double x2 = atX + r * d1;
-				double y2 = atY + r * d2;
-				
-				int x_loc = (int)Math.round(x2);
-				int y_loc = (int)Math.round(y2);
-				
-				float v1 = Vx.getProcessor().getPixelValue(x_loc, y_loc);
-				float v2 = Vy.getProcessor().getPixelValue(x_loc, y_loc);
-				
-				int idxAng = (int)Math.floor(ang/(2*Math.PI/angular_resolution));
-				
 				float mult = img.getProcessor().getPixelValue(x_loc, y_loc);
 				out_profile[idxAng] 		+= Math.abs(mult*v1*d1+mult*v2*d2);
 				out_profile_cnt[idxAng]		+= 1;
@@ -792,13 +849,12 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 			}
 		}
 		
-		for (int k = 0; k < angular_resolution; k++) {
+		for (int k = 0; k < nrang; k++) {
 			if(out_profile_cnt[k]>1){
 				out_profile[k] = out_profile[k] / out_profile_cnt[k];
 			}
 		}
-		
-		
+
 		/*
 		// for rotational invariance
 		double profile_max = Double.MIN_VALUE;
@@ -813,7 +869,16 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 		return out_profile;
 	}
 	
-	public static double[] extractProfile(ImagePlus img, int atX, int atY, double radius, double dr, double darc, double rratio, int nrang){
+	public static double[] extractProfile(
+            ImagePlus img,
+            int atX,
+            int atY,
+            double radius,
+            double dr,
+            double darc,
+            double rratio,
+            int nrang
+    ){
 		
 		int angular_resolution = nrang;
 		

@@ -48,7 +48,8 @@ if(exec){
 		/*
 		 * test profile features
 		 */
-		int[] angleRes = new int[]{60};
+
+		int[] angleRes = new int[]{40, 60};
 		CircularFilterSet cft = new CircularFilterSet(angleRes);
 		cft.showConfigs();
 		

@@ -67,7 +67,7 @@ public void run(String arg0) {
     String confstr1 = " ", confstr2 = " ", confstr3 = " ";
     File file = new File(plugins_name + congifName);
     if (!file.exists()) {
-        IJ.write("no config file mldetector.conf in plugins folder");
+        IJ.log("no config file mldetector.conf in plugins folder");
     } else {
         try {
             BufferedReader br = new BufferedReader(new FileReader(plugins_name + congifName));
@@ -149,7 +149,7 @@ public void run(String arg0) {
     // create the feature pool
     FeaturePool featurePool = new FeaturePool(patchSize);
     int fSize = featurePool.getSize();
-    IJ.write("fearute pool size is " + fSize);
+    IJ.log("fearute pool size is " + fSize);
     //featurePool.visualizeFeaturePool();
     //ij.WindowManager.getCurrentWindow().setLocationAndSize(10, screenHeight - 250, 200, 200);
 
@@ -313,9 +313,7 @@ public void run(String arg0) {
 //        }
     }
 
-private
-
- int applyAdaBoost(double[][] adaboost, int[] imFeaturesT) {
+private int applyAdaBoost(double[][] adaboost, int[] imFeaturesT) {
     double res = 0;
     double object_res = 0;
     for (int i = 0; i < adaboost.length; i++) {

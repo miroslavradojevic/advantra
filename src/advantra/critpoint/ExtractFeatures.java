@@ -7,7 +7,7 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.util.Vector;
 
-import advantra.feature.CircularFilterSet;
+//import advantra.feature.CircularFilterSet;
 import advantra.feature.GaborFilt2D;
 import advantra.file.AnalyzeCSV;
 
@@ -23,6 +23,7 @@ import ij.gui.PointRoi;
 import ij.measure.Calibration;
 import ij.plugin.PlugIn;
 import ij.plugin.ZProjector;
+import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 
 public class ExtractFeatures implements PlugIn {
@@ -53,478 +54,845 @@ public class ExtractFeatures implements PlugIn {
 	int 		W, H;
 	
 	int			nr_proc;
+
+    int         T;
 	
 	// output will be examples (pos. and neg.)
 	ImageStack pos_examples_profile;
-	ImageStack pos_examples_patch;// not used now
+    ImageStack pos_examples_profile_patch;  // 2d
 	ImageStack neg_examples_profile;
-	ImageStack neg_examples_patch;// not used now
-	
+    ImageStack neg_examples_profile_patch;   // 2d
+
 	double[][] featsP; 
 	double[][] featsN;
+//    double[][] featsT;
 	
-	public void run(String arg0) {
-		
-		
-		t1  	= Prefs.get("advantra.critpoint.start_scale", 		3.0);
-		t2    	= Prefs.get("advantra.critpoint.end_scale", 		7.0);
-		tn 		= (int)Prefs.get("advantra.critpoint.nr_scales", 	3);
-		M		= (int)Prefs.get("advantra.critpoint.nr_angles", 	8);
-		dr    	= Prefs.get("advantra.critpoint.dr", 				1.0);
-		
-		darc    = Prefs.get("advantra.critpoint.darc", 				1.0);
-		rratio	= Prefs.get("advantra.critpoint.dratio", 			0.2);
-		nr_proc = (int)Prefs.get("advantra.critpoint.nr_proc", 		4);
-		
-		train_folder = (String)Prefs.get("advantra.critpoint.train_folder", 
-				(System.getProperty("user.home")+File.separator));
-		test_folder = (String)Prefs.get("advantra.critpoint.test_folder", 
-				(System.getProperty("user.home")+File.separator));
-		
-		String[] extract_opts = new String[3];
-		extract_opts[0] = "orig.pix.";
-		extract_opts[1] = "neuriteness";
-		extract_opts[2] = "gabor.res.";
-		
-		GenericDialog gd = new GenericDialog("ExtractFeatures");
-		
-		gd.addNumericField("start scale", t1, 1);
-		gd.addNumericField("end   scale", t2, 1);
-		gd.addNumericField("nr   scales", tn, 			0, 5, "");
-		gd.addNumericField("angles(per 180 deg)", M,	0, 5, "");
-		
-		gd.addMessage("circular extraction parameters");
-		gd.addNumericField("x(lagest scale std)",	surr, 	0);
-		gd.addNumericField("radius step", 		dr, 1);
-		gd.addNumericField("arc    step", 		darc, 1);
-		gd.addNumericField("rratio step", 		rratio, 1);
-		
-		gd.addStringField("train folder : ", train_folder, 	40);
-		gd.addStringField("test  folder : ", test_folder, 	40);
-		
-		gd.addMessage("parallelization");
-		gd.addNumericField("CPU #",					nr_proc, 0);
-		
-		gd.addMessage("source");
-		gd.addChoice("choose: ", extract_opts, extract_opts[0]);
-		
-		gd.showDialog();
-		if (gd.wasCanceled()) return;
-		t1 	= 		gd.getNextNumber();
-		t2	= 		gd.getNextNumber();
-		tn	= (int)	gd.getNextNumber();
-		M 	= (int)	gd.getNextNumber();
-		
-		surr = (int)gd.getNextNumber();
-		dr  = 			gd.getNextNumber();
-		darc  = 		gd.getNextNumber();
-		rratio  = 		gd.getNextNumber();
-		
-		train_folder = 	gd.getNextString();
-		test_folder = 	gd.getNextString();
-		
-		nr_proc = (int)gd.getNextNumber();
-		
-		int choose_source = gd.getNextChoiceIndex();
-		
-		Prefs.set("advantra.critpoint.start_scale", t1);
-		Prefs.set("advantra.critpoint.end_scale", 	t2);
-		Prefs.set("advantra.critpoint.nr_scales", 	tn);
-		Prefs.set("advantra.critpoint.nr_angles", 	M);
-		Prefs.set("advantra.critpoint.dr", 			dr);
-		Prefs.set("advantra.critpoint.darc", 		darc);
-		Prefs.set("advantra.critpoint.dratio", 		rratio);
-		
-		Prefs.set("advantra.critpoint.train_folder", train_folder);
-		Prefs.set("advantra.critpoint.test_folder", test_folder);
-		
-		Prefs.set("advantra.critpoint.nr_proc", 	nr_proc);
-		
-		// scales
-		t = new double[tn];
-		s = new double[tn];
-		for (int i = 0; i < tn; i++) {
-			t[i] = (i==0)? t1 : t1+i*((t2-t1)/(tn-1));
-			s[i] = Math.sqrt(t[i]);
-		}
-				
-		radius = surr*Math.sqrt(t[t.length-1]); // xGaussianStd.
-			
-		// angles theta angle it makes with x axis (angle it makes with the first row)
-		theta_pi 	= new double[M];
-		theta_2pi	= new double[2*M];
-		for (int i = 0; i < 2*M; i++) {
-			theta_2pi[i] = i * (Math.PI/(double)(M));
-		}
-		for (int i = 0; i < M; i++) {
-			theta_pi[i] = i * (Math.PI/(double)M);
-		}
-		
-		File dir = new File(train_folder);
-		train_folder = dir.getAbsolutePath();
-		if(!dir.isDirectory() ){ //|| !dir2.isDirectory()
-			IJ.error("Wrong directory!");
-			return;
-		}
-		
-		File[] files_tif = listFilesEndingWith(dir, ".tif");
-		File[] files_pos = new File[files_tif.length];
-		File[] files_neg = new File[files_tif.length];
-		Vector<double[][]> locs_pos = new Vector<double[][]>(files_tif.length);
-		Vector<double[][]> locs_neg = new Vector<double[][]>(files_tif.length);
-		
-		int total_pos = 0;
-		int total_neg = 0;
-		int curr_pos = 0;
-		int curr_neg = 0;
-		
-		
-		//int angular_resolution = (int)Math.ceil((Math.PI*2)/(darc/radius));// highest
-		int angular_resolution = 128;
-		pos_examples_profile = new ImageStack(angular_resolution, 1);
-		neg_examples_profile = new ImageStack(angular_resolution, 1);
-		
-		System.out.println("## TRAINING ##  "+train_folder);
-		
-		for (int i = 0; i < files_tif.length; i++) { // for each tif file
-			
-			System.out.print(""+files_tif[i].getName()+" "+i+"/"+(files_tif.length-1)+"  ...  ");
-			
-			curr_pos = 0;
-			curr_neg = 0;
-			
-			AnalyzeCSV readCSV;
-			File[] check;
-			String suffix;
-			String file_name = files_tif[i].getName();
-			file_name = file_name.substring(0, file_name.length()-4);
-			
-			suffix = file_name+".pos";
-			check = listFilesEndingWith(dir, suffix);
-			if(check!=null && check.length>0){
-				files_pos[i] = check[0];
-				readCSV = new AnalyzeCSV(files_pos[i].getAbsolutePath());
-				double[][] A = readCSV.readLn(2);
-				locs_pos.add(A);
-				curr_pos = A.length;
-				total_pos += A.length;
-				System.out.print("\t "+A.length+" positives ");
-			}
-			else{
-				locs_pos.add(null);
-				System.out.print("\t no positives");
-			}
-			
-			suffix = file_name+".neg";
-			check = listFilesEndingWith(dir, suffix);
-			if(check!=null && check.length>0){
-				files_neg[i] = check[0];
-				readCSV = new AnalyzeCSV(files_neg[i].getAbsolutePath());
-				double[][] B = readCSV.readLn(2);
-				locs_neg.add(B);
-				curr_neg = B.length;
-				total_neg += B.length;
-				System.out.print("\t "+B.length+" negatives ");
-			}
-			else{
-				locs_neg.add(null);
-				System.out.print("\t no negatives");
-			}
-			
-			System.out.println();
-			
-			/*
-			 * actual feature extraction
-			 */
-			
-			if(curr_pos>0 || curr_neg>0){
-				
-				System.out.println("...extracting profiles...");
-				
-				img = new ImagePlus(files_tif[i].getAbsolutePath());
-				resetCalibration();
-				convertToFloatImage();
-				IJ.freeMemory();
-				//img.show();
-				
-				H = img.getHeight();
-				W = img.getWidth();
-				
-				/*
-				 * gabor
-				 */
-				
-if(choose_source==2){
-				
-				System.out.println("...gabor...");
-				int N 				= theta_pi.length; // parallelize
-				
-				GaborFilt2D.load(
-						img, 
-						theta_pi,
-						t,
-						new double[t.length],
-						bandwidth,
-						psi,
-						gamma,
-						isReal);
+	public void run(String arg0)
+	{
 
-				long t0, t1;
-				t0 = System.currentTimeMillis();
-				GaborFilt2D gab_jobs[] = new GaborFilt2D[nr_proc];
-				for (int l = 0; l < gab_jobs.length; l++) {
-					
-					int start_interval 	= l*N/nr_proc;
-					int end_interval	= (l+1)*N/nr_proc;
-					
-					gab_jobs[l] = new GaborFilt2D(start_interval,  end_interval);
-					gab_jobs[l].start();
-				}
-				for (int l = 0; l < gab_jobs.length; l++) {
-					try {
-						gab_jobs[l].join();
-					} catch (InterruptedException e) {
-						e.printStackTrace();
-					}
-				}
-				
-				gab = new ImagePlus("", GaborFilt2D.gabor_directional_responses);
-				gab.setTitle("gabor filter, directional responses");
-				t1 = System.currentTimeMillis();
-				System.out.println("done, "+((t1-t0)/1000f)+" seconds");
-				//gab.show();
-				
-				/*
-				 * extract maximal directional gabor response in every point
-				 */
+		int a = 5;
 
-				ZProjector zmax = new ZProjector();
-				zmax.setImage(gab);
-				zmax.setStartSlice(1);	
-				zmax.setStopSlice(gab.getStackSize());
-				zmax.setMethod(ZProjector.MAX_METHOD);
-				zmax.doProjection();
-				gabAll = new ImagePlus("gabor filter, directional responses, max", zmax.getProjection().getChannelProcessor());
-				//gabAll.show();
-				
-				boolean normalize = false;
-				if(normalize){
-					weighted = new ImagePlus("gabor filter, directional responses, max, min-max normalized", 
-							VizFeatures.normalizeStackMinMax(gabAll.getStack()));
-				}
-				else{
-					weighted = new ImagePlus("gabor filter, directional responses, max, min-max normalized", 
-							gabAll.getStack());
-				}
-				
-}
-else{
-	System.out.println("...skipping gabor...");
-	gab = gabAll = weighted = img;
-}
-				
-				/*
-				 *  extract neuriteness & eigen vecs
-				 */
+		System.out.println("test exec.");
+		if(true)return;
 
-				System.out.println("...neuriteness...");
-				
-				long t11 = System.currentTimeMillis();
-				Vector<ImagePlus> nness = VizFeatures.extractNeuritenessAndEigenVec(img, s);
-				System.out.println("done, "+((System.currentTimeMillis()-t11)/1000f)+" seconds");
-				
-				neuriteness = nness.get(0);
-				neuriteness.setTitle("neuriteness");
-				//neuriteness.show();
-				
-				Vx = nness.get(1);
-				Vx.setTitle("Vx");
-				
-				Vy = nness.get(2);
-				Vy.setTitle("Vy");
-				
-				// there are 4 options for input images and locations: neuriteness, gabAll, weighted, img
-				ImagePlus extract_from;
-				
-				switch (choose_source) {
-				case 0:
-					System.out.println("TO EXTRACT PROFILE: " + extract_opts[0]);
-					extract_from = img;
-					break;
-				case 1:
-					System.out.println("TO EXTRACT PROFILE: " + extract_opts[1]);
-					extract_from = neuriteness;
-					break;
-					
-				case 2:
-					System.out.println("TO EXTRACT PROFILE: " + extract_opts[2]);
-					extract_from = weighted;
-					break;
-				default:
-					extract_from = img;
-					break;
-				}
-				
-				Overlay ovly = new Overlay();
-				
-				for (int k = 0; k < curr_pos; k++) {
-					
-					int atX = (int)locs_pos.get(i)[k][0];
-					int atY = (int)locs_pos.get(i)[k][1];
-					
-					double[] extracted_profile = 
-							VizFeatures.extractProfile(extract_from, Vx, Vy, atX, atY, radius, dr, darc, rratio, angular_resolution);
-					
-					FloatProcessor fp = new FloatProcessor(angular_resolution, 1, extracted_profile);
-					
-					pos_examples_profile.addSlice(fp);
-					
-					PointRoi pt = new PointRoi(atX, atY);
-					pt.setStrokeWidth(3.0);
-					pt.setStrokeColor(Color.RED);
-					ovly.addElement(pt);
-					
-				}
-				
-				for (int k = 0; k < curr_neg; k++) {
-					
-					int atX = (int)locs_neg.get(i)[k][0];
-					int atY = (int)locs_neg.get(i)[k][1];
-					
-					double[] extracted_profile = 
-							VizFeatures.extractProfile(extract_from, Vx, Vy, atX, atY, radius, dr, darc, rratio, angular_resolution);
-					
-					FloatProcessor fp = new FloatProcessor(angular_resolution, 1, extracted_profile);
-					
-					neg_examples_profile.addSlice(fp);
-					
-					PointRoi pt = new PointRoi(atX, atY);
-					pt.setStrokeColor(Color.BLUE);
-					ovly.addElement(pt);
-					
-				}
-				
-				ImagePlus showIt = new ImagePlus("VIZ_"+files_tif[i].getName(), img.getProcessor());
-				showIt.setOverlay(ovly);
-				showIt.show();
-				
-			} // if there were some
-			
-			
-		} // loop files
-		
-		System.out.println("////\n total (+) : "+total_pos);
-		System.out.println(" total (-) : "+total_neg+"\n////\n");
-		
-		/*
-		 * show examples
-		 */
-		
-		ImagePlus pos_examples_image =  new ImagePlus("positive examples", pos_examples_profile);
-		pos_examples_image.show();
-		pos_examples_image.getCanvas().zoomIn(0, 0);
-		pos_examples_image.getCanvas().zoomIn(0, 0);
-		pos_examples_image.getCanvas().zoomIn(0, 0);
-		pos_examples_image.getCanvas().zoomIn(0, 0);
-		pos_examples_image.getCanvas().zoomIn(0, 0);
-		pos_examples_image.getCanvas().zoomIn(0, 0);
-		
-		ImagePlus neg_examples_image =  new ImagePlus("negative examples", neg_examples_profile);
-		neg_examples_image.show();
-		neg_examples_image.getCanvas().zoomIn(0, 0);
-		neg_examples_image.getCanvas().zoomIn(0, 0);
-		neg_examples_image.getCanvas().zoomIn(0, 0);
-		neg_examples_image.getCanvas().zoomIn(0, 0);
-		neg_examples_image.getCanvas().zoomIn(0, 0);
-		neg_examples_image.getCanvas().zoomIn(0, 0);
-		
-		/*
-		 * generate filters to score on example profiles (calculate features)
-		 */
-		
-		int[] angleRes = new int[]{60};
-		CircularFilterSet cft = new CircularFilterSet(angleRes);	
-		int nrFilters = cft.filts.size();
-		
-		/*
-		 * calculate features
-		 */
-		
-		System.out.print("calculate features...");
-		
-		featsP = new double[pos_examples_profile.getSize()][nrFilters];
-		featsN = new double[neg_examples_profile.getSize()][nrFilters];
-		
-		for (int exampleIdx = 0; exampleIdx < pos_examples_profile.getSize(); exampleIdx++) {
-			featsP[exampleIdx] = cft.calculateScore((float[])pos_examples_profile.getProcessor(exampleIdx+1).getPixels()); 
-		}
-		
-		for (int exampleIdx = 0; exampleIdx < featsN.length; exampleIdx++) {
-			featsN[exampleIdx] = cft.calculateScore((float[])neg_examples_profile.getProcessor(exampleIdx+1).getPixels());
-		}
-		
-		System.out.println(" done.");
-		
-		/*
-		 *  train
-		 */
-		
-		System.out.print("training AdaBoost...");
-		int T = 5;
-		double[][] adaboost = trueAdaBoost(featsP, featsN, T);
-		System.out.println("done.");
-		
-		for (int i = 0; i < adaboost.length; i++) {
-			for (int j = 0; j < adaboost[0].length; j++) {
-				System.out.print("\t"+IJ.d2s(adaboost[i][j], 2));
-			}
-			System.out.println();
-		}
-		System.out.println();
-		
-		// save AdaBoost configuration file
-		String file_name = "train"+"."+T+"."+"adaboost";
-		FileWriter fw;
-		try {
-	        fw = new FileWriter(file_name);
-	        fw.write("parameters here..." + "\r\n"); // IJ.d2s(patchSize, 0)
-//	        fw.write(IJ.d2s(adaboost.length, 0) + "\r\n");
-//	        for (int i = 0; i < adaboost.length; i++) {
-//	            fw.write(IJ.d2s(adaboost[i][0], 0) + "\r\n");
-//	            fw.write(IJ.d2s(adaboost[i][1], 6) + "\r\n");
-//	            fw.write(IJ.d2s(adaboost[i][2], 6) + "\r\n");
-//	        }
-	        fw.close();
-	    } catch (IOException e) {
-	        ij.IJ.error("Unable to save particle positions");
-	    }
-	    
-	    // show the best features
-	    for (int i = 0; i < adaboost.length; i++) {
-			cft.showConfigs((int)adaboost[i][0]);
-		}
-	    
-	    /*
-	     * test folder
-	     */
-	    
-	    File dir_test = new File(test_folder);
-	    test_folder = dir.getAbsolutePath();
-		if(!dir_test.isDirectory() ){ 
-			IJ.error("Wrong directory!");
-			return;
-		}
-		
-		File[] test_files_tif = listFilesEndingWith(dir_test, ".tif");
-		for (int i = 0; i < test_files_tif.length; i++) { // for each tif file
-			System.out.print(""+test_files_tif[i].getName()+" "+i+"/"+(test_files_tif.length-1)+"  ...  ");
-			System.out.println();
-		}
-		
-		ImagePlus im = new ImagePlus("/home/miroslav/test");
-		im.show();
-		
 	}
+//        /*
+//		 * generate filters to score on example profiles (calculate features)
+//		 */
+//
+//        int[] angleRes = new int[]{60};
+////        CircularFilterSet cft = new CircularFilterSet(angleRes);
+//
+//        // show them
+////        cft.showConfigs();
+//
+////        int nrFilters = cft.filts.size();
+//
+////        IJ.showMessage("Formed filter bank! "+nrFilters+" filters");
+////		if(true) return;
+//
+//		t1  	= Prefs.get("advantra.critpoint.start_scale", 		3.0);
+//		t2    	= Prefs.get("advantra.critpoint.end_scale", 		7.0);
+//		tn 		= (int)Prefs.get("advantra.critpoint.nr_scales", 	3);
+//		M		= (int)Prefs.get("advantra.critpoint.nr_angles", 	8);
+//		dr    	= Prefs.get("advantra.critpoint.dr", 				1.0);
+//
+//		darc    = Prefs.get("advantra.critpoint.darc", 				1.0);
+//		rratio	= Prefs.get("advantra.critpoint.dratio", 			0.2);
+//		nr_proc = (int)Prefs.get("advantra.critpoint.nr_proc", 		4);
+//
+//        T = (int)Prefs.get("advantra.critpoint.T",                  5);
+//
+//		train_folder = (String)Prefs.get("advantra.critpoint.train_folder",
+//				(System.getProperty("user.home")+File.separator));
+//		test_folder = (String)Prefs.get("advantra.critpoint.test_folder",
+//				(System.getProperty("user.home")+File.separator));
+//
+//		String[] extract_opts = new String[3];
+//		extract_opts[0] = "orig.pix.";
+//		extract_opts[1] = "neuriteness";
+//		extract_opts[2] = "gabor.res.";
+//
+//		GenericDialog gd = new GenericDialog("ExtractFeatures");
+//
+//		gd.addNumericField("start scale", t1, 1);
+//		gd.addNumericField("end   scale", t2, 1);
+//		gd.addNumericField("nr   scales", tn, 			0, 5, "");
+//		gd.addNumericField("angles(per 180 deg)", M,	0, 5, "");
+//
+//		gd.addMessage("circular extraction parameters");
+//		gd.addNumericField("x(lagest scale std)",	surr, 	0);
+//		gd.addNumericField("radius step", 		dr, 1);
+//		gd.addNumericField("arc    step", 		darc, 1);
+//		gd.addNumericField("rratio step", 		rratio, 1);
+//
+//		gd.addStringField("train folder : ", train_folder, 	40);
+//		gd.addStringField("test  folder : ", test_folder, 	40);
+//
+//		gd.addMessage("parallelization");
+//		gd.addNumericField("CPU #",					nr_proc, 0);
+//
+//		gd.addMessage("source");
+//		gd.addChoice("choose: ", extract_opts, extract_opts[0]);
+//
+//        gd.addMessage("Ada Boost");
+////        gd.addNumericField("T",					    T, 0, 6, " (total "+nrFilters+")");
+//
+//		gd.showDialog();
+//		if (gd.wasCanceled()) return;
+//		t1 	= 		    gd.getNextNumber();
+//		t2	= 		    gd.getNextNumber();
+//		tn	= (int)	    gd.getNextNumber();
+//		M 	= (int)	    gd.getNextNumber();
+//
+//		surr = (int)    gd.getNextNumber();
+//		dr  = 			gd.getNextNumber();
+//		darc  = 		gd.getNextNumber();
+//		rratio  = 		gd.getNextNumber();
+//
+//		train_folder = 	gd.getNextString();
+//		test_folder = 	gd.getNextString();
+//
+//		nr_proc = (int) gd.getNextNumber();
+//
+//		int choose_source = gd.getNextChoiceIndex();
+//
+//        T = (int)       gd.getNextNumber();
+//
+//		Prefs.set("advantra.critpoint.start_scale", t1);
+//		Prefs.set("advantra.critpoint.end_scale", 	t2);
+//		Prefs.set("advantra.critpoint.nr_scales", 	tn);
+//		Prefs.set("advantra.critpoint.nr_angles", 	M);
+//		Prefs.set("advantra.critpoint.dr", 			dr);
+//		Prefs.set("advantra.critpoint.darc", 		darc);
+//		Prefs.set("advantra.critpoint.dratio", 		rratio);
+//
+//		Prefs.set("advantra.critpoint.train_folder", train_folder);
+//		Prefs.set("advantra.critpoint.test_folder", test_folder);
+//
+//		Prefs.set("advantra.critpoint.nr_proc", 	nr_proc);
+//        Prefs.set("advantra.critpoint.T", 	        T);
+//
+//		// scales
+//		t = new double[tn];
+//		s = new double[tn];
+//		for (int i = 0; i < tn; i++) {
+//			t[i] = (i==0)? t1 : t1+i*((t2-t1)/(tn-1));
+//			s[i] = Math.sqrt(t[i]);
+//		}
+//
+//		radius = surr*Math.sqrt(t[t.length-1]); // xGaussianStd.
+//
+//		// angles theta angle it makes with x axis (angle it makes with the first row)
+//		theta_pi 	= new double[M];
+//		theta_2pi	= new double[2*M];
+//		for (int i = 0; i < 2*M; i++) {
+//			theta_2pi[i] = i * (Math.PI/(double)(M));
+//		}
+//		for (int i = 0; i < M; i++) {
+//			theta_pi[i] = i * (Math.PI/(double)M);
+//		}
+//
+//        /*
+//        all the params are loaded...
+//         */
+//
+//		File dir = new File(train_folder);
+//		train_folder = dir.getAbsolutePath();
+//		if(!dir.isDirectory() ){
+//			IJ.error("Wrong directory!");
+//			return;
+//		}
+//
+//		File[] files_tif = listFilesEndingWith(dir, ".tif");
+//		File[] files_pos = new File[files_tif.length];
+//		File[] files_neg = new File[files_tif.length];
+//        File[] files_tst = new File[files_tif.length];
+//
+//		Vector<double[][]> locs_pos = new Vector<double[][]>(files_tif.length);
+//		Vector<double[][]> locs_neg = new Vector<double[][]>(files_tif.length);
+//        Vector<double[][]> locs_tst = new Vector<double[][]>(files_tif.length);
+//
+//		int total_pos = 0;
+//		int total_neg = 0;
+//		int curr_pos = 0;
+//		int curr_neg = 0;
+//
+//		/*
+//		    set angular resolution
+//            set radius resolution
+//		 */
+//
+//        int angular_resolution = 128;
+//
+//        // radiuses (experimental)
+//        int cnt_rads = 0;
+//        for (double r = radius; r >= radius*rratio; r-=dr) {
+//            cnt_rads++;
+//        }
+//        float[] radiuses = new float[cnt_rads];
+//        cnt_rads = 0;
+//        for (double r = radius; r >= radius*rratio; r-=dr) {
+//            radiuses[cnt_rads] = (float)r;
+//            cnt_rads++;
+//        }
+//
+//        pos_examples_profile = new ImageStack(angular_resolution, 1);
+//        pos_examples_profile_patch = new ImageStack(angular_resolution, cnt_rads);
+//		neg_examples_profile = new ImageStack(angular_resolution, 1);
+//		neg_examples_profile_patch = new ImageStack(angular_resolution, cnt_rads);
+//
+//		System.out.println("\n## TRAIN ##  "+train_folder);
+//
+//		for (int i = 0; i < files_tif.length; i++) { // for each tif file
+//
+//			System.out.print(""+files_tif[i].getName()+" "+i+"/"+(files_tif.length-1)+"  ...  ");
+//
+//			curr_pos = 0;
+//			curr_neg = 0;
+//
+//			AnalyzeCSV readCSV;
+//			File[] check;
+//			String suffix;
+//			String file_name = files_tif[i].getName();
+//			file_name = file_name.substring(0, file_name.length()-4);
+//
+//			suffix = file_name+".pos";
+//			check = listFilesEndingWith(dir, suffix);
+//			if(check!=null && check.length>0){
+//				files_pos[i] = check[0];
+//				readCSV = new AnalyzeCSV(files_pos[i].getAbsolutePath());
+//				double[][] A = readCSV.readLn(2);
+//				locs_pos.add(A);
+//				curr_pos = A.length;
+//				total_pos += A.length;
+//				System.out.print("\t "+A.length+" positives ");
+//			}
+//			else{
+//				locs_pos.add(null);
+//				System.out.print("\t no positives");
+//			}
+//
+//			suffix = file_name+".neg";
+//			check = listFilesEndingWith(dir, suffix);
+//			if(check!=null && check.length>0){
+//				files_neg[i] = check[0];
+//				readCSV = new AnalyzeCSV(files_neg[i].getAbsolutePath());
+//				double[][] B = readCSV.readLn(2);
+//				locs_neg.add(B);
+//				curr_neg = B.length;
+//				total_neg += B.length;
+//				System.out.print("\t "+B.length+" negatives ");
+//			}
+//			else{
+//				locs_neg.add(null);
+//				System.out.print("\t no negatives");
+//			}
+//
+//			System.out.println();
+//
+//			/*
+//			 * actual feature extraction
+//			 */
+//
+//			if(curr_pos>0 || curr_neg>0){
+//
+//				System.out.println("...extracting profiles...");
+//
+//				img = new ImagePlus(files_tif[i].getAbsolutePath());
+//				resetCalibration();
+//				convertToFloatImage();
+//				//IJ.freeMemory();
+//				//img.show();
+//
+//				H = img.getHeight();
+//				W = img.getWidth();
+//
+//				/*
+//				 * gabor
+//				 */
+//
+//                if(choose_source==2){
+//
+//				System.out.println("...gabor...");
+//				int N 				= theta_pi.length; // parallelize
+//
+//				GaborFilt2D.load(
+//						img,
+//						theta_pi,
+//						t,
+//						new double[t.length],
+//						bandwidth,
+//						psi,
+//						gamma,
+//						isReal);
+//
+//				long t0, t1;
+//				t0 = System.currentTimeMillis();
+//				GaborFilt2D gab_jobs[] = new GaborFilt2D[nr_proc];
+//				for (int l = 0; l < gab_jobs.length; l++) {
+//
+//					int start_interval 	= l*N/nr_proc;
+//					int end_interval	= (l+1)*N/nr_proc;
+//
+//					gab_jobs[l] = new GaborFilt2D(start_interval,  end_interval);
+//					gab_jobs[l].start();
+//				}
+//				for (int l = 0; l < gab_jobs.length; l++) {
+//					try {
+//						gab_jobs[l].join();
+//					} catch (InterruptedException e) {
+//						e.printStackTrace();
+//					}
+//				}
+//
+//				gab = new ImagePlus("", GaborFilt2D.gabor_directional_responses);
+//				gab.setTitle("gabor filter, directional responses");
+//				t1 = System.currentTimeMillis();
+//				System.out.println("done, "+((t1-t0)/1000f)+" seconds");
+//				//gab.show();
+//
+//				/*
+//				 * extract maximal directional gabor response in every point
+//				 */
+//
+//				ZProjector zmax = new ZProjector();
+//				zmax.setImage(gab);
+//				zmax.setStartSlice(1);
+//				zmax.setStopSlice(gab.getStackSize());
+//				zmax.setMethod(ZProjector.MAX_METHOD);
+//				zmax.doProjection();
+//				gabAll = new ImagePlus("gabor filter, directional responses, max", zmax.getProjection().getChannelProcessor());
+//				//gabAll.show();
+//
+//				boolean normalize = false;
+//				if(normalize){
+//					weighted = new ImagePlus("gabor filter, directional responses, max, min-max normalized",
+//							VizFeatures.normalizeStackMinMax(gabAll.getStack()));
+//				}
+//				else{
+//					weighted = new ImagePlus("gabor filter, directional responses, max, min-max normalized",
+//							gabAll.getStack());
+//				}
+//
+//                }
+//                else{
+//	            System.out.println("...skipping gabor...");
+//	            gab = gabAll = weighted = img;
+//                }
+//
+//				/*
+//				 *  extract neuriteness & eigen vecs
+//				 */
+//
+//				System.out.println("...neuriteness...");
+//
+//				long t11 = System.currentTimeMillis();
+//				Vector<ImagePlus> nness = VizFeatures.extractNeuritenessAndEigenVec(img, s);
+//				System.out.println("done, "+((System.currentTimeMillis()-t11)/1000f)+" seconds");
+//
+//				neuriteness = nness.get(0);
+//				neuriteness.setTitle("neuriteness");
+//				//neuriteness.show();
+//
+//				Vx = nness.get(1);
+//				Vx.setTitle("Vx");
+//
+//				Vy = nness.get(2);
+//				Vy.setTitle("Vy");
+//
+//				// there are 3 options for input images and locations: neuriteness, weighted, img
+//				ImagePlus extract_from;
+//
+//				switch (choose_source) {
+//				case 0:
+//					System.out.println("TO EXTRACT PROFILE: " + extract_opts[0]);
+//					extract_from = img;
+//					break;
+//				case 1:
+//					System.out.println("TO EXTRACT PROFILE: " + extract_opts[1]);
+//					extract_from = neuriteness;
+//					break;
+//
+//				case 2:
+//					System.out.println("TO EXTRACT PROFILE: " + extract_opts[2]);
+//					extract_from = weighted;
+//					break;
+//				default:
+//					extract_from = img;
+//					break;
+//				}
+//
+//				Overlay ovly = new Overlay();
+//
+//				for (int k = 0; k < curr_pos; k++) {
+//
+//					int atX = (int)locs_pos.get(i)[k][0];
+//					int atY = (int)locs_pos.get(i)[k][1];
+//
+//					double[] extracted_profile = VizFeatures.extractProfile(
+//                                    extract_from,
+//                                    Vx,
+//                                    Vy,
+//                                    atX,
+//                                    atY,
+//                                    radius,
+//                                    dr,
+//                                    darc,
+//                                    rratio,
+//                                    angular_resolution
+//                    );
+//
+//                    float[] extracted_profile_patch = VizFeatures.extractProfilePatch(
+//                            extract_from,
+//                            Vx,
+//                            Vy,
+//                            atX,
+//                            atY,
+//                            radiuses,
+//                            darc,
+//                            angular_resolution
+//                    );
+//
+//					FloatProcessor fp = new FloatProcessor(angular_resolution, 1, extracted_profile);
+//					FloatProcessor fp_patch = new FloatProcessor(angular_resolution, cnt_rads, extracted_profile_patch);
+//
+//					pos_examples_profile.addSlice(fp);
+//					pos_examples_profile_patch.addSlice(fp_patch);
+//
+//					PointRoi pt = new PointRoi(atX-0.5, atY-0.5);
+//					pt.setStrokeColor(Color.RED);
+//					ovly.addElement(pt);
+//
+//				}
+//
+//				for (int k = 0; k < curr_neg; k++) {
+//
+//					int atX = (int)locs_neg.get(i)[k][0];
+//					int atY = (int)locs_neg.get(i)[k][1];
+//
+//					double[] extracted_profile =  VizFeatures.extractProfile(
+//                            extract_from,
+//                            Vx,
+//                            Vy,
+//                            atX,
+//                            atY,
+//                            radius,
+//                            dr,
+//                            darc,
+//                            rratio,
+//                            angular_resolution
+//                    );
+//
+//                    float[] extracted_profile_patch = VizFeatures.extractProfilePatch(
+//                            extract_from,
+//                            Vx,
+//                            Vy,
+//                            atX,
+//                            atY,
+//                            radiuses,
+//                            darc,
+//                            angular_resolution
+//                    );
+//
+//
+//					FloatProcessor fp = new FloatProcessor(angular_resolution, 1, extracted_profile);
+//                    FloatProcessor fp_patch = new FloatProcessor(angular_resolution, cnt_rads, extracted_profile_patch);
+//
+//                    neg_examples_profile.addSlice(fp);
+//                    neg_examples_profile_patch.addSlice(fp_patch);
+//
+//					PointRoi pt = new PointRoi(atX-0.5, atY-0.5);
+//					pt.setStrokeColor(Color.BLUE);
+//					ovly.addElement(pt);
+//
+//				}
+//
+//                /*
+//                show loaded train image with markers
+//                 */
+//				ImagePlus showIt = new ImagePlus("VIZ_"+files_tif[i].getName(), img.getProcessor());
+//				showIt.setOverlay(ovly);
+//				showIt.show();
+//
+//			} // if there were some
+//
+//		} // loop files
+//
+//		System.out.println("////\n total (+) : "+total_pos);
+//		System.out.println(" total (-) : "+total_neg+"\n////\n");
+//
+//		/*
+//		 * show examples
+//		 */
+//
+//		ImagePlus pos_examples_image =  new ImagePlus("positive examples", pos_examples_profile);
+//		pos_examples_image.show();
+//
+//		ImagePlus neg_examples_image =  new ImagePlus("negative examples", neg_examples_profile);
+//		neg_examples_image.show();
+//
+//        ImagePlus pos_examples_image_profile = new ImagePlus("positive patches", pos_examples_profile_patch);
+//        pos_examples_image_profile.show();
+//
+//        ImagePlus neg_examples_image_profile = new ImagePlus("negative patches", neg_examples_profile_patch);
+//        neg_examples_image_profile.show();
+//
+//        for (int i = 0; i<6; i++){
+//            pos_examples_image.getCanvas().zoomIn(0, 0);
+//            neg_examples_image.getCanvas().zoomIn(0, 0);
+//            pos_examples_image_profile.getCanvas().zoomIn(0, 0);
+//            neg_examples_image_profile.getCanvas().zoomIn(0, 0);
+//        }
+//
+//        if(true) return;
+//
+//		/*
+//		 * calculate features
+//		 */
+//
+//		System.out.print("calculate features...");
+//
+////		featsP = new double[pos_examples_profile.getSize()][nrFilters];
+////		featsN = new double[neg_examples_profile.getSize()][nrFilters];
+//
+//		for (int exampleIdx = 0; exampleIdx < pos_examples_profile.getSize(); exampleIdx++) {
+////			featsP[exampleIdx] = cft.calculateScore((float[])pos_examples_profile.getProcessor(exampleIdx+1).getPixels());
+//		}
+//
+//		for (int exampleIdx = 0; exampleIdx < featsN.length; exampleIdx++) {
+////			featsN[exampleIdx] = cft.calculateScore((float[])neg_examples_profile.getProcessor(exampleIdx+1).getPixels());
+//		}
+//
+//		System.out.println(" done extracting train features (+ and -).");
+//
+//		/*
+//		 *  train
+//		 */
+//
+//		System.out.print("training AdaBoost..."+T);
+//		double[][] adaboost = trueAdaBoost(featsP, featsN, T);
+//		System.out.println("done.");
+//
+//		for (int i = 0; i < adaboost.length; i++) {
+//			for (int j = 0; j < adaboost[0].length; j++) {
+//				System.out.print("\t"+IJ.d2s(adaboost[i][j], 2));
+//			}
+//			System.out.println();
+//		}
+//		System.out.println();
+//
+///*		// save AdaBoost configuration file
+//		String adaboost_file_name = "train"+"."+T+"."+"adaboost";
+//		FileWriter fw;
+//		try {
+//	        fw = new FileWriter(adaboost_file_name);
+//	        fw.write("parameters here..." + "\r\n"); // IJ.d2s(patchSize, 0)
+////	        fw.write(IJ.d2s(adaboost.length, 0) + "\r\n");
+////	        for (int i = 0; i < adaboost.length; i++) {
+////	            fw.write(IJ.d2s(adaboost[i][0], 0) + "\r\n");
+////	            fw.write(IJ.d2s(adaboost[i][1], 6) + "\r\n");
+////	            fw.write(IJ.d2s(adaboost[i][2], 6) + "\r\n");
+////	        }
+//	        fw.close();
+//	    } catch (IOException e) {
+//	        ij.IJ.error("Unable to save particle positions");
+//	    }*/
+//
+//
+//
+//	    // show the best features
+//	    for (int i = 0; i < adaboost.length; i++) {
+////			cft.showConfigs((int)adaboost[i][0]);
+//		}
+//
+//	    /*
+//	     * test folder
+//	     */
+//
+//	    File dir_test = new File(test_folder);
+//	    test_folder = dir.getAbsolutePath();
+//		if(!dir_test.isDirectory() ){
+//			IJ.error("Wrong directory!");
+//			return;
+//		}
+//
+//        System.out.println("## TEST ##  "+test_folder);
+//
+//        int curr_tst = 0;
+//        int total_tst = 0;
+//
+//		File[] test_files_tif = listFilesEndingWith(dir_test, ".tif");
+//		for (int i = 0; i < test_files_tif.length; i++) { // for each tif file
+//
+//            System.out.print(""+test_files_tif[i].getName()+" "+i+"/"+(test_files_tif.length-1)+"  ...  ");
+//
+//            curr_tst = 0;
+//            File[] check;
+//            String suffix;
+//            ImagePlus readMask;
+//            // check if there is a corresponding mask file ".mask"
+//            String file_name = test_files_tif[i].getName();
+//            file_name = file_name.substring(0, file_name.length()-4);
+//            suffix = file_name+".mask";
+////            System.out.println("suffix: "+suffix);
+//
+//            check = listFilesEndingWith(dir_test, suffix);
+//            if(check!=null && check.length>0){
+//                files_tst[i] = check[0];
+//                readMask = new ImagePlus(files_tst[i].getAbsolutePath());
+//                //readMask.show();
+//                // extract locations with logical 1
+//                double[][] C = extractLocations((ByteProcessor) readMask.getProcessor());
+//                System.out.print(
+//                        files_tst[i].getAbsolutePath()+
+//                        " -> capturing "+(100f*(float)C.length/(readMask.getWidth()*readMask.getHeight()))+
+//                        "% of total pix."
+//                );
+//                locs_tst.add(C);
+//                curr_tst = C.length;
+//                total_tst += C.length;
+//
+//            }
+//            else{
+//                locs_tst.add(null);
+//                System.out.print("no mask found!");
+//            }
+//
+//            /*
+//			 * actual feature extraction
+//			 */
+//
+//            if(curr_tst>0){
+//
+//                System.out.println("...extracting profiles...");
+//
+//                img = new ImagePlus(test_files_tif[i].getAbsolutePath());
+//                resetCalibration();
+//                convertToFloatImage();
+//                IJ.freeMemory();
+//                //img.show();
+//
+//                H = img.getHeight();
+//                W = img.getWidth();
+//
+//                /*
+//				 * gabor
+//				 */
+//
+//                if(choose_source==2){
+//
+//                    System.out.println("...gabor...");
+//
+//                    int N 				= theta_pi.length; // parallelize
+//
+//                    GaborFilt2D.load(
+//                            img,
+//                            theta_pi,
+//                            t,
+//                            new double[t.length],
+//                            bandwidth,
+//                            psi,
+//                            gamma,
+//                            isReal);
+//
+//                    long t0, t1;
+//                    t0 = System.currentTimeMillis();
+//                    GaborFilt2D gab_jobs[] = new GaborFilt2D[nr_proc];
+//                    for (int l = 0; l < gab_jobs.length; l++) {
+//
+//                        int start_interval 	= l*N/nr_proc;
+//                        int end_interval	= (l+1)*N/nr_proc;
+//
+//                        gab_jobs[l] = new GaborFilt2D(start_interval,  end_interval);
+//                        gab_jobs[l].start();
+//                    }
+//                    for (int l = 0; l < gab_jobs.length; l++) {
+//                        try {
+//                            gab_jobs[l].join();
+//                        } catch (InterruptedException e) {
+//                            e.printStackTrace();
+//                        }
+//                    }
+//
+//                    gab = new ImagePlus("", GaborFilt2D.gabor_directional_responses);
+//                    gab.setTitle("gabor filter, directional responses");
+//                    t1 = System.currentTimeMillis();
+//                    System.out.println("done, "+((t1-t0)/1000f)+" seconds");
+//
+//
+//				/*
+//				 * extract maximal directional gabor response in every point
+//				 */
+//
+//                    ZProjector zmax = new ZProjector();
+//                    zmax.setImage(gab);
+//                    zmax.setStartSlice(1);
+//                    zmax.setStopSlice(gab.getStackSize());
+//                    zmax.setMethod(ZProjector.MAX_METHOD);
+//                    zmax.doProjection();
+//                    gabAll = new ImagePlus("gabor filter, directional responses, max", zmax.getProjection().getChannelProcessor());
+//
+//
+//                    boolean normalize = false;
+//                    if(normalize){
+//                        weighted = new ImagePlus("gabor filter, directional responses, max, min-max normalized",
+//                                VizFeatures.normalizeStackMinMax(gabAll.getStack()));
+//                    }
+//                    else{
+//                        weighted = new ImagePlus("gabor filter, directional responses, max, min-max normalized",
+//                                gabAll.getStack());
+//                    }
+//
+////                    weighted.show();
+////                    gabAll.show();
+////                    gab.show();
+//
+//                }
+//                else{
+//                    System.out.println("...skipping gabor...");
+//                    gab = gabAll = weighted = img;
+//                }
+//
+//
+//                /*
+//				 *  extract neuriteness & eigen vecs
+//				 */
+//
+//                System.out.println("...neuriteness...");
+//
+//                long t11 = System.currentTimeMillis();
+//                Vector<ImagePlus> nness = VizFeatures.extractNeuritenessAndEigenVec(img, s);
+//                System.out.println("done, "+((System.currentTimeMillis()-t11)/1000f)+" seconds");
+//
+//                neuriteness = nness.get(0);
+//                neuriteness.setTitle("neuriteness");
+//                //neuriteness.show();
+//
+//                Vx = nness.get(1);
+//                Vx.setTitle("Vx");
+//
+//                Vy = nness.get(2);
+//                Vy.setTitle("Vy");
+//
+//                // there are 3 options for input images and locations: neuriteness, weighted, img
+//                ImagePlus extract_from;
+//
+//                switch (choose_source) {
+//                    case 0:
+//                        System.out.println("TO EXTRACT PROFILE: " + extract_opts[0]);
+//                        extract_from = img;
+//                        break;
+//                    case 1:
+//                        System.out.println("TO EXTRACT PROFILE: " + extract_opts[1]);
+//                        extract_from = neuriteness;
+//                        break;
+//
+//                    case 2:
+//                        System.out.println("TO EXTRACT PROFILE: " + extract_opts[2]);
+//                        extract_from = weighted;
+//                        break;
+//                    default:
+//                        extract_from = img;
+//                        break;
+//                }
+//
+//                Overlay ovly = new Overlay();
+//
+//                System.out.print("\nclassifying...");
+//                for (int k = 0; k < curr_tst; k++) {
+//
+//                    int atX = (int)locs_tst.get(i)[k][0];
+//                    int atY = (int)locs_tst.get(i)[k][1];
+//
+//                    double[] prfl =
+//                            VizFeatures.extractProfile(extract_from, Vx, Vy, atX, atY, radius, dr, darc, rratio, angular_resolution);
+//
+////                    FloatProcessor fp = new FloatProcessor(angular_resolution, 1, extracted_profile);
+//
+////                    tst_examples_profile.addSlice(fp);
+//
+////                    double[] prfl = cft.calculateScore(extracted_profile);
+//
+////                    double[] sel = computeSelectedFeatures(prfl, cft, adaboost);
+//
+////                    if(sel.length != adaboost.length){
+////                        System.out.println("smething was wrong!");
+////                        break;
+////                    }
+//
+////                    int res = applyAdaBoost(adaboost, sel);
+//
+//                    if(true){       //res==1
+//                        PointRoi pt = new PointRoi(atX+0.5, atY+0.5);
+//                        pt.setStrokeColor(Color.YELLOW);
+//                        ovly.addElement(pt);
+//                    }
+////                    else{
+////                        PointRoi pt = new PointRoi(atX, atY);
+////                        //pt.setStrokeWidth(3.0);
+////                        pt.setStrokeColor(Color.GREEN);
+////                        ovly.addElement(pt);
+////                    }
+//
+//                }
+//
+//                System.out.println("done.");
+//
+//                /*
+//                show loaded test image
+//                 */
+//				ImagePlus showIt = new ImagePlus("VIZ_"+test_files_tif[i].getName(), img.getProcessor());
+//				showIt.setOverlay(ovly);
+//				showIt.show();
+//
+//
+//            }
+//
+//            System.out.println();
+//		}
+//
+////        /*
+////		 * show test examples
+////		 */
+////
+////        ImagePlus tst_examples_image =  new ImagePlus("test examples", tst_examples_profile);
+////        tst_examples_image.show();
+////
+////        for (int i = 0; i<6; i++){
+////            tst_examples_image.getCanvas().zoomIn(0, 0);
+////        }
+//
+////		/*
+////		 * generate filters to score on example profiles (calculate features)
+////		 */
+////
+////        int[] angleRes = new int[]{60};
+////        CircularFilterSet cft = new CircularFilterSet(angleRes);
+////        int nrFilters = cft.filts.size();
+//
+//		/*
+//		 * calculate features (filters are generated)
+//		 */
+//
+////        System.out.print("calculate features...");
+//
+////        featsT = new double[tst_examples_profile.getSize()][nrFilters];
+//
+//
+////        long t20 = System.currentTimeMillis();
+////        for (int exampleIdx = 0; exampleIdx < tst_examples_profile.getSize(); exampleIdx++) {//
+////            System.out.print(".");
+////            featsT[exampleIdx] = cft.calculateScore((float[])tst_examples_profile.getProcessor(exampleIdx+1).getPixels());
+////        }
+////        long t21 = System.currentTimeMillis();
+//
+////        float estimatedTime = ((t21-t20)/1000f);//*(tst_examples_profile.getSize()/10f);
+//
+////        System.out.println(" done extracting test features. \nelapsed: "+ estimatedTime + "sec." +
+////                "");
+//
+//    }
 	
 	private double[][] trueAdaBoost(double[][] featsP, double[][] featsN, int T){
 		
@@ -748,7 +1116,61 @@ else{
 
 		    return test;
 		}
-	
+
+    private double[] computeSelectedFeatures(
+													//double[] profile, CircularFilterSet cft,
+													double[][] adaboost
+	) {
+
+//        double[] imFeatures = new double[adaboost.length];
+
+        int[] chosen_filts = new int[adaboost.length];
+
+        for (int i = 0; i < adaboost.length; i++) {
+
+            chosen_filts[i] = (int) adaboost[i][0];
+
+        }
+
+//        return cft.calculateScore(profile, chosen_filts);
+		return new double[5];
+    }
+
+    private double[][] extractLocations(ByteProcessor binary_image){
+
+        int nrLocs = 0;
+        int h = binary_image.getHeight();
+        int w = binary_image.getWidth();
+
+        for (int y = 0; y < h; y++){
+            for (int x = 0; x < w; x++){
+
+                if(binary_image.get(x, y)==255){
+                    nrLocs++;
+                }
+
+            }
+        }
+
+        double[][] locations = new double[nrLocs][2];
+
+        int cnt = 0;
+        for (int y = 0; y < h; y++){
+            for (int x = 0; x < w; x++){
+
+                if(binary_image.get(x, y)==255){
+                    locations[cnt][0] = x;
+                    locations[cnt][1] = y;
+                    cnt++;
+                }
+
+            }
+        }
+
+        return locations;
+
+    }
+
 	private File[] listFilesEndingWith(File dir, String suffix){
 		final String sfx = suffix;
 		File[] tif_train = dir.listFiles(
