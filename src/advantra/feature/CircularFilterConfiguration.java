@@ -26,7 +26,8 @@ public class CircularFilterConfiguration {
 	public CircularFilterConfiguration(
             int[] angular_resolution_deg,
             int[] angles_between_peaks_deg
-    ){
+    )
+	{
 
 		this.angResDeg = new int[angular_resolution_deg.length];
         for (int i = 0; i < angular_resolution_deg.length; i++){
@@ -88,8 +89,6 @@ public class CircularFilterConfiguration {
 			
 		}
 
-		IJ.log("done");
-			
 	}
 
     public void printConfiguration()
@@ -111,7 +110,8 @@ public class CircularFilterConfiguration {
     public float calculateScore(
             float[] val,
             float[] ang
-    ){
+    )
+	{
 
         /*
         calculate score on configuration as
@@ -184,9 +184,8 @@ public class CircularFilterConfiguration {
 
     }
 	
-	public ImageStack plotFilter(
-
-    ){
+	public ImageStack plotFilter()
+	{
 		
 		ImageStack viz_is = new ImageStack(600, 300);
 		
@@ -247,12 +246,11 @@ public class CircularFilterConfiguration {
 		
 	}
 	
-	public ImageStack plot(
-
-    ){
+	public ImageStack plot()
+	{
 		
-		ImageStack viz_is = new ImageStack(300, 300);
-		int plotResolution = 128;
+		ImageStack viz_is = new ImageStack(400, 400);
+		int plotResolution = 256;
 		for (int rotIdx = 0; rotIdx < nrRot; rotIdx++) {
 			
 			float[] x = new float[plotResolution];
@@ -284,7 +282,7 @@ public class CircularFilterConfiguration {
 //			}
 			
 			Plot p = new Plot("profile","x","y", x, y);
-			p.setSize(300, 300);
+			p.setSize(400, 400);
 			p.setLimits(-2.5, 2.5, -2.5, 2.5);
 			p.setJustification(Plot.CENTER);
 //			p.addPoints(x1, y1, Plot.BOX);
@@ -297,7 +295,8 @@ public class CircularFilterConfiguration {
 		
 	}
 
-	public int[] getConfiguration(){
+	public int[] getConfiguration()
+	{
 		int[] out_conf = new int[2*nrPeaks];
 		for (int i = 0; i < nrPeaks; i++){
 			out_conf[2*i] = angResDeg[i];
@@ -306,7 +305,8 @@ public class CircularFilterConfiguration {
 		return out_conf;
 	}
 
-	private static double wrap_PI(double in){
+	private static double wrap_PI(double in)
+	{
 		
 		double out = in;
 		

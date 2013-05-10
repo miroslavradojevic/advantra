@@ -13,7 +13,8 @@ public class CircularFilterSet {
 
 	public CircularFilterSet(
             int[] angular_scale_degrees
-    ){
+    )
+	{
 
 		filts = new Vector<CircularFilterConfiguration>();
 
@@ -40,13 +41,11 @@ public class CircularFilterSet {
 		for (int i = 0; i < nrPer1; i++){
 			if (360>per1[i][0]/2+per1[i][0]/2){
 				// add it to the list of filters
-				IJ.log("adding "+per1[i][0]);
 				filts.add(new CircularFilterConfiguration(per1[i], new int[]{360}));
 			}
 		}
 
 
-		IJ.log("1X done");
 		int nrPer2 = (int) Math.pow(nrScales, 2); // 2x
 		int[][] per2 = new int[nrPer2][2];
 		c = 0;
@@ -102,7 +101,7 @@ public class CircularFilterSet {
 			}
 		}
 
-/*
+
 		int nrPer3 = (int) Math.pow(nrScales, 3); // 3x
 		int[][] per3 = new int[nrPer3][3];
 		c = 0;
@@ -117,8 +116,69 @@ public class CircularFilterSet {
 			}
 		}
 
+		for (int i = 0; i < nrPer3; i++){
+			for (int d1 = minAngScaleDegrees; d1 < 360; d1+=minAngScaleDegrees/2){
+				for (int d2 = minAngScaleDegrees; d2 < 360; d2+=minAngScaleDegrees/2){
+					for (int d3 = minAngScaleDegrees; d3 < 360; d3+=minAngScaleDegrees/2){
+
+						boolean isConfiguration = false;
+						isConfiguration =
+								(d1+d2+d3==360) &&
+								(d1>per3[i][0]/2+per3[i][1]/2) &&
+								(d2>per3[i][1]/2+per3[i][2]/2) &&
+								(d3>per3[i][2]/2+per3[i][0]/2);
+
+						if(isConfiguration){
+
+							boolean covered = false;
+							// check if it exists so far in other rotations
+							for (int k = 0; k < filts.size(); k++){
+								if(filts.get(k).angResDeg.length==3){// if it's with 3 peaks
+									if(
+											(
+											per3[i][0]==filts.get(k).angResDeg[0] &&
+											d1        ==filts.get(k).angBtwPeakDeg[0] &&
+											per3[i][1]==filts.get(k).angResDeg[1] &&
+											d2        ==filts.get(k).angBtwPeakDeg[1]  &&
+											per3[i][2]==filts.get(k).angResDeg[2] &&
+											d3        ==filts.get(k).angBtwPeakDeg[2]
+											)
+											||
+											(
+											per3[i][0]==filts.get(k).angResDeg[1] &&
+											d1        ==filts.get(k).angBtwPeakDeg[1] &&
+											per3[i][1]==filts.get(k).angResDeg[2] &&
+											d2        ==filts.get(k).angBtwPeakDeg[2]  &&
+											per3[i][2]==filts.get(k).angResDeg[0] &&
+											d3        ==filts.get(k).angBtwPeakDeg[0]
+											)
+											||
+											(
+											per3[i][0]==filts.get(k).angResDeg[2] &&
+											d1        ==filts.get(k).angBtwPeakDeg[2] &&
+											per3[i][1]==filts.get(k).angResDeg[0] &&
+											d2        ==filts.get(k).angBtwPeakDeg[0]  &&
+											per3[i][2]==filts.get(k).angResDeg[1] &&
+											d3        ==filts.get(k).angBtwPeakDeg[1]
+											)
+									)
+									{
+										covered = true;
+									}
+								}
+							}
+
+							if(!covered){
+								filts.add(new CircularFilterConfiguration(per3[i], new int[]{d1, d2, d3}));
+							}
+						}
+					}
+				}
+			}
+		}
+
 		int nrPer4 = (int) Math.pow(nrScales, 4); // 4x
-		int[][] per4 = new int[nrPer3][4];
+		int[][] per4 = new int[nrPer4][4];
 		c = 0;
 		for (int k = 0; k < nrScales; k++){
 			for (int l = 0; l < nrScales; l++){
@@ -133,7 +193,92 @@ public class CircularFilterSet {
 				}
 			}
 		}
-*/
+
+		for (int i = 0; i < nrPer4; i++){
+			for (int d1 = minAngScaleDegrees; d1 < 360; d1+=minAngScaleDegrees/2){
+				for (int d2 = minAngScaleDegrees; d2 < 360; d2+=minAngScaleDegrees/2){
+					for (int d3 = minAngScaleDegrees; d3 < 360; d3+=minAngScaleDegrees/2){
+						for (int d4 = minAngScaleDegrees; d4 < 360; d4+=minAngScaleDegrees/2){
+
+							boolean isConfiguration = false;
+							isConfiguration =
+									(d1+d2+d3+d4==360) &&
+											(d1>per4[i][0]/2+per4[i][1]/2) &&
+											(d2>per4[i][1]/2+per4[i][2]/2) &&
+											(d3>per4[i][2]/2+per4[i][3]/2) &&
+											(d4>per4[i][3]/2+per4[i][0]/2)
+							;
+
+							if(isConfiguration){
+
+								boolean covered = false;
+								// check if it exists so far in other rotations
+								for (int k = 0; k < filts.size(); k++){
+									if(filts.get(k).angResDeg.length==4){// if it's with 4 peaks
+										if(
+												(
+												per4[i][0]==filts.get(k).angResDeg[0] &&
+												d1        ==filts.get(k).angBtwPeakDeg[0] &&
+												per4[i][1]==filts.get(k).angResDeg[1] &&
+												d2        ==filts.get(k).angBtwPeakDeg[1]  &&
+												per4[i][2]==filts.get(k).angResDeg[2] &&
+												d3        ==filts.get(k).angBtwPeakDeg[2]  &&
+												per4[i][3]==filts.get(k).angResDeg[3] &&
+												d4        ==filts.get(k).angBtwPeakDeg[3]
+												)
+												||
+												(
+												per4[i][0]==filts.get(k).angResDeg[1] &&
+												d1        ==filts.get(k).angBtwPeakDeg[1] &&
+												per4[i][1]==filts.get(k).angResDeg[2] &&
+												d2        ==filts.get(k).angBtwPeakDeg[2]  &&
+												per4[i][2]==filts.get(k).angResDeg[3] &&
+												d3        ==filts.get(k).angBtwPeakDeg[3]  &&
+												per4[i][3]==filts.get(k).angResDeg[0] &&
+												d4        ==filts.get(k).angBtwPeakDeg[0]
+												)
+												||
+												(
+												per4[i][0]==filts.get(k).angResDeg[2] &&
+												d1        ==filts.get(k).angBtwPeakDeg[2] &&
+												per4[i][1]==filts.get(k).angResDeg[3] &&
+												d2        ==filts.get(k).angBtwPeakDeg[3]  &&
+												per4[i][2]==filts.get(k).angResDeg[0] &&
+												d3        ==filts.get(k).angBtwPeakDeg[0]  &&
+												per4[i][3]==filts.get(k).angResDeg[1] &&
+												d4        ==filts.get(k).angBtwPeakDeg[1]
+												)
+												||
+												(
+												per4[i][0]==filts.get(k).angResDeg[3] &&
+												d1        ==filts.get(k).angBtwPeakDeg[3] &&
+												per4[i][1]==filts.get(k).angResDeg[0] &&
+												d2        ==filts.get(k).angBtwPeakDeg[0]  &&
+												per4[i][2]==filts.get(k).angResDeg[1] &&
+												d3        ==filts.get(k).angBtwPeakDeg[1]  &&
+												per4[i][3]==filts.get(k).angResDeg[2] &&
+												d4        ==filts.get(k).angBtwPeakDeg[2]
+												)
+										)
+										{
+											covered = true;
+										}
+									}
+								}
+
+								if(!covered){
+									filts.add(new CircularFilterConfiguration(per4[i], new int[]{d1, d2, d3, d4}));
+								}
+							}
+
+
+						}
+					}
+				}
+			}
+		}
+
+
 
 //
 //		for (int takeScale = 0; takeScale < angScaleDegrees.length; takeScale++) {
@@ -291,11 +436,12 @@ public class CircularFilterSet {
 
 //		} // scale loop
 
-		System.out.println("total configs created: "+filts.size());
+		//System.out.println("total configs created: "+filts.size());
 
 	}
 
-	public double[] calculateScore(double[] angularProfile){
+	public double[] calculateScore(double[] angularProfile)
+	{
 
         double[] score = new double[filts.size()];
 
@@ -308,7 +454,8 @@ public class CircularFilterSet {
 		return score;
 	}
 
-	public double[] calculateScore(float[] angularProfile){
+	public double[] calculateScore(float[] angularProfile)
+	{
 
         double[] score = new double[filts.size()];
 
@@ -321,7 +468,8 @@ public class CircularFilterSet {
 		return score;
 	}
 
-    public double[] calculateScore(double[] angularProfile, int[] choose_filters){
+    public double[] calculateScore(double[] angularProfile, int[] choose_filters)
+	{
 
         double[] score = new double[choose_filters.length];
 
@@ -335,14 +483,28 @@ public class CircularFilterSet {
 
     }
 
-	public void showConfigs(){
+	public void showConfigs()
+	{
 
 		for (int i = 0; i < filts.size(); i++) {
 
 			CircularFilterConfiguration currentFilter = filts.get(i);
 
 			String name;
-			name = "CONF_"+i+",R="+currentFilter.angResDeg;
+			name = "CONF_"+i;
+			if(currentFilter.angResDeg.length>=1){
+				name += ",Pks="+currentFilter.angResDeg[0];
+			}
+			if(currentFilter.angResDeg.length>=2){
+				name += ","+currentFilter.angResDeg[1];
+			}
+			if(currentFilter.angResDeg.length>=3){
+				name += ","+currentFilter.angResDeg[2];
+			}
+			if(currentFilter.angResDeg.length>=4){
+				name += ","+currentFilter.angResDeg[3];
+			}
+
 			if(currentFilter.nrPeaks>=1){
 				name+=",alfa="+currentFilter.angBtwPeakDeg[0];
 			}
@@ -364,7 +526,8 @@ public class CircularFilterSet {
 
 	}
 
-	public void showConfigs(int idx){
+	public void showConfigs(int idx)
+	{
 
 			CircularFilterConfiguration currentFilter = filts.get(idx);
 
@@ -385,7 +548,7 @@ public class CircularFilterSet {
 
 			new ImagePlus(name, currentFilter.plot()).show();
 
-			new ImagePlus(name, currentFilter.plotFilter()).show();
+//			new ImagePlus(name, currentFilter.plotFilter()).show();
 
 	}
 

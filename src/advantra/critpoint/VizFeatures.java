@@ -60,6 +60,7 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 	int			nr_proc;
 	
 	public void run(ImageProcessor arg0) {
+		System.out.print("djksghkd");
 		
 		t1  	= Prefs.get("advantra.critpoint.start_scale", 		3.0);
 		t2    	= Prefs.get("advantra.critpoint.end_scale", 		7.0);
@@ -444,7 +445,6 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 		int mouseX = 	img.getWindow().getCanvas().offScreenX(e.getX());
 		int mouseY = 	img.getWindow().getCanvas().offScreenY(e.getY());
 		
-		//int nrang 		= (int)Math.ceil((Math.PI*2)/(darc/radius));
 		int nrang  = 128;
 		
 		double[] 	orts			= new double[nrang];
@@ -473,9 +473,9 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 		show_profiles = new ImagePlus("profiles", show_profiles1);
 		show_profiles.show();
 		
-		int[] angleRes = new int[]{40, 60};
+		int[] angleRes = new int[]{60};
 		CircularFilterSet cft = new CircularFilterSet(angleRes);		
-		cft.showConfigs();
+		//cft.showConfigs();
 		
 		long t00 = System.currentTimeMillis();
 		double[] scores = cft.calculateScore(profile2);
