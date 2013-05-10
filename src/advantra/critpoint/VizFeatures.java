@@ -4,7 +4,7 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.util.Vector;
 
-import advantra.feature.CircularFilterSet;
+import advantra.feature.FilterSet;
 import advantra.feature.GaborFilt2D;
 import advantra.feature.MyHessian;
 
@@ -474,17 +474,17 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 		show_profiles.show();
 		
 		int[] angleRes = new int[]{60};
-		CircularFilterSet cft = new CircularFilterSet(angleRes);		
+		//FilterSet cft = new FilterSet(angleRes);
 		//cft.showConfigs();
 		
 		long t00 = System.currentTimeMillis();
-		double[] scores = cft.calculateScore(profile2);
+		//double[] scores = cft.calculateScore(profile2);
 		long t01 = System.currentTimeMillis();
 		System.out.println("to calculate filter scores for one example: "+((t01-t00)/1000f)+" sec.");
 		
 		//show_scores.close();
-		show_scores = new ImagePlus("scores per configuration", plotValues(scores, Plot.BOX));
-		show_scores.show();
+		//show_scores = new ImagePlus("scores per configuration", plotValues(scores, Plot.BOX));
+		//show_scores.show();
 		
 		/*
 		int startX 	= mouseX-15;

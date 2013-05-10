@@ -10,7 +10,7 @@ import java.io.IOException;
 import java.util.Vector;
 
 //import advantra.feature.CircularFilterSet;
-import advantra.feature.CircularFilterSet;
+import advantra.feature.FilterSet;
 import advantra.feature.GaborFilt2D;
 import advantra.file.AnalyzeCSV;
 
@@ -64,7 +64,7 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 	float[][] featsP;
 	float[][] featsN;
 
-	CircularFilterSet cft;
+	FilterSet cft;
 	float[] radiuses;
 
 	public void run(String arg0)
@@ -74,14 +74,15 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 		 * generate filters to score on example profiles (generate features)
 		 */
         int[] angleRes = new int[]{40};
-        cft = new CircularFilterSet(angleRes);
+        double[] radRes = new double[]{0.3, 0.6};
+        cft = new FilterSet(angleRes, radRes);
 
         /*
         show them
         cft.showConfigs();
         */
 
-        int nrFilters = cft.filts.size();
+        int nrFilters = cft.circConfs.size();
 
         IJ.showMessage("Formed filter bank! "+nrFilters+" filters");
 
@@ -135,6 +136,7 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 
 		gd.showDialog();
 		if (gd.wasCanceled()) return;
+
 		t1 	= 		    gd.getNextNumber();
 		t2	= 		    gd.getNextNumber();
 		tn	= (int)	    gd.getNextNumber();
@@ -236,8 +238,8 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 
 		System.out.println("points: "+profileLen(radiuses, darc));
 
-        pos_examples_profile = new ImageStack(cft.filts.size(), 1);
-		neg_examples_profile = new ImageStack(cft.filts.size(), 1);
+        pos_examples_profile = new ImageStack(cft.circConfs.size(), 1);
+		neg_examples_profile = new ImageStack(cft.circConfs.size(), 1);
 
 		System.out.println("\n## TRAIN ##  "+train_folder);
 
@@ -678,7 +680,7 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 				ImagePlus img,
 				ImagePlus Vx,
 				ImagePlus Vy,
-				CircularFilterSet filterSet,
+				FilterSet filterSet,
 				int atX,
 				int atY,
 				float[] radiuses,
@@ -738,9 +740,9 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 		}
 
 		// allocate out
-		float[] outFeat = new float[filterSet.filts.size()];
-		for (int fI = 0; fI < filterSet.filts.size(); fI++){
-			outFeat[fI] = filterSet.filts.get(fI).calculateScore(val, ang);
+		float[] outFeat = new float[filterSet.circConfs.size()];
+		for (int fI = 0; fI < filterSet.circConfs.size(); fI++){
+			outFeat[fI] = filterSet.circConfs.get(fI).calculateScore(val, ang);
 		}
 
 		return outFeat;

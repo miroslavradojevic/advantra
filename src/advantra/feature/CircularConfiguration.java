@@ -3,8 +3,10 @@ package advantra.feature;
 import ij.IJ;
 import ij.ImageStack;
 import ij.gui.Plot;
+import ij.process.FloatProcessor;
+import ij.process.ImageProcessor;
 
-public class CircularFilterConfiguration {
+public class CircularConfiguration {
 
     public int			nrPeaks;
 
@@ -17,39 +19,40 @@ public class CircularFilterConfiguration {
 	public int 			nrRot;
 	public double 		rotStepRad;
 	
-	public double 		minAngResRad;
+	public double 		minAngResRad; // only used to define how many rotations there are
     public int          minAngResDeg;
+
 	public double[][] 	peaksRad;
 
     public static float TwoPi = (float) (2*Math.PI);
 	
-	public CircularFilterConfiguration(
+	public CircularConfiguration(
             int[] angular_resolution_deg,
             int[] angles_between_peaks_deg
     )
 	{
 
-		this.angResDeg = new int[angular_resolution_deg.length];
+		angResDeg = new int[angular_resolution_deg.length];
         for (int i = 0; i < angular_resolution_deg.length; i++){
             angResDeg[i] = angular_resolution_deg[i];
         }
 
-		this.angResRad = new double[angular_resolution_deg.length];
+		angResRad = new double[angular_resolution_deg.length];
         for (int i = 0; i < angular_resolution_deg.length; i++){
             angResRad[i] = (angResDeg[i]/360f)*TwoPi;
         }
 
-		this.angBtwPeakDeg = new int[angles_between_peaks_deg.length];
+		angBtwPeakDeg = new int[angles_between_peaks_deg.length];
 		for (int i = 0; i < angles_between_peaks_deg.length; i++) {
 			angBtwPeakDeg[i] = angles_between_peaks_deg[i];
 		}
 		
-		this.angBtwPeakRad = new double[angles_between_peaks_deg.length];
+		angBtwPeakRad = new double[angles_between_peaks_deg.length];
 		for (int i = 0; i < angles_between_peaks_deg.length; i++) {
 			angBtwPeakRad[i] = (angles_between_peaks_deg[i]/360.0)*TwoPi;
 		}
 
-		this.nrPeaks = angles_between_peaks_deg.length;
+		nrPeaks = angles_between_peaks_deg.length;
 
         // find the smallest angular resolution to guide rotations
         minAngResDeg = 360;
@@ -59,15 +62,15 @@ public class CircularFilterConfiguration {
             }
         }
         minAngResRad = (minAngResDeg/360f)*TwoPi;
-		this.nrRot = (int)Math.round( TwoPi / (minAngResRad/2) );
-		this.rotStepRad = minAngResRad/2;
+		nrRot = (int)Math.round( TwoPi / (minAngResRad/2) );
+		rotStepRad = minAngResRad/2;
 
-		this.peaksRad = new double[nrRot][nrPeaks];
+		peaksRad = new double[nrRot][nrPeaks];
 		// each configuration will be determined with
         // - rotations,
         // - peaks (and their angular width),
         // - angles between peaks
-        // they will inlfuence filter design
+        // they will influence filter design
         // for this configuration
         // this is the core information of the config
         // where the peaks are
@@ -91,19 +94,32 @@ public class CircularFilterConfiguration {
 
 	}
 
-    public void printConfiguration()
+    public void print()
     {
 
-        for (int i = 0; i < nrRot; i++){
-            System.out.print("rot. "+i+" :  ");
-            for (int j = 0; j < nrPeaks; j++){
-                System.out.print(
-                        ((peaksRad[i][j]/TwoPi)*360)+
-                                " ( "+((angResRad[j]/TwoPi)*360)+" ) -> "+
-                                ((angBtwPeakRad[j]/TwoPi)*360)+" ; "
-                );
-            }
+        System.out.print("circ. conf.  ");
+        for (int j = 0; j < nrPeaks; j++){
+            System.out.print(
+                            IJ.d2s((peaksRad[0][j] / TwoPi) * 360, 2)+
+                            " ( w "+
+                            IJ.d2s((angResRad[j]/TwoPi)*360 ,2)+
+                            " ) ; "//+
+                            //((angBtwPeakRad[j]/TwoPi)*360)+" ; "
+            );
         }
+
+        System.out.println(nrRot+" rotations");
+
+//        for (int i = 1; i < nrRot; i++){
+//            System.out.print("rot. "+i+" :  ");
+//            for (int j = 0; j < nrPeaks; j++){
+//                System.out.print(
+//                        ((peaksRad[i][j]/TwoPi)*360)+
+//                                " ( "+((angResRad[j]/TwoPi)*360)+" ) -> "+
+//                                ((angBtwPeakRad[j]/TwoPi)*360)+" ; "
+//                );
+//            }
+//        }
 
     }
 
@@ -248,30 +264,65 @@ public class CircularFilterConfiguration {
 	
 	public ImageStack plot()
 	{
-		
-		ImageStack viz_is = new ImageStack(400, 400);
-		int plotResolution = 256;
+
+        int N = 301;
+		ImageStack viz_is = new ImageStack(N, N);
+//		int plotResolution = 256;
+
+        int centerX = (N-1)/2;
+        int centerY = (N-1)/2;
+        int R       = (N-1)/4;
+
+
 		for (int rotIdx = 0; rotIdx < nrRot; rotIdx++) {
-			
-			float[] x = new float[plotResolution];
-			float[] y = new float[plotResolution];
-			
-			for (int k = 0; k < plotResolution; k++) {
-				
-				double thetaRad 	= k*((2*Math.PI)/plotResolution);
-				double ro = 1.5; // OFF
-				
-				for (int l = 0; l < nrPeaks; l++) {
-					if(Math.abs(wrap_PI(thetaRad-peaksRad[rotIdx][l])) <= angResRad[l]/2){
-						ro=2.5;
-						break;
-					}
-				}
-				
-				x[k] 	= (float) (ro * Math.sin(thetaRad));
-				y[k]	= (float) (ro * Math.cos(thetaRad));
-				
-			}
+
+            ImageProcessor fp = new FloatProcessor(N, N);
+
+            // fill the values
+            for (int c = 0; c < fp.getWidth(); c++){
+                for (int r = 0; r < fp.getHeight(); r++){
+                    float ro, theta;
+                    ro = (int)Math.sqrt(Math.pow((c-centerX), 2)+Math.pow((r-centerY), 2));
+
+                    if (ro<R){
+
+                        fp.setf(c, r, -1);
+
+                        theta = (float)Math.atan2(c-centerX, r-centerY);
+                        for (int l = 0; l < nrPeaks; l++) {
+                            if(Math.abs(wrap_PI(theta-peaksRad[rotIdx][l])) <= angResRad[l]/2){
+                                fp.setf(c, r, 1);//=+1;
+                                break;
+                            }
+                        }
+
+                    }
+
+
+                }
+            }
+
+            viz_is.addSlice("rot."+rotIdx+"/"+nrRot, fp);
+
+//			float[] x = new float[plotResolution];
+//			float[] y = new float[plotResolution];
+//
+//			for (int k = 0; k < plotResolution; k++) {
+//
+//				double thetaRad 	= k*((2*Math.PI)/plotResolution);
+//				double ro = 1.5; // OFF
+//
+//				for (int l = 0; l < nrPeaks; l++) {
+//					if(Math.abs(wrap_PI(thetaRad-peaksRad[rotIdx][l])) <= angResRad[l]/2){
+//						ro=2.5;
+//						break;
+//					}
+//				}
+//
+//				x[k] 	= (float) (ro * Math.sin(thetaRad));
+//				y[k]	= (float) (ro * Math.cos(thetaRad));
+//
+//			}
 			
 //			int A = (int)(360.0/(float)minAngResDeg);
 //			double[] x1 = new double[A];
@@ -281,13 +332,13 @@ public class CircularFilterConfiguration {
 //				y1[k] = 2 * Math.cos(k*minAngResDeg);
 //			}
 			
-			Plot p = new Plot("profile","x","y", x, y);
-			p.setSize(400, 400);
-			p.setLimits(-2.5, 2.5, -2.5, 2.5);
-			p.setJustification(Plot.CENTER);
-//			p.addPoints(x1, y1, Plot.BOX);
+//			Plot p = new Plot("profile","x","y", x, y);
+//			p.setSize(400, 400);
+//			p.setLimits(-2.5, 2.5, -2.5, 2.5);
+//			p.setJustification(Plot.CENTER);
+////			p.addPoints(x1, y1, Plot.BOX);
 			
-			viz_is.addSlice("rot."+rotIdx+"/"+nrRot, p.getProcessor());
+
 			
 		}
 		
