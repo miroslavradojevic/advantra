@@ -191,7 +191,9 @@ public class FilterSet {
 							if(!covered){
 								// add it for all radial scales
 								for (int k = 0; k < angular_scale_radiuses.length; k++){
-									circConfs.add(new CircularConfiguration(per3[i], new int[]{d1, d2, d3}, angular_scale_radiuses[k]));
+                                    System.out.println(""+angular_scale_radiuses[k]);
+									circConfs.add(new CircularConfiguration(per3[i], new int[]{d1, d2, d3},  new double[]{0.0, angular_scale_radiuses[k]}));
+                                    circConfs.add(new CircularConfiguration(per3[i], new int[]{d1, d2, d3},  new double[]{angular_scale_radiuses[k], 1.0}));
 								}
 
 							}
@@ -352,10 +354,10 @@ public class FilterSet {
 
     }
 
-	public ImageStack plot()
+	public ImageStack plot(int N)
 	{
 
-		ImageStack viz = new ImageStack(101, 101);
+		ImageStack viz = new ImageStack(N, N);
 
 		for (int i = 0; i < circConfs.size(); i++) {
 
@@ -372,7 +374,7 @@ public class FilterSet {
 				name += ","+currentFilter.angBtwPeakDeg[k];
 			}
 
-			viz.addSlice(name, currentFilter.plot());
+			viz.addSlice(name, currentFilter.plot(N));
 
 		}
 
@@ -387,7 +389,7 @@ public class FilterSet {
 				name += ","+currentFilter.ringRes[j];
 			}
 
-			viz.addSlice(name, currentFilter.plot().getProcessor(1));
+			viz.addSlice(name, currentFilter.plot(N).getProcessor(1));
 
 		}
 
@@ -395,8 +397,9 @@ public class FilterSet {
 
 	}
 
-	public ImageProcessor plot(
-								int idx
+	public ImageProcessor plotOne(
+								int idx,
+                                int N
 	)
 	{
 
@@ -405,11 +408,11 @@ public class FilterSet {
 
 		if (idx<circConfs.size()){
 			// take from circular configuration features
-			return circConfs.get(idx).plot();
+			return circConfs.get(idx).plot(N);
 		}
 		else{
 			// take from radial configuration features
-			return radlConfs.get(idx-circConfs.size()).plot().getProcessor(1);
+			return radlConfs.get(idx-circConfs.size()).plot(N).getProcessor(1);
 		}
 //			new ImagePlus(name, currentFilter.plot()).show();
 //			new ImagePlus(name, currentFilter.plotFilter()).show();

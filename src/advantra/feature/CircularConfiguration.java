@@ -16,30 +16,42 @@ public class CircularConfiguration {
 	public int[] 		angBtwPeakDeg;
 	public double[] 	angBtwPeakRad;
 	
-	//public int 			nrRot;
-	//public double 		rotStepRad;
+	public int 			nrRot;
+	public double 		rotStepRad;
 	
-//	public double 		minAngResRad; // only used to define how many rotations there are
-//    public int          minAngResDeg; // only used to define how many rotations there are
+	public double 		minAngResRad;   // only used to define how many rotations there are
+    public int          minAngResDeg;   // only used to define how many rotations there are
 
-	public double[] 	peaksRad;
-	public double		r;
+	public double[][] 	peaksRad;
+	public double[]		ringR;          // array that defines the rings
+                                        // ringR[0]<ON<ringR[1]
+                                        // length 2 is enough for borders of the ring where
+                                        // directions are filtered
 
     public static float TwoPi = (float) (2*Math.PI);
 
-	double[] 			filt;
+	double[] 			filt;           // this filter will make a score
+                                        // it will have a different version with each rotation
+                                        // important to call initFilter() before using it
+                                        // before calling score() method
+                                        // to allocate enough values to cover the patch
 	
 	public CircularConfiguration(
             int[] angular_resolution_deg,
             int[] angles_between_peaks_deg,
-			double radius
+			double[] radius
     )
 	{
 
-		r = radius;
+        ringR = new double[2];
+		ringR[0] = radius[0];
+        ringR[1] = radius[1];
+		// this configuration has one ring (2 thresholds)
+        // inner ring for (ringR[0]=0)
+        // outer ring for (ringR[1]=1.0)
 
 		// filter used when calculating score(), only to initialize
-		filt = new double[1];    // length will depend on th profile
+		filt = new double[1];    // length will depend on th profile, same
 
 		angResDeg = new int[angular_resolution_deg.length];
         for (int i = 0; i < angular_resolution_deg.length; i++){
@@ -63,18 +75,23 @@ public class CircularConfiguration {
 
 		nrPeaks = angles_between_peaks_deg.length;
 
-        // find the smallest angular resolution to guide rotations
-//        minAngResDeg = 360;
-//        for (int i = 0; i < angResDeg.length; i++){
-//            if (angResDeg[i]<minAngResDeg){
-//                minAngResDeg = angResDeg[i];
-//            }
-//        }
-//        minAngResRad = (minAngResDeg/360f)*TwoPi;
-//		nrRot = (int)Math.round( TwoPi / (minAngResRad/2) );
-//		rotStepRad = minAngResRad/2;
+        // find the smallest angular resolution to carry out scores
+        // for different rotations
+        minAngResDeg = 360;
+        for (int i = 0; i < angResDeg.length; i++){
+            if (angResDeg[i]<minAngResDeg){
+                minAngResDeg = angResDeg[i];
+            }
+        }
+        minAngResRad = (minAngResDeg/360f)*TwoPi;
 
-		peaksRad = new double[nrPeaks];
+        // use the current minimal resolution to step when scoring rotations
+        // bigger minimal angular scale => bigger steps
+
+		nrRot = (int)Math.round( TwoPi / (minAngResRad/2) );    // number of rotations
+		rotStepRad = minAngResRad/2;                            // step when rotating
+
+		peaksRad = new double[nrRot][nrPeaks];
 		// each configuration will be determined with
         // - rotations,
         // - peaks (and their angular width),
@@ -82,45 +99,44 @@ public class CircularConfiguration {
         // they will influence filter design
         // for this configuration
         // this is the core information of the config
-        // where the peaks are
+        // (where the peaks are)
 		
-		//for (int cnt_rots = 0; cnt_rots < nrRot; cnt_rots++) {
+		for (int cnt_rots = 0; cnt_rots < nrRot; cnt_rots++) {
 			
-//			double start_pos = 0;//cnt_rots*rotStepRad;
+			double start_pos = cnt_rots*rotStepRad;
 
-		peaksRad[0] 	= 0;
-
-			for (int cnt_pks = 1; cnt_pks < nrPeaks; cnt_pks++) {
+			for (int cnt_pks = 0; cnt_pks < nrPeaks; cnt_pks++) {
 				
-//				if(cnt_pks==0)
-//					peaksRad[cnt_pks] 	= 0;//start_pos;
-//				else
-					peaksRad[cnt_pks] 	=
-                            peaksRad[cnt_pks-1] +
+				if(cnt_pks==0)
+					peaksRad[cnt_rots][cnt_pks] 	= start_pos;
+				else
+					peaksRad[cnt_rots][cnt_pks] 	=
+                            peaksRad[cnt_rots][cnt_pks-1] +
                             angBtwPeakRad[cnt_pks-1];
 				
 			}
 			
-		//}
+		}
 
 	}
 
 	public void initFilter(int length)
 	{
-		filt = new double[length];
+		filt = new double[length];  // length will correspond to the number of locations in the patch
 	}
 
     public void print()
     {
 
-        System.out.print("circ. conf.  ");
+        System.out.print("circular configuration (base rotation):  ");
         for (int j = 0; j < nrPeaks; j++){
             System.out.print(
-                            IJ.d2s((peaksRad[j] / TwoPi) * 360, 2)+
+                            IJ.d2s((peaksRad[0][j] / TwoPi) * 360, 2)+
                             " ( w "+
                             IJ.d2s((angResRad[j]/TwoPi)*360 ,2)+
-                            " ) ; r "+
-							IJ.d2s(r,2)
+                            " ) ; ring_range: "+
+                            IJ.d2s(ringR[0],2)+" <-> "+
+                            IJ.d2s(ringR[1],2)
             );
         }
 
@@ -134,23 +150,25 @@ public class CircularConfiguration {
 	{
 
         /*
-        calculate score on configuration as
+        calculate score on this CircularConfiguration as
         highest score on all rotated versions of
-        that configuration
+        that configuration to be rotationally invariant
          */
 
-//        float 	score = Float.NEGATIVE_INFINITY;
+        float 	score = Float.NEGATIVE_INFINITY;  // lowest possible score
 		int sumPos, sumNeg;
 
-        //for (int r = 0; r < nrRot; r++) {
+        for (int r = 0; r < nrRot; r++) {
 
-            // create filt[]
+            // calculate scores for each rotation
+
+            // fill in filt[] values
             sumPos = sumNeg = 0;
 
             for (int i = 0; i < val.length; i++){
 
-				if (rad[i]<=r){
-					if(isOn(ang[i])){
+				if (rad[i]<=ringR[1] && rad[i]>=ringR[0]){      // rad[] is radius actually, normalized 0-1.0
+					if(isOn(ang[i], r)){                        // considering that the angle is calculated as (float)(atan2(r,c)+pi)
 						filt[i] = +1;
 						sumPos++;
 					}
@@ -175,60 +193,69 @@ public class CircularConfiguration {
 				}
             }
 
+            // now the whole filter has been filled in
+
             // score for this filt[]
             float sc = 0;
             for (int i = 0; i < filt.length; i++) {
                 sc += filt[i]*val[i];
             }
 
-//            if(sc>score || r==0){
-//                score = sc;
-//            }
+            if(sc>score || r==0){
+                score = sc;
+            }
 
-        //}
+        }
 
-        return sc;
+        return score;
 
     }
 	
-	private boolean isOn(float angle)
+	private boolean isOn(
+            float angle,
+            int rotIdx
+    )
 	{
 
-			for (int p = 0; p < nrPeaks; p++) {
-				if(Math.abs(wrap_PI(angle-peaksRad[p])) <= angResRad[p]/2){
-					return true;
-				}
+		for (int p = 0; p < nrPeaks; p++) {
+			if(Math.abs(wrap_PI(angle-peaksRad[rotIdx][p])) <= angResRad[p]/2){
+                // only peaks will change with rotations, angular resolutions stay the same
+				return true;
 			}
+		}
 
 		return false;
 
 	}
 	
-	public ImageProcessor plot()
+	public ImageProcessor plot(
+            int N
+    )
 	{
 
-        int N = 101;
-//		ImageStack viz_is = new ImageStack(N, N);
+        // N will represent the resolution, can be arbitrary value,
+        // it is useful to set the real resolution of the profile (usually 2*radius+1)
+        // where radius was used for profile extraction
 
         int centerX = (N-1)/2;
         int centerY = (N-1)/2;
-		int R2		= (N-1)/2;
-		int R1      = (int) (r*R2);
-//		for (int rotIdx = 0; rotIdx < nrRot; rotIdx++) {
+		int Rout		= (N-1)/2;
+        double R1      = ringR[0]*Rout;
+        double R2      = ringR[1]*Rout;
 
 	    ImageProcessor fp = new FloatProcessor(N, N);
 
             // fill the values
             for (int c = 0; c < fp.getWidth(); c++){
                 for (int r = 0; r < fp.getHeight(); r++){
-                    float ro, theta;
-                    ro = (int)Math.sqrt(Math.pow((c-centerX), 2)+Math.pow((r-centerY), 2));
 
-                    if (ro<=R1){
+                    double ro = Math.pow((c-centerX), 2)+Math.pow((r-centerY), 2);
 
-                        theta = (float) (Math.atan2(r-centerY, c-centerX) + Math.PI);
+                    if (ro <= R2*R2 && ro >= R1*R1 ){
 
-						if(isOn(theta)){
+                        float theta = (float) (Math.atan2(r-centerY, c-centerX) + Math.PI);
+
+						if(isOn(theta, 0)){
 
 							fp.setf(c, r, +1);
 
@@ -244,24 +271,69 @@ public class CircularConfiguration {
                 }
             }
 
-//            viz_is.addSlice("", fp);
-//		}
-		
 		return fp;
 
 	}
 
-	public int[] getConfiguration()
-	{
-		int[] out_conf = new int[2*nrPeaks];
-		for (int i = 0; i < nrPeaks; i++){
-			out_conf[2*i] = angResDeg[i];
-			out_conf[2*i+1] = angBtwPeakDeg[i];
-		}
-		return out_conf;
-	}
+    public ImageStack plotAllRotations(
+            int N
+    )
+    {
 
-	private static double wrap_PI(double in)
+        // N will represent the resolution, can be arbitrary value,
+        // it is useful to set the real resolution of the profile (usually 2*radius+1)
+        // where radius was used for profile extraction,
+        // to see how it really works
+
+        ImageStack viz_is = new ImageStack(N, N);
+
+        int centerX = (N-1)/2;
+        int centerY = (N-1)/2;
+        int Rout		= (N-1)/2;
+        double R1      = ringR[0]*Rout;
+        double R2      = ringR[1]*Rout;
+
+        for (int rotIdx = 0; rotIdx < nrRot; rotIdx++) {
+
+            ImageProcessor fp = new FloatProcessor(N, N);
+
+            // fill the values
+            for (int c = 0; c < fp.getWidth(); c++){
+                for (int r = 0; r < fp.getHeight(); r++){
+
+                    double ro = Math.pow((c-centerX), 2)+Math.pow((r-centerY), 2);
+
+                    if (ro <= R2*R2 && ro >= R1*R1 ){
+
+                        float theta = (float) (Math.atan2(r-centerY, c-centerX) + Math.PI);
+
+                        if(isOn(theta, rotIdx)){
+
+                            fp.setf(c, r, +1);
+
+                        }
+                        else {
+
+                            fp.setf(c, r, -1);
+
+                        }
+
+                    }
+
+                }
+            }
+
+            viz_is.addSlice("rot."+rotIdx+"/"+nrRot, fp);
+
+        }
+
+        return viz_is;
+
+    }
+
+	private static double wrap_PI(
+            double in
+    )
 	{
 		
 		double out = in;
@@ -279,10 +351,17 @@ public class CircularConfiguration {
 }
 
 
-
+//	public int[] getConfiguration()
+//	{
+//		int[] out_conf = new int[2*nrPeaks];
+//		for (int i = 0; i < nrPeaks; i++){
+//			out_conf[2*i] = angResDeg[i];
+//			out_conf[2*i+1] = angBtwPeakDeg[i];
+//		}
+//		return out_conf;
+//	}
 //	public ImageStack plotFilter()
 //	{
-//
 //		ImageStack viz_is = new ImageStack(400, 200);
 //
 //		int angular_res = 128;
@@ -354,7 +433,6 @@ public class CircularConfiguration {
 //		return viz_is;
 //
 //	}
-
 
 //	public double calculateScore(double[] profile_2PI){
 //

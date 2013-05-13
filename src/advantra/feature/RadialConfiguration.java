@@ -126,9 +126,9 @@ public class RadialConfiguration {
 
 	}
 
-	public ImageStack plot()
+	public ImageStack plot(int N)
 	{
-		int N = 101;
+		//int N = 101;
 		ImageStack viz_is = new ImageStack(N, N);
 
 		int centerX = (N-1)/2;

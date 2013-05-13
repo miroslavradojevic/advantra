@@ -94,7 +94,7 @@ public class DemoFeatures implements PlugIn {
 
 		FilterSet fs = new FilterSet(aScl, new double[]{0.5, 1.0}, rScl);
         fs.print();
-		new ImagePlus("features", fs.plot()).show();
+		new ImagePlus("features", fs.plot(101)).show();
 		System.out.println("total nr. configurations: "+ (fs.circConfs.size()+fs.radlConfs.size()));
 		
 	}

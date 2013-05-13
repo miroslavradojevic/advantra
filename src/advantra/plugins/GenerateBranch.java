@@ -92,6 +92,7 @@ public class GenerateBranch implements PlugIn {
 		// imagej plugin
 		BranchModel bm = new BranchModel(stack_height, stack_width, stack_size, radius_std);
 		bm.drawHorizontalModel();
+        IJ.showMessage("Done!");
 		ImagePlus im_out = bm.getModelAsImage();
 		im_out.setTitle("horizontal_model");
 		im_out.show();

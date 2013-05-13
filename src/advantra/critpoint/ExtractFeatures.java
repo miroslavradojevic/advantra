@@ -78,23 +78,18 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 
 	double[][] adaboost;
 
+    static float TwoPi = (float) (2*Math.PI);
+
 	public void run(String arg0)
 	{
 
         /*
 		 * generate filters to score on example profiles (generate features)
 		 */
-        int[] angleRes = new int[]{20, 40};
-		double[] angleScl = new double[]{0.5, 1.0};
-        double[] radRes = new double[]{0.2, 0.5, 0.8};
+        int[] angleRes = new int[]{40, 60};
+		double[] angleScl = new double[]{0.5};
+        double[] radRes = new double[]{0.2, 0.4, 0.6, 0.8};
         fs = new FilterSet(angleRes, angleScl, radRes);
-
-        /*
-        show them
-        */
-		new ImagePlus("FEATURES", fs.plot()).show();
-
-//if(true) { System.out.println("closing..."); return;}
 
         int nrFilters = fs.circConfs.size()+fs.radlConfs.size();
 
@@ -127,8 +122,8 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 
 		GenericDialog gd = new GenericDialog("CritpointDetection");
 
-//		gd.addMessage("FILTERS");
-
+		gd.addMessage("FILTERS (add here angles and ...)");
+//        gd.addNumericField("angles(per 180 deg)", M,	0, 5, "");
 
 		gd.addMessage("EXTRACTION");
 		gd.addChoice("use dot prod. with eig. V:", use_eigen_v, use_eigen_v[0]);
@@ -195,9 +190,9 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 		Prefs.set("advantra.critpoint.nr_scales", 	tn);
 		Prefs.set("advantra.critpoint.nr_angles", 	M);
 		Prefs.set("advantra.critpoint.surr", 		surr);
-		//Prefs.set("advantra.critpoint.dr", 			dr);
+		//Prefs.set("advantra.critpoint.dr", 		dr);
 		//Prefs.set("advantra.critpoint.darc", 		darc);
-		//Prefs.set("advantra.critpoint.dratio", 		rratio);
+		//Prefs.set("advantra.critpoint.dratio", 	rratio);
 
 		Prefs.set("advantra.critpoint.train_folder", train_folder);
 		Prefs.set("advantra.critpoint.test_folder", test_folder);
@@ -214,6 +209,12 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 		}
 
 		radius = (int) Math.ceil(surr*Math.sqrt(t[t.length-1])); // xGaussianStd.
+
+                /*
+        show them
+        */
+        new ImagePlus("FEATURES", fs.plot(101)).show(); // 2*radius+1
+        if(true) { System.out.println("closing..."); return;}
 
 		//having radius it's possible to allocate
 		int toAlloc = profileLength(radius);
@@ -419,6 +420,7 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 
 					}
 					else {
+                        extract_from.setTitle("pos_"+(pos_ft.getSize()+1)+"");
 						profile(extract_from, atX, atY, radius);
 
 					}
@@ -447,6 +449,7 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 						profile(extract_from, Vx, Vy, atX, atY, radius);
 					}
 					else {
+                        extract_from.setTitle("neg_"+(neg_ft.getSize()+1)+"");
 						profile(extract_from, atX, atY, radius);
 					}
 
@@ -540,9 +543,9 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 
 			// show the best features
 			ImagePlus imp2 = new ImagePlus();
-			ImageStack best_feat = new ImageStack(101, 101);
+			ImageStack best_feat = new ImageStack(2*radius+1, 2*radius+1);
 			for (int i = 0; i < adaboost.length; i++){
-				best_feat.addSlice(fs.plot((int) adaboost[i][0]));
+				best_feat.addSlice(fs.plotOne((int) adaboost[i][0], 2*radius+1));
 			}
 			imp2.setStack("best_feats", best_feat);
 			imp2.show();
@@ -793,6 +796,9 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 			}
 		}
 
+//        Plot p = new Plot("", "", "", rads, angs);
+//        p.show();
+
 		if (true){
 		// find cumulative max
 		int N = 36;
@@ -814,18 +820,16 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 			}
 		}
 
-//		System.out.println("alfa: "+alfa);
+		System.out.println("image"+img.getTitle()+" had the peak at "+(alfa/(2*Math.PI))*360);
 
 		for (int i = 0; i < angs.length; i++) {
-
-			angs[i] = angs[i] - alfa;
-
-			if (angs[i]<0) {
-				angs[i] = angs[i] + (float)(2*Math.PI);
+//			angs[i] = angs[i] - alfa;
+			if (angs[i]<alfa) {
+				angs[i] = (float)(2*Math.PI) - alfa + angs[i];
 			}
-//			else{
-//
-//			}
+            else{
+                angs[i] = angs[i] - alfa;
+            }
 		}
 		}
 

@@ -73,7 +73,9 @@ public class BranchModel {
 	} // constructor
 
 	public void drawHorizontalModel(){
-		
+
+
+
 		p1 = new double[3];
 		// fix the branch basis
 		p1[0]		= image_height/8; 	// vertical position 		(row) 		(2d)
@@ -94,7 +96,7 @@ public class BranchModel {
 		angle_branch_2 			= angle_branch_2 * Math.PI/2;
 
 		double branch_length	= Math.min(image_width/2, image_height/2)*0.7; // so that it fits inside
-		
+        System.out.print("here... ");
 		createEndpoints(p1, p2, branch_length, angle_branch_1, angle_branch_2, p3, p4); // two endpoints at the end
 		System.out.format("p1: %5.2f, %5.2f, %5.2f \n", p1[0], p1[1], p1[2]);
 		System.out.format("p2: %5.2f, %5.2f, %5.2f \n", p2[0], p2[1], p2[2]);
@@ -254,8 +256,8 @@ public class BranchModel {
 			double alfa_1, 
 			double alfa_2, 
 			double[] p_out_1,
-			double[] p_out_2){
-		
+			double[] p_out_2)
+    {
 		double[] Va = new double[3];
 		Va[0] = p_branch[0] - p_seed[0];
 		Va[1] = p_branch[1] - p_seed[1];
@@ -269,7 +271,7 @@ public class BranchModel {
 		double[] Vc = new double[3];
 		
 		Transf.cartesian(Va[0], Va[1], Va[2], Vb, Vc);
-		
+
 		Matrix V = new Matrix(
 				new double[][]{
 						{Va[0], Vb[0], Vc[0]},
