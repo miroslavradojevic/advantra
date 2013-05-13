@@ -2,6 +2,8 @@ package advantra.feature;
 
 import ij.IJ;
 import ij.ImagePlus;
+import ij.ImageStack;
+import ij.process.ImageProcessor;
 
 import java.util.Vector;
 
@@ -16,9 +18,12 @@ public class FilterSet {
 	public Vector<CircularConfiguration>    circConfs;
     public Vector<RadialConfiguration>      radlConfs;
 
+	public float[] score;
+
 	public FilterSet(
-            int[]       angular_scale_degrees,
-            double[]    radial_scale
+            					int[]       angular_scale_degrees,
+								double[]    angular_scale_radiuses,
+            					double[]    radial_scale
     )
 	{
 
@@ -39,13 +44,14 @@ public class FilterSet {
 
         nrScales = angular_scale_degrees.length;
 
-
         circConfs = new Vector<CircularConfiguration>();
 
-        // 1
+		int c;
+
+/*        // 1
 		int nrPer1 = (int) Math.pow(nrScales, 1); // 1x
 		int[][] per1 = new int[nrPer1][1];
-		int c = 0;
+		c = 0;
 		for (int k = 0; k < nrScales; k++){
 			per1[c][0] = angular_scale_degrees[k];
 			c++;
@@ -56,8 +62,9 @@ public class FilterSet {
 				// add it to the list of filters
 				circConfs.add(new CircularConfiguration(per1[i], new int[]{360}));
 			}
-		}
+		}*/
 
+/*
         // 2
 		int nrPer2 = (int) Math.pow(nrScales, 2); // 2x
 		int[][] per2 = new int[nrPer2][2];
@@ -113,6 +120,7 @@ public class FilterSet {
 				}
 			}
 		}
+*/
 
         // 3
 		int nrPer3 = (int) Math.pow(nrScales, 3); // 3x
@@ -130,12 +138,11 @@ public class FilterSet {
 		}
 
 		for (int i = 0; i < nrPer3; i++){
-			for (int d1 = minAngScaleDegrees; d1 < 360; d1+=minAngScaleDegrees/2){
-				for (int d2 = minAngScaleDegrees; d2 < 360; d2+=minAngScaleDegrees/2){
-					for (int d3 = minAngScaleDegrees; d3 < 360; d3+=minAngScaleDegrees/2){
+			for (int d1 = minAngScaleDegrees; d1 < 360; d1+=minAngScaleDegrees){
+				for (int d2 = minAngScaleDegrees; d2 < 360; d2+=minAngScaleDegrees){
+					for (int d3 = minAngScaleDegrees; d3 < 360; d3+=minAngScaleDegrees){
 
-						boolean isConfiguration = false;
-						isConfiguration =
+						boolean isConfiguration =
 								(d1+d2+d3==360) &&
 								(d1>per3[i][0]/2+per3[i][1]/2) &&
 								(d2>per3[i][1]/2+per3[i][2]/2) &&
@@ -182,111 +189,115 @@ public class FilterSet {
 							}
 
 							if(!covered){
-                                circConfs.add(new CircularConfiguration(per3[i], new int[]{d1, d2, d3}));
+								// add it for all radial scales
+								for (int k = 0; k < angular_scale_radiuses.length; k++){
+									circConfs.add(new CircularConfiguration(per3[i], new int[]{d1, d2, d3}, angular_scale_radiuses[k]));
+								}
+
 							}
 						}
 					}
 				}
 			}
 		}
-        // 4
-		int nrPer4 = (int) Math.pow(nrScales, 4); // 4x
-		int[][] per4 = new int[nrPer4][4];
-		c = 0;
-		for (int k = 0; k < nrScales; k++)
-            for (int l = 0; l < nrScales; l++)
-                for (int m = 0; m < nrScales; m++)
-                    for (int n = 0; n < nrScales; n++) {
-                        per4[c][0] = angular_scale_degrees[k];
-                        per4[c][1] = angular_scale_degrees[l];
-                        per4[c][2] = angular_scale_degrees[m];
-                        per4[c][3] = angular_scale_degrees[n];
-                        c++;
-                    }
-
-		for (int i = 0; i < nrPer4; i++){
-			for (int d1 = minAngScaleDegrees; d1 < 360; d1+=minAngScaleDegrees/2){
-				for (int d2 = minAngScaleDegrees; d2 < 360; d2+=minAngScaleDegrees/2){
-					for (int d3 = minAngScaleDegrees; d3 < 360; d3+=minAngScaleDegrees/2){
-						for (int d4 = minAngScaleDegrees; d4 < 360; d4+=minAngScaleDegrees/2){
-
-							boolean isConfiguration = false;
-							isConfiguration =
-									(d1+d2+d3+d4==360) &&
-											(d1>per4[i][0]/2+per4[i][1]/2) &&
-											(d2>per4[i][1]/2+per4[i][2]/2) &&
-											(d3>per4[i][2]/2+per4[i][3]/2) &&
-											(d4>per4[i][3]/2+per4[i][0]/2)
-							;
-
-							if(isConfiguration){
-
-								boolean covered = false;
-								// check if it exists so far in other rotations
-								for (int k = 0; k < circConfs.size(); k++){
-									if(circConfs.get(k).angResDeg.length==4){// if it's with 4 peaks
-										if(
-												(
-												per4[i][0]==circConfs.get(k).angResDeg[0] &&
-												d1        ==circConfs.get(k).angBtwPeakDeg[0] &&
-												per4[i][1]==circConfs.get(k).angResDeg[1] &&
-												d2        ==circConfs.get(k).angBtwPeakDeg[1]  &&
-												per4[i][2]==circConfs.get(k).angResDeg[2] &&
-												d3        ==circConfs.get(k).angBtwPeakDeg[2]  &&
-												per4[i][3]==circConfs.get(k).angResDeg[3] &&
-												d4        ==circConfs.get(k).angBtwPeakDeg[3]
-												)
-												||
-												(
-												per4[i][0]==circConfs.get(k).angResDeg[1] &&
-												d1        ==circConfs.get(k).angBtwPeakDeg[1] &&
-												per4[i][1]==circConfs.get(k).angResDeg[2] &&
-												d2        ==circConfs.get(k).angBtwPeakDeg[2]  &&
-												per4[i][2]==circConfs.get(k).angResDeg[3] &&
-												d3        ==circConfs.get(k).angBtwPeakDeg[3]  &&
-												per4[i][3]==circConfs.get(k).angResDeg[0] &&
-												d4        ==circConfs.get(k).angBtwPeakDeg[0]
-												)
-												||
-												(
-												per4[i][0]==circConfs.get(k).angResDeg[2] &&
-												d1        ==circConfs.get(k).angBtwPeakDeg[2] &&
-												per4[i][1]==circConfs.get(k).angResDeg[3] &&
-												d2        ==circConfs.get(k).angBtwPeakDeg[3]  &&
-												per4[i][2]==circConfs.get(k).angResDeg[0] &&
-												d3        ==circConfs.get(k).angBtwPeakDeg[0]  &&
-												per4[i][3]==circConfs.get(k).angResDeg[1] &&
-												d4        ==circConfs.get(k).angBtwPeakDeg[1]
-												)
-												||
-												(
-												per4[i][0]==circConfs.get(k).angResDeg[3] &&
-												d1        ==circConfs.get(k).angBtwPeakDeg[3] &&
-												per4[i][1]==circConfs.get(k).angResDeg[0] &&
-												d2        ==circConfs.get(k).angBtwPeakDeg[0]  &&
-												per4[i][2]==circConfs.get(k).angResDeg[1] &&
-												d3        ==circConfs.get(k).angBtwPeakDeg[1]  &&
-												per4[i][3]==circConfs.get(k).angResDeg[2] &&
-												d4        ==circConfs.get(k).angBtwPeakDeg[2]
-												)
-										)
-										{
-											covered = true;
-										}
-									}
-								}
-
-								if(!covered){
-                                    circConfs.add(new CircularConfiguration(per4[i], new int[]{d1, d2, d3, d4}));
-								}
-							}
-
-
-						}
-					}
-				}
-			}
-		}
+//        // 4
+//		int nrPer4 = (int) Math.pow(nrScales, 4); // 4x
+//		int[][] per4 = new int[nrPer4][4];
+//		c = 0;
+//		for (int k = 0; k < nrScales; k++)
+//            for (int l = 0; l < nrScales; l++)
+//                for (int m = 0; m < nrScales; m++)
+//                    for (int n = 0; n < nrScales; n++) {
+//                        per4[c][0] = angular_scale_degrees[k];
+//                        per4[c][1] = angular_scale_degrees[l];
+//                        per4[c][2] = angular_scale_degrees[m];
+//                        per4[c][3] = angular_scale_degrees[n];
+//                        c++;
+//                    }
+//
+//		for (int i = 0; i < nrPer4; i++){
+//			for (int d1 = minAngScaleDegrees; d1 < 360; d1+=minAngScaleDegrees/2){
+//				for (int d2 = minAngScaleDegrees; d2 < 360; d2+=minAngScaleDegrees/2){
+//					for (int d3 = minAngScaleDegrees; d3 < 360; d3+=minAngScaleDegrees/2){
+//						for (int d4 = minAngScaleDegrees; d4 < 360; d4+=minAngScaleDegrees/2){
+//
+//							boolean isConfiguration = false;
+//							isConfiguration =
+//									(d1+d2+d3+d4==360) &&
+//											(d1>per4[i][0]/2+per4[i][1]/2) &&
+//											(d2>per4[i][1]/2+per4[i][2]/2) &&
+//											(d3>per4[i][2]/2+per4[i][3]/2) &&
+//											(d4>per4[i][3]/2+per4[i][0]/2)
+//							;
+//
+//							if(isConfiguration){
+//
+//								boolean covered = false;
+//								// check if it exists so far in other rotations
+//								for (int k = 0; k < circConfs.size(); k++){
+//									if(circConfs.get(k).angResDeg.length==4){// if it's with 4 peaks
+//										if(
+//												(
+//												per4[i][0]==circConfs.get(k).angResDeg[0] &&
+//												d1        ==circConfs.get(k).angBtwPeakDeg[0] &&
+//												per4[i][1]==circConfs.get(k).angResDeg[1] &&
+//												d2        ==circConfs.get(k).angBtwPeakDeg[1]  &&
+//												per4[i][2]==circConfs.get(k).angResDeg[2] &&
+//												d3        ==circConfs.get(k).angBtwPeakDeg[2]  &&
+//												per4[i][3]==circConfs.get(k).angResDeg[3] &&
+//												d4        ==circConfs.get(k).angBtwPeakDeg[3]
+//												)
+//												||
+//												(
+//												per4[i][0]==circConfs.get(k).angResDeg[1] &&
+//												d1        ==circConfs.get(k).angBtwPeakDeg[1] &&
+//												per4[i][1]==circConfs.get(k).angResDeg[2] &&
+//												d2        ==circConfs.get(k).angBtwPeakDeg[2]  &&
+//												per4[i][2]==circConfs.get(k).angResDeg[3] &&
+//												d3        ==circConfs.get(k).angBtwPeakDeg[3]  &&
+//												per4[i][3]==circConfs.get(k).angResDeg[0] &&
+//												d4        ==circConfs.get(k).angBtwPeakDeg[0]
+//												)
+//												||
+//												(
+//												per4[i][0]==circConfs.get(k).angResDeg[2] &&
+//												d1        ==circConfs.get(k).angBtwPeakDeg[2] &&
+//												per4[i][1]==circConfs.get(k).angResDeg[3] &&
+//												d2        ==circConfs.get(k).angBtwPeakDeg[3]  &&
+//												per4[i][2]==circConfs.get(k).angResDeg[0] &&
+//												d3        ==circConfs.get(k).angBtwPeakDeg[0]  &&
+//												per4[i][3]==circConfs.get(k).angResDeg[1] &&
+//												d4        ==circConfs.get(k).angBtwPeakDeg[1]
+//												)
+//												||
+//												(
+//												per4[i][0]==circConfs.get(k).angResDeg[3] &&
+//												d1        ==circConfs.get(k).angBtwPeakDeg[3] &&
+//												per4[i][1]==circConfs.get(k).angResDeg[0] &&
+//												d2        ==circConfs.get(k).angBtwPeakDeg[0]  &&
+//												per4[i][2]==circConfs.get(k).angResDeg[1] &&
+//												d3        ==circConfs.get(k).angBtwPeakDeg[1]  &&
+//												per4[i][3]==circConfs.get(k).angResDeg[2] &&
+//												d4        ==circConfs.get(k).angBtwPeakDeg[2]
+//												)
+//										)
+//										{
+//											covered = true;
+//										}
+//									}
+//								}
+//
+//								if(!covered){
+//                                    circConfs.add(new CircularConfiguration(per4[i], new int[]{d1, d2, d3, d4}));
+//								}
+//							}
+//
+//
+//						}
+//					}
+//				}
+//			}
+//		}
 
         /*
         fill in radial configurations
@@ -317,7 +328,6 @@ public class FilterSet {
         for (int i = 0; i < nrRep1; i++){
             if (rep1[i][0]<1){
                   radlConfs.add(new RadialConfiguration(rep1[i], new double[]{0}));
-//                circConfs.add(new CircularConfiguration(per1[i], new int[]{360}));
             }
         }
 
@@ -325,137 +335,155 @@ public class FilterSet {
         // 3
         // 4
 
-
-
-
+		score = new float[circConfs.size()+radlConfs.size()];
 
 	}
 
     public void print()
     {
+
         for (int i = 0; i < circConfs.size(); i++){
             circConfs.get(i).print();
         }
 
         for (int i = 0; i < radlConfs.size(); i++){
-                                     radlConfs.get(i).print();
+			radlConfs.get(i).print();
         }
 
     }
 
-	public void showConfigs()
+	public ImageStack plot()
 	{
+
+		ImageStack viz = new ImageStack(101, 101);
 
 		for (int i = 0; i < circConfs.size(); i++) {
 
 			CircularConfiguration currentFilter = circConfs.get(i);
 
 			String name;
-			name = "CONF_"+i;
-			if(currentFilter.angResDeg.length>=1){
-				name += ",Pks="+currentFilter.angResDeg[0];
-			}
-			if(currentFilter.angResDeg.length>=2){
-				name += ","+currentFilter.angResDeg[1];
-			}
-			if(currentFilter.angResDeg.length>=3){
-				name += ","+currentFilter.angResDeg[2];
-			}
-			if(currentFilter.angResDeg.length>=4){
-				name += ","+currentFilter.angResDeg[3];
+			name = "CCONF_"+i;
+
+			for (int j = 0; j < currentFilter.nrPeaks; j++){
+				name += ","+currentFilter.angResDeg[j];
 			}
 
-			if(currentFilter.nrPeaks>=1){
-				name+=",alfa="+currentFilter.angBtwPeakDeg[0];
-			}
-			if(currentFilter.nrPeaks>=2){
-				name+=",beta="+currentFilter.angBtwPeakDeg[1];
-			}
-			if(currentFilter.nrPeaks>=3){
-				name+=",gamma="+currentFilter.angBtwPeakDeg[2];
-			}
-			if(currentFilter.nrPeaks>=4){
-				name+=",delta="+currentFilter.angBtwPeakDeg[3];
+			for (int k = 0; k < currentFilter.nrPeaks; k++){
+				name += ","+currentFilter.angBtwPeakDeg[k];
 			}
 
-			new ImagePlus(name, currentFilter.plot()).show();
-
-//			new ImagePlus(name, currentFilter.plotFilter()).show();
+			viz.addSlice(name, currentFilter.plot());
 
 		}
 
-	}
+		for (int i = 0; i < radlConfs.size(); i++) {
 
-	public void showConfigs(int idx)
-	{
-
-			CircularConfiguration currentFilter = circConfs.get(idx);
+			RadialConfiguration currentFilter = radlConfs.get(i);
 
 			String name;
-			name = "CONF_"+idx+",R="+currentFilter.angResDeg;
-			if(currentFilter.nrPeaks>=1){
-				name+=",alfa="+currentFilter.angBtwPeakDeg[0];
-			}
-			if(currentFilter.nrPeaks>=2){
-				name+=",beta="+currentFilter.angBtwPeakDeg[1];
-			}
-			if(currentFilter.nrPeaks>=3){
-				name+=",gamma="+currentFilter.angBtwPeakDeg[2];
-			}
-			if(currentFilter.nrPeaks>=4){
-				name+=",delta="+currentFilter.angBtwPeakDeg[3];
+			name = "RCONF_"+i;
+
+			for (int j = 0; j < currentFilter.nrRings; j++){
+				name += ","+currentFilter.ringRes[j];
 			}
 
-			new ImagePlus(name, currentFilter.plot()).show();
+			viz.addSlice(name, currentFilter.plot().getProcessor(1));
 
+		}
+
+		return viz;
+
+	}
+
+	public ImageProcessor plot(
+								int idx
+	)
+	{
+
+		// they are aligned circ+radl
+		// idx covers both
+
+		if (idx<circConfs.size()){
+			// take from circular configuration features
+			return circConfs.get(idx).plot();
+		}
+		else{
+			// take from radial configuration features
+			return radlConfs.get(idx-circConfs.size()).plot().getProcessor(1);
+		}
+//			new ImagePlus(name, currentFilter.plot()).show();
 //			new ImagePlus(name, currentFilter.plotFilter()).show();
 
 	}
 
-    public double[] calculateScore(double[] angularProfile)
+    public void score(
+								float[] val,
+								float[] ang,
+								float[] rad
+	)
     {
-
-        double[] score = new double[circConfs.size()];
-
         for (int i = 0; i < circConfs.size(); i++) {
 
-//			score[i] = filts.get(i).calculateScore(); // TODO change this
+			score[i] = circConfs.get(i).score(val, ang, rad);
 
         }
 
-        return score;
+		for (int i = circConfs.size(); i < (circConfs.size()+radlConfs.size()); i++){
+
+			score[i] = radlConfs.get(i-circConfs.size()).score(val, rad);
+
+		}
     }
 
-}
-
-   /*
-	public double[] calculateScore(float[] angularProfile)
+	public float[] score(
+								float[] val,
+								float[] ang,
+								float[] rad,
+								int[] filt_idx
+	)
 	{
+		// calculate score only on selected features and give it as a raw output
+		float[] out = new float[filt_idx.length];
+		int cnt = 0;
+		for (int i = 0; i < filt_idx.length; i++){
 
-        double[] score = new double[filts.size()];
 
-		for (int i = 0; i < filts.size(); i++) {
+			if (filt_idx[i]<circConfs.size()){
+				// circular
+				out[cnt] = circConfs.get(filt_idx[i]).score(val, ang, rad);
 
-//			score[i] = filts.get(i).calculateScore(angularProfile);
+			}
+			else{
+				// radial
+				out[cnt] = radlConfs.get(filt_idx[i]-circConfs.size()).score(val, rad);
+			}
+
+			cnt++;
+
 
 		}
 
-		return score;
+		return out;
+
 	}
 
-    public double[] calculateScore(double[] angularProfile, int[] choose_filters)
+	public void initFilter(
+								  int length
+	)
 	{
 
-        double[] score = new double[choose_filters.length];
+		for (int i = 0; i < circConfs.size(); i++){
 
-        for (int i = 0; i < choose_filters.length; i++){
+			circConfs.get(i).initFilter(length);
 
-//            score[i] = filts.get(choose_filters[i]).calculateScore(angularProfile);
+		}
 
-        }
+		for (int i = 0; i < radlConfs.size(); i++){
 
-        return score;
+			radlConfs.get(i).initFilter(length);
 
-    }
+		}
 
-    */
+	}
+
+}

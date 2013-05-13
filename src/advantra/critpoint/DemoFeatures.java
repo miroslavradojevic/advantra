@@ -6,6 +6,7 @@ import advantra.feature.CircHaarFeat;
 import advantra.feature.FilterSet;
 import advantra.general.Sort;
 import ij.IJ;
+import ij.ImagePlus;
 import ij.gui.GenericDialog;
 import ij.gui.Plot;
 import ij.plugin.PlugIn;
@@ -50,7 +51,7 @@ public class DemoFeatures implements PlugIn {
 		 * test profile features
 		 */
 
-        int         a1=40, a2=40, as=20;
+        int         a1=60, a2=60, as=20;
         double      r1=0.2, r2=0.4;
         int         rn=2;
 
@@ -88,14 +89,12 @@ public class DemoFeatures implements PlugIn {
             rScl[i] = (i==0)? r1 : r1+i*((r2-r1)/(rn-1));
         }
 
-        for (int i = 0; i < aSclNr; i++) System.out.println(i + " : " + aScl[i]);
-        for (int i = 0; i < rn; i++) System.out.println(i + " : " + rScl[i]);
+//        for (int i = 0; i < aSclNr; i++) System.out.println(i + " : " + aScl[i]);
+//        for (int i = 0; i < rn; i++) System.out.println(i + " : " + rScl[i]);
 
-
-
-		FilterSet fs = new FilterSet(aScl, rScl);
+		FilterSet fs = new FilterSet(aScl, new double[]{0.5, 1.0}, rScl);
         fs.print();
-		fs.showConfigs();
+		new ImagePlus("features", fs.plot()).show();
 		System.out.println("total nr. configurations: "+ (fs.circConfs.size()+fs.radlConfs.size()));
 		
 	}
