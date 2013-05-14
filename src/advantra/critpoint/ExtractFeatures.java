@@ -7,6 +7,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.util.Random;
 import java.util.Vector;
 
 //import advantra.feature.CircularFilterSet;
@@ -32,7 +33,21 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 	ImagePlus 	img, gab, gabAll, weighted, neuriteness, Vx, Vy;
 	ImagePlus 	extract_from;
 	String 		train_folder, test_folder;
-	
+
+    ImagePlus   img_click; // this one just to see how it performs on manually chosen locations (visualisation)
+
+    // feature parameters (filter parameters)
+    int         angScale1, angScale2;
+    int[]       angScale;
+
+    double      ring1, ring2;
+    int         nr_ring;
+    double[]    rings;
+
+    double      radial1, radial2;
+    int         nr_radial;
+    double[]    radials;
+
 	// multi-scale
 	double 		t1, t2; 
 	int 		tn;
@@ -49,7 +64,6 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 	
 	// features
 	int 		radius; // calculated wrt. highest scale but can be fixed
-	//double 		dr, darc, rratio;
 	int			surr;
 	
 	int 		W, H;
@@ -70,7 +84,7 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 	float[][] featsN;
 
 	FilterSet fs;
-	float[] radiuses;
+//	float[] radiuses;
 
 	float[] vals;
 	float[] angs;
@@ -83,29 +97,15 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 	public void run(String arg0)
 	{
 
-        /*
-		 * generate filters to score on example profiles (generate features)
-		 */
-        int[] angleRes = new int[]{40, 60};
-		double[] angleScl = new double[]{0.5};
-        double[] radRes = new double[]{0.2, 0.4, 0.6, 0.8};
-        fs = new FilterSet(angleRes, angleScl, radRes);
-
-        int nrFilters = fs.circConfs.size()+fs.radlConfs.size();
-
+//		double[] angleScl = new double[]{0.5, 0.7};
+//        double[] radRes = new double[]{0.2, 0.4, 0.6, 0.8};
 		t1  	= Prefs.get("advantra.critpoint.start_scale", 		3.0);
 		t2    	= Prefs.get("advantra.critpoint.end_scale", 		7.0);
 		tn 		= (int)Prefs.get("advantra.critpoint.nr_scales", 	3);
 		M		= (int)Prefs.get("advantra.critpoint.nr_angles", 	8);
-		surr  	= (int)Prefs.get("advantra.critpoint.curr", 		3);
-
-		//dr    	= Prefs.get("advantra.critpoint.dr", 				1.0);
-		//darc    = Prefs.get("advantra.critpoint.darc", 				1.0);
-		//rratio	= Prefs.get("advantra.critpoint.dratio", 			0.2);
+        surr  	= (int)Prefs.get("advantra.critpoint.curr", 		3);
 		nr_proc = (int)Prefs.get("advantra.critpoint.nr_proc", 		4);
-
         T = (int)Prefs.get("advantra.critpoint.T",                  5);
-
 		train_folder = (String)Prefs.get("advantra.critpoint.train_folder",
 				(System.getProperty("user.home")+File.separator));
 		test_folder = (String)Prefs.get("advantra.critpoint.test_folder",
@@ -122,11 +122,22 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 
 		GenericDialog gd = new GenericDialog("CritpointDetection");
 
-		gd.addMessage("FILTERS (add here angles and ...)");
-//        gd.addNumericField("angles(per 180 deg)", M,	0, 5, "");
+		gd.addMessage("FILTERS");
 
-		gd.addMessage("EXTRACTION");
-		gd.addChoice("use dot prod. with eig. V:", use_eigen_v, use_eigen_v[0]);
+        gd.addChoice("alfa_1",      new String[]{"20", "40", "60"}, "40");
+        gd.addChoice("alfa_2",      new String[]{"20", "40", "60"}, "40");
+
+        gd.addNumericField("ring_1:",    0.5,       1); //ring1
+        gd.addNumericField("ring_2:",    1.0,       1); //ring2
+        gd.addNumericField("nr_rings:",  1, 	    0,  5, "");//nr_rings
+
+        gd.addNumericField("radial_1:",    0.5,       1); //radial1
+        gd.addNumericField("radial_2:",    0.7,       1); //radial2
+        gd.addNumericField("nr_radials:",  2, 	    0,  5, "");//nr_radials
+
+
+        gd.addMessage("EXTRACTION");
+		gd.addChoice("use dot prod. with eig. V:", use_eigen_v, use_eigen_v[1]);
 
 		gd.addMessage("PRE-FILTERING");
 		gd.addNumericField("start scale", t1, 1);
@@ -136,35 +147,67 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 
 		gd.addMessage("PROFILE-EXTRACTION");
 		gd.addNumericField("surround: ",	surr, 	0);
-		//gd.addNumericField("radius step", 		dr, 1);
-		//gd.addNumericField("arc    step", 		darc, 1);
-		//gd.addNumericField("rratio step", 		rratio, 1);
 
 		gd.addStringField("train folder : ", train_folder, 	40);
 		gd.addStringField("test  folder : ", test_folder, 	40);
 
-		gd.addMessage("parallelization");
+		gd.addMessage("threading");
 		gd.addNumericField("CPU #",					nr_proc, 0);
 
 		gd.addMessage("source");
 		gd.addChoice("choose: ", extract_opts, extract_opts[0]);
 
-        gd.addMessage("Ada Boost");
-        gd.addNumericField("T",					    T, 0, 6, " (total "+nrFilters+")");
-
 		gd.showDialog();
 		if (gd.wasCanceled()) return;
 
+        switch ((int) gd.getNextChoiceIndex()) {
+            case 0: angScale1 = 20;
+                break;
+            case 1: angScale1 = 40;
+                break;
+            case 2: angScale1 = 60;
+                break;
+            default: angScale1 = 40;
+                break;
+        }
 
-		if(gd.getNextChoiceIndex()==0){
-			useDotProd = true;
-			System.out.println("use dot product & eigen vectors");
+        switch ((int) gd.getNextChoiceIndex()) {
+            case 0: angScale2 = 20;
+                break;
+            case 1: angScale2 = 40;
+                break;
+            case 2: angScale2 = 60;
+                break;
+            default: angScale2 = 40;
+                break;
+        }
 
-		}
-		else{
-			useDotProd = false;
-			System.out.println("don't use dot product & eigen vectors");
-		}
+        angScale = new int[(angScale2-angScale1)/20+1];
+        int cnt = 0;
+        for (int i = angScale1; i <= angScale2; i+=20){
+            angScale[cnt] = i;
+            cnt++;
+        }
+
+        ring1 = gd.getNextNumber();
+        ring2 = gd.getNextNumber();
+        nr_ring = (int) gd.getNextNumber();
+
+        rings = new double[nr_ring];
+        for (int i = 0; i <nr_ring; i++){
+            rings[i] = (i==0)? ring1 : ring1+i*((ring2-ring1)/(nr_ring-1)) ;
+        }
+
+        radial1 = gd.getNextNumber();
+        radial2 = gd.getNextNumber();
+        nr_radial = (int) gd.getNextNumber();
+
+        radials = new double[nr_radial];
+        for (int i = 0; i <nr_radial; i++){
+            radials[i] = (i==0)? radial1 : radial1+i*((radial2-radial1)/(nr_radial-1)) ;
+        }
+
+        useDotProd = gd.getNextChoiceIndex() == 0;
 
 		t1 	= 		    gd.getNextNumber();
 		t2	= 		    gd.getNextNumber();
@@ -172,9 +215,6 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 		M 	= (int)	    gd.getNextNumber();
 
 		surr = (int)    gd.getNextNumber();
-		//dr  = 			gd.getNextNumber();
-		//darc  = 		gd.getNextNumber();
-		//rratio  = 		gd.getNextNumber();
 
 		train_folder = 	gd.getNextString();
 		test_folder = 	gd.getNextString();
@@ -183,16 +223,11 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 
 		int choose_source = gd.getNextChoiceIndex();
 
-        T = (int)       gd.getNextNumber();
-
 		Prefs.set("advantra.critpoint.start_scale", t1);
 		Prefs.set("advantra.critpoint.end_scale", 	t2);
 		Prefs.set("advantra.critpoint.nr_scales", 	tn);
 		Prefs.set("advantra.critpoint.nr_angles", 	M);
 		Prefs.set("advantra.critpoint.surr", 		surr);
-		//Prefs.set("advantra.critpoint.dr", 		dr);
-		//Prefs.set("advantra.critpoint.darc", 		darc);
-		//Prefs.set("advantra.critpoint.dratio", 	rratio);
 
 		Prefs.set("advantra.critpoint.train_folder", train_folder);
 		Prefs.set("advantra.critpoint.test_folder", test_folder);
@@ -208,17 +243,35 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 			s[i] = Math.sqrt(t[i]);
 		}
 
-		radius = (int) Math.ceil(surr*Math.sqrt(t[t.length-1])); // xGaussianStd.
+		radius = (int) Math.ceil(surr*Math.sqrt(t[t.length-1])); // ultimate neighbourhood
+              System.out.println("radius: "+radius);
+        /*
+		 * generate filters to score on example profiles (generate features)
+		 */
 
-                /*
+        fs = new FilterSet(angScale, rings, radials);
+        int nrFilters = fs.circConfs.size()+fs.radlConfs.size();
+        IJ.showMessage(nrFilters+" filters formed!");
+        /*
         show them
         */
-        new ImagePlus("FEATURES", fs.plot(101)).show(); // 2*radius+1
-        if(true) { System.out.println("closing..."); return;}
+        ImagePlus all_feats = new ImagePlus("FEATURES", fs.plot(65));
+        all_feats.setTitle("All_Features");
+        all_feats.show();
+        /*
+        show one example
+         */
+        //int choose_f = 5;
+        //ImagePlus circ_feat = new ImagePlus("", fs.circConfs.get(0).plotAllRotations(501));
+        //circ_feat.setTitle("Filter#"+0);
+        //circ_feat.show();
+
+//        if(true) { System.out.println("closing..."); return;}
 
 		//having radius it's possible to allocate
 		int toAlloc = profileLength(radius);
-		fs.initFilter(toAlloc);
+        System.out.println("to alloc: "+toAlloc);
+//		fs.initFilter(toAlloc);
 		vals = new float[toAlloc];
 		angs = new float[toAlloc];
 		rads = new float[toAlloc];
@@ -247,7 +300,7 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 		File[] files_tif = listFilesEndingWith(dir, ".tif");
 		File[] files_pos = new File[files_tif.length];
 		File[] files_neg = new File[files_tif.length];
-        File[] files_tst = new File[files_tif.length];
+
 
 		Vector<double[][]> locs_pos = new Vector<double[][]>(files_tif.length);
 		Vector<double[][]> locs_neg = new Vector<double[][]>(files_tif.length);
@@ -258,28 +311,10 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 		int curr_pos = 0;
 		int curr_neg = 0;
 
-		/*
-		    set angular resolution
-            set radiuses
-		 */
-
-        // radiuses (experimental)
-//        int cnt_rads = 0;
-//        for (double r = radius; r >= radius*rratio; r-=dr) {
-//            cnt_rads++;
-//        }
-//        radiuses = new float[cnt_rads];
-//        cnt_rads = 0;
-//        for (double r = radius; r >= radius*rratio; r-=dr) {
-//            radiuses[cnt_rads] = (float)r;
-//            cnt_rads++;
-//        }
-
-//		System.out.println("profile points: "+profileLength(radiuses, darc));
-//		int angular_resolution = 128;
-
+        // to store features
         pos_ft = new ImageStack(nrFilters, 1);
 		neg_ft = new ImageStack(nrFilters, 1);
+        // to store examples (profiles)
 		pos_ex = new ImageStack(2*radius+1, 2*radius+1);
 		neg_ex = new ImageStack(2*radius+1, 2*radius+1);
 
@@ -295,15 +330,28 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 			AnalyzeCSV readCSV;
 			File[] check;
 			String suffix;
+            ImagePlus readMask;
 			String file_name = files_tif[i].getName();
 			file_name = file_name.substring(0, file_name.length()-4);
 
-			suffix = file_name+".pos";
+            //suffix = file_name+".pos";
+            suffix = file_name+".mask.pos";
+
 			check = listFilesEndingWith(dir, suffix);
 			if(check!=null && check.length>0){
 				files_pos[i] = check[0];
+
+                /*
 				readCSV = new AnalyzeCSV(files_pos[i].getAbsolutePath());
 				double[][] A = readCSV.readLn(2);
+                */
+
+                System.out.println("\n\npath was: "+files_pos[i].getAbsolutePath());
+
+                readMask = new ImagePlus(files_pos[i].getAbsolutePath());
+                //readMask.show();
+                double[][] A = extractLocations((ByteProcessor) readMask.getProcessor());
+
 				locs_pos.add(A);
 				curr_pos = A.length;
 				total_pos += A.length;
@@ -314,13 +362,30 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 				System.out.print("\t no positives");
 			}
 
-			suffix = file_name+".neg";
+			//suffix = file_name+".neg";
+            suffix = file_name+".mask.neg";
+
 			check = listFilesEndingWith(dir, suffix);
 			if(check!=null && check.length>0){
 				files_neg[i] = check[0];
+
+                /*
 				readCSV = new AnalyzeCSV(files_neg[i].getAbsolutePath());
 				double[][] B = readCSV.readLn(2);
-				locs_neg.add(B);
+				*/
+
+                readMask = new ImagePlus(files_neg[i].getAbsolutePath());
+                double[][] B = extractLocations((ByteProcessor) readMask.getProcessor());
+
+                double[][] B_red = new double[100][2];
+                for (int k = 0; k < B_red.length; k++){
+                    int rd_loc = (int)(Math.random()*B.length);
+                    B_red[k] = B[rd_loc];
+                }
+
+                B = B_red;
+
+                locs_neg.add(B);
 				curr_neg = B.length;
 				total_neg += B.length;
 				System.out.print("\t "+B.length+" negatives ");
@@ -420,7 +485,6 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 
 					}
 					else {
-                        extract_from.setTitle("pos_"+(pos_ft.getSize()+1)+"");
 						profile(extract_from, atX, atY, radius);
 
 					}
@@ -432,7 +496,7 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 						fill[fill_i] = fs.score[fill_i];
 					}
 					pos_ft.addSlice(new FloatProcessor(nrFilters, 1, fill));
-					pos_ex.addSlice(plotPatch());
+//					pos_ex.addSlice(plotPatch());   // TODO add proper patch here
 
 					PointRoi pt = new PointRoi(atX-0.5, atY-0.5);
 					pt.setStrokeColor(Color.RED);
@@ -445,13 +509,8 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 					int atX = (int)locs_neg.get(i)[k][0];
 					int atY = (int)locs_neg.get(i)[k][1];
 
-					if (useDotProd){
-						profile(extract_from, Vx, Vy, atX, atY, radius);
-					}
-					else {
-                        extract_from.setTitle("neg_"+(neg_ft.getSize()+1)+"");
-						profile(extract_from, atX, atY, radius);
-					}
+                    if (useDotProd) profile(extract_from, Vx, Vy, atX, atY, radius);
+					else profile(extract_from, atX, atY, radius);
 
 					fs.score(vals, angs, rads);
 
@@ -461,7 +520,7 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 					}
 
 					neg_ft.addSlice(new FloatProcessor(nrFilters, 1, fill));
-					neg_ex.addSlice(plotPatch());
+//					neg_ex.addSlice(plotPatch());// TODO add proper patch here, no calculations!
 
 					PointRoi pt = new PointRoi(atX-0.5, atY-0.5);
 					pt.setHideLabels(false);
@@ -478,6 +537,9 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 				ImagePlus showIt = new ImagePlus("VIZ_"+files_tif[i].getName(), img.getProcessor());
 				showIt.setOverlay(ovly);
 				showIt.show();
+                showIt.getCanvas().zoomIn(0,0);
+                showIt.getCanvas().zoomIn(0,0);
+                showIt.getCanvas().zoomIn(0,0);
 
 			} // if there were some
 
@@ -486,13 +548,15 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 		System.out.println("////\n total (+) : "+total_pos);
 		System.out.println(" total (-) : "+total_neg+"\n////\n");
 
-		extract_from.show();
-		extract_from.getWindow().getCanvas().addMouseListener(this);
+        img_click = img;
+        img_click.show();
+        img_click.setTitle("mouse_click_here...");
+        img_click.getWindow().getCanvas().addMouseListener(this);
 
-		ImagePlus pos_examples_image =  new ImagePlus("positive_examples", pos_ex);
-		pos_examples_image.show();
-		ImagePlus neg_examples_image =  new ImagePlus("negative_examples", neg_ex);
-		neg_examples_image.show();
+//		ImagePlus pos_examples_image =  new ImagePlus("positive_examples", pos_ex);
+//		pos_examples_image.show();
+//		ImagePlus neg_examples_image =  new ImagePlus("negative_examples", neg_ex);
+//		neg_examples_image.show();
 
 		featsP = new float[pos_ft.getSize()][nrFilters];
 		featsN = new float[neg_ft.getSize()][nrFilters];
@@ -513,15 +577,14 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 
 		System.out.println(" done extracting train features (+ and -).");
 
-//		ImagePlus impXY = new ImagePlus();
-//		ImageStack imstackXY = new ImageStack(528, 255);
-//		impXY.setDimensions(1, 1, nrFilters);
-//		for (int i = 0; i < nrFilters; i++) {
-//			Plot plot = plotFearutePerAllSamples(featsP, featsN, i, featsP[0][i]);
-//			imstackXY.addSlice("thresh = " + featsP[0][i], plot.getProcessor());
-//		}
-//		impXY.setStack("test", imstackXY);
-//		impXY.show();
+        GenericDialog gd1 = new GenericDialog("AdaBoost training");
+        gd1.addMessage("How many feats to keep?");
+        gd1.addNumericField("T",					    T, 0, 6, " (total "+nrFilters+")");
+        gd1.showDialog();
+        if (gd1.wasCanceled()) return;
+        T = (int)       gd1.getNextNumber();
+
+//        if(true) { System.out.println("closing..."+T); return;}
 
 		System.out.print("training AdaBoost..."+T);
 		adaboost = trueAdaBoost(featsP, featsN, T);
@@ -543,9 +606,10 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 
 			// show the best features
 			ImagePlus imp2 = new ImagePlus();
-			ImageStack best_feat = new ImageStack(2*radius+1, 2*radius+1);
+            int imp2_size = 65;
+			ImageStack best_feat = new ImageStack(imp2_size, imp2_size);
 			for (int i = 0; i < adaboost.length; i++){
-				best_feat.addSlice(fs.plotOne((int) adaboost[i][0], 2*radius+1));
+				best_feat.addSlice(fs.plotOne((int) adaboost[i][0], imp2_size));
 			}
 			imp2.setStack("best_feats", best_feat);
 			imp2.show();
@@ -577,6 +641,8 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 		boolean doTest = true;
 
 		File[] test_files_tif = listFilesEndingWith(dir_test, ".tif");
+        File[] files_tst = new File[test_files_tif.length];
+
 		for (int i = 0; i < test_files_tif.length && doTest; i++) { // for each tif file
 
             System.out.print(""+test_files_tif[i].getName()+" "+i+"/"+(test_files_tif.length-1)+"  ...  ");
@@ -591,6 +657,7 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 
             check = listFilesEndingWith(dir_test, suffix);
             if(check!=null && check.length>0){
+                System.out.println("i: "+i);
                 files_tst[i] = check[0];
                 readMask = new ImagePlus(files_tst[i].getAbsolutePath());
                 //readMask.show();
@@ -619,7 +686,7 @@ public class ExtractFeatures implements PlugIn, MouseListener {
                 resetCalibration();
                 convertToFloatImage();
 //                IJ.freeMemory();
-                img.show();
+//                img.show();
 
                 H = img.getHeight();
                 W = img.getWidth();
@@ -658,17 +725,17 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 				// there are 3 options for input images and locations: neuriteness, weighted, img
 				switch (choose_source) {
 					case 0:
-						System.out.println("use test: " + extract_opts[0]);
 						extract_from = img;
+                        extract_from.setTitle("extract_from:orig");
 						break;
 					case 1:
-						System.out.println("use test: " + extract_opts[1]);
 						extract_from = neuriteness;
-						break;
+                        extract_from.setTitle("extract_from:nness");
+                        break;
 
 					case 2:
-						System.out.println("use test: " + extract_opts[2]);
 						extract_from = weighted;
+                        extract_from.setTitle("extract_from:wiegh");
 						break;
 					default:
 						extract_from = img;
@@ -686,20 +753,11 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 
 					//long t1 = System.currentTimeMillis();
 
-					if (useDotProd){
-						profile(extract_from, Vx, Vy, atX, atY, radius);
-
-					}
-					else{
-						profile(extract_from, atX, atY, radius);
-					}
+					if (useDotProd) profile(extract_from, Vx, Vy, atX, atY, radius);
+					else profile(extract_from, atX, atY, radius);
 
 					//long t2 = System.currentTimeMillis();
-
-
-
 					int res = applyAdaBoost(adaboost, fs.score(vals, angs, rads, best_indexes));
-
 					//long t3 = System.currentTimeMillis();
 
                     if(res==1){
@@ -720,7 +778,7 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 
                 System.out.println("done.");
 
-				ImagePlus showIt = new ImagePlus("VIZ_"+test_files_tif[i].getName(), img.getProcessor());
+				ImagePlus showIt = new ImagePlus("RES_"+test_files_tif[i].getName(), img.getProcessor());
 				showIt.setOverlay(ovly);
 				showIt.show();
 
@@ -731,17 +789,6 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 		}
 
 		//
-	}
-
-	private int profileLength(float[] radiuses, double darc)
-	{
-		int len = 0;
-		for (int rI = 0; rI < radiuses.length; rI++) {
-			for (double arc = 0; arc < 2*radiuses[rI]*Math.PI; arc+=darc) {
-				len++;
-			}
-		}
-		return len;
 	}
 
 	private int profileLength(int rin)
@@ -785,6 +832,7 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 				if(d <= rin*rin){
 
 					vals[cnt] = img.getProcessor().getPixelValue(x, y);
+//                    if(cnt==98) System.out.println("at 98 "+vals[cnt]);
 					rads[cnt] = (float) (Math.sqrt(d) / rin);
 					angs[cnt] = (float) (Math.atan2(y-yin, x-xin) + Math.PI);
 					angs[cnt] = (angs[cnt]>=(float)(2*Math.PI))? 0 : angs[cnt];
@@ -798,40 +846,34 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 
 //        Plot p = new Plot("", "", "", rads, angs);
 //        p.show();
-
-		if (true){
-		// find cumulative max
-		int N = 36;
-		float step = ((float)(2*Math.PI)/N);
-		float[] acc = new float[N];
-		for (int i = 0; i < angs.length; i++){
-
-			int idx = (int) Math.floor(angs[i]/step);
-
-			acc[idx] += vals[i];
-		}
-
-		float max_acc = acc[0];
-		float   alfa = 0;
-		for (int i = 1; i < N; i++){
-			if (acc[i]>max_acc) {
-				max_acc = acc[i];
-				alfa = i * step;
-			}
-		}
-
-		System.out.println("image"+img.getTitle()+" had the peak at "+(alfa/(2*Math.PI))*360);
-
-		for (int i = 0; i < angs.length; i++) {
-//			angs[i] = angs[i] - alfa;
-			if (angs[i]<alfa) {
-				angs[i] = (float)(2*Math.PI) - alfa + angs[i];
-			}
-            else{
-                angs[i] = angs[i] - alfa;
-            }
-		}
-		}
+//		if (false){
+//		// find cumulative max
+//		int N = 36;
+//		float step = ((float)(2*Math.PI)/N);
+//		float[] acc = new float[N];
+//		for (int i = 0; i < angs.length; i++){
+//			int idx = (int) Math.floor(angs[i]/step);
+//			acc[idx] += vals[i];
+//		}
+//		float max_acc = acc[0];
+//		float   alfa = 0;
+//		for (int i = 1; i < N; i++){
+//			if (acc[i]>max_acc) {
+//				max_acc = acc[i];
+//				alfa = i * step;
+//			}
+//		}
+//		System.out.println("image"+img.getTitle()+" had the peak at "+(alfa/(2*Math.PI))*360);
+//		for (int i = 0; i < angs.length; i++) {
+////			angs[i] = angs[i] - alfa;
+//			if (angs[i]<alfa) {
+//				angs[i] = (float)(2*Math.PI) - alfa + angs[i];
+//			}
+//            else{
+//                angs[i] = angs[i] - alfa;
+//            }
+//		}
+//		}
 
 	}
 
@@ -935,35 +977,35 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 		return viz;
 	}
 
-	public ImageProcessor plotPatch()
-	{
-		// to visualize current patch
-		//ImageStack viz = new ImageStack(400, 200);
-
-		int[] xplot = new int[vals.length];
-		int min_x = Integer.MAX_VALUE, max_x = Integer.MIN_VALUE;
-		int[] yplot = new int[vals.length];
-		int min_y = Integer.MAX_VALUE, max_y = Integer.MIN_VALUE;
-		for (int i = 0; i < vals.length; i++){
-			xplot[i] = (int) Math.round(radius*rads[i]*Math.sin(angs[i]));
-			if (xplot[i]<min_x) min_x = xplot[i];
-			if (xplot[i]>max_x) max_x = xplot[i];
-			yplot[i] = (int) Math.round(radius*rads[i]*Math.cos(angs[i]));
-			if (yplot[i]<min_y) min_y = yplot[i];
-			if (yplot[i]>max_y) max_y = yplot[i];
-		}
-
-		ImageProcessor ip = new FloatProcessor(2*radius+1, 2*radius+1);
-
-		for (int i = 0; i < vals.length; i++){
-
-			ip.setf(xplot[i] - min_x, yplot[i] - min_y, vals[i]);
-
-		}
-
-		return ip;
-
-	}
+//	public ImageProcessor plotPatch()
+//	{
+//		// to visualize current patch
+//		//ImageStack viz = new ImageStack(400, 200);
+//
+//		int[] xplot = new int[vals.length];
+//		int min_x = Integer.MAX_VALUE, max_x = Integer.MIN_VALUE;
+//		int[] yplot = new int[vals.length];
+//		int min_y = Integer.MAX_VALUE, max_y = Integer.MIN_VALUE;
+//		for (int i = 0; i < vals.length; i++){
+//			xplot[i] = (int) Math.round(radius*rads[i]*Math.sin(angs[i]));
+//			if (xplot[i]<min_x) min_x = xplot[i];
+//			if (xplot[i]>max_x) max_x = xplot[i];
+//			yplot[i] = (int) Math.round(radius*rads[i]*Math.cos(angs[i]));
+//			if (yplot[i]<min_y) min_y = yplot[i];
+//			if (yplot[i]>max_y) max_y = yplot[i];
+//		}
+//
+//		ImageProcessor ip = new FloatProcessor(2*radius+1, 2*radius+1);
+//
+//		for (int i = 0; i < vals.length; i++){
+//
+//			ip.setf(xplot[i] - min_x, yplot[i] - min_y, vals[i]);
+//
+//		}
+//
+//		return ip;
+//
+//	}
 
 	private void addProfilePoints(
 		ImagePlus img,
@@ -1035,7 +1077,7 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 	            adaboost[t][0] = bestClassifier;
 	            adaboost[t][2] = thresh[bestClassifier][0];
 
-	            IJ.log(t + " min eps = " + mineps + "   " +
+	            IJ.log(t + " min eps = " + mineps + "   best.cl.idx" +
 	                    bestClassifier + "   " + thresh[bestClassifier][0]);
 	            tt = t;
 	            break;
@@ -1190,7 +1232,7 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 	    
 	    plot.addPoints(xn, yn, Plot.LINE);
 	    plot.setColor(Color.BLACK);
-	    plot.setLineWidth(5);
+	    plot.setLineWidth(4);
 	    
 	    double[] linex = new double[]{0, Math.max(sizen, sizep)};
 	    double[] liney = new double[]{thresh, thresh};
@@ -1319,16 +1361,42 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 
 	public void mouseClicked(MouseEvent e) {
 
-		int atX = 	extract_from.getWindow().getCanvas().offScreenX(e.getX());
-		int atY = 	extract_from.getWindow().getCanvas().offScreenY(e.getY());
+		int atX = 	img_click.getWindow().getCanvas().offScreenX(e.getX());
+		int atY = 	img_click.getWindow().getCanvas().offScreenY(e.getY());
 
-		addProfilePoints(extract_from, atX, atY, radius);
-		extract_from.getCanvas().unzoom();
-		extract_from.getCanvas().zoomIn(atX, atY);
+		addProfilePoints(img_click, atX, atY, radius);
+        img_click.getCanvas().unzoom();
+        img_click.getCanvas().zoomIn(atX, atY);
 
-//		profile(extract_from, atX, atY, radius);
+        if(useDotProd) profile(img_click, Vx, Vy, atX, atY, radius);
+        else profile(img_click, atX, atY, radius);
+
 //		fs.score(vals, angs, rads);
-//		new ImagePlus("", plot()).show();
+//        float[] ft_id = new float[fs.circConfs.size()+fs.radlConfs.size()];
+//        for (int i = 0; i < ft_id.length; i++) ft_id[i] = i+1;
+
+
+        int choose_ft;
+        GenericDialog gd = new GenericDialog("Choose Feature");
+        gd.addNumericField("choose feature:" ,	1, 0);
+        gd.showDialog();
+        if (gd.wasCanceled()) return;
+        choose_ft = (int)       gd.getNextNumber();
+
+        System.out.print("chosen ft: "+choose_ft);
+        float[] ft_id = new float[fs.circConfs.get(choose_ft).nrRot];
+        for (int i = 0; i < ft_id.length; i++) ft_id[i] = i;
+
+        new ImagePlus("chosenfeature", plotProfile()).show();
+
+//        for (int i = 0; i < vals.length; i++){
+//            System.out.println(""+i+" -> "+vals[i]);
+//        }
+
+        new ImagePlus("chosen_ft"+choose_ft+"/"+(fs.circConfs.size()-1), fs.circConfs.get(choose_ft).plotAllRotations(65)).show();
+        Plot p = new Plot("ft"+choose_ft+"/"+(fs.circConfs.size()-1), "rot#", "scores per rot.", ft_id, fs.circConfs.get(choose_ft).scoreAllRot(vals, angs, rads));
+        p.show();
+
 
 	}
 

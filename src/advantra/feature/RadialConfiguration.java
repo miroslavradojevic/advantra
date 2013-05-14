@@ -19,7 +19,7 @@ public class RadialConfiguration {
 
     public double[]     ringStart;    // radial distance at which the ring starts
 
-	double[] 			filt;
+//	double[] 			filt;
 
     public RadialConfiguration(
             double[] ring_resol,
@@ -28,7 +28,7 @@ public class RadialConfiguration {
 	{
 
 		// filter default
-		filt = new double[1];
+//		filt = new double[1];
 
         nrRings = ring_resol.length;
 
@@ -58,51 +58,52 @@ public class RadialConfiguration {
 	)
 	{
 
-		int sumPos, sumNeg;
+		double sumPos, sumNeg;
 		sumPos = sumNeg = 0;
-
+        int     nrPos, nrNeg;
+        nrPos = nrNeg = 0;
 		for (int i = 0; i < val.length; i++){
 
 			if(isOn(rad[i])){
-				filt[i] = +1;
-				sumPos++;
+				sumPos+=val[i];
+				nrPos++;
 			}
 			else{
-				filt[i] = -1;
-				sumNeg++;
+				sumNeg+=val[i];
+				nrNeg++;
 			}
 
 		}
 
-		// normalize filt[]
-		for (int i1 = 0; i1 < filt.length; i1++) {
-			if(filt[i1]>0){
-				filt[i1] = filt[i1] / sumPos;// * (sumNeg/(float)sumPos);
-			}
-			else{
-				filt[i1] = filt[i1] / sumNeg;
-			}
-		}
+//		// normalize filt[]
+//		for (int i1 = 0; i1 < filt.length; i1++) {
+//			if(filt[i1]>0){
+//				filt[i1] = filt[i1] / sumPos;// * (sumNeg/(float)sumPos);
+//			}
+//			else{
+//				filt[i1] = filt[i1] / sumNeg;
+//			}
+//		}
 
 //		System.out.println(""+val.length+" , "+filt.length);
 //		System.out.println("(+): "+sumPos+","+(1f/sumPos)+" (-): "+sumNeg+", "+(1f/sumNeg));
 
 		// score for this filt[]
-		float sc = 0;
-		for (int i = 0; i < filt.length; i++) {
-			sc += filt[i]*val[i];
-		}
+//		float sc = 0;
+//		for (int i = 0; i < filt.length; i++) {
+//			sc += filt[i]*val[i];
+//		}
 
-		return sc;
-
-	}
-
-	public void initFilter(int length)
-	{
-
-		filt = new double[length];
+		return (float) ((sumPos/nrPos)-(sumNeg/nrNeg));
 
 	}
+
+//	public void initFilter(int length)
+//	{
+//
+//		filt = new double[length];
+//
+//	}
 
     public void print()
 	{
