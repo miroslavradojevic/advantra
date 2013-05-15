@@ -34,46 +34,44 @@ public class BranchModel {
 	private int 		stack_size;
 	private double 		radius_std_dev;
 	
-	public BranchModel(int height, int width, int length, double radius_std_dev){
+	public BranchModel(int height, int width, int length, double radius_std_dev, int bg, int fg){
 		
 		if(radius_std_dev>MAX_RADIUS_STD_DEV){
 			System.err.println("Radius cannot be more than "+MAX_RADIUS_STD_DEV+" !");
-			System.exit(1);
+			return;
 		}
 		
 		if(height<MIN_HEIGHT){
 			System.err.println("Height cannot be less than "+MIN_HEIGHT+" !");
-			System.exit(1);
+            return;
 		}
 		
 		if(width<MIN_WIDTH){
 			System.err.println("Width cannot be less than "+MIN_WIDTH+" !");
-			System.exit(1);
+            return;
 		}
 
 		if(length<MIN_LENGTH){
 			System.err.println("Length cannot be less than "+MIN_LENGTH+" !");
-			System.exit(1);
+            return;
 		}
 		
 		/*
 		 * allocate byte gray8 image to be used by methods
 		 */
-		
-		
+
 		this.image_width 	= width;
 		this.image_height	= height;
 		this.stack_size		= length;
 		values = new byte[stack_size][image_width*image_height];
 		this.radius_std_dev = radius_std_dev;
 
-		System.out.println("Branch initialized with zero values... call drawModel() to complete the simulation.");
+		System.out.println("Branch initialized with "++" values... call drawModel() to complete the simulation.");
 		
 		
 	} // constructor
 
 	public void drawHorizontalModel(){
-
 
 
 		p1 = new double[3];
@@ -106,6 +104,13 @@ public class BranchModel {
 		System.out.print("calling drawHorizontalModel()... ");
 		
 		values = new byte[stack_size][image_width*image_height];
+
+        // initialize it with some fixed background level
+        for (int i = 0; i < values.length; i++){
+            for (int j = 0; j < values[0].length; j++){
+                values[i][j] = (byte) 50;
+            }
+        }
 		
 		writeLineBetween(p1, p2);
 		writeLineBetween(p2, p3);
@@ -149,7 +154,14 @@ public class BranchModel {
 		System.out.print("calling drawVerticalModel()... ");
 		
 		values = new byte[stack_size][image_width*image_height];
-		
+
+        // initialize it with some fixed background level
+        for (int i = 0; i < values.length; i++){
+            for (int j = 0; j < values[0].length; j++){
+                values[i][j] = (byte) 40;
+            }
+        }
+
 		writeLineBetween(p1, p2);
 		writeLineBetween(p2, p3);
 		writeLineBetween(p2, p4);
@@ -410,12 +422,12 @@ public class BranchModel {
 				}
 				else{
 					System.err.println("this case is not possible when printing line between p1 and p2");
-					System.exit(1);
+					return;
 				}
 				
 				if(distance<3*radius_std_dev){//  // some reasonable distance from where we consider intensity is ~0
 					
-					byte value_to_write = (byte)Math.round(255 * Math.exp(-Math.pow(distance,2)/(2*Math.pow(radius_std_dev, 2))));
+					byte value_to_write = (byte)Math.round(150 * Math.exp(-Math.pow(distance,2)/(2*Math.pow(radius_std_dev, 2))));
 					
 					values[layer][ArrayHandling.sub2index_2d(p[0], p[1], image_width)] = 
 								(byte) Math.max(
@@ -423,6 +435,13 @@ public class BranchModel {
 										(int)(values[layer][ArrayHandling.sub2index_2d(p[0], p[1], image_width)] & 0xff)
 										) ;
 				}
+//                else{
+//                    // this is the case when the value is out
+//                    // add some constant intensity
+//                    byte value_to_write = (byte)40;
+//                    values[layer][ArrayHandling.sub2index_2d(p[0], p[1], image_width)] =  value_to_write;
+//
+//                }
 			}
 		}
 	} // writeLineBetween

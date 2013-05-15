@@ -247,7 +247,9 @@ public class CircularConfiguration {
 
 //            System.out.println("sumPos "+sumPos+" sumNeg "+sumNeg+" nrPos "+nrPos+" nrNeg "+nrNeg);
 
-            score[r] = (float) ((sumPos/nrPos)-(sumNeg-nrNeg));
+            score[r] = (float) ((sumPos/nrPos)-(sumNeg/nrNeg));
+
+//            System.out.println("score ["+r+"] = "+score[r]);
 
         }
 

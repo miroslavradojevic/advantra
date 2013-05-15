@@ -29,6 +29,9 @@ public class FilterSet {
 
         int nrScales;
 
+        // temporary
+        double innerRingRadiusForTesting = 0.0;
+
         /*
         fill in circular configurations
          */
@@ -69,7 +72,7 @@ public class FilterSet {
 //			}
 //		}
 
-/*        // 2
+        // 2
 		int nrPer2 = (int) Math.pow(nrScales, 2); // 2x
 		int[][] per2 = new int[nrPer2][2];
 		c = 0;
@@ -120,16 +123,16 @@ public class FilterSet {
                             for (int k = 0; k < angular_scale_radiuses.length-1; k++){
                                 //circConfs.add(new CircularConfiguration(per2[i], new int[]{d1, d2},  new double[]{0.0, angular_scale_radiuses[k]}));
                                 if (angular_scale_radiuses[k]<0.99)
-                                    circConfs.add(new CircularConfiguration(per2[i], new int[]{d1, d2},  new double[]{angular_scale_radiuses[k], angular_scale_radiuses[k+1]}, 0.15));
+                                    circConfs.add(new CircularConfiguration(per2[i], new int[]{d1, d2},  new double[]{angular_scale_radiuses[k], angular_scale_radiuses[k+1]}, innerRingRadiusForTesting));
                                 int last_one = angular_scale_radiuses.length-1;
-                                circConfs.add(new CircularConfiguration(per2[i], new int[]{d1, d2},  new double[]{angular_scale_radiuses[last_one], 1.0}, 0.15));
+                                circConfs.add(new CircularConfiguration(per2[i], new int[]{d1, d2},  new double[]{angular_scale_radiuses[last_one], 1.0}, innerRingRadiusForTesting));
                             }
 						}
 
 					}
 				}
 			}
-		}*/
+		}
 
         // 3
 		int nrPer3 = (int) Math.pow(nrScales, 3); // 3x
@@ -202,10 +205,10 @@ public class FilterSet {
 								for (int k = 0; k < angular_scale_radiuses.length-1; k++){
 									//circConfs.add(new CircularConfiguration(per3[i], new int[]{d1, d2, d3},  new double[]{0.0, angular_scale_radiuses[k]}));
                                     if (angular_scale_radiuses[k]<0.99)
-                                        circConfs.add(new CircularConfiguration(per3[i], new int[]{d1, d2, d3},  new double[]{angular_scale_radiuses[k], angular_scale_radiuses[k+1]}, 0.15));
+                                        circConfs.add(new CircularConfiguration(per3[i], new int[]{d1, d2, d3},  new double[]{angular_scale_radiuses[k], angular_scale_radiuses[k+1]}, innerRingRadiusForTesting));
 
                                     int last_one = angular_scale_radiuses.length-1;
-                                            circConfs.add(new CircularConfiguration(per3[i], new int[]{d1, d2, d3},  new double[]{angular_scale_radiuses[last_one], 1.0}, 0.15));
+                                            circConfs.add(new CircularConfiguration(per3[i], new int[]{d1, d2, d3},  new double[]{angular_scale_radiuses[last_one], 1.0}, innerRingRadiusForTesting));
 								}
 
 							}

@@ -97,8 +97,6 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 	public void run(String arg0)
 	{
 
-//		double[] angleScl = new double[]{0.5, 0.7};
-//        double[] radRes = new double[]{0.2, 0.4, 0.6, 0.8};
 		t1  	= Prefs.get("advantra.critpoint.start_scale", 		3.0);
 		t2    	= Prefs.get("advantra.critpoint.end_scale", 		7.0);
 		tn 		= (int)Prefs.get("advantra.critpoint.nr_scales", 	3);
@@ -124,12 +122,12 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 
 		gd.addMessage("FILTERS");
 
-        gd.addChoice("alfa_1",      new String[]{"20", "40", "60"}, "40");
-        gd.addChoice("alfa_2",      new String[]{"20", "40", "60"}, "40");
+        gd.addChoice("alfa_1",      new String[]{"20", "40", "60", "80"}, "20");
+        gd.addChoice("alfa_2",      new String[]{"20", "40", "60", "80"}, "40");
 
-        gd.addNumericField("ring_1:",    0.5,       1); //ring1
-        gd.addNumericField("ring_2:",    1.0,       1); //ring2
-        gd.addNumericField("nr_rings:",  1, 	    0,  5, "");//nr_rings
+        gd.addNumericField("ring_1:",    0.4,       1); //ring1
+        gd.addNumericField("ring_2:",    0.7,       1); //ring2
+        gd.addNumericField("nr_rings:",  2, 	    0,  5, "");//nr_rings
 
         gd.addNumericField("radial_1:",    0.5,       1); //radial1
         gd.addNumericField("radial_2:",    0.7,       1); //radial2
@@ -167,6 +165,8 @@ public class ExtractFeatures implements PlugIn, MouseListener {
                 break;
             case 2: angScale1 = 60;
                 break;
+            case 3: angScale1 = 80;
+                break;
             default: angScale1 = 40;
                 break;
         }
@@ -177,6 +177,8 @@ public class ExtractFeatures implements PlugIn, MouseListener {
             case 1: angScale2 = 40;
                 break;
             case 2: angScale2 = 60;
+                break;
+            case 3: angScale2 = 80;
                 break;
             default: angScale2 = 40;
                 break;
@@ -271,7 +273,6 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 		//having radius it's possible to allocate
 		int toAlloc = profileLength(radius);
         System.out.println("to alloc: "+toAlloc);
-//		fs.initFilter(toAlloc);
 		vals = new float[toAlloc];
 		angs = new float[toAlloc];
 		rads = new float[toAlloc];
@@ -378,9 +379,29 @@ public class ExtractFeatures implements PlugIn, MouseListener {
                 double[][] B = extractLocations((ByteProcessor) readMask.getProcessor());
 
                 double[][] B_red = new double[100][2];
+
                 for (int k = 0; k < B_red.length; k++){
-                    int rd_loc = (int)(Math.random()*B.length);
-                    B_red[k] = B[rd_loc];
+
+
+                    boolean isIn = false;
+
+                    double take_col, take_row;
+                    int rd_loc;
+
+                    while (!isIn) {
+
+                        rd_loc = (int)(Math.random()*B.length);
+                        take_col = B[rd_loc][0];
+                        take_row = B[rd_loc][1];
+                        if(take_col>radius && take_col<readMask.getWidth()-radius && take_row>radius && take_row<readMask.getHeight()-radius){
+                            isIn = true;
+                        }
+
+                        B_red[k] = B[rd_loc];
+
+                    }
+
+
                 }
 
                 B = B_red;
@@ -498,7 +519,7 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 					pos_ft.addSlice(new FloatProcessor(nrFilters, 1, fill));
 //					pos_ex.addSlice(plotPatch());   // TODO add proper patch here
 
-					PointRoi pt = new PointRoi(atX-0.5, atY-0.5);
+					PointRoi pt = new PointRoi(atX+0.5, atY+0.5);//(atX-0.5, atY-0.5);
 					pt.setStrokeColor(Color.RED);
 					ovly.addElement(pt);
 
@@ -522,7 +543,7 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 					neg_ft.addSlice(new FloatProcessor(nrFilters, 1, fill));
 //					neg_ex.addSlice(plotPatch());// TODO add proper patch here, no calculations!
 
-					PointRoi pt = new PointRoi(atX-0.5, atY-0.5);
+					PointRoi pt = new PointRoi(atX+0.5, atY+0.5);//(atX-0.5, atY-0.5);
 					pt.setHideLabels(false);
 					pt.setStrokeColor(Color.BLUE);
 					pt.setName("negative" + k);
@@ -540,6 +561,8 @@ public class ExtractFeatures implements PlugIn, MouseListener {
                 showIt.getCanvas().zoomIn(0,0);
                 showIt.getCanvas().zoomIn(0,0);
                 showIt.getCanvas().zoomIn(0,0);
+                showIt.getCanvas().zoomIn(0,0);
+                showIt.getWindow().getCanvas().addMouseListener(this);
 
 			} // if there were some
 
@@ -781,6 +804,11 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 				ImagePlus showIt = new ImagePlus("RES_"+test_files_tif[i].getName(), img.getProcessor());
 				showIt.setOverlay(ovly);
 				showIt.show();
+                showIt.getCanvas().zoomIn(0,0);
+                showIt.getCanvas().zoomIn(0,0);
+                showIt.getCanvas().zoomIn(0,0);
+                showIt.getCanvas().zoomIn(0,0);
+                showIt.getWindow().getCanvas().addMouseListener(this);
 
             }
 
@@ -798,7 +826,8 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 
 		for (int x = -rin; x <= rin; x++){
 			for (int y = -rin; y <= rin; y++){
-				cnt++;
+                if (x*x+y*y<=rin*rin)
+				    cnt++;
 			}
 		}
 
@@ -843,6 +872,7 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 
 			}
 		}
+    }
 
 //        Plot p = new Plot("", "", "", rads, angs);
 //        p.show();
@@ -875,7 +905,7 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 //		}
 //		}
 
-	}
+
 
 	public void profile(
 							   ImagePlus img,
@@ -1375,7 +1405,6 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 //        float[] ft_id = new float[fs.circConfs.size()+fs.radlConfs.size()];
 //        for (int i = 0; i < ft_id.length; i++) ft_id[i] = i+1;
 
-
         int choose_ft;
         GenericDialog gd = new GenericDialog("Choose Feature");
         gd.addNumericField("choose feature:" ,	1, 0);
@@ -1387,7 +1416,7 @@ public class ExtractFeatures implements PlugIn, MouseListener {
         float[] ft_id = new float[fs.circConfs.get(choose_ft).nrRot];
         for (int i = 0; i < ft_id.length; i++) ft_id[i] = i;
 
-        new ImagePlus("chosenfeature", plotProfile()).show();
+        new ImagePlus("chosen_feature_", plotProfile()).show();
 
 //        for (int i = 0; i < vals.length; i++){
 //            System.out.println(""+i+" -> "+vals[i]);
