@@ -47,7 +47,7 @@ public class GenerateBranch implements PlugIn {
 			return;
 		}
 		
-		BranchModel bm = new BranchModel(stack_height, stack_width, stack_size, radius_std);
+		BranchModel bm = new BranchModel(stack_height, stack_width, stack_size, radius_std, 40, 150);
 		
 		bm.drawHorizontalModel();
 		ImagePlus im_out = bm.getModelAsImage();
@@ -64,6 +64,8 @@ public class GenerateBranch implements PlugIn {
 	}
 
 	public void run(String arg0) {
+
+        System.out.println("generating branch...");
 		
 		// parameters
 		int 	stack_height 	= 64;
@@ -90,7 +92,7 @@ public class GenerateBranch implements PlugIn {
 		radius_std   = (double)gd.getNextNumber();
 		
 		// imagej plugin
-		BranchModel bm = new BranchModel(stack_height, stack_width, stack_size, radius_std);
+		BranchModel bm = new BranchModel(stack_height, stack_width, stack_size, radius_std, 40, 150);
 		bm.drawHorizontalModel();
         IJ.showMessage("Done!");
 		ImagePlus im_out = bm.getModelAsImage();

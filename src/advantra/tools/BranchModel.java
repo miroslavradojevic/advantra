@@ -33,6 +33,9 @@ public class BranchModel {
 	private int 		image_height;
 	private int 		stack_size;
 	private double 		radius_std_dev;
+
+    int bg;
+    int fg;
 	
 	public BranchModel(int height, int width, int length, double radius_std_dev, int bg, int fg){
 		
@@ -66,7 +69,10 @@ public class BranchModel {
 		values = new byte[stack_size][image_width*image_height];
 		this.radius_std_dev = radius_std_dev;
 
-		System.out.println("Branch initialized with "++" values... call drawModel() to complete the simulation.");
+        this.bg = bg;
+        this.fg = fg;
+
+		System.out.println("Branch initialized with background level "+bg+"... call drawModel() to complete the simulation.");
 		
 		
 	} // constructor
@@ -108,7 +114,7 @@ public class BranchModel {
         // initialize it with some fixed background level
         for (int i = 0; i < values.length; i++){
             for (int j = 0; j < values[0].length; j++){
-                values[i][j] = (byte) 50;
+                values[i][j] = (byte) bg;
             }
         }
 		
@@ -427,7 +433,7 @@ public class BranchModel {
 				
 				if(distance<3*radius_std_dev){//  // some reasonable distance from where we consider intensity is ~0
 					
-					byte value_to_write = (byte)Math.round(150 * Math.exp(-Math.pow(distance,2)/(2*Math.pow(radius_std_dev, 2))));
+					byte value_to_write = (byte)Math.round(fg * Math.exp(-Math.pow(distance,2)/(2*Math.pow(radius_std_dev, 2))));
 					
 					values[layer][ArrayHandling.sub2index_2d(p[0], p[1], image_width)] = 
 								(byte) Math.max(
