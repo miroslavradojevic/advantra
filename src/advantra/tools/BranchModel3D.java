@@ -14,7 +14,7 @@ import advantra.shapes.Sphere.Planisphere_Extr_Mode;
 import ij.ImagePlus;
 import ij.io.FileSaver;
 
-public class BranchModel { 		
+public class BranchModel3D {
 
 	private static int 		MAX_RADIUS_STD_DEV 		= 16;
 	private static int		MIN_HEIGHT 				= 32;
@@ -37,7 +37,7 @@ public class BranchModel {
     int bg;
     int fg;
 	
-	public BranchModel(int height, int width, int length, double radius_std_dev, int bg, int fg){
+	public BranchModel3D(int height, int width, int length, double radius_std_dev, int bg, int fg){
 		
 		if(radius_std_dev>MAX_RADIUS_STD_DEV){
 			System.err.println("Radius cannot be more than "+MAX_RADIUS_STD_DEV+" !");
@@ -342,7 +342,8 @@ public class BranchModel {
 			//byte[][] image_array, 
 			//int image_width
 			//boolean writeOnTopIfHigher
-			){ 
+			)
+    {
 		// static - same writing for every class
 		
 		int image_height 	= 	values[0].length/image_width;
