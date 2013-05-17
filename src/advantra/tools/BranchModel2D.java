@@ -29,8 +29,10 @@ public class BranchModel2D {
     // 4 points define the branch point: pc (midpoint), p1, p2, p3
     public int[] p1, p2, p3, pc;
 
+    public double[] v1, v2, v3;
+
     // standard deviation of the radius
-    double rstd;
+    public double rstd;
 
     // 3 angles define the branch point
     public int  alfa12, alfa23, alfa31;
@@ -42,6 +44,9 @@ public class BranchModel2D {
     int bg, fg;
 
     public static float TwoPi = (float) (2 * Math.PI);
+
+    int minAngle = 30;
+    double toFix = 0.5;
 
     public BranchModel2D(int height, int width)
     {
@@ -58,7 +63,12 @@ public class BranchModel2D {
         p2 = new int[2];
         p3 = new int[2];
 
+        v1 = new double[2];
+        v2 = new double[2];
+        v3 = new double[2];
+
         values = new byte[h*w];
+
         //for (int i = 0; i < h*w; i++) values[i] = (byte) 0; // initialize only
 
     }
@@ -75,29 +85,16 @@ public class BranchModel2D {
 //        System.out.println("bg: "+bg+", fg: "+fg);
         fg = gen.nextInt(20) + 150;
 
-
-
         boolean angCorrect = false;
 
         while (!angCorrect){
 
-            alfa12 = (int) (Math.random() * 360);
-//            alfa23 = (int) (Math.random() * 360);
-//            alfa31 = (int) (360 - alfa12 - alfa23);
-			int th = 10;
-            angCorrect = alfa12>=th && alfa12<=360-th;// (alfa12+alfa23+alfa31)==360 && alfa12>=th && alfa23>=th && alfa31>=th ;
-
-			// avoid the case where two angles are small - not natural case
-
-//			if((alfa12<=th && alfa23<=th) || (alfa12<=th && alfa31<=th) || (alfa23<=th && alfa31<=th)){
-//				angCorrect = false;
-//			}
+            alfa12 = gen.nextInt(180);
+            angCorrect = alfa12>=minAngle;
 
         }
 
-        double maxLength = Math.min(w/2-1, h/2-1);
-
-        double toFix = 0.25;
+        double maxLength = Math.min(0.9*w/2, 0.9*h/2);
 
         l1 = Math.random() * maxLength * (1-toFix) + maxLength * toFix;
         l2 = Math.random() * maxLength * (1-toFix) + maxLength * toFix;
@@ -115,34 +112,68 @@ public class BranchModel2D {
 
 		// third will be between
 		// choose random angle between startAngle+180 and startAngle+alfa12+180
-
 		int endAngle = startAngle + 180 + gen.nextInt(alfa12);
 		float endAngleRad = (endAngle/360f)*TwoPi;
-//		endAngle = wrap_360(endAngle);
 
-//		System.out.println(" : "+(startAngle+180)+" ,"+(startAngle+alfa12+180)+" generated: "+endAngle);
+        p3[0] = pc[0] + (int) (Math.cos(endAngleRad) * l3); // row
+        p3[1] = pc[1] + (int) (Math.sin(endAngleRad) * l3); // col
 
-        p3[0] = pc[0] + (int) (Math.cos(endAngleRad) * l3);
-        p3[1] = pc[1] + (int) (Math.sin(endAngleRad) * l3);
+        /*
+		 * memorize the unit directions as well
+		 */
+
+        double 	v_norm;
+
+        // v1
+        v1[0] 		= p1[0] - pc[0];
+        v1[1] 		= p1[1] - pc[1];
+        v_norm 	= Math.sqrt(v1[0]*v1[0] + v1[1]*v1[1]);
+        v1[0]        = v1[0] / v_norm;
+        v1[1]        = v1[1] / v_norm;
+
+        // v2
+        v2[0] 		= p2[0] - pc[0];
+        v2[1] 		= p2[1] - pc[1];
+        v_norm 	= Math.sqrt(v2[0]*v2[0] + v2[1]*v2[1]);
+        v2[0]        = v2[0] / v_norm;
+        v2[1]        = v2[1] / v_norm;
+
+        // v3
+        v3[0] 		= p3[0] - pc[0];
+        v3[1] 		= p3[1] - pc[1];
+        v_norm 	= Math.sqrt(v3[0]*v3[0] + v3[1]*v3[1]);
+        v3[0]        = v3[0] / v_norm;
+        v3[1]        = v3[1] / v_norm;
 
         rstd = gen.nextInt(3) + 1;
+
         writeLineBetween(pc, p1);
-		//rstd = gen.nextInt(3) + 1;
         writeLineBetween(pc, p2);
-		//rstd = gen.nextInt(3) + 1;
         writeLineBetween(pc, p3);
 
-//		values[pc[1]+pc[0]*w] = (byte) 255;
-//		values[p1[1]+p1[0]*w] = (byte) 255;
-//		values[p2[1]+p2[0]*w] = (byte) 255;
-		values[p3[1]+p3[0]*w] = (byte) 255;  // p[0] is row, p[1] is col
-//        String name = "CONF_"+alfa12+","+alfa23+","+alfa31;//+":"+p1[0]+","+p1[1]+":";
-//        System.out.print("generating branch    "+name);
-//        System.out.println("\npc: "+pc[0]+" , "+pc[1]);
-//        System.out.println("\np1: "+p1[0]+" , "+p1[1]);
-//        System.out.println("\np2: "+p2[0]+" , "+p2[1]);
-//        System.out.println("\np3: "+p3[0]+" , "+p3[1]);
-//        ImageProcessor ipOut = new ByteProcessor(w, h, values);
+/*        // bor1
+        int bor_row = (int) ((p1[0]+pc[0])/2 + 2*rstd*(-v1[1]));
+        int bor_col = (int) ((p1[1]+pc[1])/2 + 2*rstd*v1[0]);
+		values[bor_col+bor_row*w] = (byte) 255;
+        bor_row = (int) ((p1[0]+pc[0])/2 - 2*rstd*(-v1[1]));
+        bor_col = (int) ((p1[1]+pc[1])/2 - 2*rstd*v1[0]);
+        values[bor_col+bor_row*w] = (byte) 255;
+
+        // bor2
+        bor_row = (int) ((p2[0]+pc[0])/2 + 2*rstd*(-v2[1]));
+        bor_col = (int) ((p2[1]+pc[1])/2 + 2*rstd*v2[0]);
+        values[bor_col+bor_row*w] = (byte) 255;
+        bor_row = (int) ((p2[0]+pc[0])/2 - 2*rstd*(-v2[1]));
+        bor_col = (int) ((p2[1]+pc[1])/2 - 2*rstd*v2[0]);
+        values[bor_col+bor_row*w] = (byte) 255;
+
+        // bor3
+        bor_row = (int) ((p3[0]+pc[0])/2 + 2*rstd*(-v3[1]));
+        bor_col = (int) ((p3[1]+pc[1])/2 + 2*rstd*v3[0]);
+        values[bor_col+bor_row*w] = (byte) 255;
+        bor_row = (int) ((p3[0]+pc[0])/2 - 2*rstd*(-v3[1]));
+        bor_col = (int) ((p3[1]+pc[1])/2 - 2*rstd*v3[0]);
+        values[bor_col+bor_row*w] = (byte) 255;*/
 
         return values;
     }
@@ -150,10 +181,6 @@ public class BranchModel2D {
     private void writeLineBetween(
             int[] point_1,
             int[] point_2
-            //double std_dev_intensity,
-            //byte[][] image_array,
-            //int image_width
-            //boolean writeOnTopIfHigher
     )
     {
 
@@ -182,6 +209,9 @@ public class BranchModel2D {
         // normalize it
         n[0]        = n[0] / n_len;
         n[1]        = n[1] / n_len;
+
+        // assign it to the class member
+
 
         //go through every point
 //        for (int layer = 0; layer < values.length; layer++) {

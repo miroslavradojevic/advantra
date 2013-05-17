@@ -74,9 +74,9 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 
 	boolean 	useDotProd;
 	
-	// output will be examples (pos. and neg.)
-	ImageStack pos_ex;
-	ImageStack neg_ex;
+	ImageStack trainPatches;
+	ImageStack testPatches;
+
 	ImageStack pos_ft;
 	ImageStack neg_ft;
 
@@ -131,7 +131,7 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 
         gd.addNumericField("radial_1:",    0.5,       1); //radial1
         gd.addNumericField("radial_2:",    0.7,       1); //radial2
-        gd.addNumericField("nr_radials:",  2, 	    0,  5, "");//nr_radials
+        gd.addNumericField("nr_radials:",  1, 	    0,  5, "");//nr_radials
 
 
         gd.addMessage("EXTRACTION");
@@ -245,8 +245,12 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 			s[i] = Math.sqrt(t[i]);
 		}
 
-		radius = (int) Math.ceil(surr*Math.sqrt(t[t.length-1])); // ultimate neighbourhood
-              System.out.println("radius: "+radius);
+        // set it manually
+		radius = 16;
+		int qw = (int) Math.ceil(surr*Math.sqrt(t[t.length-1])); // ultimate neighbourhood
+        System.out.println("radius manual: "+radius+ " used to be: "+qw);
+
+//        if(true) return;
         /*
 		 * generate filters to score on example profiles (generate features)
 		 */
@@ -268,11 +272,7 @@ public class ExtractFeatures implements PlugIn, MouseListener {
         //circ_feat.setTitle("Filter#"+0);
         //circ_feat.show();
 
-//        if(true) { System.out.println("closing..."); return;}
-
-		//having radius it's possible to allocate
-		int toAlloc = profileLength(radius);
-        System.out.println("to alloc: "+toAlloc);
+		int toAlloc = profileLength(radius);  // TODO substitite this with patch size parameter
 		vals = new float[toAlloc];
 		angs = new float[toAlloc];
 		rads = new float[toAlloc];
@@ -315,9 +315,10 @@ public class ExtractFeatures implements PlugIn, MouseListener {
         // to store features
         pos_ft = new ImageStack(nrFilters, 1);
 		neg_ft = new ImageStack(nrFilters, 1);
-        // to store examples (profiles)
-		pos_ex = new ImageStack(2*radius+1, 2*radius+1);
-		neg_ex = new ImageStack(2*radius+1, 2*radius+1);
+
+
+        // to store examples
+        trainPatches = new ImageStack(65, 65);
 
 		System.out.println("\n## TRAIN ##  "+train_folder);
 
@@ -335,23 +336,23 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 			String file_name = files_tif[i].getName();
 			file_name = file_name.substring(0, file_name.length()-4);
 
-            //suffix = file_name+".pos";
-            suffix = file_name+".mask.pos";
+            suffix = file_name+".pos";
+            //suffix = file_name+".mask.pos";
 
 			check = listFilesEndingWith(dir, suffix);
 			if(check!=null && check.length>0){
 				files_pos[i] = check[0];
 
-                /*
+
+
 				readCSV = new AnalyzeCSV(files_pos[i].getAbsolutePath());
 				double[][] A = readCSV.readLn(2);
-                */
 
-                System.out.println("\n\npath was: "+files_pos[i].getAbsolutePath());
 
+                /*
                 readMask = new ImagePlus(files_pos[i].getAbsolutePath());
-                //readMask.show();
                 double[][] A = extractLocations((ByteProcessor) readMask.getProcessor());
+                */
 
 				locs_pos.add(A);
 				curr_pos = A.length;
@@ -363,48 +364,39 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 				System.out.print("\t no positives");
 			}
 
-			//suffix = file_name+".neg";
-            suffix = file_name+".mask.neg";
+			suffix = file_name+".neg";
+            //suffix = file_name+".mask.neg";
 
 			check = listFilesEndingWith(dir, suffix);
 			if(check!=null && check.length>0){
 				files_neg[i] = check[0];
 
-                /*
 				readCSV = new AnalyzeCSV(files_neg[i].getAbsolutePath());
 				double[][] B = readCSV.readLn(2);
-				*/
 
+                /*
                 readMask = new ImagePlus(files_neg[i].getAbsolutePath());
                 double[][] B = extractLocations((ByteProcessor) readMask.getProcessor());
+                */
 
-                double[][] B_red = new double[100][2];
 
+                // reducing B is not necessary any more
+/*                double[][] B_red = new double[100][2];
                 for (int k = 0; k < B_red.length; k++){
-
-
                     boolean isIn = false;
-
                     double take_col, take_row;
                     int rd_loc;
-
                     while (!isIn) {
-
                         rd_loc = (int)(Math.random()*B.length);
                         take_col = B[rd_loc][0];
                         take_row = B[rd_loc][1];
                         if(take_col>radius && take_col<readMask.getWidth()-radius && take_row>radius && take_row<readMask.getHeight()-radius){
                             isIn = true;
                         }
-
                         B_red[k] = B[rd_loc];
-
                     }
-
-
                 }
-
-                B = B_red;
+                B = B_red;*/
 
                 locs_neg.add(B);
 				curr_neg = B.length;
@@ -424,7 +416,7 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 
 			if(curr_pos>0 || curr_neg>0){
 
-				System.out.println("...extracting profiles...");
+//				System.out.println("...extracting profiles...");
 
 				img = new ImagePlus(files_tif[i].getAbsolutePath());
 				resetCalibration();
@@ -457,25 +449,27 @@ public class ExtractFeatures implements PlugIn, MouseListener {
                 }
                 else
 				{
-	            	System.out.println("...skipping gabor...");
-	            	gab = gabAll = weighted = img;
+	            	//System.out.println("...skipping gabor...");
+	            	//gab = gabAll = weighted = img;
                 }
 
 				/*
 				 *  extract neuriteness & eigen vecs
 				 */
 
-				System.out.println("...neuriteness...");
-				Vector<ImagePlus> nness = VizFeatures.extractNeuritenessAndEigenVec(img, s);
-				neuriteness = nness.get(0);  neuriteness.setTitle("neuriteness");
+
+
+				//System.out.println("...neuriteness...");
+				//Vector<ImagePlus> nness = VizFeatures.extractNeuritenessAndEigenVec(img, s);
+				//neuriteness = nness.get(0);  neuriteness.setTitle("neuriteness");
 				//neuriteness.show();
-				Vx = nness.get(1);// Vx.setTitle("Vx");
-				Vy = nness.get(2);// Vy.setTitle("Vy");
+				//Vx = nness.get(1);// Vx.setTitle("Vx");
+				//Vy = nness.get(2);// Vy.setTitle("Vy");
 
 				// there are 3 options for input images and locations: neuriteness, weighted, img
 				//ImagePlus extract_from;
 
-				switch (choose_source) {
+				switch (0) {
 				case 0:
 					System.out.println("use: " + extract_opts[0]);
 					extract_from = img;
@@ -517,7 +511,6 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 						fill[fill_i] = fs.score[fill_i];
 					}
 					pos_ft.addSlice(new FloatProcessor(nrFilters, 1, fill));
-//					pos_ex.addSlice(plotPatch());   // TODO add proper patch here
 
 					PointRoi pt = new PointRoi(atX+0.5, atY+0.5);//(atX-0.5, atY-0.5);
 					pt.setStrokeColor(Color.RED);
@@ -541,7 +534,6 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 					}
 
 					neg_ft.addSlice(new FloatProcessor(nrFilters, 1, fill));
-//					neg_ex.addSlice(plotPatch());// TODO add proper patch here, no calculations!
 
 					PointRoi pt = new PointRoi(atX+0.5, atY+0.5);//(atX-0.5, atY-0.5);
 					pt.setHideLabels(false);
@@ -555,14 +547,16 @@ public class ExtractFeatures implements PlugIn, MouseListener {
                 /*
                 show loaded train image with markers
                  */
-				ImagePlus showIt = new ImagePlus("VIZ_"+files_tif[i].getName(), img.getProcessor());
-				showIt.setOverlay(ovly);
-				showIt.show();
-                showIt.getCanvas().zoomIn(0,0);
-                showIt.getCanvas().zoomIn(0,0);
-                showIt.getCanvas().zoomIn(0,0);
-                showIt.getCanvas().zoomIn(0,0);
-                showIt.getWindow().getCanvas().addMouseListener(this);
+//				ImagePlus showIt = new ImagePlus("VIZ_"+files_tif[i].getName(), img.getProcessor());
+//				showIt.setOverlay(ovly);
+//				showIt.show();
+//                showIt.getCanvas().zoomIn(0,0);
+//                showIt.getCanvas().zoomIn(0,0);
+//                showIt.getCanvas().zoomIn(0,0);
+//                showIt.getCanvas().zoomIn(0,0);
+
+                trainPatches.addSlice("train_sample_"+i, img.getProcessor());
+                //showIt.getWindow().getCanvas().addMouseListener(this);
 
 			} // if there were some
 
@@ -571,18 +565,22 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 		System.out.println("////\n total (+) : "+total_pos);
 		System.out.println(" total (-) : "+total_neg+"\n////\n");
 
-        img_click = img;
-        img_click.show();
-        img_click.setTitle("mouse_click_here...");
-        img_click.getWindow().getCanvas().addMouseListener(this);
+        new ImagePlus("", trainPatches).show();
+
+//        img_click = img;
+//        img_click.show();
+//        img_click.setTitle("mouse_click_here...");
+//        img_click.getWindow().getCanvas().addMouseListener(this);
 
 //		ImagePlus pos_examples_image =  new ImagePlus("positive_examples", pos_ex);
 //		pos_examples_image.show();
 //		ImagePlus neg_examples_image =  new ImagePlus("negative_examples", neg_ex);
 //		neg_examples_image.show();
 
+        // equalize number of positives and negatives
+        // take one random negative for every positive
 		featsP = new float[pos_ft.getSize()][nrFilters];
-		featsN = new float[neg_ft.getSize()][nrFilters];
+		featsN = new float[pos_ft.getSize()][nrFilters];
 
 		for (int g = 0; g < pos_ft.getSize(); g++){
 			float[] getPix = (float[]) pos_ft.getProcessor(g + 1).getPixels();
@@ -591,14 +589,19 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 			}
 		}
 
+        Random  rd = new Random();
+
 		for (int g = 0; g < featsN.length; g++) {
-			float[] getPix = (float[]) neg_ft.getProcessor(g + 1).getPixels();
+            // randomize when choosing negative
+            int chooseIdx =   rd.nextInt(neg_ft.getSize());
+            System.out.println("neg. feature "+g+" will be matched to "+ chooseIdx + "/"+neg_ft.getSize()+" layer index");
+			float[] getPix = (float[]) neg_ft.getProcessor(chooseIdx + 1).getPixels();
 			for (int g1 = 0; g1 < getPix.length; g1++){
 				featsN[g][g1] = getPix[g1];
 			}
 		}
 
-		System.out.println(" done extracting train features (+ and -).");
+		System.out.println(" done extracting train features (+ and -), "+featsP.length+" pos. and "+featsN.length+" neg.");
 
         GenericDialog gd1 = new GenericDialog("AdaBoost training");
         gd1.addMessage("How many feats to keep?");
@@ -607,7 +610,6 @@ public class ExtractFeatures implements PlugIn, MouseListener {
         if (gd1.wasCanceled()) return;
         T = (int)       gd1.getNextNumber();
 
-//        if(true) { System.out.println("closing..."+T); return;}
 
 		System.out.print("training AdaBoost..."+T);
 		adaboost = trueAdaBoost(featsP, featsN, T);
@@ -648,6 +650,8 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 			imp1.show();
 
 		}
+
+//        if(true) { System.out.println("closing... p:"+featsP.length+" n:"+featsN.length); return;}
 
 	    File dir_test = new File(test_folder);
 	    test_folder = dir_test.getAbsolutePath();
@@ -701,14 +705,17 @@ public class ExtractFeatures implements PlugIn, MouseListener {
                 System.out.print("no mask found!");
             }
 
+
+            // check if the mask has anything and add it to list ov Overlays
+            // and add to ImageStack
+
             if(curr_tst>0){
-//
-                System.out.println("...extracting profiles...");
+
+//                System.out.println("...extracting profiles...");
 
                 img = new ImagePlus(test_files_tif[i].getAbsolutePath());
                 resetCalibration();
                 convertToFloatImage();
-//                IJ.freeMemory();
 //                img.show();
 
                 H = img.getHeight();
@@ -733,20 +740,19 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 ////                    gab.show();
                 }
                 else{
-                    System.out.println("...skipping gabor...");
-                    gab = gabAll = weighted = img;
+                    //System.out.println("...skipping gabor...");
+                    //gab = gabAll = weighted = img;
                 }
 
-                System.out.println("...neuriteness...");
-
-				Vector<ImagePlus> nness = VizFeatures.extractNeuritenessAndEigenVec(img, s);
-				neuriteness = nness.get(0);  neuriteness.setTitle("neuriteness");
-				//neuriteness.show();
-				Vx = nness.get(1);// Vx.setTitle("Vx");
-				Vy = nness.get(2);// Vy.setTitle("Vy");
+//                System.out.println("...neuriteness...");
+//				Vector<ImagePlus> nness = VizFeatures.extractNeuritenessAndEigenVec(img, s);
+//				neuriteness = nness.get(0);  neuriteness.setTitle("neuriteness");
+//				//neuriteness.show();
+//				Vx = nness.get(1);// Vx.setTitle("Vx");
+//				Vy = nness.get(2);// Vy.setTitle("Vy");
 
 				// there are 3 options for input images and locations: neuriteness, weighted, img
-				switch (choose_source) {
+				switch (0) {
 					case 0:
 						extract_from = img;
                         extract_from.setTitle("extract_from:orig");
@@ -772,7 +778,6 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 
                     int atX = (int)locs_tst.get(i)[k][0];
                     int atY = (int)locs_tst.get(i)[k][1];
-
 
 					//long t1 = System.currentTimeMillis();
 
@@ -803,12 +808,13 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 
 				ImagePlus showIt = new ImagePlus("RES_"+test_files_tif[i].getName(), img.getProcessor());
 				showIt.setOverlay(ovly);
+
 				showIt.show();
                 showIt.getCanvas().zoomIn(0,0);
                 showIt.getCanvas().zoomIn(0,0);
                 showIt.getCanvas().zoomIn(0,0);
                 showIt.getCanvas().zoomIn(0,0);
-                showIt.getWindow().getCanvas().addMouseListener(this);
+//                showIt.getWindow().getCanvas().addMouseListener(this);
 
             }
 
@@ -816,7 +822,8 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 
 		}
 
-		//
+        //show ImageStack with test images and each has overlay (if possible)
+
 	}
 
 	private int profileLength(int rin)
