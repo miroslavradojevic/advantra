@@ -22,29 +22,22 @@ public class GenerateBranch implements PlugIn {
 
     String outDirPath;
 
-	public void run(String arg0) {
+	public void run(
+						   String arg0
+	)
+	{
 
-        int H = 257, W = 257, N = 5;
+        int H = 65, W = 65, N = 1000;
 
         ImageStack isOut = new ImageStack(W, H);
 
         BranchModel2D bm2d = new BranchModel2D(W, H);
 
         for (int i = 0; i < N; i ++){
-            ImageProcessor ip_to_add = new ByteProcessor(W, H);
-
-            ImagePlus imShow = new ImagePlus(""+N, bm2d.generateRandomBranch());
-
-            Overlay ovly = new Overlay();
-            ovly.add(new PointRoi(bm2d.pc[0]+0.5, bm2d.pc[1]+0.5));
-            ovly.add(new PointRoi(bm2d.p1[0]+0.5, bm2d.p1[1]+0.5));
-            ovly.add(new PointRoi(bm2d.p2[0]+0.5, bm2d.p2[1]+0.5));
-            ovly.add(new PointRoi(bm2d.p3[0]+0.5, bm2d.p3[1]+0.5));
-
-            imShow.setOverlay(ovly);
-            imShow.show();
-
-            isOut.addSlice("", ip_to_add);
+			bm2d.generateRandomBranch();
+			ImageProcessor ip_to_add = new ByteProcessor(W, H);
+			for (int j = 0; j < W*H; j++) ip_to_add.setf(j, bm2d.values[j]);
+            isOut.addSlice("bch_"+i+"_"+bm2d.alfa12+",", ip_to_add);
         }
 
         new ImagePlus("", isOut).show();

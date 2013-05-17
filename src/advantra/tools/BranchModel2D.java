@@ -63,7 +63,7 @@ public class BranchModel2D {
 
     }
 
-    public ImageProcessor generateRandomBranch()
+    public byte[] generateRandomBranch()
     {
 
         Random gen = new Random();
@@ -72,18 +72,26 @@ public class BranchModel2D {
         bg = gen.nextInt(20) + 20; // 20 is default, 20 is dynamic range of the random value
         for (int i = 0; i < values.length; i++) values[i] = (byte) bg;
 
-        System.out.println("set bg values to "+bg);
-        fg = (int) (Math.random() * 20 + 1) + 150;
+//        System.out.println("bg: "+bg+", fg: "+fg);
+        fg = gen.nextInt(20) + 150;
+
+
 
         boolean angCorrect = false;
 
         while (!angCorrect){
 
             alfa12 = (int) (Math.random() * 360);
-            alfa23 = (int) (Math.random() * 360);
-            alfa31 = (int) (360 - alfa12 - alfa23);
+//            alfa23 = (int) (Math.random() * 360);
+//            alfa31 = (int) (360 - alfa12 - alfa23);
+			int th = 10;
+            angCorrect = alfa12>=th && alfa12<=360-th;// (alfa12+alfa23+alfa31)==360 && alfa12>=th && alfa23>=th && alfa31>=th ;
 
-            angCorrect = (alfa12+alfa23+alfa31)==360 && alfa12>=30 && alfa23>=30 && alfa31>=30;
+			// avoid the case where two angles are small - not natural case
+
+//			if((alfa12<=th && alfa23<=th) || (alfa12<=th && alfa31<=th) || (alfa23<=th && alfa31<=th)){
+//				angCorrect = false;
+//			}
 
         }
 
@@ -95,33 +103,48 @@ public class BranchModel2D {
         l2 = Math.random() * maxLength * (1-toFix) + maxLength * toFix;
         l3 = Math.random() * maxLength * (1-toFix) + maxLength * toFix;
 
-        p1[0] = pc[0] + (int) (Math.cos((alfa12/360f)*TwoPi) * l1);
-        p1[1] = pc[1] + (int) (Math.sin((alfa12/360f)*TwoPi) * l1);
+		int startAngle = gen.nextInt(360);
 
-        p2[0] = pc[0] + (int) (Math.cos(((alfa12+alfa23)/360f)*TwoPi) * l2);
-        p2[1] = pc[1] + (int) (Math.sin(((alfa12+alfa23)/360f)*TwoPi) * l2);
+		float startAngleRad = (startAngle/360f)*TwoPi;
+        p1[0] = pc[0] + (int) (Math.cos(startAngleRad) * l1);
+        p1[1] = pc[1] + (int) (Math.sin(startAngleRad) * l1);
 
-        p3[0] = pc[0] + (int) (Math.cos(((alfa12+alfa23+alfa31)/360f)*TwoPi) * l3);
-        p3[1] = pc[1] + (int) (Math.sin(((alfa12+alfa23+alfa31)/360f)*TwoPi) * l3);
+		float startAngleRad1 = ((startAngle+alfa12)/360f)*TwoPi;
+        p2[0] = pc[0] + (int) (Math.cos(startAngleRad1) * l2);
+        p2[1] = pc[1] + (int) (Math.sin(startAngleRad1) * l2);
 
-        rstd = (Math.random() * 3 + 1);
+		// third will be between
+		// choose random angle between startAngle+180 and startAngle+alfa12+180
 
+		int endAngle = startAngle + 180 + gen.nextInt(alfa12);
+		float endAngleRad = (endAngle/360f)*TwoPi;
+//		endAngle = wrap_360(endAngle);
 
+//		System.out.println(" : "+(startAngle+180)+" ,"+(startAngle+alfa12+180)+" generated: "+endAngle);
+
+        p3[0] = pc[0] + (int) (Math.cos(endAngleRad) * l3);
+        p3[1] = pc[1] + (int) (Math.sin(endAngleRad) * l3);
+
+        rstd = gen.nextInt(3) + 1;
         writeLineBetween(pc, p1);
+		//rstd = gen.nextInt(3) + 1;
         writeLineBetween(pc, p2);
+		//rstd = gen.nextInt(3) + 1;
         writeLineBetween(pc, p3);
 
-        String name = "CONF_"+alfa12+","+alfa23+","+alfa31;//+":"+p1[0]+","+p1[1]+":";
-        System.out.print("generating branch    "+name);
+//		values[pc[1]+pc[0]*w] = (byte) 255;
+//		values[p1[1]+p1[0]*w] = (byte) 255;
+//		values[p2[1]+p2[0]*w] = (byte) 255;
+		values[p3[1]+p3[0]*w] = (byte) 255;  // p[0] is row, p[1] is col
+//        String name = "CONF_"+alfa12+","+alfa23+","+alfa31;//+":"+p1[0]+","+p1[1]+":";
+//        System.out.print("generating branch    "+name);
+//        System.out.println("\npc: "+pc[0]+" , "+pc[1]);
+//        System.out.println("\np1: "+p1[0]+" , "+p1[1]);
+//        System.out.println("\np2: "+p2[0]+" , "+p2[1]);
+//        System.out.println("\np3: "+p3[0]+" , "+p3[1]);
+//        ImageProcessor ipOut = new ByteProcessor(w, h, values);
 
-        System.out.println("\npc: "+pc[0]+" , "+pc[1]);
-        System.out.println("\np1: "+p1[0]+" , "+p1[1]);
-        System.out.println("\np2: "+p2[0]+" , "+p2[1]);
-        System.out.println("\np3: "+p3[0]+" , "+p3[1]);
-
-        ImageProcessor ipOut = new ByteProcessor(w, h, values);
-
-        return ipOut;
+        return values;
     }
 
     private void writeLineBetween(
@@ -298,5 +321,14 @@ public class BranchModel2D {
     {
         return Math.sqrt( Math.pow(p1[0]-p2[0], 2) + Math.pow(p1[1]-p2[1], 2) );
     }
+
+	int wrap_360(
+						int in
+	)
+	{
+		while(in>=360) in-=360;
+		while (in<0) in+=360;
+		return in;
+	}
 
 }
