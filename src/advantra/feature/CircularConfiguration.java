@@ -171,29 +171,43 @@ public class CircularConfiguration {
 
         for (int r = 0; r < nrRot; r++) {
 
+//            System.out.print("--- rotation "+r+" ---\n");
+
             // calculate scores for each rotation
 
             sumPos  = sumNeg    = 0;
             nrPos   = nrNeg     = 0;
 
-            for (int i = 0; i < val.length; i++){
-				if (rad[i]<=ringR[1] && rad[i]>=ringR[0]){      // rad[] is radius actually, normalized 0-1.0
-					if(true){//isOn(ang[i], r)
-					                        // considering that the angle is calculated as (float)(atan2(r,c)+pi)
+//            if(r==0){
+//                System.out.println("btw: "+ringR[0]+" and "+ringR[1]+ " val.length="+val.length);
+//                float[] xax = new float[val.length];
+//                for (int a = 0; a < val.length; a++) xax[a] = a;
+//                Plot p = new Plot("rot"+r, "", "", xax, rad);
+//                new ImagePlus("", p.getProcessor()).show();
+//            }
+
+            for (int i = 0; i < val.length; i++) {
+
+//                System.out.print("ang["+IJ.d2s(i, 0)+"]="+IJ.d2s((ang[i]/TwoPi)*360, 1)+" ");
+
+				if (rad[i]<=ringR[1] && rad[i]>=ringR[0]) { //
+				// rad[] is radius actually, normalized 0-1.0
+					if(isOn(ang[i], r)){ //
+					    // considering that the angle is calculated as (float)(atan2(r,c)+pi)
 						nrPos++;
 						sumPos+=val[i];
-						System.out.print("positive -> a: "+((ang[i]/TwoPi)*360)+" r: "+rad[i]+"\n");
+//						if(r==5)  System.out.print("            " + rad[i] + ", " + ang[i] + ";...\n");
 					}
 					else{
 						nrNeg++;
 						sumNeg+=val[i];
 					}
 				}
-                else if (rad[i] <= innerRing) {
-                    nrPos++;
-                    sumPos += val[i];
-					System.out.print("positive -> a: "+((ang[i]/TwoPi)*360)+" r: "+rad[i]+"\n");
-                }
+//                else if (rad[i] <= innerRing) {
+//                    nrPos++;
+//                    sumPos += val[i];
+////                    if(r==5)  System.out.print("            " + rad[i] + ", " + ang[i] + ";...\n");
+//                }
             }
 
             float sc = (float) ((sumPos/nrPos)-(sumNeg/nrNeg));
@@ -246,10 +260,10 @@ public class CircularConfiguration {
                         sumNeg+=val[i];
                     }
                 }
-                else if (rad[i]<=innerRing){
-                        nrPos++;
-                        sumPos+=val[i];
-                }
+//                else if (rad[i]<=innerRing){
+//                        nrPos++;
+//                        sumPos+=val[i];
+//                }
 
 
             }
@@ -300,6 +314,12 @@ public class CircularConfiguration {
         double R2      = ringR[1]*Rout;
         double Rinn     = innerRing*Rout;
 
+//        System.out.println("centerX " + centerX);
+//        System.out.println("centerY " + centerY);
+//        System.out.println("Rout " + Rout);
+//        System.out.println("R1 " + R1);
+//        System.out.println("R2 " + R2);
+
 	    ImageProcessor fp = new FloatProcessor(N, N);
 
             // fill the values
@@ -308,27 +328,21 @@ public class CircularConfiguration {
 
                     double ro = Math.pow((c-centerX), 2)+Math.pow((r-centerY), 2);
 
-
-
                     if (ro <= R2*R2 && ro >= R1*R1 ){
 
                         float theta = (float) (Math.atan2(r-centerY, c-centerX) + Math.PI);
 
 						if(isOn(theta, 0)){
-
 							fp.setf(c, r, +1);
-
 						}
 						else {
-
 							fp.setf(c, r, -1);
-
 						}
 
                     }
-                    else if (ro<=Rinn) {
-                        fp.setf(c, r, +1);
-                    }
+//                    else if (ro<=Rinn) {
+//                        fp.setf(c, r, +1);
+//                    }
 
                 }
             }
@@ -382,9 +396,9 @@ public class CircularConfiguration {
                         }
 
                     }
-                    else if(ro<=Rinn){
-                        fp.setf(c, r, +1);
-                    }
+//                    else if(ro<=Rinn){
+//                        fp.setf(c, r, +1);
+//                    }
 
                 }
             }

@@ -10,12 +10,10 @@ import java.io.IOException;
 import java.util.Random;
 import java.util.Vector;
 
-//import advantra.feature.CircularFilterSet;
 import advantra.feature.FilterSet;
 import advantra.feature.GaborFilt2D;
 import advantra.file.AnalyzeCSV;
 
-import advantra.general.Sort;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
@@ -28,13 +26,14 @@ import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 
-public class ExtractFeatures implements PlugIn, MouseListener {
+public class DemoClassification implements PlugIn, MouseListener {
 
-	ImagePlus 	img, gab, gabAll, weighted, neuriteness, Vx, Vy;
-	ImagePlus 	extract_from;
+	ImagePlus 	img;
+    //, gab, gabAll, weighted, neuriteness, Vx, Vy;
+	ImagePlus 	imgSrc;
 	String 		train_folder, test_folder;
 
-    ImagePlus   img_click; // this one just to see how it performs on manually chosen locations (visualisation)
+//    ImagePlus   img_click; // this one just to see how it performs on manually chosen locations (visualisation)
 
     // feature parameters (filter parameters)
     int         angScale1, angScale2;
@@ -48,34 +47,11 @@ public class ExtractFeatures implements PlugIn, MouseListener {
     int         nr_radial;
     double[]    radials;
 
-	// multi-scale
-	double 		t1, t2; 
-	int 		tn;
-	double[] 	s, t;
-	
-	// gabor
-	int			M;
-	double[] 	theta_2pi;
-	double[]  	theta_pi;
-	double 		bandwidth = 1;
-	double 		psi = 0;
-	double 		gamma = 1.0;
-	boolean 	isReal = true;
-	
-	// features
-	int 		radius; // calculated wrt. highest scale but can be fixed
-	int			surr;
-	
-	int 		W, H;
-	
-	int			nr_proc;
-
+    int 		patchRadius, toAllocate;
+    int 		W, H;
     int         T;
 
-	boolean 	useDotProd;
-	
 	ImageStack trainPatches;
-	ImageStack testPatches;
 
 	ImageStack pos_ft;
 	ImageStack neg_ft;
@@ -84,7 +60,6 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 	float[][] featsN;
 
 	FilterSet fs;
-//	float[] radiuses;
 
 	float[] vals;
 	float[] angs;
@@ -97,192 +72,133 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 	public void run(String arg0)
 	{
 
-		t1  	= Prefs.get("advantra.critpoint.start_scale", 		3.0);
-		t2    	= Prefs.get("advantra.critpoint.end_scale", 		7.0);
-		tn 		= (int)Prefs.get("advantra.critpoint.nr_scales", 	3);
-		M		= (int)Prefs.get("advantra.critpoint.nr_angles", 	8);
-        surr  	= (int)Prefs.get("advantra.critpoint.curr", 		3);
-		nr_proc = (int)Prefs.get("advantra.critpoint.nr_proc", 		4);
-        T = (int)Prefs.get("advantra.critpoint.T",                  5);
-		train_folder = (String)Prefs.get("advantra.critpoint.train_folder",
+        patchRadius     = (int) Prefs.get("advantra.critpoint.patch_radius", 15);
+
+        String[] angleChoices       =  new String[]{"20", "40", "60", "80"};
+        String angleStartChoice  	=  (String) Prefs.get("advantra.critpoint.start_ang_scale", 	"40");
+		String angleEndChoice       =  (String) Prefs.get("advantra.critpoint.end_ang_scale", 	    "60");
+
+        ring1  	    = Prefs.get("advantra.critpoint.start_ring", 	0.3);
+		ring2    	= Prefs.get("advantra.critpoint.end_ring", 		0.7);
+		nr_ring		= (int)Prefs.get("advantra.critpoint.nr_ring",  2);
+
+        radial1  	    = Prefs.get("advantra.critpoint.start_radial",      0.4);
+        radial2    	    = Prefs.get("advantra.critpoint.end_radial", 	    0.8);
+        nr_radial		= (int)Prefs.get("advantra.critpoint.nr_radial",    3);
+
+
+		train_folder    = (String)Prefs.get("advantra.critpoint.train_folder",
 				(System.getProperty("user.home")+File.separator));
-		test_folder = (String)Prefs.get("advantra.critpoint.test_folder",
+		test_folder     = (String)Prefs.get("advantra.critpoint.test_folder",
 				(System.getProperty("user.home")+File.separator));
 
-		String[] use_eigen_v = new String[2];
-		use_eigen_v[0] = "yes";
-		use_eigen_v[1] = "no";
+        T               = (int)Prefs.get("advantra.critpoint.T", 5);
 
-		String[] extract_opts = new String[3];
-		extract_opts[0] = "orig.pix.";
-		extract_opts[1] = "neuriteness";
-		extract_opts[2] = "gabor.res.";
+		GenericDialog gd = new GenericDialog("Critpoint Detection");
 
-		GenericDialog gd = new GenericDialog("CritpointDetection");
+        gd.addNumericField("patch_radius", patchRadius, 0, 5, "");
 
-		gd.addMessage("FILTERS");
+        gd.addChoice("alfa_1",      angleChoices, angleStartChoice);
+        gd.addChoice("alfa_2",      angleChoices, angleEndChoice);
 
-        gd.addChoice("alfa_1",      new String[]{"20", "40", "60", "80"}, "20");
-        gd.addChoice("alfa_2",      new String[]{"20", "40", "60", "80"}, "40");
+        gd.addNumericField("ring_1:",    ring1,       1);
+        gd.addNumericField("ring_2:",    ring2,       1);
+        gd.addNumericField("nr_rings:",  nr_ring, 	  0,  5, "");
 
-        gd.addNumericField("ring_1:",    0.4,       1); //ring1
-        gd.addNumericField("ring_2:",    0.7,       1); //ring2
-        gd.addNumericField("nr_rings:",  2, 	    0,  5, "");//nr_rings
-
-        gd.addNumericField("radial_1:",    0.5,       1); //radial1
-        gd.addNumericField("radial_2:",    0.7,       1); //radial2
-        gd.addNumericField("nr_radials:",  1, 	    0,  5, "");//nr_radials
-
-
-        gd.addMessage("EXTRACTION");
-		gd.addChoice("use dot prod. with eig. V:", use_eigen_v, use_eigen_v[1]);
-
-		gd.addMessage("PRE-FILTERING");
-		gd.addNumericField("start scale", t1, 1);
-		gd.addNumericField("end   scale", t2, 1);
-		gd.addNumericField("nr   scales", tn, 			0, 5, "");
-		gd.addNumericField("angles(per 180 deg)", M,	0, 5, "");
-
-		gd.addMessage("PROFILE-EXTRACTION");
-		gd.addNumericField("surround: ",	surr, 	0);
+        gd.addNumericField("radial_1:",    radial1,       1); //radial1
+        gd.addNumericField("radial_2:",    radial2,       1); //radial2
+        gd.addNumericField("nr_radials:",  nr_radial, 	  0,  5, "");//nr_radials
 
 		gd.addStringField("train folder : ", train_folder, 	40);
 		gd.addStringField("test  folder : ", test_folder, 	40);
 
-		gd.addMessage("threading");
-		gd.addNumericField("CPU #",					nr_proc, 0);
-
-		gd.addMessage("source");
-		gd.addChoice("choose: ", extract_opts, extract_opts[0]);
+		gd.addNumericField("T: ",					T, 0, 5, "");
 
 		gd.showDialog();
 		if (gd.wasCanceled()) return;
 
+        patchRadius =  (int)gd.getNextNumber();
+        System.out.println("patch radius = " + patchRadius);
+
         switch ((int) gd.getNextChoiceIndex()) {
-            case 0: angScale1 = 20;
-                break;
-            case 1: angScale1 = 40;
-                break;
-            case 2: angScale1 = 60;
-                break;
-            case 3: angScale1 = 80;
-                break;
-            default: angScale1 = 40;
-                break;
+            case 0: angScale1 = 20; angleStartChoice = "20"; break;
+            case 1: angScale1 = 40; angleStartChoice = "40"; break;
+            case 2: angScale1 = 60; angleStartChoice = "60"; break;
+            case 3: angScale1 = 80; angleStartChoice = "80"; break;
+            default: angScale1 = 40;angleStartChoice = "40"; break;
         }
 
         switch ((int) gd.getNextChoiceIndex()) {
-            case 0: angScale2 = 20;
-                break;
-            case 1: angScale2 = 40;
-                break;
-            case 2: angScale2 = 60;
-                break;
-            case 3: angScale2 = 80;
-                break;
-            default: angScale2 = 40;
-                break;
+            case 0: angScale2 = 20; angleEndChoice = "20"; break;
+            case 1: angScale2 = 40; angleEndChoice = "40"; break;
+            case 2: angScale2 = 60; angleEndChoice = "60"; break;
+            case 3: angScale2 = 80; angleEndChoice = "80"; break;
+            default: angScale2 = 40;angleEndChoice = "40"; break;
         }
 
         angScale = new int[(angScale2-angScale1)/20+1];
         int cnt = 0;
-        for (int i = angScale1; i <= angScale2; i+=20){
-            angScale[cnt] = i;
-            cnt++;
-        }
+        for (int i = angScale1; i <= angScale2; i+=20) angScale[cnt++] = i;
 
         ring1 = gd.getNextNumber();
         ring2 = gd.getNextNumber();
         nr_ring = (int) gd.getNextNumber();
 
         rings = new double[nr_ring];
-        for (int i = 0; i <nr_ring; i++){
-            rings[i] = (i==0)? ring1 : ring1+i*((ring2-ring1)/(nr_ring-1)) ;
-        }
+        for (int i = 0; i <nr_ring; i++) rings[i] = (i == 0) ? ring1 : ring1 + i * ((ring2 - ring1) / (nr_ring - 1));
+        // TODO: block inputs higher than 1.0 for rings
 
         radial1 = gd.getNextNumber();
         radial2 = gd.getNextNumber();
         nr_radial = (int) gd.getNextNumber();
 
         radials = new double[nr_radial];
-        for (int i = 0; i <nr_radial; i++){
-            radials[i] = (i==0)? radial1 : radial1+i*((radial2-radial1)/(nr_radial-1)) ;
-        }
-
-        useDotProd = gd.getNextChoiceIndex() == 0;
-
-		t1 	= 		    gd.getNextNumber();
-		t2	= 		    gd.getNextNumber();
-		tn	= (int)	    gd.getNextNumber();
-		M 	= (int)	    gd.getNextNumber();
-
-		surr = (int)    gd.getNextNumber();
+        for (int i = 0; i <nr_radial; i++) radials[i] = (i == 0) ? radial1 : radial1 + i * ((radial2 - radial1) / (nr_radial - 1));
+        // TODO: block inputs higher than 1.0 for raidals
 
 		train_folder = 	gd.getNextString();
 		test_folder = 	gd.getNextString();
 
-		nr_proc = (int) gd.getNextNumber();
+		T = (int) gd.getNextNumber();
 
-		int choose_source = gd.getNextChoiceIndex();
+		Prefs.set("advantra.critpoint.start_ang_scale", angleStartChoice);
+		Prefs.set("advantra.critpoint.end_ang_scale", 	angleEndChoice);
 
-		Prefs.set("advantra.critpoint.start_scale", t1);
-		Prefs.set("advantra.critpoint.end_scale", 	t2);
-		Prefs.set("advantra.critpoint.nr_scales", 	tn);
-		Prefs.set("advantra.critpoint.nr_angles", 	M);
-		Prefs.set("advantra.critpoint.surr", 		surr);
+		Prefs.set("advantra.critpoint.start_ring", 	ring1);
+		Prefs.set("advantra.critpoint.end_ring", 	ring2);
+		Prefs.set("advantra.critpoint.nr_ring",     nr_ring);
 
-		Prefs.set("advantra.critpoint.train_folder", train_folder);
-		Prefs.set("advantra.critpoint.test_folder", test_folder);
+        Prefs.set("advantra.critpoint.start_radial",radial1);
+        Prefs.set("advantra.critpoint.end_radial", 	radial2);
+        Prefs.set("advantra.critpoint.nr_radial",   nr_radial);
 
-		Prefs.set("advantra.critpoint.nr_proc", 	nr_proc);
-        Prefs.set("advantra.critpoint.T", 	        T);
+		Prefs.set("advantra.critpoint.train_folder",    train_folder);
+		Prefs.set("advantra.critpoint.test_folder",     test_folder);
+		Prefs.set("advantra.critpoint.patch_radius", 	patchRadius);
 
-		// scales
-		t = new double[tn];
-		s = new double[tn];
-		for (int i = 0; i < tn; i++) {
-			t[i] = (i==0)? t1 : t1+i*((t2-t1)/(tn-1));
-			s[i] = Math.sqrt(t[i]);
-		}
-
-        // set it manually
-		radius = 16;
-		int qw = (int) Math.ceil(surr*Math.sqrt(t[t.length-1])); // ultimate neighbourhood
+        Prefs.set("advantra.critpoint.T", 	            T);
 
         /*
 		 * generate filters to score on example profiles (generate features)
 		 */
+        for (int a = 0; a < rings.length; a++) System.out.println("rings ["+a+"] = "+rings[a]);
         fs = new FilterSet(angScale, rings, radials);
         int nrFilters = fs.circConfs.size()+fs.radlConfs.size();
-        IJ.showMessage(nrFilters+" filters formed!");
+        fs.print();
+        System.out.println(nrFilters+" filters formed, ");
         /*
         show them
         */
-        ImagePlus all_feats = new ImagePlus("FEATURES", fs.plot(65));
+        int patchDiameter = 2*patchRadius+1;
+        ImagePlus all_feats = new ImagePlus("ALL", fs.plot(patchDiameter));
         all_feats.setTitle("All_Features");
         all_feats.show();
-        /*
-        show one example
-         */
-        //int choose_f = 5;
-        //ImagePlus circ_feat = new ImagePlus("", fs.circConfs.get(0).plotAllRotations(501));
-        //circ_feat.setTitle("Filter#"+0);
-        //circ_feat.show();
+        for (int i = 0; i < 6; i++) all_feats.getCanvas().zoomIn(0, 0);
 
-		int toAlloc = profileLength(radius);  // TODO substitite this with patch size parameter
+		int toAlloc = Calc.circularProfileSize(patchRadius);
 		vals = new float[toAlloc];
 		angs = new float[toAlloc];
 		rads = new float[toAlloc];
-
-		// angles theta angle it makes with x axis (angle it makes with the first row)
-		theta_pi 	= new double[M];
-		theta_2pi	= new double[2*M];
-		for (int i = 0; i < 2*M; i++) {
-			theta_2pi[i] = i * (Math.PI/(double)(M));
-		}
-		for (int i = 0; i < M; i++) {
-			theta_pi[i] = i * (Math.PI/(double)M);
-		}
 
         /*
         	all the params are loaded...
@@ -291,14 +207,13 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 		File dir = new File(train_folder);
 		train_folder = dir.getAbsolutePath();
 		if(!dir.isDirectory() ){
-			IJ.error("Wrong directory!");
+			IJ.error("Wrong train-set directory: "+train_folder+"   closing...");
 			return;
 		}
 
 		File[] files_tif = listFilesEndingWith(dir, ".tif");
 		File[] files_pos = new File[files_tif.length];
 		File[] files_neg = new File[files_tif.length];
-
 
 		Vector<double[][]> locs_pos = new Vector<double[][]>(files_tif.length);
 		Vector<double[][]> locs_neg = new Vector<double[][]>(files_tif.length);
@@ -313,11 +228,12 @@ public class ExtractFeatures implements PlugIn, MouseListener {
         pos_ft = new ImageStack(nrFilters, 1);
 		neg_ft = new ImageStack(nrFilters, 1);
 
-
         // to store examples
-        trainPatches = new ImageStack(65, 65);
+        trainPatches = new ImageStack(patchDiameter, patchDiameter); // TODO: one argument here enough
 
-		System.out.println("\n## TRAIN ##  "+train_folder);
+		System.out.println("\n## TRAIN ##  \n"+train_folder+"\n------------------------------------\n");
+
+        if(true) return;
 
 		for (int i = 0; i < files_tif.length; i++) { // for each tif file
 
@@ -340,11 +256,8 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 			if(check!=null && check.length>0){
 				files_pos[i] = check[0];
 
-
-
 				readCSV = new AnalyzeCSV(files_pos[i].getAbsolutePath());
 				double[][] A = readCSV.readLn(2);
-
 
                 /*
                 readMask = new ImagePlus(files_pos[i].getAbsolutePath());
@@ -375,7 +288,6 @@ public class ExtractFeatures implements PlugIn, MouseListener {
                 readMask = new ImagePlus(files_neg[i].getAbsolutePath());
                 double[][] B = extractLocations((ByteProcessor) readMask.getProcessor());
                 */
-
 
                 // reducing B is not necessary any more
 /*                double[][] B_red = new double[100][2];
@@ -421,34 +333,34 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 				H = img.getHeight();
 				W = img.getWidth();
 
-                if(choose_source==2){
-					/*
-					 * gabor
-					 */
-					System.out.println("...gabor...");
-					gab = extractGabor(img, theta_pi, t, bandwidth, psi, gamma, isReal, nr_proc);
-					//gab.show(); // gab.setTitle("gabor filter, directional responses");
-					/*
-					 * extract maximal directional gabor response in every point
-					 */
-					gabAll = maxStackZ(gab);
-					//gabAll.show();
-
-					boolean normalize = false;
-					if(normalize){
-						weighted = new ImagePlus("gabor filter, directional responses, max, min-max normalized",
-								VizFeatures.normalizeStackMinMax(gabAll.getStack()));
-					}
-					else{
-						weighted = new ImagePlus("gabor filter, directional responses, max, min-max normalized",
-								gabAll.getStack());
-					}
-                }
-                else
-				{
-	            	//System.out.println("...skipping gabor...");
-	            	//gab = gabAll = weighted = img;
-                }
+//                if(choose_source==2){
+//					/*
+//					 * gabor
+//					 */
+//					System.out.println("...gabor...");
+//					gab = extractGabor(img, theta_pi, t, bandwidth, psi, gamma, isReal, nr_proc);
+//					//gab.show(); // gab.setTitle("gabor filter, directional responses");
+//					/*
+//					 * extract maximal directional gabor response in every point
+//					 */
+//					gabAll = maxStackZ(gab);
+//					//gabAll.show();
+//
+//					boolean normalize = false;
+//					if(normalize){
+//						weighted = new ImagePlus("gabor filter, directional responses, max, min-max normalized",
+//								VizFeatures.normalizeStackMinMax(gabAll.getStack()));
+//					}
+//					else{
+//						weighted = new ImagePlus("gabor filter, directional responses, max, min-max normalized",
+//								gabAll.getStack());
+//					}
+//                }
+//                else
+//				{
+//	            	//System.out.println("...skipping gabor...");
+//	            	//gab = gabAll = weighted = img;
+//                }
 
 				/*
 				 *  extract neuriteness & eigen vecs
@@ -466,24 +378,24 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 				// there are 3 options for input images and locations: neuriteness, weighted, img
 				//ImagePlus extract_from;
 
-				switch (0) {
-				case 0:
-					System.out.println("use: " + extract_opts[0]);
-					extract_from = img;
-					break;
-				case 1:
-					System.out.println("use: " + extract_opts[1]);
-					extract_from = neuriteness;
-					break;
-
-				case 2:
-					System.out.println("use: " + extract_opts[2]);
-					extract_from = weighted;
-					break;
-				default:
-					extract_from = img;
-					break;
-				}
+//				switch (0) {
+//				case 0:
+//					System.out.println("use: " + extract_opts[0]);
+//					extract_from = img;
+//					break;
+//				case 1:
+//					System.out.println("use: " + extract_opts[1]);
+//					extract_from = neuriteness;
+//					break;
+//
+//				case 2:
+//					System.out.println("use: " + extract_opts[2]);
+//					extract_from = weighted;
+//					break;
+//				default:
+//					extract_from = img;
+//					break;
+//				}
 
 				Overlay ovly = new Overlay();
 
@@ -492,14 +404,14 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 					int atX = (int)locs_pos.get(i)[k][0];
 					int atY = (int)locs_pos.get(i)[k][1];
 
-					if (useDotProd){
-						profile(extract_from, Vx, Vy, atX, atY, radius);
+//					if (useDotProd){
+//						profile(extract_from, Vx, Vy, atX, atY, radius);
 
-					}
-					else {
-						profile(extract_from, atX, atY, radius);
-
-					}
+//					}
+//					else {
+//						profile(extract_from, atX, atY, radius);
+//
+//					}
 
 					fs.score(vals, angs, rads);
 
@@ -520,8 +432,10 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 					int atX = (int)locs_neg.get(i)[k][0];
 					int atY = (int)locs_neg.get(i)[k][1];
 
-                    if (useDotProd) profile(extract_from, Vx, Vy, atX, atY, radius);
-					else profile(extract_from, atX, atY, radius);
+//                    if (useDotProd)
+//                        profile(extract_from, Vx, Vy, atX, atY, radius);
+//					else
+//                        profile(extract_from, atX, atY, radius);
 
 					fs.score(vals, angs, rads);
 
@@ -718,28 +632,28 @@ public class ExtractFeatures implements PlugIn, MouseListener {
                 H = img.getHeight();
                 W = img.getWidth();
 //
-                if(choose_source==2){
-//
-                    System.out.println("...gabor...");
-					gab = extractGabor(img, theta_pi, t, bandwidth, psi, gamma, isReal, nr_proc);
-                  	gabAll = maxStackZ(gab);
-					boolean normalize = false;
-					if(normalize){
-						weighted = new ImagePlus("gabor filter, directional responses, max, min-max normalized",
-														VizFeatures.normalizeStackMinMax(gabAll.getStack()));
-					}
-					else{
-						weighted = new ImagePlus("gabor filter, directional responses, max, min-max normalized",
-														gabAll.getStack());
-					}
-////                    weighted.show();
-////                    gabAll.show();
-////                    gab.show();
-                }
-                else{
-                    //System.out.println("...skipping gabor...");
-                    //gab = gabAll = weighted = img;
-                }
+//                if(choose_source==2){
+////
+//                    System.out.println("...gabor...");
+//					gab = extractGabor(img, theta_pi, t, bandwidth, psi, gamma, isReal, nr_proc);
+//                  	gabAll = maxStackZ(gab);
+//					boolean normalize = false;
+//					if(normalize){
+//						weighted = new ImagePlus("gabor filter, directional responses, max, min-max normalized",
+//														VizFeatures.normalizeStackMinMax(gabAll.getStack()));
+//					}
+//					else{
+//						weighted = new ImagePlus("gabor filter, directional responses, max, min-max normalized",
+//														gabAll.getStack());
+//					}
+//////                    weighted.show();
+//////                    gabAll.show();
+//////                    gab.show();
+//                }
+//                else{
+//                    //System.out.println("...skipping gabor...");
+//                    //gab = gabAll = weighted = img;
+//                }
 
 //                System.out.println("...neuriteness...");
 //				Vector<ImagePlus> nness = VizFeatures.extractNeuritenessAndEigenVec(img, s);
@@ -749,24 +663,24 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 //				Vy = nness.get(2);// Vy.setTitle("Vy");
 
 				// there are 3 options for input images and locations: neuriteness, weighted, img
-				switch (0) {
-					case 0:
-						extract_from = img;
-                        extract_from.setTitle("extract_from:orig");
-						break;
-					case 1:
-						extract_from = neuriteness;
-                        extract_from.setTitle("extract_from:nness");
-                        break;
-
-					case 2:
-						extract_from = weighted;
-                        extract_from.setTitle("extract_from:wiegh");
-						break;
-					default:
-						extract_from = img;
-						break;
-				}
+//				switch (0) {
+//					case 0:
+//						extract_from = img;
+//                        extract_from.setTitle("extract_from:orig");
+//						break;
+//					case 1:
+//						extract_from = neuriteness;
+//                        extract_from.setTitle("extract_from:nness");
+//                        break;
+//
+//					case 2:
+//						extract_from = weighted;
+//                        extract_from.setTitle("extract_from:wiegh");
+//						break;
+//					default:
+//						extract_from = img;
+//						break;
+//				}
 
                 Overlay ovly = new Overlay();
                 System.out.print("\nclassifying...");
@@ -778,8 +692,10 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 
 					//long t1 = System.currentTimeMillis();
 
-					if (useDotProd) profile(extract_from, Vx, Vy, atX, atY, radius);
-					else profile(extract_from, atX, atY, radius);
+//					if (useDotProd)
+//                        profile(extract_from, Vx, Vy, atX, atY, radius);
+//					else
+//                        profile(extract_from, atX, atY, radius);
 
 					//long t2 = System.currentTimeMillis();
 					int res = applyAdaBoost(adaboost, fs.score(vals, angs, rads, best_indexes));
@@ -1394,15 +1310,15 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 
 	public void mouseClicked(MouseEvent e) {
 
-		int atX = 	img_click.getWindow().getCanvas().offScreenX(e.getX());
-		int atY = 	img_click.getWindow().getCanvas().offScreenY(e.getY());
+		int atX = 	img.getWindow().getCanvas().offScreenX(e.getX());
+		int atY = 	img.getWindow().getCanvas().offScreenY(e.getY());
 
-		addProfilePoints(img_click, atX, atY, radius);
-        img_click.getCanvas().unzoom();
-        img_click.getCanvas().zoomIn(atX, atY);
+		addProfilePoints(img, atX, atY, patchRadius);
+        img.getCanvas().unzoom();
+        img.getCanvas().zoomIn(atX, atY);
 
-        if(useDotProd) profile(img_click, Vx, Vy, atX, atY, radius);
-        else profile(img_click, atX, atY, radius);
+//        if(useDotProd) profile(img_click, Vx, Vy, atX, atY, radius);
+//        else profile(img_click, atX, atY, radius);
 
 //		fs.score(vals, angs, rads);
 //        float[] ft_id = new float[fs.circConfs.size()+fs.radlConfs.size()];

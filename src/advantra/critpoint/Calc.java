@@ -70,8 +70,8 @@ public class Calc {
 								   int yin,
 								   int rin,
 								   float[] vals,
-								   float[] rads,
-								   float[] angs
+								   float[] angs,
+								   float[] rads
 	)
 	{
 
@@ -95,8 +95,6 @@ public class Calc {
 					vals[cnt] = inimg.getProcessor().getPixelValue(x, y);
 					rads[cnt] = (float) (Math.sqrt(d) / rin);
 					angs[cnt] = (float) (Math.atan2(y-yin, x-xin) + Math.PI);
-//					angs[cnt] = (angs[cnt]>=(float)(2*Math.PI))? 0 : angs[cnt];
-//					angs[cnt] = (angs[cnt]<0)? 0 : angs[cnt];
 					cnt++;
 
 				}
@@ -105,7 +103,10 @@ public class Calc {
 		}
 	}
 
-	public static ImageStack plotProfile(float[] vals, float[] rads, float[] angs)
+	public static ImageStack plotProfile(
+            float[] vals,
+            float[] angs,
+            float[] rads)
 
 	{
 
@@ -159,8 +160,8 @@ public class Calc {
 	public static ImageProcessor plotAllResponses(
 														 FilterSet fs,
 														 float[] vals,
-														 float[] rads,
-														 float[] angs
+														 float[] angs,
+														 float[] rads
 	)
 	{
 
@@ -168,6 +169,7 @@ public class Calc {
 		float[] c_sco = new float[fs.circConfs.size()+fs.radlConfs.size()];
 		for (int i = 0; i < fs.circConfs.size(); i++){
 			c_idx[i] = i;
+            System.out.println("<OK?!>, score at circ conf. "+i);
 			c_sco[i] = fs.circConfs.get(i).score(vals, angs, rads);
 		}
 		for (int i = fs.circConfs.size(); i < fs.circConfs.size()+fs.radlConfs.size(); i++){
@@ -202,7 +204,7 @@ public class Calc {
 			for (int y = 0; y < H; y++){
 				if (x>margin && x<W-margin && y>margin && y<H-margin){
 
-					getProfile(template, x, y, margin, vals, rads, angs);
+					getProfile(template, x, y, margin, vals, angs, rads);
 
 					if (fsIdx<fs.circConfs.size()) {
 						ip.setf(x, y, fs.circConfs.get(fsIdx).score(vals, angs, rads));

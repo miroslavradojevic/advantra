@@ -46,7 +46,7 @@ public class DemoFilters implements PlugInFilter, MouseListener {
 		
 		GenericDialog gd = new GenericDialog("Demo filter");
 		gd.addMessage("WEAK LEARNERS (feature set)");
-		gd.addChoice("alfa_1",      new String[]{"20", "40", "60", "80"}, "20");
+		gd.addChoice("alfa_1",      new String[]{"20", "40", "60", "80"}, "40");
 		gd.addChoice("alfa_2",      new String[]{"20", "40", "60", "80"}, "40");
 		gd.addNumericField("ring_1:",    0.4,       1); //ring1
 		gd.addNumericField("ring_2:",    0.7,       1); //ring2
@@ -114,7 +114,6 @@ public class DemoFilters implements PlugInFilter, MouseListener {
 		img_canvas.setName("image");
 		img_canvas.addMouseListener(this);
 
-
 	}
 
 	public int setup(String arg0, ImagePlus imp) {
@@ -154,8 +153,8 @@ public class DemoFilters implements PlugInFilter, MouseListener {
 				for (int i = 0; i < N; i++) o.addElement(new PointRoi(xloc[i], yloc[i]));
 				img.setOverlay(o);
 
-				Calc.getProfile(img, mouseX, mouseY, patchRadius, vals, rads, angs);
-				new ImagePlus("extracted_values", Calc.plotProfile(vals, rads, angs)).show();
+				Calc.getProfile(img, mouseX, mouseY, patchRadius, vals, angs, rads);
+				new ImagePlus("extracted_values", Calc.plotProfile(vals, angs, rads)).show();
 				new ImagePlus("filter_responses", Calc.plotAllResponses(fs, vals, angs, rads)).show();
 			}
 
@@ -168,8 +167,6 @@ public class DemoFilters implements PlugInFilter, MouseListener {
 			new ImagePlus("", Calc.filterResponse(img, fs, mouseZ, patchRadius)).show();
 
 		}
-
-
 
 	}
 

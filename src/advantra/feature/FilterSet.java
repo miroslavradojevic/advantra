@@ -282,8 +282,7 @@ public class FilterSet {
 
 			CircularConfiguration currentFilter = circConfs.get(i);
 
-			String name;
-			name = "CCONF_"+i;
+			String name = "CCONF_"+i;
 
 			for (int j = 0; j < currentFilter.nrPeaks; j++){
 				name += ","+currentFilter.angResDeg[j];
