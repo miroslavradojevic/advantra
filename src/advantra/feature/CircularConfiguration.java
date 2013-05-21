@@ -1,6 +1,8 @@
 package advantra.feature;
 
+import advantra.critpoint.Calc;
 import ij.IJ;
+import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.Plot;
 import ij.process.FloatProcessor;
@@ -154,6 +156,8 @@ public class CircularConfiguration {
     )
 	{
 
+		//new ImagePlus("here", Calc.plotProfile(val, ang, rad)).show();
+
         /*
         calculate score on this CircularConfiguration as
         highest score on all rotated versions of
@@ -174,9 +178,11 @@ public class CircularConfiguration {
 
             for (int i = 0; i < val.length; i++){
 				if (rad[i]<=ringR[1] && rad[i]>=ringR[0]){      // rad[] is radius actually, normalized 0-1.0
-					if(isOn(ang[i], r)){                        // considering that the angle is calculated as (float)(atan2(r,c)+pi)
+					if(true){//isOn(ang[i], r)
+					                        // considering that the angle is calculated as (float)(atan2(r,c)+pi)
 						nrPos++;
 						sumPos+=val[i];
+						System.out.print("positive -> a: "+((ang[i]/TwoPi)*360)+" r: "+rad[i]+"\n");
 					}
 					else{
 						nrNeg++;
@@ -186,13 +192,16 @@ public class CircularConfiguration {
                 else if (rad[i] <= innerRing) {
                     nrPos++;
                     sumPos += val[i];
+					System.out.print("positive -> a: "+((ang[i]/TwoPi)*360)+" r: "+rad[i]+"\n");
                 }
             }
 
             float sc = (float) ((sumPos/nrPos)-(sumNeg/nrNeg));
+			System.out.println("at rot. "+r+"(+)= "+nrPos+", (-)= "+nrNeg+" , s= "+sc+", sumPos = "+sumPos+" , sumNeg = "+sumNeg);
 
             if(sc>score || r==0){
                 score = sc;
+				System.out.println("-> ADD! at rot. "+r+"(+)= "+nrPos+", (-)= "+nrNeg+" , s= "+score);
             }
 
         }

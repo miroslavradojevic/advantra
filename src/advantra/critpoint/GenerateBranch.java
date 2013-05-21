@@ -1,4 +1,4 @@
-package advantra.plugins;
+package advantra.critpoint;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -11,6 +11,7 @@ import advantra.tools.BranchModel2D;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
+import ij.gui.GenericDialog;
 import ij.gui.Overlay;
 import ij.gui.PointRoi;
 import ij.io.FileSaver;
@@ -23,7 +24,7 @@ public class GenerateBranch implements PlugIn {
 	/*
 	 * generates the branch, shows it, and saves it in a output .tif file
 	 * terminal command commented out, but was possible:
-	 * java -cp advantra_.jar:ij-1.47g.jar:flanagan.jar advantra.plugins.GenerateBranch 64 64 32 2.0
+	 * java -cp advantra_.jar:ij-1.47g.jar:flanagan.jar advantra.critpoint.GenerateBranch 64 64 32 2.0
 	 * or from fiji-imagej as a plugin
 	 */
 
@@ -35,8 +36,22 @@ public class GenerateBranch implements PlugIn {
 						   String arg0
 	)
 	{
+		     System.out.println("?");
+		GenericDialog gd = new GenericDialog("Generate Random Branches");
 
-        int H = 65, W = 65, N = 100;
+		gd.addMessage("generate bifurcations \n export locations of critical points");
+
+		gd.addNumericField("Image Width:", 129, 0, 5, "");
+		gd.addNumericField("Image Height:", 	129,  0,  5, "");
+		gd.addNumericField("total branches:", 	100,  0,  5, "");
+
+		gd.showDialog();
+		if (gd.wasCanceled()) return;
+
+        int H = (int) gd.getNextNumber();
+		int W = (int) gd.getNextNumber();
+		int N = (int) gd.getNextNumber();
+
         FileWriter 			fw;
         String file_name;
 
@@ -173,7 +188,7 @@ public class GenerateBranch implements PlugIn {
 
         }
 
-        IJ.log("trainset:\n" +outDirTrain+"\ntestset:\n" +outDirTest);
+        IJ.log("trainset:\n" + outDirTrain + "\ntestset:\n" + outDirTest);
 
 /*		// parameters
 		int 	stack_height 	= 64;

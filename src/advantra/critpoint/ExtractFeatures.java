@@ -248,13 +248,10 @@ public class ExtractFeatures implements PlugIn, MouseListener {
         // set it manually
 		radius = 16;
 		int qw = (int) Math.ceil(surr*Math.sqrt(t[t.length-1])); // ultimate neighbourhood
-        System.out.println("radius manual: "+radius+ " used to be: "+qw);
 
-//        if(true) return;
         /*
 		 * generate filters to score on example profiles (generate features)
 		 */
-
         fs = new FilterSet(angScale, rings, radials);
         int nrFilters = fs.circConfs.size()+fs.radlConfs.size();
         IJ.showMessage(nrFilters+" filters formed!");
@@ -868,7 +865,6 @@ public class ExtractFeatures implements PlugIn, MouseListener {
 				if(d <= rin*rin){
 
 					vals[cnt] = img.getProcessor().getPixelValue(x, y);
-//                    if(cnt==98) System.out.println("at 98 "+vals[cnt]);
 					rads[cnt] = (float) (Math.sqrt(d) / rin);
 					angs[cnt] = (float) (Math.atan2(y-yin, x-xin) + Math.PI);
 					angs[cnt] = (angs[cnt]>=(float)(2*Math.PI))? 0 : angs[cnt];

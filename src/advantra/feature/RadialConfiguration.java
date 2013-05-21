@@ -19,16 +19,11 @@ public class RadialConfiguration {
 
     public double[]     ringStart;    // radial distance at which the ring starts
 
-//	double[] 			filt;
-
     public RadialConfiguration(
             double[] ring_resol,
             double[] ring_btw_resol
     )
 	{
-
-		// filter default
-//		filt = new double[1];
 
         nrRings = ring_resol.length;
 
@@ -75,35 +70,9 @@ public class RadialConfiguration {
 
 		}
 
-//		// normalize filt[]
-//		for (int i1 = 0; i1 < filt.length; i1++) {
-//			if(filt[i1]>0){
-//				filt[i1] = filt[i1] / sumPos;// * (sumNeg/(float)sumPos);
-//			}
-//			else{
-//				filt[i1] = filt[i1] / sumNeg;
-//			}
-//		}
-
-//		System.out.println(""+val.length+" , "+filt.length);
-//		System.out.println("(+): "+sumPos+","+(1f/sumPos)+" (-): "+sumNeg+", "+(1f/sumNeg));
-
-		// score for this filt[]
-//		float sc = 0;
-//		for (int i = 0; i < filt.length; i++) {
-//			sc += filt[i]*val[i];
-//		}
-
 		return (float) ((sumPos/nrPos)-(sumNeg/nrNeg));
 
 	}
-
-//	public void initFilter(int length)
-//	{
-//
-//		filt = new double[length];
-//
-//	}
 
     public void print()
 	{

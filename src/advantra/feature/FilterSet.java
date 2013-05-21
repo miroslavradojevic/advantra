@@ -30,7 +30,7 @@ public class FilterSet {
         int nrScales;
 
         // temporary
-        double innerRingRadiusForTesting = 0.0;
+        double innerRingRadiusForTesting = 0.1;
 
         /*
         fill in circular configurations
@@ -72,7 +72,7 @@ public class FilterSet {
 //			}
 //		}
 
-        // 2
+/*        // 2
 		int nrPer2 = (int) Math.pow(nrScales, 2); // 2x
 		int[][] per2 = new int[nrPer2][2];
 		c = 0;
@@ -132,7 +132,7 @@ public class FilterSet {
 					}
 				}
 			}
-		}
+		}*/
 
         // 3
 		int nrPer3 = (int) Math.pow(nrScales, 3); // 3x
@@ -235,7 +235,7 @@ public class FilterSet {
 
         radlConfs = new Vector<RadialConfiguration>();
 
-/*        // 1
+        // 1
         int nrRep1 = (int) Math.pow(nrScales, 1); // 1x
         double[][] rep1 = new double[nrRep1][1];
         c = 0;
@@ -248,7 +248,7 @@ public class FilterSet {
             if (rep1[i][0]<1){
                   radlConfs.add(new RadialConfiguration(rep1[i], new double[]{0}));
             }
-        }*/
+        }
 
         // 2
         // 3
@@ -271,7 +271,9 @@ public class FilterSet {
 
     }
 
-	public ImageStack plot(int N)
+	public ImageStack plot(
+								int N
+	)
 	{
 
 		ImageStack viz = new ImageStack(N, N);
@@ -386,24 +388,5 @@ public class FilterSet {
 		return out;
 
 	}
-
-//	public void initFilter(
-//								  int length
-//	)
-//	{
-//
-//		for (int i = 0; i < circConfs.size(); i++){
-//
-//			circConfs.get(i).initFilter(length);
-//
-//		}
-//
-//		for (int i = 0; i < radlConfs.size(); i++){
-//
-//			radlConfs.get(i).initFilter(length);
-//
-//		}
-//
-//	}
 
 }
