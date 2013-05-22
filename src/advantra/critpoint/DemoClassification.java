@@ -51,7 +51,8 @@ public class DemoClassification implements PlugIn, MouseListener {
     int 		W, H;
     int         T;
 
-	ImageStack trainPatches;
+	ImageStack posPatches;
+	ImageStack negPatches;
 
 	ImageStack pos_ft;
 	ImageStack neg_ft;
@@ -229,15 +230,20 @@ public class DemoClassification implements PlugIn, MouseListener {
 		neg_ft = new ImageStack(nrFilters, 1);
 
         // to store examples
-        trainPatches = new ImageStack(patchDiameter, patchDiameter); // TODO: one argument here enough
+        posPatches = new ImageStack(patchDiameter, patchDiameter);
+		negPatches = new ImageStack(patchDiameter, patchDiameter);
 
 		System.out.println("\n## TRAIN ##  \n"+train_folder+"\n------------------------------------\n");
-
-        if(true) return;
 
 		for (int i = 0; i < files_tif.length; i++) { // for each tif file
 
 			System.out.print(""+files_tif[i].getName()+" "+i+"/"+(files_tif.length-1)+"  ...  ");
+
+			img = new ImagePlus(files_tif[i].getAbsolutePath());
+			resetCalibration();
+			convertToFloatImage();
+			H = img.getHeight();
+			W = img.getWidth();
 
 			curr_pos = 0;
 			curr_neg = 0;
@@ -289,23 +295,25 @@ public class DemoClassification implements PlugIn, MouseListener {
                 double[][] B = extractLocations((ByteProcessor) readMask.getProcessor());
                 */
 
-                // reducing B is not necessary any more
-/*                double[][] B_red = new double[100][2];
-                for (int k = 0; k < B_red.length; k++){
-                    boolean isIn = false;
-                    double take_col, take_row;
-                    int rd_loc;
-                    while (!isIn) {
-                        rd_loc = (int)(Math.random()*B.length);
-                        take_col = B[rd_loc][0];
-                        take_row = B[rd_loc][1];
-                        if(take_col>radius && take_col<readMask.getWidth()-radius && take_row>radius && take_row<readMask.getHeight()-radius){
-                            isIn = true;
-                        }
-                        B_red[k] = B[rd_loc];
-                    }
-                }
-                B = B_red;*/
+                // fix: reducing B take those that are out of image
+				Vector<double[]> Br = new Vector<double[]>();
+				for (int k = 0; k < B.length; k++){
+					double take_col, take_row;
+					take_col = B[k][0];
+					take_row = B[k][1];
+					boolean isIn =
+									take_col>patchRadius &&
+									take_col<img.getWidth()-patchRadius &&
+									take_row>patchRadius &&
+									take_row<img.getHeight()-patchRadius;
+					if(isIn)
+						Br.add(B[k]);
+				}
+				B = new double[Br.size()][2];
+				for (int k = 0; k < Br.size(); k++){
+					B[k][0] = Br.get(k)[0];
+					B[k][1] = Br.get(k)[1];
+				}
 
                 locs_neg.add(B);
 				curr_neg = B.length;
@@ -320,18 +328,10 @@ public class DemoClassification implements PlugIn, MouseListener {
 			System.out.println();
 
 			/*
-			 * actual feature extraction
+			 * actual feature extraction for current image
 			 */
 
-			if(curr_pos>0 || curr_neg>0){
-
-//				System.out.println("...extracting profiles...");
-
-				img = new ImagePlus(files_tif[i].getAbsolutePath());
-				resetCalibration();
-				convertToFloatImage();
-				H = img.getHeight();
-				W = img.getWidth();
+			if((curr_pos>0 || curr_neg>0) && true){
 
 //                if(choose_source==2){
 //					/*
@@ -413,14 +413,14 @@ public class DemoClassification implements PlugIn, MouseListener {
 //
 //					}
 
-					fs.score(vals, angs, rads);
+//					fs.score(vals, angs, rads);
 
-					float[] fill = new float[nrFilters];
-					for (int fill_i = 0; fill_i < nrFilters; fill_i++){
-						fill[fill_i] = fs.score[fill_i];
-					}
-					pos_ft.addSlice(new FloatProcessor(nrFilters, 1, fill));
-
+//					float[] fill = new float[nrFilters];
+//					for (int fill_i = 0; fill_i < nrFilters; fill_i++){
+//						fill[fill_i] = fs.score[fill_i];
+//					}
+//					pos_ft.addSlice(new FloatProcessor(nrFilters, 1, fill));
+					posPatches.addSlice("pos_train_sample_"+i, Calc.getProfilePatch(img, atX, atY, patchRadius));
 					PointRoi pt = new PointRoi(atX+0.5, atY+0.5);//(atX-0.5, atY-0.5);
 					pt.setStrokeColor(Color.RED);
 					ovly.addElement(pt);
@@ -436,21 +436,17 @@ public class DemoClassification implements PlugIn, MouseListener {
 //                        profile(extract_from, Vx, Vy, atX, atY, radius);
 //					else
 //                        profile(extract_from, atX, atY, radius);
-
-					fs.score(vals, angs, rads);
-
-					float[] fill = new float[nrFilters];
-					for (int fill_i = 0; fill_i < nrFilters; fill_i++){
-						fill[fill_i] = fs.score[fill_i];
-					}
-
-					neg_ft.addSlice(new FloatProcessor(nrFilters, 1, fill));
-
+//					fs.score(vals, angs, rads);
+//					float[] fill = new float[nrFilters];
+//					for (int fill_i = 0; fill_i < nrFilters; fill_i++){
+//						fill[fill_i] = fs.score[fill_i];
+//					}
+//					neg_ft.addSlice(new FloatProcessor(nrFilters, 1, fill));
+					negPatches.addSlice("neg_train_sample_"+i, Calc.getProfilePatch(img, atX, atY, patchRadius));
 					PointRoi pt = new PointRoi(atX+0.5, atY+0.5);//(atX-0.5, atY-0.5);
 					pt.setHideLabels(false);
 					pt.setStrokeColor(Color.BLUE);
 					pt.setName("negative" + k);
-
 					ovly.addElement(pt);
 
 				}
@@ -466,9 +462,6 @@ public class DemoClassification implements PlugIn, MouseListener {
 //                showIt.getCanvas().zoomIn(0,0);
 //                showIt.getCanvas().zoomIn(0,0);
 
-                trainPatches.addSlice("train_sample_"+i, img.getProcessor());
-                //showIt.getWindow().getCanvas().addMouseListener(this);
-
 			} // if there were some
 
 		} // loop files
@@ -476,7 +469,10 @@ public class DemoClassification implements PlugIn, MouseListener {
 		System.out.println("////\n total (+) : "+total_pos);
 		System.out.println(" total (-) : "+total_neg+"\n////\n");
 
-        new ImagePlus("", trainPatches).show();
+        new ImagePlus("POS", posPatches).show();
+		new ImagePlus("NEG", negPatches).show();
+
+		if(true) return;
 
 //        img_click = img;
 //        img_click.show();

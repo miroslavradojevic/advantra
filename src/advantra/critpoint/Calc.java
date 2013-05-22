@@ -157,6 +157,23 @@ public class Calc {
 		return viz;
 	}
 
+	public static ImageProcessor getProfilePatch(
+														ImagePlus inimg,
+														int xin,
+														int yin,
+														int rin
+	){
+		ImageProcessor ip = new FloatProcessor(2*rin+1, 2*rin+1);
+
+		for (int x = 0; x < 2*rin+1; x++){
+			for (int y = 0; y < 2*rin+1; y++){
+				ip.setf(x, y, inimg.getProcessor().getPixelValue(x+xin-rin, y+yin-rin));
+			}
+		}
+
+		return ip;
+	}
+
 	public static ImageProcessor plotAllResponses(
 														 FilterSet fs,
 														 float[] vals,
