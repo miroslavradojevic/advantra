@@ -337,55 +337,55 @@ public class FilterSet {
 
 	}
 
-    public void score(
-								float[] val,
-								float[] ang,
-								float[] rad
-	)
-    {
-        for (int i = 0; i < circConfs.size(); i++) {
+//    public void score(
+//								float[] val,
+//								float[] ang,
+//								float[] rad
+//	)
+//    {
+//        for (int i = 0; i < circConfs.size(); i++) {
+//
+//			score[i] = circConfs.get(i).score(val, ang, rad);
+//
+//        }
+//
+//		for (int i = circConfs.size(); i < (circConfs.size()+radlConfs.size()); i++){
+//
+//			score[i] = radlConfs.get(i-circConfs.size()).score(val, rad);
+//
+//		}
+//    }
 
-			score[i] = circConfs.get(i).score(val, ang, rad);
-
-        }
-
-		for (int i = circConfs.size(); i < (circConfs.size()+radlConfs.size()); i++){
-
-			score[i] = radlConfs.get(i-circConfs.size()).score(val, rad);
-
-		}
-    }
-
-	public float[] score(
-								float[] val,
-								float[] ang,
-								float[] rad,
-								int[] filt_idx
-	)
-	{
-		// calculate score only on selected features and give it as a raw output
-		float[] out = new float[filt_idx.length];
-		int cnt = 0;
-		for (int i = 0; i < filt_idx.length; i++){
-
-
-			if (filt_idx[i]<circConfs.size()){
-				// circular
-				out[cnt] = circConfs.get(filt_idx[i]).score(val, ang, rad);
-
-			}
-			else{
-				// radial
-				out[cnt] = radlConfs.get(filt_idx[i]-circConfs.size()).score(val, rad);
-			}
-
-			cnt++;
-
-
-		}
-
-		return out;
-
-	}
+//	public float[] score(
+//								float[] val,
+//								float[] ang,
+//								float[] rad,
+//								int[] filt_idx
+//	)
+//	{
+//		// calculate score only on selected features and give it as a raw output
+//		float[] out = new float[filt_idx.length];
+//		int cnt = 0;
+//		for (int i = 0; i < filt_idx.length; i++){
+//
+//
+//			if (filt_idx[i]<circConfs.size()){
+//				// circular
+//				out[cnt] = circConfs.get(filt_idx[i]).score(val, ang, rad);
+//
+//			}
+//			else{
+//				// radial
+//				out[cnt] = radlConfs.get(filt_idx[i]-circConfs.size()).score(val, rad);
+//			}
+//
+//			cnt++;
+//
+//
+//		}
+//
+//		return out;
+//
+//	}
 
 }

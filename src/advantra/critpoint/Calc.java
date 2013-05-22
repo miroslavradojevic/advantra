@@ -186,7 +186,6 @@ public class Calc {
 		float[] c_sco = new float[fs.circConfs.size()+fs.radlConfs.size()];
 		for (int i = 0; i < fs.circConfs.size(); i++){
 			c_idx[i] = i;
-            System.out.println("<OK?!>, score at circ conf. "+i);
 			c_sco[i] = fs.circConfs.get(i).score(vals, angs, rads);
 		}
 		for (int i = fs.circConfs.size(); i < fs.circConfs.size()+fs.radlConfs.size(); i++){
@@ -199,6 +198,52 @@ public class Calc {
 		return p.getProcessor();
 
 	}
+
+    public static float[] getProfileResponse(
+            FilterSet fs,
+            float[] vals,
+            float[] angs,
+            float[] rads
+    ){
+
+        float[] c_sco = new float[fs.circConfs.size()+fs.radlConfs.size()];
+        for (int i = 0; i < fs.circConfs.size(); i++){
+            c_sco[i] = fs.circConfs.get(i).score(vals, angs, rads);
+        }
+        for (int i = fs.circConfs.size(); i < fs.circConfs.size()+fs.radlConfs.size(); i++){
+            c_sco[i] = fs.radlConfs.get(i-fs.circConfs.size()).score(vals, rads);
+        }
+        return c_sco;
+
+    }
+
+    public static float[] getProfileResponseSelection(
+            FilterSet   fs,
+            int[]       selec,
+            float[]     vals,
+            float[]     angs,
+            float[]     rads
+    )
+    {
+        // calculate score only on selected features and give it as a raw output
+		float[] out = new float[selec.length];
+		int cnt = 0;
+
+        for (int i = 0; i < selec.length; i++){
+
+            if (selec[i]<fs.circConfs.size()){
+				out[cnt] = fs.circConfs.get(selec[i]).score(vals, angs, rads);
+			}
+			else{
+				out[cnt] = fs.radlConfs.get(selec[i]-fs.circConfs.size()).score(vals, rads);
+			}
+
+			cnt++;
+		}
+
+		return out;
+
+    }
 
 	public static ImageProcessor filterResponse(
 												  ImagePlus template,

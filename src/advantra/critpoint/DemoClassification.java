@@ -235,6 +235,13 @@ public class DemoClassification implements PlugIn, MouseListener {
 
 		System.out.println("\n## TRAIN ##  \n"+train_folder+"\n------------------------------------\n");
 
+        // img1, W1, H1, showStk, showImg, ovly are just for visualization
+        ImagePlus img1 = new ImagePlus(files_tif[0].getAbsolutePath());
+        int W1 = img1.getWidth();
+        int H1 = img1.getHeight();
+        ImageStack showStk = new ImageStack(W1, H1);
+        Overlay ovly = new Overlay();
+
 		for (int i = 0; i < files_tif.length; i++) { // for each tif file
 
 			System.out.print(""+files_tif[i].getName()+" "+i+"/"+(files_tif.length-1)+"  ...  ");
@@ -327,16 +334,7 @@ public class DemoClassification implements PlugIn, MouseListener {
 
 			System.out.println();
 
-			/*
-			 * actual feature extraction for current image
-			 */
-
-			if((curr_pos>0 || curr_neg>0) && true){
-
 //                if(choose_source==2){
-//					/*
-//					 * gabor
-//					 */
 //					System.out.println("...gabor...");
 //					gab = extractGabor(img, theta_pi, t, bandwidth, psi, gamma, isReal, nr_proc);
 //					//gab.show(); // gab.setTitle("gabor filter, directional responses");
@@ -361,23 +359,14 @@ public class DemoClassification implements PlugIn, MouseListener {
 //	            	//System.out.println("...skipping gabor...");
 //	            	//gab = gabAll = weighted = img;
 //                }
-
-				/*
-				 *  extract neuriteness & eigen vecs
-				 */
-
-
-
 				//System.out.println("...neuriteness...");
 				//Vector<ImagePlus> nness = VizFeatures.extractNeuritenessAndEigenVec(img, s);
 				//neuriteness = nness.get(0);  neuriteness.setTitle("neuriteness");
 				//neuriteness.show();
 				//Vx = nness.get(1);// Vx.setTitle("Vx");
 				//Vy = nness.get(2);// Vy.setTitle("Vy");
-
 				// there are 3 options for input images and locations: neuriteness, weighted, img
 				//ImagePlus extract_from;
-
 //				switch (0) {
 //				case 0:
 //					System.out.println("use: " + extract_opts[0]);
@@ -396,98 +385,99 @@ public class DemoClassification implements PlugIn, MouseListener {
 //					extract_from = img;
 //					break;
 //				}
+//					if (useDotProd){
+//						profile(extract_from, Vx, Vy, atX, atY, radius);
+//					}
+//					else {
+//						profile(extract_from, atX, atY, radius);
+//					}
 
-				Overlay ovly = new Overlay();
+            System.out.println("feature extraction for positives "+img.getTitle());
+            if((curr_pos>0 || curr_neg>0) && true){
+
+                showStk.addSlice("SAMPLE"+i, img.getProcessor());
 
 				for (int k = 0; k < curr_pos; k++) {
 
 					int atX = (int)locs_pos.get(i)[k][0];
 					int atY = (int)locs_pos.get(i)[k][1];
 
-//					if (useDotProd){
-//						profile(extract_from, Vx, Vy, atX, atY, radius);
-
-//					}
-//					else {
-//						profile(extract_from, atX, atY, radius);
-//
-//					}
-
-//					fs.score(vals, angs, rads);
-
-//					float[] fill = new float[nrFilters];
-//					for (int fill_i = 0; fill_i < nrFilters; fill_i++){
-//						fill[fill_i] = fs.score[fill_i];
-//					}
-//					pos_ft.addSlice(new FloatProcessor(nrFilters, 1, fill));
-					posPatches.addSlice("pos_train_sample_"+i, Calc.getProfilePatch(img, atX, atY, patchRadius));
-					PointRoi pt = new PointRoi(atX+0.5, atY+0.5);//(atX-0.5, atY-0.5);
+                    Calc.getProfile(img, atX, atY, patchRadius, vals, angs, rads);
+					pos_ft.addSlice(new FloatProcessor(nrFilters, 1,    Calc.getProfileResponse(fs, vals, angs, rads)));
+					posPatches.addSlice("pos_train_sample_"+i,          Calc.getProfilePatch(img, atX, atY, patchRadius));
+					PointRoi pt = new PointRoi(atX+0.5, atY+0.5);
 					pt.setStrokeColor(Color.RED);
+                    pt.setPosition(showStk.getSize());//(0, showStk.getSize(), 0);
+                    //System.out.println("added to: "+showStk.getSize());
 					ovly.addElement(pt);
 
 				}
 
+                // fix: select same amount of negative samples
+                // only in case of artificial dataset because of the disbalance pos/neg
+                // each image will contribute in as many negatives as positives
+                // random without sampling
+                boolean[] chs = new boolean[curr_neg];
+                Random rand = new Random();
+                int cntMtches = 0;
+                while (cntMtches < curr_pos) {  // select curr_pos random ones
+                    int rIdx = rand.nextInt(curr_neg);
+                    if (!chs[rIdx]) {
+                        chs[rIdx] = true;
+                        cntMtches++;
+                    }
+                }
+
+                System.out.println("feature extraction for negatives "+img.getTitle());
 				for (int k = 0; k < curr_neg; k++) {
 
-					int atX = (int)locs_neg.get(i)[k][0];
-					int atY = (int)locs_neg.get(i)[k][1];
+                    if (chs[k]){
 
-//                    if (useDotProd)
-//                        profile(extract_from, Vx, Vy, atX, atY, radius);
-//					else
-//                        profile(extract_from, atX, atY, radius);
-//					fs.score(vals, angs, rads);
-//					float[] fill = new float[nrFilters];
-//					for (int fill_i = 0; fill_i < nrFilters; fill_i++){
-//						fill[fill_i] = fs.score[fill_i];
-//					}
-//					neg_ft.addSlice(new FloatProcessor(nrFilters, 1, fill));
-					negPatches.addSlice("neg_train_sample_"+i, Calc.getProfilePatch(img, atX, atY, patchRadius));
-					PointRoi pt = new PointRoi(atX+0.5, atY+0.5);//(atX-0.5, atY-0.5);
-					pt.setHideLabels(false);
-					pt.setStrokeColor(Color.BLUE);
-					pt.setName("negative" + k);
-					ovly.addElement(pt);
+                        int atX = (int)locs_neg.get(i)[k][0];
+                        int atY = (int)locs_neg.get(i)[k][1];
+
+                        Calc.getProfile(img, atX, atY, patchRadius, vals, angs, rads);
+                        neg_ft.addSlice(new FloatProcessor(nrFilters, 1,    Calc.getProfileResponse(fs, vals, angs, rads)));
+                        negPatches.addSlice("neg_train_sample_"+i,          Calc.getProfilePatch(img, atX, atY, patchRadius));
+                        PointRoi pt = new PointRoi(atX+0.5, atY+0.5);
+                        pt.setStrokeColor(Color.BLUE);
+                        pt.setName("negative" + k);
+                        pt.setPosition(showStk.getSize());//(0, showStk.getSize(), 0);
+                        //System.out.println("added to: "+showStk.getSize());
+                        ovly.addElement(pt);
+
+                    }
 
 				}
-
-                /*
-                show loaded train image with markers
-                 */
-//				ImagePlus showIt = new ImagePlus("VIZ_"+files_tif[i].getName(), img.getProcessor());
-//				showIt.setOverlay(ovly);
-//				showIt.show();
-//                showIt.getCanvas().zoomIn(0,0);
-//                showIt.getCanvas().zoomIn(0,0);
-//                showIt.getCanvas().zoomIn(0,0);
-//                showIt.getCanvas().zoomIn(0,0);
 
 			} // if there were some
 
 		} // loop files
 
-		System.out.println("////\n total (+) : "+total_pos);
-		System.out.println(" total (-) : "+total_neg+"\n////\n");
+        // visualization
+        ImagePlus showImg = new ImagePlus("VIZ", showStk);
+        showImg.setOverlay(ovly);
+        showImg.show();
+//        showIt.getCanvas().zoomIn(0,0);
+//        showIt.getCanvas().zoomIn(0,0);
+//        showIt.getCanvas().zoomIn(0,0);
+//        showIt.getCanvas().zoomIn(0,0);
+
+		System.out.println("////\n total (+) : " + posPatches.getSize());
+		System.out.println(" total (-) : "       + negPatches.getSize()+"\n//-------------//\n");
 
         new ImagePlus("POS", posPatches).show();
 		new ImagePlus("NEG", negPatches).show();
-
-		if(true) return;
 
 //        img_click = img;
 //        img_click.show();
 //        img_click.setTitle("mouse_click_here...");
 //        img_click.getWindow().getCanvas().addMouseListener(this);
 
-//		ImagePlus pos_examples_image =  new ImagePlus("positive_examples", pos_ex);
-//		pos_examples_image.show();
-//		ImagePlus neg_examples_image =  new ImagePlus("negative_examples", neg_ex);
-//		neg_examples_image.show();
-
         // equalize number of positives and negatives
         // take one random negative for every positive
 		featsP = new float[pos_ft.getSize()][nrFilters];
-		featsN = new float[pos_ft.getSize()][nrFilters];
+		featsN = new float[neg_ft.getSize()][nrFilters];
 
 		for (int g = 0; g < pos_ft.getSize(); g++){
 			float[] getPix = (float[]) pos_ft.getProcessor(g + 1).getPixels();
@@ -496,22 +486,21 @@ public class DemoClassification implements PlugIn, MouseListener {
 			}
 		}
 
-        Random  rd = new Random();
-
 		for (int g = 0; g < featsN.length; g++) {
             // randomize when choosing negative
-            int chooseIdx =   rd.nextInt(neg_ft.getSize());
-            System.out.println("neg. feature "+g+" will be matched to "+ chooseIdx + "/"+neg_ft.getSize()+" layer index");
-			float[] getPix = (float[]) neg_ft.getProcessor(chooseIdx + 1).getPixels();
+            //int chooseIdx =   rd.nextInt(neg_ft.getSize());
+			float[] getPix = (float[]) neg_ft.getProcessor(g + 1).getPixels();
 			for (int g1 = 0; g1 < getPix.length; g1++){
 				featsN[g][g1] = getPix[g1];
 			}
 		}
 
-		System.out.println(" done extracting train features (+ and -), "+featsP.length+" pos. and "+featsN.length+" neg.");
+		System.out.println(" done extracting train features:\n" +
+                "(+) " + featsP.length + " x " + featsP[0].length +
+                "(-) " + featsN.length + " x " + featsN[0].length);
 
         GenericDialog gd1 = new GenericDialog("AdaBoost training");
-        gd1.addMessage("How many feats to keep?");
+        gd1.addMessage("How many feats to keep? stored: " + T);
         gd1.addNumericField("T",					    T, 0, 6, " (total "+nrFilters+")");
         gd1.showDialog();
         if (gd1.wasCanceled()) return;
@@ -538,7 +527,7 @@ public class DemoClassification implements PlugIn, MouseListener {
 
 			// show the best features
 			ImagePlus imp2 = new ImagePlus();
-            int imp2_size = 65;
+            int imp2_size = patchDiameter;
 			ImageStack best_feat = new ImageStack(imp2_size, imp2_size);
 			for (int i = 0; i < adaboost.length; i++){
 				best_feat.addSlice(fs.plotOne((int) adaboost[i][0], imp2_size));
@@ -558,16 +547,16 @@ public class DemoClassification implements PlugIn, MouseListener {
 
 		}
 
-//        if(true) { System.out.println("closing... p:"+featsP.length+" n:"+featsN.length); return;}
-
 	    File dir_test = new File(test_folder);
 	    test_folder = dir_test.getAbsolutePath();
 		if(!dir_test.isDirectory() ){
-			IJ.error("Wrong directory!");
+			IJ.error("Wrong testset directory "+test_folder);
 			return;
 		}
 
-        System.out.println("## TEST ##  "+test_folder);
+        System.out.println("\n## TEST  ##  \n"+test_folder +"\n------------------------------------\n");
+
+//        if(true) { System.out.println("closing... "); return;}
 
         int curr_tst = 0;
         int total_tst = 0;
@@ -597,11 +586,11 @@ public class DemoClassification implements PlugIn, MouseListener {
                 //readMask.show();
                 // extract locations with logical 1
                 double[][] C = extractLocations((ByteProcessor) readMask.getProcessor());
-                System.out.print(
-                        files_tst[i].getAbsolutePath()+
-                        " -> capturing "+(100f*(float)C.length/(readMask.getWidth()*readMask.getHeight()))+
-                        "% of total pix."
-                );
+//                System.out.print(
+//                        files_tst[i].getAbsolutePath()+
+//                        " -> capturing "+(100f*(float)C.length/(readMask.getWidth()*readMask.getHeight()))+
+//                        "% of total pix."
+//                );
                 locs_tst.add(C);
                 curr_tst = C.length;
                 total_tst += C.length;
@@ -617,8 +606,6 @@ public class DemoClassification implements PlugIn, MouseListener {
             // and add to ImageStack
 
             if(curr_tst>0){
-
-//                System.out.println("...extracting profiles...");
 
                 img = new ImagePlus(test_files_tif[i].getAbsolutePath());
                 resetCalibration();
@@ -678,24 +665,22 @@ public class DemoClassification implements PlugIn, MouseListener {
 //						break;
 //				}
 
-                Overlay ovly = new Overlay();
-                System.out.print("\nclassifying...");
+                ovly = new Overlay();
+                System.out.println("\nclassifying "+curr_tst+" locations from "+img.getTitle());
 
 				for (int k = 0; k < curr_tst; k++) {
 
                     int atX = (int)locs_tst.get(i)[k][0];
                     int atY = (int)locs_tst.get(i)[k][1];
 
+//                    System.out.println("...extracting profiles...");
+                    Calc.getProfile(img, atX, atY, patchRadius, vals, angs, rads);
+                    int res = applyAdaBoost(adaboost, Calc.getProfileResponseSelection(fs, best_indexes, vals, angs, rads));
 					//long t1 = System.currentTimeMillis();
-
 //					if (useDotProd)
 //                        profile(extract_from, Vx, Vy, atX, atY, radius);
 //					else
 //                        profile(extract_from, atX, atY, radius);
-
-					//long t2 = System.currentTimeMillis();
-					int res = applyAdaBoost(adaboost, fs.score(vals, angs, rads, best_indexes));
-					//long t3 = System.currentTimeMillis();
 
                     if(res==1){
                         PointRoi pt = new PointRoi(atX+0.5, atY+0.5);

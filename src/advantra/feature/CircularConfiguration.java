@@ -32,6 +32,11 @@ public class CircularConfiguration {
 
     public double       innerRing;      // defines the inner ring
 
+    public float[]      sumON;          // will be used for weighted score calculation
+    public float[]      sumOFF;
+    public int[]        nrON;
+    public int[]        nrOFF;
+
     public static float TwoPi = (float) (2*Math.PI);
 
 //	double[] 			filt;           // this filter will make a score
@@ -41,9 +46,9 @@ public class CircularConfiguration {
 //                                        // to allocate enough values to cover the patch
 	
 	public CircularConfiguration(
-            int[] angular_resolution_deg,
-            int[] angles_between_peaks_deg,
-			double[] radius,
+            int[]       angular_resolution_deg,
+            int[]       angles_between_peaks_deg,
+			double[]    radius,
             double      innerRingRadius
     )
 	{
@@ -81,6 +86,12 @@ public class CircularConfiguration {
 		}
 
 		nrPeaks = angles_between_peaks_deg.length;
+
+        // initialize arrays
+        sumON   = new float[nrPeaks+1];
+        sumOFF  = new float[nrPeaks];
+        nrON    = new int[nrPeaks+1];
+        nrOFF   = new int[nrPeaks];
 
         // find the smallest angular resolution to carry out scores
         // for different rotations
@@ -127,11 +138,6 @@ public class CircularConfiguration {
 
 	}
 
-//	public void initFilter(int length)
-//	{
-//		filt = new double[length];  // length will correspond to the number of locations in the patch
-//	}
-
     public void print()
     {
 
@@ -156,8 +162,6 @@ public class CircularConfiguration {
     )
 	{
 
-		//new ImagePlus("here", Calc.plotProfile(val, ang, rad)).show();
-
         /*
         calculate score on this CircularConfiguration as
         highest score on all rotated versions of
@@ -166,56 +170,55 @@ public class CircularConfiguration {
 
         float 	score = Float.NEGATIVE_INFINITY;  // lowest possible score
 
-        double  sumPos, sumNeg;
-        int     nrPos, nrNeg;
-
         for (int r = 0; r < nrRot; r++) {
-
-//            System.out.print("--- rotation "+r+" ---\n");
 
             // calculate scores for each rotation
 
-            sumPos  = sumNeg    = 0;
-            nrPos   = nrNeg     = 0;
-
-//            if(r==0){
-//                System.out.println("btw: "+ringR[0]+" and "+ringR[1]+ " val.length="+val.length);
-//                float[] xax = new float[val.length];
-//                for (int a = 0; a < val.length; a++) xax[a] = a;
-//                Plot p = new Plot("rot"+r, "", "", xax, rad);
-//                new ImagePlus("", p.getProcessor()).show();
-//            }
+            // set to zero
+            for (int k = 0; k < nrPeaks; k++) {
+                sumOFF[k] = 0;
+                nrOFF[k]  = 0;
+                sumON[k]  = 0;
+                nrON[k]   = 0;
+            }
+            nrON[nrPeaks] = 0;
+            sumON[nrPeaks]= 0;
 
             for (int i = 0; i < val.length; i++) {
 
-//                System.out.print("ang["+IJ.d2s(i, 0)+"]="+IJ.d2s((ang[i]/TwoPi)*360, 1)+" ");
+				if (rad[i]<=ringR[1] && rad[i]>=ringR[0]) {
 
-				if (rad[i]<=ringR[1] && rad[i]>=ringR[0]) { //
-				// rad[] is radius actually, normalized 0-1.0
-					if(isOn(ang[i], r)){ //
-					    // considering that the angle is calculated as (float)(atan2(r,c)+pi)
-						nrPos++;
-						sumPos+=val[i];
-//						if(r==5)  System.out.print("            " + rad[i] + ", " + ang[i] + ";...\n");
+                    int regId = regionId(ang[i], r); // will give out index (+1, +nrPeaks), and (-1, -nrPeaks), and (nrPeaks+1)
+
+					if(regId>0){
+						nrON[regId-1]++;
+						sumON[regId-1]+=val[i];
 					}
 					else{
-						nrNeg++;
-						sumNeg+=val[i];
+						nrOFF[-regId-1]++;
+						sumOFF[-regId-1]+=val[i];
 					}
 				}
-//                else if (rad[i] <= innerRing) {
-//                    nrPos++;
-//                    sumPos += val[i];
-////                    if(r==5)  System.out.print("            " + rad[i] + ", " + ang[i] + ";...\n");
-//                }
+                else if (rad[i] <= innerRing) {
+                    nrON[nrPeaks]++;
+                    sumON[nrPeaks]+=val[i];
+                }
             }
 
-            float sc = (float) ((sumPos/nrPos)-(sumNeg/nrNeg));
-			System.out.println("at rot. "+r+"(+)= "+nrPos+", (-)= "+nrNeg+" , s= "+sc+", sumPos = "+sumPos+" , sumNeg = "+sumNeg);
+            float sumONAll = 0;
+            int nrONAll = 0;
+            float sumOFFAll = 0;
+            int nrOFFAll = 0;
+
+            for (int k = 0; k < nrPeaks; k++){
+                if (nrON[k]>0)  { sumONAll += sumON[k]/nrON[k];     nrONAll++;}
+                if (nrOFF[k]>0) { sumOFFAll += sumOFF[k]/nrOFF[k];  nrOFFAll++;}
+            }
+
+            float sc =  ((sumONAll/nrONAll)-(sumOFFAll/nrOFFAll));
 
             if(sc>score || r==0){
                 score = sc;
-				System.out.println("-> ADD! at rot. "+r+"(+)= "+nrPos+", (-)= "+nrNeg+" , s= "+score);
             }
 
         }
@@ -245,34 +248,50 @@ public class CircularConfiguration {
 
             // calculate scores for each rotation
 
-            sumPos  = sumNeg = 0;
-            nrPos   = nrNeg  = 0;
+            // set to zero
+            for (int k = 0; k < nrPeaks; k++) {
+                sumOFF[k] = 0;
+                nrOFF[k]  = 0;
+                sumON[k]  = 0;
+                nrON[k]   = 0;
+            }
+            nrON[nrPeaks] = 0;
+            sumON[nrPeaks]= 0;
 
             for (int i = 0; i < val.length; i++){
 
-                if (rad[i]<=ringR[1] && rad[i]>=ringR[0]){      // rad[] is radius actually, normalized 0-1.0
-                    if(isOn(ang[i], r)){                        // considering that the angle is calculated as (float)(atan2(r,c)+pi)
-                        nrPos++;
-                        sumPos+=val[i];
+                if (rad[i]<=ringR[1] && rad[i]>=ringR[0]){      // rad[] is radius actually, normalized 0-1.0, angle is calculated as (float)(atan2(r,c)+pi)
+
+                    int regId = regionId(ang[i], r); // will give out index (+1, +nrPeaks), and (-1, -nrPeaks)
+
+                    if(regId>0){
+                        nrON[regId-1]++;
+                        sumON[regId-1]+=val[i];
                     }
                     else{
-                        nrNeg++;
-                        sumNeg+=val[i];
+                        nrOFF[-regId-1]++;
+                        sumOFF[-regId-1]+=val[i];
                     }
                 }
-//                else if (rad[i]<=innerRing){
-//                        nrPos++;
-//                        sumPos+=val[i];
-//                }
+                else if (rad[i] <= innerRing){
+                    nrON[nrPeaks]++;
+                    sumON[nrPeaks]+=val[i];
+                }
 
 
             }
 
-//            System.out.println("sumPos "+sumPos+" sumNeg "+sumNeg+" nrPos "+nrPos+" nrNeg "+nrNeg);
+            float sumONAll = 0;
+            int nrONAll = 0;
+            float sumOFFAll = 0;
+            int nrOFFAll = 0;
 
-            score[r] = (float) ((sumPos/nrPos)-(sumNeg/nrNeg));
+            for (int k = 0; k < nrPeaks; k++){
+                if (nrON[k]>0)  { sumONAll += sumON[k]/nrON[k];     nrONAll++;}
+                if (nrOFF[k]>0) { sumOFFAll += sumOFF[k]/nrOFF[k];  nrOFFAll++;}
+            }
 
-//            System.out.println("score ["+r+"] = "+score[r]);
+            score[r] =  ((sumONAll/nrONAll)-(sumOFFAll/nrOFFAll));
 
         }
 
@@ -297,6 +316,35 @@ public class CircularConfiguration {
 		return false;
 
 	}
+
+    private int regionId(
+            float angle,
+            int rotIdx
+    )
+    {
+        // give out positive index for region with ON
+        // negative index for region with OFF
+        // indexes range from 1 to nrPeaks and from -1 to -nrPeaks
+
+        for (int p = 0; p < nrPeaks; p++) {
+            if(Math.abs(wrap_PI(angle-peaksRad[rotIdx][p])) <= angResRad[p]/2){
+                // only peaks will change with rotations, angular resolutions stay the same
+                return p+1;
+            }
+        }
+
+        // it is not ON, assign index now, check where it fits
+        for (int p = 0; p < nrPeaks-1; p++) {
+            // check if it falls in the (p, p+1)
+            if(wrap_PI(angle-peaksRad[rotIdx][p]) > 0 && wrap_PI(angle-peaksRad[rotIdx][p+1])<0){
+                // only peaks will change with rotations, angular resolutions stay the same
+                return -(p+1);
+            }
+        }
+
+        return -(nrPeaks);
+
+    }
 	
 	public ImageProcessor plot(
             int N
@@ -314,12 +362,6 @@ public class CircularConfiguration {
         double R2      = ringR[1]*Rout;
         double Rinn     = innerRing*Rout;
 
-//        System.out.println("centerX " + centerX);
-//        System.out.println("centerY " + centerY);
-//        System.out.println("Rout " + Rout);
-//        System.out.println("R1 " + R1);
-//        System.out.println("R2 " + R2);
-
 	    ImageProcessor fp = new FloatProcessor(N, N);
 
             // fill the values
@@ -331,18 +373,14 @@ public class CircularConfiguration {
                     if (ro <= R2*R2 && ro >= R1*R1 ){
 
                         float theta = (float) (Math.atan2(r-centerY, c-centerX) + Math.PI);
+                        int regId = regionId(theta, 0);
 
-						if(isOn(theta, 0)){
-							fp.setf(c, r, +1);
-						}
-						else {
-							fp.setf(c, r, -1);
-						}
+                        fp.setf(c, r, regId);
 
                     }
-//                    else if (ro<=Rinn) {
-//                        fp.setf(c, r, +1);
-//                    }
+                    else if (ro<=Rinn) {
+                        fp.setf(c, r, nrPeaks+1);
+                    }
 
                 }
             }
@@ -383,22 +421,14 @@ public class CircularConfiguration {
                     if (ro <= R2*R2 && ro >= R1*R1 ){
 
                         float theta = (float) (Math.atan2(r-centerY, c-centerX) + Math.PI);
+                        int regId = regionId(theta, rotIdx);
 
-                        if(isOn(theta, rotIdx)){
-
-                            fp.setf(c, r, +1);
-
-                        }
-                        else {
-
-                            fp.setf(c, r, -1);
-
-                        }
+                        fp.setf(c, r, regId);
 
                     }
-//                    else if(ro<=Rinn){
-//                        fp.setf(c, r, +1);
-//                    }
+                    else if(ro<=Rinn){
+                        fp.setf(c, r, nrPeaks+1);
+                    }
 
                 }
             }

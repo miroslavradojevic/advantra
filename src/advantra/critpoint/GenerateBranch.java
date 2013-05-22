@@ -36,14 +36,14 @@ public class GenerateBranch implements PlugIn {
 						   String arg0
 	)
 	{
-		     System.out.println("?");
 		GenericDialog gd = new GenericDialog("Generate Random Branches");
 
 		gd.addMessage("generate bifurcations \n export locations of critical points");
 
-		gd.addNumericField("Image Width:", 129, 0, 5, "");
+		gd.addNumericField("Image Width:",      129,  0,  5, "");
 		gd.addNumericField("Image Height:", 	129,  0,  5, "");
-		gd.addNumericField("total branches:", 	100,  0,  5, "");
+		gd.addNumericField("train images:", 	100,  0,  5, "");
+        gd.addNumericField("test  images:", 	5,    0,  5, "");
 
 		gd.showDialog();
 		if (gd.wasCanceled()) return;
@@ -51,6 +51,7 @@ public class GenerateBranch implements PlugIn {
         int H = (int) gd.getNextNumber();
 		int W = (int) gd.getNextNumber();
 		int N = (int) gd.getNextNumber();
+        int L = (int) gd.getNextNumber();
 
         FileWriter 			fw;
         String file_name;
@@ -83,10 +84,10 @@ public class GenerateBranch implements PlugIn {
                  */
                 fw = new FileWriter(outDirTrain+file_name+".pos");
                 fw.write(IJ.d2s(bm2d.pc[1], 2)+", "+IJ.d2s(bm2d.pc[0], 2)+"\n");
-                fw.write(IJ.d2s(bm2d.pc[1]-1, 2)+", "+IJ.d2s(bm2d.pc[0], 2)+"\n");
-                fw.write(IJ.d2s(bm2d.pc[1]+1, 2)+", "+IJ.d2s(bm2d.pc[0], 2)+"\n");
-                fw.write(IJ.d2s(bm2d.pc[1], 2)+", "+IJ.d2s(bm2d.pc[0]-1, 2)+"\n");
-                fw.write(IJ.d2s(bm2d.pc[1], 2)+", "+IJ.d2s(bm2d.pc[0]+1, 2)+"\n");
+//                fw.write(IJ.d2s(bm2d.pc[1]-1, 2)+", "+IJ.d2s(bm2d.pc[0], 2)+"\n");
+//                fw.write(IJ.d2s(bm2d.pc[1]+1, 2)+", "+IJ.d2s(bm2d.pc[0], 2)+"\n");
+//                fw.write(IJ.d2s(bm2d.pc[1], 2)+", "+IJ.d2s(bm2d.pc[0]-1, 2)+"\n");
+//                fw.write(IJ.d2s(bm2d.pc[1], 2)+", "+IJ.d2s(bm2d.pc[0]+1, 2)+"\n");
                 fw.close();
                 /*
                  */
@@ -160,7 +161,7 @@ public class GenerateBranch implements PlugIn {
         }
 
         // test set with masks
-        for (int i = 0; i < 10; i ++){
+        for (int i = 0; i < L; i ++){
 
             bm2d.generateRandomBranch();
             ImageProcessor ip_to_add = new ByteProcessor(W, H);
@@ -188,7 +189,7 @@ public class GenerateBranch implements PlugIn {
 
         }
 
-        IJ.log("trainset:\n" + outDirTrain + "\ntestset:\n" + outDirTest);
+        IJ.log("trainset:\n\n" + outDirTrain + "\n\ntestset:\n\n" + outDirTest);
 
 /*		// parameters
 		int 	stack_height 	= 64;
