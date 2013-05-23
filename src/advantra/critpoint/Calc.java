@@ -1,10 +1,8 @@
 package advantra.critpoint;
 
-import advantra.feature.FilterSet;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.Plot;
-import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 
@@ -279,6 +277,71 @@ public class Calc {
 			}
 		}
 		return ip;
+	}
+
+	public static ImageStack filterResponseAllRot(
+													   ImagePlus template,
+													   FilterSet fs,
+													   int fsIdx,
+													   int margin
+	)
+	{
+		int W = template.getWidth();
+		int H = template.getHeight();
+
+		// storage for the profile
+		int N = circularProfileSize(margin);
+		float[] vals = new float[N];
+		float[] angs = new float[N];
+		float[] rads = new float[N];
+
+		ImageStack is = new ImageStack(W, H);
+
+		if (fsIdx<fs.circConfs.size()) {
+			// circular f.
+			for (int rotId = 0; rotId < fs.circConfs.get(fsIdx).nrRot; rotId++) {
+
+				System.out.print("\ncalculating score for rotation idx. "+rotId+" / "+(fs.circConfs.get(fsIdx).nrRot-1));
+
+				ImageProcessor ip = new FloatProcessor(W, H);
+
+				for (int x = 0; x < W; x++){
+					for (int y = 0; y < H; y++){
+						if (x>margin && x<W-margin && y>margin && y<H-margin){
+
+							getProfile(template, x, y, margin, vals, angs, rads);
+							ip.setf(x, y, fs.circConfs.get(fsIdx).score(vals, angs, rads, rotId));
+
+						}
+					}
+				}
+
+				System.out.println(" done.");
+				is.addSlice(ip);
+
+			}
+
+		}
+		else{
+
+			// radial f.
+			ImageProcessor ip = new FloatProcessor(W, H);
+
+			for (int x = 0; x < W; x++){
+				for (int y = 0; y < H; y++){
+					if (x>margin && x<W-margin && y>margin && y<H-margin){
+
+						ip.setf(x, y, fs.radlConfs.get(fsIdx-fs.circConfs.size()).score(vals, rads));
+
+					}
+				}
+			}
+
+			is.addSlice(ip);
+
+		}
+
+		return is;
 	}
 
 }

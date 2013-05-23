@@ -3,8 +3,6 @@ package advantra.critpoint;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 
-import advantra.feature.FilterSet;
-import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.GenericDialog;
 import ij.gui.ImageCanvas;
@@ -35,6 +33,8 @@ public class DemoFilters implements PlugInFilter, MouseListener {
 	int         nr_ring;
 	double[]    rings;
 
+	double 		innerRadius;
+
 	int 		patchRadius;
 
 	// profile values
@@ -46,12 +46,14 @@ public class DemoFilters implements PlugInFilter, MouseListener {
 		
 		GenericDialog gd = new GenericDialog("Demo filter");
 		gd.addMessage("WEAK LEARNERS (feature set)");
-		gd.addChoice("alfa_1",      new String[]{"20", "40", "60", "80"}, "40");
+		gd.addChoice("alfa_1", new String[]{"20", "40", "60", "80"}, "40");
 		gd.addChoice("alfa_2",      new String[]{"20", "40", "60", "80"}, "40");
-		gd.addNumericField("ring_1:",    0.4,       1); //ring1
+		gd.addNumericField("ring_1:", 0.4, 1); //ring1
 		gd.addNumericField("ring_2:",    0.7,       1); //ring2
 		gd.addNumericField("nr_rings:", 2, 0, 5, "");//nr_rings
-		gd.addNumericField("patch_size:", 15, 0, 5, "");
+		gd.addNumericField("inner ring:",   0.2,    1);
+		gd.addNumericField("patch_size:", 20, 0, 5, "");
+
 		gd.showDialog();
 		if (gd.wasCanceled()) return;
 
@@ -82,6 +84,8 @@ public class DemoFilters implements PlugInFilter, MouseListener {
 		rings = new double[nr_ring];
 		for (int i = 0; i <nr_ring; i++) rings[i] = (i == 0) ? ring1 : ring1 + i * ((ring2 - ring1) / (nr_ring - 1));
 
+		innerRadius = gd.getNextNumber();
+
 		patchRadius = (int) gd.getNextNumber();
 
 		int toAlloc = Calc.circularProfileSize(patchRadius);
@@ -94,7 +98,7 @@ public class DemoFilters implements PlugInFilter, MouseListener {
 		/*
 		 * generate filters to score on example profiles (generate features)
 		 */
-		fs = new FilterSet(angScale, rings, new double[]{0.3, 0.5, 0.7});
+		fs = new FilterSet(angScale, rings, new double[]{0.4, 0.6, 0.8}, innerRadius);
 		int nrFilters = fs.circConfs.size()+fs.radlConfs.size();
 		System.out.println(nrFilters + " filters (weak classifiers) formed!");
         /*
@@ -155,7 +159,7 @@ public class DemoFilters implements PlugInFilter, MouseListener {
 
 				Calc.getProfile(img, mouseX, mouseY, patchRadius, vals, angs, rads);
 				new ImagePlus("extracted_values", Calc.plotProfile(vals, angs, rads)).show();
-				new ImagePlus("filter_responses", Calc.plotAllResponses(fs, vals, angs, rads)).show();
+				new ImagePlus("filter_scores", Calc.plotAllResponses(fs, vals, angs, rads)).show();
 			}
 
 		}
@@ -164,7 +168,17 @@ public class DemoFilters implements PlugInFilter, MouseListener {
 
 			int mouseZ = all_feats.getCurrentSlice()-1;
 			System.out.println("caluclate score on feature with idx. " + mouseZ);
-			new ImagePlus("", Calc.filterResponse(img, fs, mouseZ, patchRadius)).show();
+			new ImagePlus("max", Calc.filterResponse(img, fs, mouseZ, patchRadius)).show();
+			new ImagePlus("per_rot", Calc.filterResponseAllRot(img, fs, mouseZ, patchRadius)).show();
+
+			// plot all rotations
+			if (mouseZ<fs.circConfs.size()) {
+				new ImagePlus("rots", fs.circConfs.get(mouseZ).plotAllRotations(2*patchRadius+1)).show();
+			}
+			else {
+				new ImagePlus("rots", fs.radlConfs.get(mouseZ-fs.circConfs.size()).plot(2*patchRadius+1)).show();
+			}
+
 
 		}
 

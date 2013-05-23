@@ -4,7 +4,6 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.util.Vector;
 
-import advantra.feature.FilterSet;
 import advantra.feature.GaborFilt2D;
 import advantra.feature.MyHessian;
 

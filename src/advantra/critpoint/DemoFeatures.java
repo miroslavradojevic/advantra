@@ -1,18 +1,13 @@
 package advantra.critpoint;
 
-import java.awt.Color;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 
-import advantra.feature.CircHaarFeat;
-import advantra.feature.FilterSet;
-import advantra.general.Sort;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.GenericDialog;
 import ij.gui.Plot;
-import ij.plugin.PlugIn;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
 
@@ -58,8 +53,7 @@ public class DemoFeatures implements PlugInFilter, MouseListener {
         gd.addNumericField("ring_1:",       0.4,    1); //ring1
         gd.addNumericField("ring_2:",       0.7,    1); //ring2
         gd.addNumericField("nr_rings:",     2, 	    0,  5, "");//nr_rings
-
-        gd.addNumericField("patch_size: ",    3.0, 	1);
+        gd.addNumericField("patch_size: ",    25, 	1);
 
         gd.showDialog();
         if (gd.wasCanceled()) return;
@@ -91,8 +85,7 @@ public class DemoFeatures implements PlugInFilter, MouseListener {
         ring1 =  gd.getNextNumber();            System.out.println("ring1 = "+ring1);
         ring2 =  gd.getNextNumber();            System.out.println("ring2 = "+ring2);
         nr_rings = (int) gd.getNextNumber();    System.out.println("nr_rings = "+nr_rings);
-        p_radius =  (int)gd.getNextNumber();             System.out.println("patch_radius = "+p_radius);
-
+        p_radius =  (int)gd.getNextNumber();    System.out.println("patch_radius = "+p_radius);
 
         angScale = new int[(angScale2-angScale1)/20+1];
         int cnt = 0;
@@ -109,7 +102,7 @@ public class DemoFeatures implements PlugInFilter, MouseListener {
         }
 
         // create filter set
-        fs = new FilterSet(angScale, rings, new double[1]);
+        fs = new FilterSet(angScale, rings, new double[]{0.5}, 0.3);
         int nrFilters = fs.circConfs.size()+fs.radlConfs.size();
         System.out.println(nrFilters+" filters formed!");
         /*

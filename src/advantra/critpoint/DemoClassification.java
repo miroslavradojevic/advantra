@@ -4,13 +4,10 @@ import java.awt.Color;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.FilenameFilter;
-import java.io.IOException;
 import java.util.Random;
 import java.util.Vector;
 
-import advantra.feature.FilterSet;
 import advantra.feature.GaborFilt2D;
 import advantra.file.AnalyzeCSV;
 
@@ -24,7 +21,6 @@ import ij.plugin.PlugIn;
 import ij.plugin.ZProjector;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
-import ij.process.ImageProcessor;
 
 public class DemoClassification implements PlugIn, MouseListener {
 
@@ -46,6 +42,8 @@ public class DemoClassification implements PlugIn, MouseListener {
     double      radial1, radial2;
     int         nr_radial;
     double[]    radials;
+
+	double 		innerRadius;
 
     int 		patchRadius, toAllocate;
     int 		W, H;
@@ -87,6 +85,8 @@ public class DemoClassification implements PlugIn, MouseListener {
         radial2    	    = Prefs.get("advantra.critpoint.end_radial", 	    0.8);
         nr_radial		= (int)Prefs.get("advantra.critpoint.nr_radial",    3);
 
+		innerRadius = 0.3;
+
 
 		train_folder    = (String)Prefs.get("advantra.critpoint.train_folder",
 				(System.getProperty("user.home")+File.separator));
@@ -109,6 +109,8 @@ public class DemoClassification implements PlugIn, MouseListener {
         gd.addNumericField("radial_1:",    radial1,       1); //radial1
         gd.addNumericField("radial_2:",    radial2,       1); //radial2
         gd.addNumericField("nr_radials:",  nr_radial, 	  0,  5, "");//nr_radials
+
+		gd.addNumericField("inner radius:",    innerRadius,       1);
 
 		gd.addStringField("train folder : ", train_folder, 	40);
 		gd.addStringField("test  folder : ", test_folder, 	40);
@@ -157,6 +159,8 @@ public class DemoClassification implements PlugIn, MouseListener {
         for (int i = 0; i <nr_radial; i++) radials[i] = (i == 0) ? radial1 : radial1 + i * ((radial2 - radial1) / (nr_radial - 1));
         // TODO: block inputs higher than 1.0 for raidals
 
+		innerRadius = gd.getNextNumber();
+
 		train_folder = 	gd.getNextString();
 		test_folder = 	gd.getNextString();
 
@@ -183,9 +187,9 @@ public class DemoClassification implements PlugIn, MouseListener {
 		 * generate filters to score on example profiles (generate features)
 		 */
         for (int a = 0; a < rings.length; a++) System.out.println("rings ["+a+"] = "+rings[a]);
-        fs = new FilterSet(angScale, rings, radials);
+        fs = new FilterSet(angScale, rings, radials, innerRadius);
         int nrFilters = fs.circConfs.size()+fs.radlConfs.size();
-        fs.print();
+        //fs.print();
         System.out.println(nrFilters+" filters formed, ");
         /*
         show them
@@ -194,7 +198,7 @@ public class DemoClassification implements PlugIn, MouseListener {
         ImagePlus all_feats = new ImagePlus("ALL", fs.plot(patchDiameter));
         all_feats.setTitle("All_Features");
         all_feats.show();
-        for (int i = 0; i < 6; i++) all_feats.getCanvas().zoomIn(0, 0);
+        //for (int i = 0; i < 6; i++) all_feats.getCanvas().zoomIn(0, 0);
 
 		int toAlloc = Calc.circularProfileSize(patchRadius);
 		vals = new float[toAlloc];
@@ -501,7 +505,7 @@ public class DemoClassification implements PlugIn, MouseListener {
 
         GenericDialog gd1 = new GenericDialog("AdaBoost training");
         gd1.addMessage("How many feats to keep? stored: " + T);
-        gd1.addNumericField("T",					    T, 0, 6, " (total "+nrFilters+")");
+        gd1.addNumericField("T", T, 0, 6, " (total " + nrFilters + ")");
         gd1.showDialog();
         if (gd1.wasCanceled()) return;
         T = (int)       gd1.getNextNumber();
@@ -666,7 +670,7 @@ public class DemoClassification implements PlugIn, MouseListener {
 //				}
 
                 ovly = new Overlay();
-                System.out.println("\nclassifying "+curr_tst+" locations from "+img.getTitle());
+                System.out.println("\nclassifying " + curr_tst + " locations from " + img.getTitle());
 
 				for (int k = 0; k < curr_tst; k++) {
 

@@ -227,7 +227,85 @@ public class CircularConfiguration {
 
     }
 
-    public float[] scoreAllRot(
+	public float score(
+							  float[] val,
+							  float[] ang,
+							  float[] rad,
+							  int 	rotIdx
+	)
+	{
+
+        /*
+         *	calculate score on this CircularConfiguration
+         *	at particular rotation
+         */
+
+//		float 	score = Float.NEGATIVE_INFINITY;  // lowest possible score
+		float sc;
+
+		int r = rotIdx;
+
+		if (r >=0 && r < nrRot){
+
+		//for (int r = 0; r < nrRot; r++) {
+
+			// calculate scores for each rotation
+
+			// set to zero
+			for (int k = 0; k < nrPeaks; k++) {
+				sumOFF[k] = 0;
+				nrOFF[k]  = 0;
+				sumON[k]  = 0;
+				nrON[k]   = 0;
+			}
+			nrON[nrPeaks] = 0;
+			sumON[nrPeaks]= 0;
+
+			for (int i = 0; i < val.length; i++) {
+
+				if (rad[i]<=ringR[1] && rad[i]>=ringR[0]) {
+
+					int regId = regionId(ang[i], r); // will give out index (+1, +nrPeaks), and (-1, -nrPeaks), and (nrPeaks+1)
+
+					if(regId>0){
+						nrON[regId-1]++;
+						sumON[regId-1]+=val[i];
+					}
+					else{
+						nrOFF[-regId-1]++;
+						sumOFF[-regId-1]+=val[i];
+					}
+				}
+				else if (rad[i] <= innerRing) {
+					nrON[nrPeaks]++;
+					sumON[nrPeaks]+=val[i];
+				}
+			}
+
+			float sumONAll = 0;
+			int nrONAll = 0;
+			float sumOFFAll = 0;
+			int nrOFFAll = 0;
+
+			for (int k = 0; k < nrPeaks; k++){
+				if (nrON[k]>0)  { sumONAll += sumON[k]/nrON[k];     nrONAll++;}
+				if (nrOFF[k]>0) { sumOFFAll += sumOFF[k]/nrOFF[k];  nrOFFAll++;}
+			}
+
+			sc =  ((sumONAll/nrONAll)-(sumOFFAll/nrOFFAll));
+
+		}
+		else {
+			System.out.println("illegal rotation index!");
+			sc = Float.NaN;
+		}
+
+		return sc;
+
+	}
+
+
+	public float[] scoreAllRot(
             float[] val,
             float[] ang,
             float[] rad

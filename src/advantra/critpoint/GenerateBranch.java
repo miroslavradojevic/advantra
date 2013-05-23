@@ -42,7 +42,7 @@ public class GenerateBranch implements PlugIn {
 
 		gd.addNumericField("Image Width:",      129,  0,  5, "");
 		gd.addNumericField("Image Height:", 	129,  0,  5, "");
-		gd.addNumericField("train images:", 	100,  0,  5, "");
+		gd.addNumericField("train images:", 	200,  0,  5, "");
         gd.addNumericField("test  images:", 	5,    0,  5, "");
 
 		gd.showDialog();
