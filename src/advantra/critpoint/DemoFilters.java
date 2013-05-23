@@ -81,8 +81,12 @@ public class DemoFilters implements PlugInFilter, MouseListener {
 		ring2 = gd.getNextNumber();
 		nr_ring = (int) gd.getNextNumber();
 
+        System.out.println("nr_ring = "+ nr_ring);
+
 		rings = new double[nr_ring];
 		for (int i = 0; i <nr_ring; i++) rings[i] = (i == 0) ? ring1 : ring1 + i * ((ring2 - ring1) / (nr_ring - 1));
+
+        for (int i = 0; i <rings.length; i++) System.out.println("ring["+i+"]="+rings[i]);
 
 		innerRadius = gd.getNextNumber();
 
@@ -158,8 +162,12 @@ public class DemoFilters implements PlugInFilter, MouseListener {
 				img.setOverlay(o);
 
 				Calc.getProfile(img, mouseX, mouseY, patchRadius, vals, angs, rads);
-				new ImagePlus("extracted_values", Calc.plotProfile(vals, angs, rads)).show();
+				//new ImagePlus("extracted_values", Calc.plotProfile(vals, angs, rads)).show();
 				new ImagePlus("filter_scores", Calc.plotAllResponses(fs, vals, angs, rads)).show();
+
+                int filtIdx = all_feats.getCurrentSlice()-1;
+                System.out.println("filter index "+filtIdx+" scores "+Calc.getProfileResponse(fs, vals, angs, rads)[filtIdx]+" here ");
+
 			}
 
 		}

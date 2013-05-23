@@ -172,8 +172,6 @@ public class CircularConfiguration {
 
         for (int r = 0; r < nrRot; r++) {
 
-            // calculate scores for each rotation
-
             // set to zero
             for (int k = 0; k < nrPeaks; k++) {
                 sumOFF[k] = 0;
@@ -205,17 +203,33 @@ public class CircularConfiguration {
                 }
             }
 
-            float sumONAll = 0;
+            //float sumONAll = 0;
+            float mulONAll = 1;
             int nrONAll = 0;
-            float sumOFFAll = 0;
+
+            //float sumOFFAll = 0;
+            float mulOFFAll = 1;
             int nrOFFAll = 0;
 
             for (int k = 0; k < nrPeaks; k++){
-                if (nrON[k]>0)  { sumONAll += sumON[k]/nrON[k];     nrONAll++;}
-                if (nrOFF[k]>0) { sumOFFAll += sumOFF[k]/nrOFF[k];  nrOFFAll++;}
+                if (nrON[k]>0)  {mulONAll  *= sumON[k]/nrON[k];  nrONAll++;}    //  sumONAll  += sumON[k]/nrON[k];
+                if (nrOFF[k]>0) {mulOFFAll *= sumOFF[k]/nrOFF[k];  nrOFFAll++;} //  sumOFFAll += sumOFF[k]/nrOFF[k];
+//                System.out.println("A"+ k + " : " + (sumON[k]/nrON[k])   +",\t"+ nrON[k]    + " samples");
+//                System.out.println("B"+ k + " : " + (sumOFF[k]/nrOFF[k]) +",\t"+ nrOFF[k]   + " samples" );
             }
 
-            float sc =  ((sumONAll/nrONAll)-(sumOFFAll/nrOFFAll));
+            mulONAll  *= sumON[nrPeaks]/nrON[nrPeaks]; nrONAll++; // sumONAll += nrON[nrPeaks]/sumON[nrPeaks];
+
+//            System.out.println("A"+nrPeaks + " : " + (sumON[nrPeaks]/nrON[nrPeaks]) +","+ nrON[nrPeaks] + " samples");
+
+            //float sc =  ((sumONAll/nrONAll)-(sumOFFAll/nrOFFAll));
+            //System.out.println("SCORE : "+sc+" (max "+score+"), (+)"+(sumONAll/nrONAll)+", (-)"+(sumOFFAll/nrOFFAll));
+
+            double gmOn = Math.pow(mulONAll, 1f/nrONAll);
+            double gmOff = Math.pow(mulOFFAll, 1f/nrOFFAll);
+            //System.out.println("SCORE (geometric mean) : "+(gmOn-gmOff)+"), (+gm)"+gmOn+", (-gm)"+gmOff);
+
+            float sc = (float) (gmOn-gmOff);
 
             if(sc>score || r==0){
                 score = sc;
@@ -235,14 +249,8 @@ public class CircularConfiguration {
 	)
 	{
 
-        /*
-         *	calculate score on this CircularConfiguration
-         *	at particular rotation
-         */
-
-//		float 	score = Float.NEGATIVE_INFINITY;  // lowest possible score
+        // score for particular rotation
 		float sc;
-
 		int r = rotIdx;
 
 		if (r >=0 && r < nrRot){
@@ -282,17 +290,34 @@ public class CircularConfiguration {
 				}
 			}
 
-			float sumONAll = 0;
+//			float sumONAll = 0;
+            float mulONAll = 1;
 			int nrONAll = 0;
-			float sumOFFAll = 0;
-			int nrOFFAll = 0;
+
+//			float sumOFFAll = 0;
+			float mulOFFAll = 1;
+            int nrOFFAll = 0;
 
 			for (int k = 0; k < nrPeaks; k++){
-				if (nrON[k]>0)  { sumONAll += sumON[k]/nrON[k];     nrONAll++;}
-				if (nrOFF[k]>0) { sumOFFAll += sumOFF[k]/nrOFF[k];  nrOFFAll++;}
+
+				if (nrON[k]>0)  {mulONAll *= sumON[k]/nrON[k];   nrONAll++;}  // sumONAll += sumON[k]/nrON[k];
+				if (nrOFF[k]>0) {mulOFFAll*= sumOFF[k]/nrOFF[k]; nrOFFAll++;} // sumOFFAll += sumOFF[k]/nrOFF[k];
+
+//                System.out.println("A"+ k + " : " + (sumON[k]/nrON[k]) );
+//                System.out.println("B"+ k + " : " + (sumOFF[k]/nrOFF[k]) );
+
 			}
 
-			sc =  ((sumONAll/nrONAll)-(sumOFFAll/nrOFFAll));
+            mulONAll *= sumON[nrPeaks]/nrON[nrPeaks]; nrONAll++;   // sumONAll += nrON[nrPeaks]/sumON[nrPeaks];
+
+//            System.out.println("A"+nrPeaks + " : " + (sumON[nrPeaks]/nrON[nrPeaks]) );
+
+            double gmOn = Math.pow(mulONAll, 1f/nrONAll);
+            double gmOff = Math.pow(mulOFFAll, 1f/nrOFFAll);
+
+
+			//sc =  ((sumONAll/nrONAll)-(sumOFFAll/nrOFFAll));
+            sc = (float) (gmOn-gmOff);
 
 		}
 		else {
@@ -319,8 +344,6 @@ public class CircularConfiguration {
          */
 
         float[] 	score = new float[nrRot];
-        double      sumPos, sumNeg;
-        int         nrPos, nrNeg;
 
         for (int r = 0; r < nrRot; r++) {
 
@@ -359,17 +382,25 @@ public class CircularConfiguration {
 
             }
 
-            float sumONAll = 0;
+//            float sumONAll = 0;
+            float mulONAll = 1;
             int nrONAll = 0;
-            float sumOFFAll = 0;
+
+//            float sumOFFAll = 0;
+            float mulOFFAll = 1;
             int nrOFFAll = 0;
 
             for (int k = 0; k < nrPeaks; k++){
-                if (nrON[k]>0)  { sumONAll += sumON[k]/nrON[k];     nrONAll++;}
-                if (nrOFF[k]>0) { sumOFFAll += sumOFF[k]/nrOFF[k];  nrOFFAll++;}
+                if (nrON[k]>0)  {mulONAll *= sumON[k]/nrON[k];       nrONAll++;}  // sumONAll += sumON[k]/nrON[k];
+                if (nrOFF[k]>0) {mulOFFAll *= sumOFF[k]/nrOFF[k];    nrOFFAll++;} // sumOFFAll += sumOFF[k]/nrOFF[k];
             }
 
-            score[r] =  ((sumONAll/nrONAll)-(sumOFFAll/nrOFFAll));
+            mulONAll *= nrON[nrPeaks]/sumON[nrPeaks]; nrONAll++;  // sumONAll += nrON[nrPeaks]/sumON[nrPeaks];
+
+            double gmOn = Math.pow(mulONAll, 1f/nrONAll);
+            double gmOff = Math.pow(mulOFFAll, 1f/nrOFFAll);
+
+            score[r] = (float) (gmOn-gmOff);//((sumONAll/nrONAll)-(sumOFFAll/nrOFFAll));
 
         }
 
@@ -456,7 +487,7 @@ public class CircularConfiguration {
                         fp.setf(c, r, regId);
 
                     }
-                    else if (ro<=Rinn) {
+                    else if (ro<=Rinn*Rinn) {
                         fp.setf(c, r, nrPeaks+1);
                     }
 
@@ -504,7 +535,7 @@ public class CircularConfiguration {
                         fp.setf(c, r, regId);
 
                     }
-                    else if(ro<=Rinn){
+                    else if(ro<=Rinn*Rinn){
                         fp.setf(c, r, nrPeaks+1);
                     }
 

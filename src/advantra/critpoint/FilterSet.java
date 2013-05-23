@@ -200,13 +200,19 @@ public class FilterSet {
 
 							if(!covered){
 								// add it for all radial scales
+                                if (angular_scale_radiuses.length==1){
+                                    System.out.println("here!");
+                                    circConfs.add(new CircularConfiguration(per3[i], new int[]{d1, d2, d3},  new double[]{angular_scale_radiuses[0], 1.0}, innerRing));
+                                }
+
 								for (int k = 0; k < angular_scale_radiuses.length-1; k++){
 									//circConfs.add(new CircularConfiguration(per3[i], new int[]{d1, d2, d3},  new double[]{0.0, angular_scale_radiuses[k]}));
                                     if (angular_scale_radiuses[k]<0.99)
+
                                         circConfs.add(new CircularConfiguration(per3[i], new int[]{d1, d2, d3},  new double[]{angular_scale_radiuses[k], angular_scale_radiuses[k+1]}, innerRing));
 
                                     int last_one = angular_scale_radiuses.length-1;
-                                            circConfs.add(new CircularConfiguration(per3[i], new int[]{d1, d2, d3},  new double[]{angular_scale_radiuses[last_one], 1.0}, innerRing));
+                                        circConfs.add(new CircularConfiguration(per3[i], new int[]{d1, d2, d3},  new double[]{angular_scale_radiuses[last_one], 1.0}, innerRing));
 								}
 
 							}
