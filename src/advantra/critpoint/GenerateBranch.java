@@ -32,11 +32,14 @@ public class GenerateBranch implements PlugIn {
     String outDirTrain;
     String outDirTest;
 
+    int bgBias, bgRange, fgBias, fgRange;
+
 	public void run(
 						   String arg0
 	)
 	{
-		GenericDialog gd = new GenericDialog("Generate Random Branches");
+
+		GenericDialog gd = new GenericDialog("Generate Random Bifurcations");
 
 		gd.addMessage("generate bifurcations \n export locations of critical points");
 
@@ -45,6 +48,12 @@ public class GenerateBranch implements PlugIn {
 		gd.addNumericField("train images:", 	200,  0,  5, "");
         gd.addNumericField("test  images:", 	5,    0,  5, "");
 
+        String moment = (new SimpleDateFormat("dd-MM-yyyy-HH-mm-ss")).format(Calendar.getInstance().getTime());
+        String def_dir = System.getProperty("user.home")+File.separator+
+                "cp_"+moment+File.separator;
+
+        gd.addStringField("destination folder: ", def_dir, 40);
+
 		gd.showDialog();
 		if (gd.wasCanceled()) return;
 
@@ -52,18 +61,20 @@ public class GenerateBranch implements PlugIn {
 		int W = (int) gd.getNextNumber();
 		int N = (int) gd.getNextNumber();
         int L = (int) gd.getNextNumber();
+        outDirPath = gd.getNextString();
+
+        bgBias  = 20;
+        bgRange = 40;
+        fgBias  = 150;
+        fgRange = 30;
 
         FileWriter 			fw;
         String file_name;
 
-        String moment = (new SimpleDateFormat("dd-MM-yyyy-HH-mm-ss")).format(Calendar.getInstance().getTime());
-
-        outDirPath =
-                System.getProperty("user.home")+File.separator+
-                        "cp_"+moment+File.separator;
-
         outDirTrain = outDirPath+"train"+File.separator;
         outDirTest =outDirPath+"test"+File.separator;
+
+        System.out.println("will be storing train in: "+outDirTrain);
 
         CreateDirectory.createOneDir(outDirPath);
         CreateDirectory.createOneDir(outDirTrain);
@@ -73,7 +84,7 @@ public class GenerateBranch implements PlugIn {
 
         for (int i = 0; i < N; i ++){
 
-			bm2d.generateRandomBranch();
+			bm2d.generateRandomBranch(bgBias, bgRange, fgBias, fgRange);
 			ImageProcessor ip_to_add = new ByteProcessor(W, H);
 
 			for (int j = 0; j < W*H; j++) ip_to_add.setf(j, bm2d.values[j]);
@@ -163,11 +174,14 @@ public class GenerateBranch implements PlugIn {
         // test set with masks
         for (int i = 0; i < L; i ++){
 
-            bm2d.generateRandomBranch();
+            bm2d.generateRandomBranch(bgBias, bgRange, fgBias, fgRange);
+
             ImageProcessor ip_to_add = new ByteProcessor(W, H);
+            ImageProcessor ipmask_to_add = new ByteProcessor(W, H);
 
             for (int j = 0; j < W*H; j++) {
                 ip_to_add.setf(j, bm2d.values[j]);
+                ipmask_to_add.setf(j, bm2d.mask[j]);
             }
             file_name = "bch_"+i;
             ImagePlus im_to_add = new ImagePlus(file_name, ip_to_add);
@@ -177,10 +191,6 @@ public class GenerateBranch implements PlugIn {
             FileSaver fs = new FileSaver(im_to_add);
             fs.saveAsTiff(outDirTest+file_name+".tif");
 
-            ImageProcessor ipmask_to_add = new ByteProcessor(W, H);
-            for (int j = 0; j < W*H; j++) {
-                ipmask_to_add.setf(j, (byte) 255);
-            }
             ImagePlus immask_to_add = new ImagePlus(file_name, ipmask_to_add);
 
             //save

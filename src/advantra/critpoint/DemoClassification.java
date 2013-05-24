@@ -26,6 +26,8 @@ import weka.core.Attribute;
 import weka.core.FastVector;
 import weka.core.Instance;
 import weka.core.Instances;
+import weka.core.converters.ConverterUtils;
+
 
 public class DemoClassification implements PlugIn, MouseListener {
 
@@ -307,6 +309,8 @@ public class DemoClassification implements PlugIn, MouseListener {
 				readCSV = new AnalyzeCSV(files_neg[i].getAbsolutePath());
 				double[][] B = readCSV.readLn(2);
 
+//                System.out.println("read B"+B.length);
+
                 /*
                 readMask = new ImagePlus(files_neg[i].getAbsolutePath());
                 double[][] B = extractLocations((ByteProcessor) readMask.getProcessor());
@@ -339,13 +343,13 @@ public class DemoClassification implements PlugIn, MouseListener {
 			}
 			else{
 				locs_neg.add(null);
-				System.out.print("\t no negatives");
+				System.out.print("\t no .neg files");
 			}
 
 			System.out.println();
 
-            if((curr_pos>0 || curr_neg>0) && true){
-
+            if((curr_pos>0 && curr_neg>0) && true){
+//                System.out.println("%%% curr_pos : "+curr_pos+" curr_neg "+curr_neg);
                 showStk.addSlice("SAMPLE"+i, img.getProcessor());
 
 				for (int k = 0; k < curr_pos; k++) {
@@ -372,6 +376,7 @@ public class DemoClassification implements PlugIn, MouseListener {
                 Random rand = new Random();
                 int cntMtches = 0;
                 while (cntMtches < curr_pos) {  // select curr_pos random ones
+                    System.out.println("curr_pos : "+curr_pos+" curr_neg "+curr_neg);
                     int rIdx = rand.nextInt(curr_neg);
                     if (!chs[rIdx]) {
                         chs[rIdx] = true;
@@ -444,6 +449,7 @@ public class DemoClassification implements PlugIn, MouseListener {
 
 		System.out.print("training RF...");
 
+
         // form weka instances object
         int totalFeats = (featsP[0].length == featsN[0].length)? featsP[0].length : 0;
         FastVector attList = new FastVector();
@@ -478,8 +484,7 @@ public class DemoClassification implements PlugIn, MouseListener {
 		}
 
 		trn.setClassIndex(trn.numAttributes()-1);
-
-        IJ.log(trn.numInstances()+", atts "+trn.numAttributes());
+        IJ.log("weka trainset formed "+trn.numInstances()+", atts "+trn.numAttributes());
 
 		// train random forest
 		RandomForest rf = new RandomForest();
@@ -492,10 +497,7 @@ public class DemoClassification implements PlugIn, MouseListener {
 
 		}
 
-
-
 		System.out.println("done.");
-//		if(true) { System.out.println("built! closing... "); return; }
 
         GenericDialog gd1 = new GenericDialog("AdaBoost training");
         gd1.addMessage("How many feats to keep? stored: " + T);
@@ -594,7 +596,6 @@ public class DemoClassification implements PlugIn, MouseListener {
             }
 
             // check if the mask has locations then add it to the list of Overlays
-
             if(curr_tst>0){
 
                 img = new ImagePlus(test_files_tif[i].getAbsolutePath());
@@ -607,8 +608,11 @@ public class DemoClassification implements PlugIn, MouseListener {
                 ovly = new Overlay();
                 System.out.println("\nclassifying " + curr_tst + " locations from " + img.getTitle());
 
-				float[] selected_profile;
-				float[] full_profile;
+                float[][] full_profile = new float[curr_tst][nrFilters];
+                float[] selected_profile;
+
+                Instances tst = new Instances("Test", attList, curr_tst);
+//                System.out.println(" created empty testset:" + tst.numInstances()+"  x "+tst.numAttributes());
 
 				for (int k = 0; k < curr_tst; k++) {
 
@@ -618,8 +622,6 @@ public class DemoClassification implements PlugIn, MouseListener {
                     Calc.getProfile(img, atX, atY, patchRadius, vals, angs, rads);
 
 					selected_profile = Calc.getProfileResponseSelection(fs, best_indexes, vals, angs, rads);
-					full_profile = Calc.getProfileResponse(fs, vals, angs, rads);
-
                     int res = applyAdaBoost(adaboost, selected_profile);
                     if(res==1){
                         PointRoi pt = new PointRoi(atX+0.5, atY+0.5);
@@ -627,27 +629,38 @@ public class DemoClassification implements PlugIn, MouseListener {
                         ovly.addElement(pt);
                     }
 
-					double[] val = new double[full_profile.length+1];
-					for (int k1 = 0; k1 < full_profile.length; k1++) val[k1] = full_profile[k1];
-					val[full_profile.length] = trn.instance(0).classValue();// set fisrt class to all
-					int rf_cls = -1;
-					try {
-						System.out.println(rf_cls+" calculating");
-						rf_cls = (int) rf.classifyInstance(new Instance(1.0, val));
-
-					} catch (Exception e) {
-						System.out.println("something was wrong");
-					}
-					System.out.println("comparing "+rf_cls+" with rf obtained "+trn.classAttribute().indexOfValue("yes"));
-					if (rf_cls == trn.classAttribute().indexOfValue("yes")){
-						PointRoi pt = new PointRoi(atX+0.5, atY+0.5);
-						pt.setStrokeColor(Color.BLUE);
-						ovly.addElement(pt);
-					}
+                    // taking values for RF
+//                    for (int w = 0; w < nrFilters; w++)
+//                        full_profile[k][w] = Calc.getProfileResponse(fs, w, vals, angs, rads);
 
 				}
 
-                System.out.println("done.");
+                System.out.println("!!! done taking values.");
+
+//                // store image features to weka test dataset
+//			    for (int k1 = 0; k1 < curr_tst; k1++){
+//                    double[] val = new double[nrFilters+1];
+//                    for (int k2 = 0; k2 < nrFilters; k2++) {
+//                        val[k2] = full_profile[k1][k2];
+//                    }
+//                    val[nrFilters] = trn.classAttribute().indexOfValue("no"); //negative class for all
+//                    tst.add(new Instance(1.0, val));
+//                }
+//                tst.setClassIndex(tst.numAttributes()-1);
+//                // classify each
+//                try {
+//                for (int ti = 0; ti < curr_tst; ti++){ // tst.numInstances()
+//                        double clsLabel = rf.classifyInstance(tst.instance(ti));
+//
+//                        if(clsLabel==trn.classAttribute().indexOfValue("yes")){
+//                            int atX = (int)locs_tst.get(i)[ti][0];
+//                            int atY = (int)locs_tst.get(i)[ti][1];
+//                            PointRoi pt = new PointRoi(atX+0.5, atY+0.5);
+//                            pt.setStrokeColor(Color.BLUE);
+//                            ovly.addElement(pt);
+//                        }
+//                }
+//                } catch (Exception e) { }
 
 				ImagePlus showIt = new ImagePlus("RES_"+test_files_tif[i].getName(), img.getProcessor());
 				showIt.setOverlay(ovly);
@@ -655,10 +668,11 @@ public class DemoClassification implements PlugIn, MouseListener {
 				showIt.show();
                 showIt.getCanvas().zoomIn(0,0);
                 showIt.getCanvas().zoomIn(0,0);
-                showIt.getCanvas().zoomIn(0,0);
-                showIt.getCanvas().zoomIn(0,0);
+//                showIt.getCanvas().zoomIn(0,0);
+//                showIt.getCanvas().zoomIn(0,0);
 
             }
+
 
         System.out.println();
 

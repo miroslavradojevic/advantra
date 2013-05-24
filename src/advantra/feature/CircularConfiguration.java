@@ -174,13 +174,20 @@ public class CircularConfiguration {
 
             // set to zero
             for (int k = 0; k < nrPeaks; k++) {
+
+                //sumOFF[k] = 0;
                 sumOFF[k] = 0;
                 nrOFF[k]  = 0;
+
+                //sumON[k]  = 0;
                 sumON[k]  = 0;
                 nrON[k]   = 0;
+
             }
-            nrON[nrPeaks] = 0;
+
+            //sumON[nrPeaks]= 0;
             sumON[nrPeaks]= 0;
+            nrON[nrPeaks] = 0;
 
             for (int i = 0; i < val.length; i++) {
 
@@ -190,16 +197,16 @@ public class CircularConfiguration {
 
 					if(regId>0){
 						nrON[regId-1]++;
-						sumON[regId-1]+=val[i];
+                        sumON[regId-1]+= Math.log(val[i]);
 					}
 					else{
 						nrOFF[-regId-1]++;
-						sumOFF[-regId-1]+=val[i];
+						sumOFF[-regId-1]+=Math.log(val[i]);
 					}
 				}
                 else if (rad[i] <= innerRing) {
                     nrON[nrPeaks]++;
-                    sumON[nrPeaks]+=val[i];
+                    sumON[nrPeaks]+=Math.log(val[i]);
                 }
             }
 
@@ -212,13 +219,13 @@ public class CircularConfiguration {
             int nrOFFAll = 0;
 
             for (int k = 0; k < nrPeaks; k++){
-                if (nrON[k]>0)  {mulONAll  *= sumON[k]/nrON[k];  nrONAll++;}    //  sumONAll  += sumON[k]/nrON[k];
-                if (nrOFF[k]>0) {mulOFFAll *= sumOFF[k]/nrOFF[k];  nrOFFAll++;} //  sumOFFAll += sumOFF[k]/nrOFF[k];
+                if (nrON[k]>0)  {mulONAll  *= Math.exp(sumON[k]/nrON[k]);  nrONAll++;}    //  sumONAll  += sumON[k]/nrON[k];
+                if (nrOFF[k]>0) {mulOFFAll *= Math.exp(sumOFF[k]/nrOFF[k]);  nrOFFAll++;} //  sumOFFAll += sumOFF[k]/nrOFF[k];
 //                System.out.println("A"+ k + " : " + (sumON[k]/nrON[k])   +",\t"+ nrON[k]    + " samples");
 //                System.out.println("B"+ k + " : " + (sumOFF[k]/nrOFF[k]) +",\t"+ nrOFF[k]   + " samples" );
             }
 
-            mulONAll  *= sumON[nrPeaks]/nrON[nrPeaks]; nrONAll++; // sumONAll += nrON[nrPeaks]/sumON[nrPeaks];
+            mulONAll  *= Math.exp(sumON[nrPeaks]/nrON[nrPeaks]); nrONAll++; // sumONAll += nrON[nrPeaks]/sumON[nrPeaks];
 
 //            System.out.println("A"+nrPeaks + " : " + (sumON[nrPeaks]/nrON[nrPeaks]) +","+ nrON[nrPeaks] + " samples");
 
@@ -242,10 +249,10 @@ public class CircularConfiguration {
     }
 
 	public float score(
-							  float[] val,
-							  float[] ang,
-							  float[] rad,
-							  int 	rotIdx
+			float[] val,
+			float[] ang,
+			float[] rad,
+			int 	rotIdx
 	)
 	{
 
@@ -277,16 +284,16 @@ public class CircularConfiguration {
 
 					if(regId>0){
 						nrON[regId-1]++;
-						sumON[regId-1]+=val[i];
+						sumON[regId-1]+=Math.log(val[i]);
 					}
 					else{
 						nrOFF[-regId-1]++;
-						sumOFF[-regId-1]+=val[i];
+						sumOFF[-regId-1]+=Math.log(val[i]);
 					}
 				}
 				else if (rad[i] <= innerRing) {
 					nrON[nrPeaks]++;
-					sumON[nrPeaks]+=val[i];
+					sumON[nrPeaks]+=Math.log(val[i]);
 				}
 			}
 
@@ -300,15 +307,15 @@ public class CircularConfiguration {
 
 			for (int k = 0; k < nrPeaks; k++){
 
-				if (nrON[k]>0)  {mulONAll *= sumON[k]/nrON[k];   nrONAll++;}  // sumONAll += sumON[k]/nrON[k];
-				if (nrOFF[k]>0) {mulOFFAll*= sumOFF[k]/nrOFF[k]; nrOFFAll++;} // sumOFFAll += sumOFF[k]/nrOFF[k];
+				if (nrON[k]>0)  {mulONAll *= Math.exp(sumON[k]/nrON[k]);   nrONAll++;}  // sumONAll += sumON[k]/nrON[k];
+				if (nrOFF[k]>0) {mulOFFAll*= Math.exp(sumOFF[k]/nrOFF[k]); nrOFFAll++;} // sumOFFAll += sumOFF[k]/nrOFF[k];
 
 //                System.out.println("A"+ k + " : " + (sumON[k]/nrON[k]) );
 //                System.out.println("B"+ k + " : " + (sumOFF[k]/nrOFF[k]) );
 
 			}
 
-            mulONAll *= sumON[nrPeaks]/nrON[nrPeaks]; nrONAll++;   // sumONAll += nrON[nrPeaks]/sumON[nrPeaks];
+            mulONAll *= Math.exp(sumON[nrPeaks]/nrON[nrPeaks]); nrONAll++;   // sumONAll += nrON[nrPeaks]/sumON[nrPeaks];
 
 //            System.out.println("A"+nrPeaks + " : " + (sumON[nrPeaks]/nrON[nrPeaks]) );
 
@@ -337,12 +344,6 @@ public class CircularConfiguration {
     )
     {
 
-        /*
-        calculate score on this CircularConfiguration as
-        highest score on all rotated versions of
-        that configuration to be rotationally invariant
-         */
-
         float[] 	score = new float[nrRot];
 
         for (int r = 0; r < nrRot; r++) {
@@ -367,18 +368,17 @@ public class CircularConfiguration {
 
                     if(regId>0){
                         nrON[regId-1]++;
-                        sumON[regId-1]+=val[i];
+                        sumON[regId-1]+=Math.log(val[i]);
                     }
                     else{
                         nrOFF[-regId-1]++;
-                        sumOFF[-regId-1]+=val[i];
+                        sumOFF[-regId-1]+=Math.log(val[i]);
                     }
                 }
                 else if (rad[i] <= innerRing){
                     nrON[nrPeaks]++;
-                    sumON[nrPeaks]+=val[i];
+                    sumON[nrPeaks]+=Math.log(val[i]);
                 }
-
 
             }
 
@@ -391,11 +391,11 @@ public class CircularConfiguration {
             int nrOFFAll = 0;
 
             for (int k = 0; k < nrPeaks; k++){
-                if (nrON[k]>0)  {mulONAll *= sumON[k]/nrON[k];       nrONAll++;}  // sumONAll += sumON[k]/nrON[k];
-                if (nrOFF[k]>0) {mulOFFAll *= sumOFF[k]/nrOFF[k];    nrOFFAll++;} // sumOFFAll += sumOFF[k]/nrOFF[k];
+                if (nrON[k]>0)  {mulONAll  *= Math.exp(sumON[k]/nrON[k]);       nrONAll++;}  // sumONAll += sumON[k]/nrON[k];
+                if (nrOFF[k]>0) {mulOFFAll *= Math.exp(sumOFF[k]/nrOFF[k]);    nrOFFAll++;} // sumOFFAll += sumOFF[k]/nrOFF[k];
             }
 
-            mulONAll *= nrON[nrPeaks]/sumON[nrPeaks]; nrONAll++;  // sumONAll += nrON[nrPeaks]/sumON[nrPeaks];
+            mulONAll *= Math.exp(nrON[nrPeaks]/sumON[nrPeaks]); nrONAll++;  // sumONAll += nrON[nrPeaks]/sumON[nrPeaks];
 
             double gmOn = Math.pow(mulONAll, 1f/nrONAll);
             double gmOff = Math.pow(mulOFFAll, 1f/nrOFFAll);

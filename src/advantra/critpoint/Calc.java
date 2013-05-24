@@ -215,6 +215,45 @@ public class Calc {
 
     }
 
+    public static float getProfileResponse(
+            FilterSet fs,
+            int fIdx,
+            float[] vals,
+            float[] angs,
+            float[] rads
+    )
+    {
+
+        if (fIdx<fs.circConfs.size()) {
+            return fs.circConfs.get(fIdx).score(vals, angs, rads);
+        }
+
+        if (fIdx>=fs.circConfs.size() && fIdx<fs.circConfs.size()+fs.radlConfs.size()){
+            return fs.radlConfs.get(fIdx-fs.circConfs.size()).score(vals, rads);
+        }
+
+        return Float.NaN;
+
+    }
+
+//    public static double[] getProfileResponseDouble(
+//            FilterSet fs,
+//            float[] vals,
+//            float[] angs,
+//            float[] rads
+//    ){
+//
+//        double[] c_sco = new double[fs.circConfs.size()+fs.radlConfs.size()];
+//        for (int i = 0; i < fs.circConfs.size(); i++){
+//            c_sco[i] = fs.circConfs.get(i).score(vals, angs, rads);
+//        }
+//        for (int i = fs.circConfs.size(); i < fs.circConfs.size()+fs.radlConfs.size(); i++){
+//            c_sco[i] = fs.radlConfs.get(i-fs.circConfs.size()).score(vals, rads);
+//        }
+//        return c_sco;
+//
+//    }
+
     public static float[] getProfileResponseSelection(
             FilterSet   fs,
             int[]       selec,
@@ -224,7 +263,7 @@ public class Calc {
     )
     {
         // calculate score only on selected features and give it as a raw output
-		float[] out = new float[selec.length];
+		float[] out = new float[selec.length];  // TODO this goes out, too slow allocation inside
 		int cnt = 0;
 
         for (int i = 0; i < selec.length; i++){
@@ -242,6 +281,11 @@ public class Calc {
 		return out;
 
     }
+
+
+    /*
+     * used when visualizing filter scores (debug, analysis)
+     */
 
 	public static ImageProcessor filterResponse(
 												  ImagePlus template,

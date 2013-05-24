@@ -201,7 +201,7 @@ public class FilterSet {
 							if(!covered){
 								// add it for all radial scales
                                 if (angular_scale_radiuses.length==1){
-                                    System.out.println("here!");
+//                                    System.out.println("here!");
                                     circConfs.add(new CircularConfiguration(per3[i], new int[]{d1, d2, d3},  new double[]{angular_scale_radiuses[0], 1.0}, innerRing));
                                 }
 

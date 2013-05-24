@@ -1,6 +1,7 @@
 package advantra.tools;
 
 import advantra.general.ArrayHandling;
+import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.Overlay;
 import ij.gui.PointRoi;
@@ -23,6 +24,7 @@ public class BranchModel2D {
     creates artificial 2D branch, as 8bit image
      */
     public byte[] values; // to store the values
+    public byte[] mask;   // object versus background mask
 
     public int h, w;
 
@@ -67,29 +69,28 @@ public class BranchModel2D {
         v2 = new double[2];
         v3 = new double[2];
 
-        values = new byte[h*w];
-
-        //for (int i = 0; i < h*w; i++) values[i] = (byte) 0; // initialize only
+        values  = new byte[h*w];
+        mask    = new byte[h*w];
 
     }
 
-    public byte[] generateRandomBranch()
+    public byte[] generateRandomBranch(int bgBias, int bgRange, int fgBias, int fgRange)
     {
 
         Random gen = new Random();
 
         // random parameters
-        bg = gen.nextInt(20) + 20; // 20 is default, 20 is dynamic range of the random value
+        bg = gen.nextInt(bgRange) + bgBias;
         for (int i = 0; i < values.length; i++) values[i] = (byte) bg;
+        for (int i = 0; i < mask.length; i++) mask[i] = (byte) 0;
 
-//        System.out.println("bg: "+bg+", fg: "+fg);
-        fg = gen.nextInt(20) + 150;
+        fg = gen.nextInt(fgRange) + fgBias;
 
         boolean angCorrect = false;
 
         while (!angCorrect){
 
-            alfa12 = gen.nextInt(180);
+            alfa12 = gen.nextInt(180); // avoid angles higher than 180 degrees - they don't make sense
             angCorrect = alfa12>=minAngle;
 
         }
@@ -145,7 +146,7 @@ public class BranchModel2D {
         v3[0]        = v3[0] / v_norm;
         v3[1]        = v3[1] / v_norm;
 
-        rstd = gen.nextInt(3) + 1;
+        rstd = gen.nextInt(2) + 1;
 
         writeLineBetween(pc, p1);
         writeLineBetween(pc, p2);
@@ -212,7 +213,6 @@ public class BranchModel2D {
 
         // assign it to the class member
 
-
         //go through every point
 //        for (int layer = 0; layer < values.length; layer++) {
             for (int coord = 0; coord < values.length; coord++) {
@@ -263,7 +263,9 @@ public class BranchModel2D {
                     return;
                 }
 
-                if(distance<3*rstd){//  // some reasonable distance from where we consider intensity is ~0
+
+                //IJ.log(3*rstd+"");
+                if(distance<3*rstd) {//  // some reasonable distance from where we consider intensity is ~0
 
                     byte value_to_write = (byte)Math.round(fg * Math.exp(-Math.pow(distance,2)/(2*Math.pow(rstd, 2))));
 
@@ -271,17 +273,23 @@ public class BranchModel2D {
                             (byte) Math.max(
                                     (int)(value_to_write & 0xff),
                                     (int)(values[ArrayHandling.sub2index_2d(p[0], p[1], w)] & 0xff)
-                            ) ;
+                            );
+
                 }
-//                else{
-//                    // this is the case when the value is out
-//                    // add some constant intensity
-//                    byte value_to_write = (byte)40;
-//                    values[layer][ArrayHandling.sub2index_2d(p[0], p[1], image_width)] =  value_to_write;
-//
-//                }
+                if (distance<3.5*rstd) {
+
+                    //byte value_to_write = (byte)Math.round(fg * Math.exp(-Math.pow(distance,2)/(2*Math.pow(rstd, 2))));
+
+                    //double a = Math.exp(-Math.pow(distance, 2) / (2 * Math.pow(rstd, 2)));
+                    //if (a < 3)
+                    mask[ArrayHandling.sub2index_2d(p[0], p[1], w)] = (byte) 255;
+//                            (byte) Math.max(
+//                                    (int)(255 & 0xff),
+//                                    (int)(mask[ArrayHandling.sub2index_2d(p[0], p[1], w)] & 0xff)
+//                            );
+
+                }
             }
-//        }
     }
 
     private double 	distance_point_to_line_2d(int[] line_base_point, double[] line_unit_direction, int[] point){
