@@ -21,8 +21,10 @@ import ij.plugin.PlugIn;
 import ij.plugin.ZProjector;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
+import weka.classifiers.trees.RandomForest;
 import weka.core.Attribute;
 import weka.core.FastVector;
+import weka.core.Instance;
 import weka.core.Instances;
 
 public class DemoClassification implements PlugIn, MouseListener {
@@ -74,7 +76,9 @@ public class DemoClassification implements PlugIn, MouseListener {
 	public void run(String arg0)
 	{
 
-        patchRadius     = (int) Prefs.get("advantra.critpoint.patch_radius", 15);
+		//run("GenerateBifs", "image=129 image=129 train=200 test=5");
+
+        patchRadius     = (int) Prefs.get("advantra.critpoint.patch_radius", 20);
 
         String[] angleChoices       =  new String[]{"20", "40", "60", "80"};
         String angleStartChoice  	=  (String) Prefs.get("advantra.critpoint.start_ang_scale", 	"40");
@@ -438,23 +442,60 @@ public class DemoClassification implements PlugIn, MouseListener {
                 "(+) " + featsP.length + " x " + featsP[0].length +
                 "(-) " + featsN.length + " x " + featsN[0].length);
 
+		System.out.print("training RF...");
+
         // form weka instances object
         int totalFeats = (featsP[0].length == featsN[0].length)? featsP[0].length : 0;
         FastVector attList = new FastVector();
         for (int i = 0; i < totalFeats; i++) {
             attList.addElement(new Attribute("feat."+i));
         }
-        FastVector categ = new FastVector(); categ.addElement("yes"); categ.addElement("no");
-        attList.addElement(new Attribute("class", categ));
+        FastVector categ = new FastVector();
+		categ.addElement("yes");
+		categ.addElement("no");
+		Attribute class_attribute = new Attribute("class", categ);
+        attList.addElement(class_attribute);
 
         Instances trn = new Instances("Trainset", attList, (featsP.length + featsN.length));
 
+		double[] values;
+		for (int i = 0; i < featsP.length; i++){
+			values = new double[featsP[0].length+1];
+			for (int j =0; j < featsP[0].length; j++){
+				values[j] = featsP[i][j];
+			}
+			values[featsP[0].length] = class_attribute.indexOfValue("yes");
+			trn.add(new Instance(1.0, values));
+		}
+
+		for (int i = 0; i < featsN.length; i++){
+			values = new double[featsN[0].length+1];
+			for (int j =0; j < featsN[0].length; j++){
+				values[j] = featsN[i][j];
+			}
+			values[featsN[0].length] = class_attribute.indexOfValue("no");
+			trn.add(new Instance(1.0, values));
+		}
+
+		trn.setClassIndex(trn.numAttributes()-1);
+
         IJ.log(trn.numInstances()+", atts "+trn.numAttributes());
 
+		// train random forest
+		RandomForest rf = new RandomForest();
+		rf.setNumTrees(10);
+		rf.setNumFeatures((int)Math.sqrt(trn.numAttributes()));
+		try {
+			rf.buildClassifier(trn);
+			System.out.println("building RF");
+		} catch (Exception e) {
+
+		}
 
 
-        if(true) { System.out.println("closing... "); return; }
 
+		System.out.println("done.");
+//		if(true) { System.out.println("built! closing... "); return; }
 
         GenericDialog gd1 = new GenericDialog("AdaBoost training");
         gd1.addMessage("How many feats to keep? stored: " + T);
@@ -463,9 +504,11 @@ public class DemoClassification implements PlugIn, MouseListener {
         if (gd1.wasCanceled()) return;
         T = (int)       gd1.getNextNumber();
 
-		System.out.print("training AdaBoost..."+T);
+		System.out.print("training AdaBoost...");
 		adaboost = trueAdaBoost(featsP, featsN, T);
 		System.out.println("done.");
+
+
 
 		for (int i = 0; i < adaboost.length; i++) {
 			for (int j = 0; j < adaboost[0].length; j++) System.out.print("\t" + IJ.d2s(adaboost[i][j], 2));
@@ -550,7 +593,7 @@ public class DemoClassification implements PlugIn, MouseListener {
                 System.out.print("no mask found!");
             }
 
-            // check if the mask has anything and add it to list ov Overlays and add to ImageStack
+            // check if the mask has locations then add it to the list of Overlays
 
             if(curr_tst>0){
 
@@ -564,21 +607,45 @@ public class DemoClassification implements PlugIn, MouseListener {
                 ovly = new Overlay();
                 System.out.println("\nclassifying " + curr_tst + " locations from " + img.getTitle());
 
+				float[] selected_profile;
+				float[] full_profile;
+
 				for (int k = 0; k < curr_tst; k++) {
 
                     int atX = (int)locs_tst.get(i)[k][0];
                     int atY = (int)locs_tst.get(i)[k][1];
 
                     Calc.getProfile(img, atX, atY, patchRadius, vals, angs, rads);
-                    int res = applyAdaBoost(adaboost, Calc.getProfileResponseSelection(fs, best_indexes, vals, angs, rads));
 
+					selected_profile = Calc.getProfileResponseSelection(fs, best_indexes, vals, angs, rads);
+					full_profile = Calc.getProfileResponse(fs, vals, angs, rads);
+
+                    int res = applyAdaBoost(adaboost, selected_profile);
                     if(res==1){
                         PointRoi pt = new PointRoi(atX+0.5, atY+0.5);
                         pt.setStrokeColor(Color.YELLOW);
                         ovly.addElement(pt);
                     }
 
-                }
+					double[] val = new double[full_profile.length+1];
+					for (int k1 = 0; k1 < full_profile.length; k1++) val[k1] = full_profile[k1];
+					val[full_profile.length] = trn.instance(0).classValue();// set fisrt class to all
+					int rf_cls = -1;
+					try {
+						System.out.println(rf_cls+" calculating");
+						rf_cls = (int) rf.classifyInstance(new Instance(1.0, val));
+
+					} catch (Exception e) {
+						System.out.println("something was wrong");
+					}
+					System.out.println("comparing "+rf_cls+" with rf obtained "+trn.classAttribute().indexOfValue("yes"));
+					if (rf_cls == trn.classAttribute().indexOfValue("yes")){
+						PointRoi pt = new PointRoi(atX+0.5, atY+0.5);
+						pt.setStrokeColor(Color.BLUE);
+						ovly.addElement(pt);
+					}
+
+				}
 
                 System.out.println("done.");
 
