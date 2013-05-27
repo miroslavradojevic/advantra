@@ -172,22 +172,25 @@ public class CircularConfiguration {
 
         for (int r = 0; r < nrRot; r++) {
 
-            // set to zero
-            for (int k = 0; k < nrPeaks; k++) {
+//            // set to zero
+//            for (int k = 0; k < nrPeaks; k++) {
+//
+//                sumOFF[k] = 0;
+//                nrOFF[k]  = 0;
+//
+//                sumON[k]  = 0;
+//                nrON[k]   = 0;
+//
+//            }
+//
+//            //sumON[nrPeaks]= 0;
+//            sumON[nrPeaks]= 0;
+//            nrON[nrPeaks] = 0;
 
-                //sumOFF[k] = 0;
-                sumOFF[k] = 0;
-                nrOFF[k]  = 0;
-
-                //sumON[k]  = 0;
-                sumON[k]  = 0;
-                nrON[k]   = 0;
-
-            }
-
-            //sumON[nrPeaks]= 0;
-            sumON[nrPeaks]= 0;
-            nrON[nrPeaks] = 0;
+			float gmOFF = 0;
+			int cntOFF = 0;
+			float gmON  = 0;
+			int cntON = 0;
 
             for (int i = 0; i < val.length; i++) {
 
@@ -196,48 +199,51 @@ public class CircularConfiguration {
                     int regId = regionId(ang[i], r); // will give out index (+1, +nrPeaks), and (-1, -nrPeaks), and (nrPeaks+1)
 
 					if(regId>0){
-						nrON[regId-1]++;
-                        sumON[regId-1]+= Math.log(val[i]);
+						gmON += Math.log(val[i]);
+						cntON ++;
+//						nrON[regId-1]++;
+//                      sumON[regId-1]+= Math.log(val[i]);
 					}
 					else{
-						nrOFF[-regId-1]++;
-						sumOFF[-regId-1]+=Math.log(val[i]);
+						gmOFF += Math.log(val[i]);
+						cntOFF++;
+//						nrOFF[-regId-1]++;
+//						sumOFF[-regId-1]+=Math.log(val[i]);
 					}
 				}
-                else if (rad[i] <= innerRing) {
-                    nrON[nrPeaks]++;
-                    sumON[nrPeaks]+=Math.log(val[i]);
-                }
+//                else if (rad[i] <= innerRing) {
+//					gmON += Math.log(val[i]);
+//					cntON ++;
+////                    nrON[nrPeaks]++;
+////                    sumON[nrPeaks]+=Math.log(val[i]);
+//                }
+
             }
 
-            //float sumONAll = 0;
-            float mulONAll = 1;
-            int nrONAll = 0;
+//            float mulONAll = 1;
+//            int nrONAll = 0;
+//
+//            float mulOFFAll = 1;
+//            int nrOFFAll = 0;
 
-            //float sumOFFAll = 0;
-            float mulOFFAll = 1;
-            int nrOFFAll = 0;
+//            for (int k = 0; k < nrPeaks; k++){
+//                if (nrON[k]>0)  {mulONAll  *= Math.exp(sumON[k]/nrON[k]);  nrONAll++;}    //  sumONAll  += sumON[k]/nrON[k];
+//                if (nrOFF[k]>0) {mulOFFAll *= Math.exp(sumOFF[k]/nrOFF[k]);  nrOFFAll++;} //  sumOFFAll += sumOFF[k]/nrOFF[k];
+//            }
 
-            for (int k = 0; k < nrPeaks; k++){
-                if (nrON[k]>0)  {mulONAll  *= Math.exp(sumON[k]/nrON[k]);  nrONAll++;}    //  sumONAll  += sumON[k]/nrON[k];
-                if (nrOFF[k]>0) {mulOFFAll *= Math.exp(sumOFF[k]/nrOFF[k]);  nrOFFAll++;} //  sumOFFAll += sumOFF[k]/nrOFF[k];
-//                System.out.println("A"+ k + " : " + (sumON[k]/nrON[k])   +",\t"+ nrON[k]    + " samples");
-//                System.out.println("B"+ k + " : " + (sumOFF[k]/nrOFF[k]) +",\t"+ nrOFF[k]   + " samples" );
-            }
-
-            mulONAll  *= Math.exp(sumON[nrPeaks]/nrON[nrPeaks]); nrONAll++; // sumONAll += nrON[nrPeaks]/sumON[nrPeaks];
+//            mulONAll  *= Math.exp(sumON[nrPeaks]/nrON[nrPeaks]); nrONAll++; // sumONAll += nrON[nrPeaks]/sumON[nrPeaks];
 
 //            System.out.println("A"+nrPeaks + " : " + (sumON[nrPeaks]/nrON[nrPeaks]) +","+ nrON[nrPeaks] + " samples");
 
             //float sc =  ((sumONAll/nrONAll)-(sumOFFAll/nrOFFAll));
             //System.out.println("SCORE : "+sc+" (max "+score+"), (+)"+(sumONAll/nrONAll)+", (-)"+(sumOFFAll/nrOFFAll));
 
-            double gmOn = Math.pow(mulONAll, 1f/nrONAll);
-            double gmOff = Math.pow(mulOFFAll, 1f/nrOFFAll);
+            double gmOn = Math.exp(gmON/cntON);
+            double gmOff = Math.exp(gmOFF/cntOFF);
             //System.out.println("SCORE (geometric mean) : "+(gmOn-gmOff)+"), (+gm)"+gmOn+", (-gm)"+gmOff);
 
-            float sc = (float) (gmOn-gmOff);
-
+//            float sc = (float) Math.sqrt(gmOn/gmOff);
+			float sc = (gmOff>0)? (float) Math.sqrt(gmOn/gmOff) : (float) Math.sqrt(gmOn);
             if(sc>score || r==0){
                 score = sc;
             }
@@ -266,15 +272,20 @@ public class CircularConfiguration {
 
 			// calculate scores for each rotation
 
-			// set to zero
-			for (int k = 0; k < nrPeaks; k++) {
-				sumOFF[k] = 0;
-				nrOFF[k]  = 0;
-				sumON[k]  = 0;
-				nrON[k]   = 0;
-			}
-			nrON[nrPeaks] = 0;
-			sumON[nrPeaks]= 0;
+//			// set to zero
+//			for (int k = 0; k < nrPeaks; k++) {
+//				sumOFF[k] = 0;
+//				nrOFF[k]  = 0;
+//				sumON[k]  = 0;
+//				nrON[k]   = 0;
+//			}
+//			nrON[nrPeaks] = 0;
+//			sumON[nrPeaks]= 0;
+
+			float gmOFF = 0;
+			int cntOFF = 0;
+			float gmON  = 0;
+			int cntON = 0;
 
 			for (int i = 0; i < val.length; i++) {
 
@@ -283,48 +294,46 @@ public class CircularConfiguration {
 					int regId = regionId(ang[i], r); // will give out index (+1, +nrPeaks), and (-1, -nrPeaks), and (nrPeaks+1)
 
 					if(regId>0){
-						nrON[regId-1]++;
-						sumON[regId-1]+=Math.log(val[i]);
+						gmON += Math.log(val[i]);
+						cntON ++;
+//						nrON[regId-1]++;
+//						sumON[regId-1]+=Math.log(val[i]);
 					}
 					else{
-						nrOFF[-regId-1]++;
-						sumOFF[-regId-1]+=Math.log(val[i]);
+						gmOFF += Math.log(val[i]);
+						cntOFF++;
+//						nrOFF[-regId-1]++;
+//						sumOFF[-regId-1]+=Math.log(val[i]);
 					}
 				}
-				else if (rad[i] <= innerRing) {
-					nrON[nrPeaks]++;
-					sumON[nrPeaks]+=Math.log(val[i]);
-				}
+//				else if (rad[i] <= innerRing) {
+//					nrON[nrPeaks]++;
+//					sumON[nrPeaks]+=Math.log(val[i]);
+//				}
 			}
 
-//			float sumONAll = 0;
-            float mulONAll = 1;
-			int nrONAll = 0;
+//            float mulONAll = 1;
+//			int nrONAll = 0;
+//
+//			float mulOFFAll = 1;
+//            int nrOFFAll = 0;
 
-//			float sumOFFAll = 0;
-			float mulOFFAll = 1;
-            int nrOFFAll = 0;
+			double gmOn = Math.exp(gmON/cntON);
+			double gmOff = Math.exp(gmOFF/cntOFF);
 
-			for (int k = 0; k < nrPeaks; k++){
-
-				if (nrON[k]>0)  {mulONAll *= Math.exp(sumON[k]/nrON[k]);   nrONAll++;}  // sumONAll += sumON[k]/nrON[k];
-				if (nrOFF[k]>0) {mulOFFAll*= Math.exp(sumOFF[k]/nrOFF[k]); nrOFFAll++;} // sumOFFAll += sumOFF[k]/nrOFF[k];
-
-//                System.out.println("A"+ k + " : " + (sumON[k]/nrON[k]) );
-//                System.out.println("B"+ k + " : " + (sumOFF[k]/nrOFF[k]) );
-
-			}
-
-            mulONAll *= Math.exp(sumON[nrPeaks]/nrON[nrPeaks]); nrONAll++;   // sumONAll += nrON[nrPeaks]/sumON[nrPeaks];
+//			for (int k = 0; k < nrPeaks; k++){
+//				if (nrON[k]>0)  {mulONAll *= Math.exp(sumON[k]/nrON[k]);   nrONAll++;}  // sumONAll += sumON[k]/nrON[k];
+//				if (nrOFF[k]>0) {mulOFFAll*= Math.exp(sumOFF[k]/nrOFF[k]); nrOFFAll++;} // sumOFFAll += sumOFF[k]/nrOFF[k];
+//			}
+//            mulONAll *= Math.exp(sumON[nrPeaks]/nrON[nrPeaks]); nrONAll++;   // sumONAll += nrON[nrPeaks]/sumON[nrPeaks];
 
 //            System.out.println("A"+nrPeaks + " : " + (sumON[nrPeaks]/nrON[nrPeaks]) );
 
-            double gmOn = Math.pow(mulONAll, 1f/nrONAll);
-            double gmOff = Math.pow(mulOFFAll, 1f/nrOFFAll);
-
+//            double gmOn = Math.pow(mulONAll, 1f/nrONAll);
+//            double gmOff = Math.pow(mulOFFAll, 1f/nrOFFAll);
 
 			//sc =  ((sumONAll/nrONAll)-(sumOFFAll/nrOFFAll));
-            sc = (float) (gmOn-gmOff);
+            sc = (gmOff>0)? (float) Math.sqrt(gmOn/gmOff) : (float) Math.sqrt(gmOn);
 
 		}
 		else {
@@ -337,76 +346,76 @@ public class CircularConfiguration {
 	}
 
 
-	public float[] scoreAllRot(
-            float[] val,
-            float[] ang,
-            float[] rad
-    )
-    {
-
-        float[] 	score = new float[nrRot];
-
-        for (int r = 0; r < nrRot; r++) {
-
-            // calculate scores for each rotation
-
-            // set to zero
-            for (int k = 0; k < nrPeaks; k++) {
-                sumOFF[k] = 0;
-                nrOFF[k]  = 0;
-                sumON[k]  = 0;
-                nrON[k]   = 0;
-            }
-            nrON[nrPeaks] = 0;
-            sumON[nrPeaks]= 0;
-
-            for (int i = 0; i < val.length; i++){
-
-                if (rad[i]<=ringR[1] && rad[i]>=ringR[0]){      // rad[] is radius actually, normalized 0-1.0, angle is calculated as (float)(atan2(r,c)+pi)
-
-                    int regId = regionId(ang[i], r); // will give out index (+1, +nrPeaks), and (-1, -nrPeaks)
-
-                    if(regId>0){
-                        nrON[regId-1]++;
-                        sumON[regId-1]+=Math.log(val[i]);
-                    }
-                    else{
-                        nrOFF[-regId-1]++;
-                        sumOFF[-regId-1]+=Math.log(val[i]);
-                    }
-                }
-                else if (rad[i] <= innerRing){
-                    nrON[nrPeaks]++;
-                    sumON[nrPeaks]+=Math.log(val[i]);
-                }
-
-            }
-
-//            float sumONAll = 0;
-            float mulONAll = 1;
-            int nrONAll = 0;
-
-//            float sumOFFAll = 0;
-            float mulOFFAll = 1;
-            int nrOFFAll = 0;
-
-            for (int k = 0; k < nrPeaks; k++){
-                if (nrON[k]>0)  {mulONAll  *= Math.exp(sumON[k]/nrON[k]);       nrONAll++;}  // sumONAll += sumON[k]/nrON[k];
-                if (nrOFF[k]>0) {mulOFFAll *= Math.exp(sumOFF[k]/nrOFF[k]);    nrOFFAll++;} // sumOFFAll += sumOFF[k]/nrOFF[k];
-            }
-
-            mulONAll *= Math.exp(nrON[nrPeaks]/sumON[nrPeaks]); nrONAll++;  // sumONAll += nrON[nrPeaks]/sumON[nrPeaks];
-
-            double gmOn = Math.pow(mulONAll, 1f/nrONAll);
-            double gmOff = Math.pow(mulOFFAll, 1f/nrOFFAll);
-
-            score[r] = (float) (gmOn-gmOff);//((sumONAll/nrONAll)-(sumOFFAll/nrOFFAll));
-
-        }
-
-        return score;
-
-    }
+//	public float[] scoreAllRot(
+//            float[] val,
+//            float[] ang,
+//            float[] rad
+//    )
+//    {
+//
+//        float[] 	score = new float[nrRot];
+//
+//        for (int r = 0; r < nrRot; r++) {
+//
+//            // calculate scores for each rotation
+//
+//            // set to zero
+//            for (int k = 0; k < nrPeaks; k++) {
+//                sumOFF[k] = 0;
+//                nrOFF[k]  = 0;
+//                sumON[k]  = 0;
+//                nrON[k]   = 0;
+//            }
+//            nrON[nrPeaks] = 0;
+//            sumON[nrPeaks]= 0;
+//
+//            for (int i = 0; i < val.length; i++){
+//
+//                if (rad[i]<=ringR[1] && rad[i]>=ringR[0]){      // rad[] is radius actually, normalized 0-1.0, angle is calculated as (float)(atan2(r,c)+pi)
+//
+//                    int regId = regionId(ang[i], r); // will give out index (+1, +nrPeaks), and (-1, -nrPeaks)
+//
+//                    if(regId>0){
+//                        nrON[regId-1]++;
+//                        sumON[regId-1]+=Math.log(val[i]);
+//                    }
+//                    else{
+//                        nrOFF[-regId-1]++;
+//                        sumOFF[-regId-1]+=Math.log(val[i]);
+//                    }
+//                }
+//                else if (rad[i] <= innerRing){
+//                    nrON[nrPeaks]++;
+//                    sumON[nrPeaks]+=Math.log(val[i]);
+//                }
+//
+//            }
+//
+////            float sumONAll = 0;
+//            float mulONAll = 1;
+//            int nrONAll = 0;
+//
+////            float sumOFFAll = 0;
+//            float mulOFFAll = 1;
+//            int nrOFFAll = 0;
+//
+//            for (int k = 0; k < nrPeaks; k++){
+//                if (nrON[k]>0)  {mulONAll  *= Math.exp(sumON[k]/nrON[k]);       nrONAll++;}  // sumONAll += sumON[k]/nrON[k];
+//                if (nrOFF[k]>0) {mulOFFAll *= Math.exp(sumOFF[k]/nrOFF[k]);    nrOFFAll++;} // sumOFFAll += sumOFF[k]/nrOFF[k];
+//            }
+//
+//            mulONAll *= Math.exp(nrON[nrPeaks]/sumON[nrPeaks]); nrONAll++;  // sumONAll += nrON[nrPeaks]/sumON[nrPeaks];
+//
+//            double gmOn = Math.pow(mulONAll, 1f/nrONAll);
+//            double gmOff = Math.pow(mulOFFAll, 1f/nrOFFAll);
+//
+//            score[r] = (float) (gmOn-gmOff);//((sumONAll/nrONAll)-(sumOFFAll/nrOFFAll));
+//
+//        }
+//
+//        return score;
+//
+//    }
 
 
     private boolean isOn(

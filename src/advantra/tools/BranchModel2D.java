@@ -48,6 +48,7 @@ public class BranchModel2D {
     public static float TwoPi = (float) (2 * Math.PI);
 
     int minAngle = 30;
+	int maxAngle = 150;
     double toFix = 0.5;
 
     public BranchModel2D(int height, int width)
@@ -87,15 +88,19 @@ public class BranchModel2D {
         fg = gen.nextInt(fgRange) + fgBias;
 
         boolean angCorrect = false;
-
         while (!angCorrect){
+            alfa12 = gen.nextInt(maxAngle); // avoid angles higher than maxAngle degrees - they don't make sense
+			alfa23 = gen.nextInt(maxAngle);
 
-            alfa12 = gen.nextInt(180); // avoid angles higher than 180 degrees - they don't make sense
-            angCorrect = alfa12>=minAngle;
+			angCorrect = alfa12>=minAngle && alfa23>=minAngle && (360-alfa12-alfa23)>=minAngle && (360-alfa12-alfa23)<maxAngle;
 
         }
 
-        double maxLength = Math.min(0.9*w/2, 0.9*h/2);
+		//alfa12 = minAngle + gen.nextInt(maxAngle-minAngle);
+		//alfa23 = alfa12 + minAngle + gen.nextInt(360 - (alfa12 + minAngle));
+
+
+        double maxLength = Math.min(0.8*w/2, 0.8*h/2);
 
         l1 = Math.random() * maxLength * (1-toFix) + maxLength * toFix;
         l2 = Math.random() * maxLength * (1-toFix) + maxLength * toFix;
@@ -113,8 +118,8 @@ public class BranchModel2D {
 
 		// third will be between
 		// choose random angle between startAngle+180 and startAngle+alfa12+180
-		int endAngle = startAngle + 180 + gen.nextInt(alfa12);
-		float endAngleRad = (endAngle/360f)*TwoPi;
+		//int endAngle = startAngle + 180 + gen.nextInt(alfa12);
+		float endAngleRad = ((startAngle+alfa12+alfa23)/360f)*TwoPi;
 
         p3[0] = pc[0] + (int) (Math.cos(endAngleRad) * l3); // row
         p3[1] = pc[1] + (int) (Math.sin(endAngleRad) * l3); // col
@@ -263,9 +268,7 @@ public class BranchModel2D {
                     return;
                 }
 
-
-                //IJ.log(3*rstd+"");
-                if(distance<3*rstd) {//  // some reasonable distance from where we consider intensity is ~0
+                if(distance<3*rstd) { // some reasonable distance from where we consider intensity is ~0
 
                     byte value_to_write = (byte)Math.round(fg * Math.exp(-Math.pow(distance,2)/(2*Math.pow(rstd, 2))));
 
@@ -278,15 +281,7 @@ public class BranchModel2D {
                 }
                 if (distance<3.5*rstd) {
 
-                    //byte value_to_write = (byte)Math.round(fg * Math.exp(-Math.pow(distance,2)/(2*Math.pow(rstd, 2))));
-
-                    //double a = Math.exp(-Math.pow(distance, 2) / (2 * Math.pow(rstd, 2)));
-                    //if (a < 3)
                     mask[ArrayHandling.sub2index_2d(p[0], p[1], w)] = (byte) 255;
-//                            (byte) Math.max(
-//                                    (int)(255 & 0xff),
-//                                    (int)(mask[ArrayHandling.sub2index_2d(p[0], p[1], w)] & 0xff)
-//                            );
 
                 }
             }

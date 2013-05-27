@@ -21,80 +21,38 @@ import ij.plugin.PlugIn;
 import ij.plugin.ZProjector;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
+import ij.process.ImageProcessor;
 import weka.classifiers.trees.RandomForest;
 import weka.core.Attribute;
 import weka.core.FastVector;
 import weka.core.Instance;
 import weka.core.Instances;
-import weka.core.converters.ConverterUtils;
 
-
-public class DemoClassification implements PlugIn, MouseListener {
+public class CPClassificationAdaBoost implements PlugIn, MouseListener {
 
 	ImagePlus 	img;
-    //, gab, gabAll, weighted, neuriteness, Vx, Vy;
-	ImagePlus 	imgSrc;
+	ImagePlus best_feat_img;
 	String 		train_folder, test_folder;
-
-//    ImagePlus   img_click; // this one just to see how it performs on manually chosen locations (visualisation)
-
-    // feature parameters (filter parameters)
-    int         angScale1, angScale2;
-    int[]       angScale;
-
-    double      ring1, ring2;
-    int         nr_ring;
-    double[]    rings;
-
-    double      radial1, radial2;
-    int         nr_radial;
-    double[]    radials;
-
-	double 		innerRadius;
 
     int 		patchRadius, patchDiameter;
     int 		W, H;
     int         T;
 
-	ImageStack posPatches;
-	ImageStack negPatches;
-
 	ImageStack pos_ft;
 	ImageStack neg_ft;
-
 	float[][] featsP;
 	float[][] featsN;
 
-	FilterSet fs;
-
-	float[] vals;
-	float[] angs;
-	float[] rads;
-
 	double[][] adaboost;
+
+	CircularConfiguration3 ccf3;
 
     static float TwoPi = (float) (2*Math.PI);
 
 	public void run(String arg0)
 	{
 
-		//run("GenerateBifs", "image=129 image=129 train=200 test=5");
-
-        patchRadius     = (int) Prefs.get("advantra.critpoint.patch_radius", 20);
-
-        String[] angleChoices       =  new String[]{"20", "40", "60", "80"};
-        String angleStartChoice  	=  (String) Prefs.get("advantra.critpoint.start_ang_scale", 	"40");
-		String angleEndChoice       =  (String) Prefs.get("advantra.critpoint.end_ang_scale", 	    "60");
-
-        ring1  	    = Prefs.get("advantra.critpoint.start_ring", 	0.3);
-		ring2    	= Prefs.get("advantra.critpoint.end_ring", 		0.7);
-		nr_ring		= (int)Prefs.get("advantra.critpoint.nr_ring",  2);
-
-        radial1  	    = Prefs.get("advantra.critpoint.start_radial",      0.4);
-        radial2    	    = Prefs.get("advantra.critpoint.end_radial", 	    0.8);
-        nr_radial		= (int)Prefs.get("advantra.critpoint.nr_radial",    3);
-
-		innerRadius     = Prefs.get("advantra.critpoint.inner_rad", 0.2);
+        patchRadius     = (int) Prefs.get("advantra.critpoint.patch_radius", 15);
 
 		train_folder    = (String)Prefs.get("advantra.critpoint.train_folder",
 				(System.getProperty("user.home")+File.separator));
@@ -107,111 +65,43 @@ public class DemoClassification implements PlugIn, MouseListener {
 
         gd.addNumericField("patch_radius", patchRadius, 0, 5, "");
 
-        gd.addChoice("alfa_1",      angleChoices, angleStartChoice);
-        gd.addChoice("alfa_2",      angleChoices, angleEndChoice);
-
-        gd.addNumericField("ring_1:",    ring1,       1);
-        gd.addNumericField("ring_2:",    ring2,       1);
-        gd.addNumericField("nr_rings:",  nr_ring, 	  0,  5, "");
-
-        gd.addNumericField("radial_1:",    radial1,       1); //radial1
-        gd.addNumericField("radial_2:",    radial2,       1); //radial2
-        gd.addNumericField("nr_radials:",  nr_radial, 	  0,  5, "");//nr_radials
-
-		gd.addNumericField("inner radius:",    innerRadius,       1);
-
 		gd.addStringField("train folder : ", train_folder, 	40);
 		gd.addStringField("test  folder : ", test_folder, 	40);
 
-		gd.addNumericField("T: ",					T, 0, 5, "");
+		gd.addCheckbox("same size", true);
+		gd.addCheckbox("equal # (+) and (-)", true);
+	//	gd.addNumericField("T: ",					T, 0, 5, "");
 
 		gd.showDialog();
 		if (gd.wasCanceled()) return;
 
         patchRadius =  (int)gd.getNextNumber();
-        System.out.println("patch radius = " + patchRadius);
-
-        switch ((int) gd.getNextChoiceIndex()) {
-            case 0: angScale1 = 20; angleStartChoice = "20"; break;
-            case 1: angScale1 = 40; angleStartChoice = "40"; break;
-            case 2: angScale1 = 60; angleStartChoice = "60"; break;
-            case 3: angScale1 = 80; angleStartChoice = "80"; break;
-            default: angScale1 = 40;angleStartChoice = "40"; break;
-        }
-
-        switch ((int) gd.getNextChoiceIndex()) {
-            case 0: angScale2 = 20; angleEndChoice = "20"; break;
-            case 1: angScale2 = 40; angleEndChoice = "40"; break;
-            case 2: angScale2 = 60; angleEndChoice = "60"; break;
-            case 3: angScale2 = 80; angleEndChoice = "80"; break;
-            default: angScale2 = 40;angleEndChoice = "40"; break;
-        }
-
-        angScale = new int[(angScale2-angScale1)/20+1];
-        int cnt = 0;
-        for (int i = angScale1; i <= angScale2; i+=20) angScale[cnt++] = i;
-
-        ring1 = gd.getNextNumber();
-        ring2 = gd.getNextNumber();
-        nr_ring = (int) gd.getNextNumber();
-
-        rings = new double[nr_ring];
-        for (int i = 0; i <nr_ring; i++) rings[i] = (i == 0) ? ring1 : ring1 + i * ((ring2 - ring1) / (nr_ring - 1));
-        // TODO: block inputs higher than 1.0 for rings
-
-        radial1 = gd.getNextNumber();
-        radial2 = gd.getNextNumber();
-        nr_radial = (int) gd.getNextNumber();
-
-        radials = new double[nr_radial];
-        for (int i = 0; i <nr_radial; i++) radials[i] = (i == 0) ? radial1 : radial1 + i * ((radial2 - radial1) / (nr_radial - 1));
-        // TODO: block inputs higher than 1.0 for raidals
-
-		innerRadius = gd.getNextNumber();
 
 		train_folder = 	gd.getNextString();
 		test_folder = 	gd.getNextString();
+		boolean sameSize = gd.getNextBoolean();
+		boolean equal = gd.getNextBoolean();
 
-		T = (int) gd.getNextNumber();
-
-		Prefs.set("advantra.critpoint.start_ang_scale", angleStartChoice);
-		Prefs.set("advantra.critpoint.end_ang_scale", 	angleEndChoice);
-
-		Prefs.set("advantra.critpoint.start_ring", 	    ring1);
-		Prefs.set("advantra.critpoint.end_ring", 	    ring2);
-		Prefs.set("advantra.critpoint.nr_ring",         nr_ring);
-
-        Prefs.set("advantra.critpoint.start_radial",    radial1);
-        Prefs.set("advantra.critpoint.end_radial", 	    radial2);
-        Prefs.set("advantra.critpoint.nr_radial",       nr_radial);
-
-        Prefs.set("advantra.critpoint.inner_rad",       innerRadius);
+	//	T = (int) gd.getNextNumber();
 
 		Prefs.set("advantra.critpoint.train_folder",    train_folder);
 		Prefs.set("advantra.critpoint.test_folder",     test_folder);
 		Prefs.set("advantra.critpoint.patch_radius", 	patchRadius);
 
-        Prefs.set("advantra.critpoint.T", 	            T);
+       // Prefs.set("advantra.critpoint.T", 	            T);
 
         /*
 		 * generate filters to score on example profiles (generate features)
 		 */
-        fs = new FilterSet(angScale, rings, radials, innerRadius);
-        int nrFilters = fs.circConfs.size()+fs.radlConfs.size();
-        //fs.print();
-        System.out.println(nrFilters+" filters formed");
+
+		patchDiameter = 2*patchRadius+1;
+		ccf3 = new CircularConfiguration3(patchRadius);
+		int nrFilters = ccf3.kernels.size();
         /*
         show them
         */
-        patchDiameter = 2*patchRadius+1;
-        ImagePlus all_feats = new ImagePlus("ALL", fs.plot(patchDiameter));
-        all_feats.setTitle("All_Features");
+        ImagePlus all_feats = new ImagePlus("all.feat."+patchRadius, ccf3.plotKernels());
         all_feats.show();
-
-		int toAlloc = Calc.circularProfileSize(patchRadius);
-		vals = new float[toAlloc];
-		angs = new float[toAlloc];
-		rads = new float[toAlloc];
 
         /*
         	all the params are loaded...
@@ -241,28 +131,31 @@ public class DemoClassification implements PlugIn, MouseListener {
         pos_ft = new ImageStack(nrFilters, 1);
 		neg_ft = new ImageStack(nrFilters, 1);
 
-        // to store examples
-        posPatches = new ImageStack(patchDiameter, patchDiameter);
-		negPatches = new ImageStack(patchDiameter, patchDiameter);
-
 		System.out.println("\n## TRAIN ##  \n"+train_folder+"\n------------------------------------\n");
 
-        // img1, W1, H1, showStk, showImg, ovly are just for visualization
-        ImagePlus img1 = new ImagePlus(files_tif[0].getAbsolutePath());
-        int W1 = img1.getWidth();
-        int H1 = img1.getHeight();
-        ImageStack showStk = new ImageStack(W1, H1);
+//        ImagePlus img1 = new ImagePlus(files_tif[0].getAbsolutePath());
+//        int W1 = img1.getWidth();
+//        int H1 = img1.getHeight();
+
+		ImageStack showStk = new ImageStack();
+		boolean initialized = false;
+
+
         Overlay ovly = new Overlay();
 
 		for (int i = 0; i < files_tif.length; i++) { // for each tif file
 
-			System.out.print(""+files_tif[i].getName()+" "+i+"/"+(files_tif.length-1)+"  ...  ");
+			System.out.print("processing "+files_tif[i].getName()+" "+i+"/"+(files_tif.length-1)+"  ...  ");
 
-			img = new ImagePlus(files_tif[i].getAbsolutePath());
+			img = convertToFloatImage(new ImagePlus(files_tif[i].getAbsolutePath()));
 			resetCalibration();
-			convertToFloatImage();
 			H = img.getHeight();
 			W = img.getWidth();
+
+			if(sameSize && !initialized){
+				showStk = new ImageStack(W, H);
+				initialized = true;
+			}
 
 			curr_pos = 0;
 			curr_neg = 0;
@@ -309,8 +202,6 @@ public class DemoClassification implements PlugIn, MouseListener {
 				readCSV = new AnalyzeCSV(files_neg[i].getAbsolutePath());
 				double[][] B = readCSV.readLn(2);
 
-//                System.out.println("read B"+B.length);
-
                 /*
                 readMask = new ImagePlus(files_neg[i].getAbsolutePath());
                 double[][] B = extractLocations((ByteProcessor) readMask.getProcessor());
@@ -348,22 +239,24 @@ public class DemoClassification implements PlugIn, MouseListener {
 
 			System.out.println();
 
-            if((curr_pos>0 && curr_neg>0) && true){
-//                System.out.println("%%% curr_pos : "+curr_pos+" curr_neg "+curr_neg);
-                showStk.addSlice("SAMPLE"+i, img.getProcessor());
+            if((curr_pos>0 && curr_neg>0) ){
+
+				if(!sameSize) ovly.clear();
 
 				for (int k = 0; k < curr_pos; k++) {
 
 					int atX = (int)locs_pos.get(i)[k][0];
 					int atY = (int)locs_pos.get(i)[k][1];
 
-                    Calc.getProfile(img, atX, atY, patchRadius, vals, angs, rads);
-					pos_ft.addSlice(new FloatProcessor(nrFilters, 1,    Calc.getProfileResponse(fs, vals, angs, rads)));
-					posPatches.addSlice("pos_train_sample_"+i,          Calc.getProfilePatch(img, atX, atY, patchRadius));
+					float[] takeScores = new float[nrFilters];
+					for (int l = 0; l < nrFilters; l++) {
+						takeScores[l] = ccf3.score(atX, atY, l, img.getProcessor());
+					}
+					pos_ft.addSlice(new FloatProcessor(nrFilters, 1, takeScores));
 					PointRoi pt = new PointRoi(atX+0.5, atY+0.5);
 					pt.setStrokeColor(Color.RED);
-//                    pt.setPosition(showStk.getSize());
-                    pt.setPosition(0, showStk.getSize(), 0);
+                    if(sameSize) pt.setPosition(showStk.getSize()+1); // indexed with 1
+//                    pt.setPosition(0, showStk.getSize(), 0);
 					ovly.addElement(pt);
 
 				}
@@ -383,27 +276,44 @@ public class DemoClassification implements PlugIn, MouseListener {
                         cntMtches++;
                     }
                 }
+				if (!equal) {// annulate
+					for (int k = 0; k < chs.length; k++){
+						chs[k] = true;
+					}
+				}
 
-                System.out.println("feature extraction for negatives "+img.getTitle());
+                //System.out.println("feature extraction for negatives "+img.getTitle());
+
 				for (int k = 0; k < curr_neg; k++) {
-
                     if (chs[k]){
-
                         int atX = (int)locs_neg.get(i)[k][0];
                         int atY = (int)locs_neg.get(i)[k][1];
 
-                        Calc.getProfile(img, atX, atY, patchRadius, vals, angs, rads);
-                        neg_ft.addSlice(new FloatProcessor(nrFilters, 1,    Calc.getProfileResponse(fs, vals, angs, rads)));
-                        negPatches.addSlice("neg_train_sample_"+i,          Calc.getProfilePatch(img, atX, atY, patchRadius));
+						float[] takeScores = new float[nrFilters];
+						for (int l = 0; l < nrFilters; l++) {
+							takeScores[l] = ccf3.score(atX, atY, l, img.getProcessor());
+						}
+
+                        neg_ft.addSlice(new FloatProcessor(nrFilters, 1, takeScores));
                         PointRoi pt = new PointRoi(atX+0.5, atY+0.5);
                         pt.setStrokeColor(Color.BLUE);
-                        pt.setName("negative" + k);
-//                        pt.setPosition(showStk.getSize());
-                        pt.setPosition(0, showStk.getSize(), 0);
+						if(sameSize) pt.setPosition(showStk.getSize()+1); // indexed with 1
+                        //pt.setPosition(0, showStk.getSize(), 0);
                         ovly.addElement(pt);
 
                     }
 
+				}
+
+				if(sameSize){
+					showStk.addSlice("SAMPLE"+i, img.getProcessor());
+				}
+				else {
+					ImagePlus showImgInd = img;
+					showImgInd.setTitle("train"+i);
+					System.out.println("overlay has: "+ovly.size());
+					showImgInd.setOverlay(ovly);
+					showImgInd.show();
 				}
 
 			} // if there were some
@@ -411,19 +321,18 @@ public class DemoClassification implements PlugIn, MouseListener {
 		} // loop files
 
         // visualization
-        ImagePlus showImg = new ImagePlus("VIZ", showStk);
-        showImg.setOverlay(ovly);
-        showImg.show();
-        showImg.getCanvas().zoomIn(0,0);
-        showImg.getCanvas().zoomIn(0,0);
+		if(sameSize) {
+			ImagePlus showImg = new ImagePlus("VIZ", showStk);
+			showImg.setOverlay(ovly);
+			showImg.show();
+			showImg.getCanvas().zoomIn(0,0);
+			showImg.getCanvas().zoomIn(0,0);
+		}
 
-		System.out.println("////\n total (+) : " + posPatches.getSize());
-		System.out.println(" total (-) : "       + negPatches.getSize()+"\n//-------------//\n");
 
-        new ImagePlus("POS", posPatches).show();
-		new ImagePlus("NEG", negPatches).show();
+		System.out.println("////\n total (+) : " + pos_ft.getSize());
+		System.out.println(" total (-) : "       + neg_ft.getSize()+"\n//-------------//\n");
 
-        // equalize number of positives and negatives
 		featsP = new float[pos_ft.getSize()][nrFilters];
 		featsN = new float[neg_ft.getSize()][nrFilters];
 
@@ -435,8 +344,6 @@ public class DemoClassification implements PlugIn, MouseListener {
 		}
 
 		for (int g = 0; g < featsN.length; g++) {
-            // randomize when choosing negative
-            //int chooseIdx =   rd.nextInt(neg_ft.getSize());
 			float[] getPix = (float[]) neg_ft.getProcessor(g + 1).getPixels();
 			for (int g1 = 0; g1 < getPix.length; g1++){
 				featsN[g][g1] = getPix[g1];
@@ -445,59 +352,58 @@ public class DemoClassification implements PlugIn, MouseListener {
 
 		System.out.println(" done extracting train features:\n" +
                 "(+) " + featsP.length + " x " + featsP[0].length +
-                "(-) " + featsN.length + " x " + featsN[0].length);
+                "\n" +
+				"(-) " + featsN.length + " x " + featsN[0].length);
 
-		System.out.print("training RF...");
-
-
-        // form weka instances object
-        int totalFeats = (featsP[0].length == featsN[0].length)? featsP[0].length : 0;
-        FastVector attList = new FastVector();
-        for (int i = 0; i < totalFeats; i++) {
-            attList.addElement(new Attribute("feat."+i));
-        }
-        FastVector categ = new FastVector();
-		categ.addElement("yes");
-		categ.addElement("no");
-		Attribute class_attribute = new Attribute("class", categ);
-        attList.addElement(class_attribute);
-
-        Instances trn = new Instances("Trainset", attList, (featsP.length + featsN.length));
-
-		double[] values;
-		for (int i = 0; i < featsP.length; i++){
-			values = new double[featsP[0].length+1];
-			for (int j =0; j < featsP[0].length; j++){
-				values[j] = featsP[i][j];
-			}
-			values[featsP[0].length] = class_attribute.indexOfValue("yes");
-			trn.add(new Instance(1.0, values));
-		}
-
-		for (int i = 0; i < featsN.length; i++){
-			values = new double[featsN[0].length+1];
-			for (int j =0; j < featsN[0].length; j++){
-				values[j] = featsN[i][j];
-			}
-			values[featsN[0].length] = class_attribute.indexOfValue("no");
-			trn.add(new Instance(1.0, values));
-		}
-
-		trn.setClassIndex(trn.numAttributes()-1);
-        IJ.log("weka trainset formed "+trn.numInstances()+", atts "+trn.numAttributes());
-
-		// train random forest
-		RandomForest rf = new RandomForest();
-		rf.setNumTrees(10);
-		rf.setNumFeatures((int)Math.sqrt(trn.numAttributes()));
-		try {
-			rf.buildClassifier(trn);
-			System.out.println("building RF");
-		} catch (Exception e) {
-
-		}
-
-		System.out.println("done.");
+//		System.out.print("training RF...");
+//        // form weka instances object
+//        int totalFeats = (featsP[0].length == featsN[0].length)? featsP[0].length : 0;
+//        FastVector attList = new FastVector();
+//        for (int i = 0; i < totalFeats; i++) {
+//            attList.addElement(new Attribute("feat."+i));
+//        }
+//        FastVector categ = new FastVector();
+//		categ.addElement("yes");
+//		categ.addElement("no");
+//		Attribute class_attribute = new Attribute("class", categ);
+//        attList.addElement(class_attribute);
+//
+//        Instances trn = new Instances("Trainset", attList, (featsP.length + featsN.length));
+//
+//		double[] values;
+//		for (int i = 0; i < featsP.length; i++){
+//			values = new double[featsP[0].length+1];
+//			for (int j =0; j < featsP[0].length; j++){
+//				values[j] = featsP[i][j];
+//			}
+//			values[featsP[0].length] = class_attribute.indexOfValue("yes");
+//			trn.add(new Instance(1.0, values));
+//		}
+//
+//		for (int i = 0; i < featsN.length; i++){
+//			values = new double[featsN[0].length+1];
+//			for (int j =0; j < featsN[0].length; j++){
+//				values[j] = featsN[i][j];
+//			}
+//			values[featsN[0].length] = class_attribute.indexOfValue("no");
+//			trn.add(new Instance(1.0, values));
+//		}
+//
+//		trn.setClassIndex(trn.numAttributes()-1);
+//        IJ.log("weka trainset formed "+trn.numInstances()+", atts "+trn.numAttributes());
+//
+//		// train random forest
+//		RandomForest rf = new RandomForest();
+//		rf.setNumTrees(10);
+//		rf.setNumFeatures((int)Math.sqrt(trn.numAttributes()));
+//		try {
+//			rf.buildClassifier(trn);
+//			System.out.println("building RF");
+//		} catch (Exception e) {
+//
+//		}
+//
+//		System.out.println("done.");
 
         GenericDialog gd1 = new GenericDialog("AdaBoost training");
         gd1.addMessage("How many feats to keep? stored: " + T);
@@ -509,8 +415,6 @@ public class DemoClassification implements PlugIn, MouseListener {
 		System.out.print("training AdaBoost...");
 		adaboost = trueAdaBoost(featsP, featsN, T);
 		System.out.println("done.");
-
-
 
 		for (int i = 0; i < adaboost.length; i++) {
 			for (int j = 0; j < adaboost[0].length; j++) System.out.print("\t" + IJ.d2s(adaboost[i][j], 2));
@@ -527,14 +431,19 @@ public class DemoClassification implements PlugIn, MouseListener {
 		if (adaboost.length>1){
 
 			// show the best features
-			ImagePlus imp2 = new ImagePlus();
+			best_feat_img = new ImagePlus();
             int imp2_size = patchDiameter;
 			ImageStack best_feat = new ImageStack(imp2_size, imp2_size);
 			for (int i = 0; i < adaboost.length; i++){
-				best_feat.addSlice(fs.plotOne((int) adaboost[i][0], imp2_size));
+				//best_feat.addSlice(fs.plotOne((int) adaboost[i][0], imp2_size));
+				best_feat.addSlice(ccf3.plotKernel((int) adaboost[i][0], 0));
 			}
-			imp2.setStack("best_feats", best_feat);
-			imp2.show();
+			best_feat_img.setStack("best", best_feat);
+			best_feat_img.show();
+
+			ImageCanvas all_feats_canvas = best_feat_img.getWindow().getCanvas();
+			all_feats_canvas.setName("best");
+			all_feats_canvas.addMouseListener(this);
 
 			ImagePlus imp1 = new ImagePlus();
 			ImageStack imstack = new ImageStack(528, 255);
@@ -558,12 +467,14 @@ public class DemoClassification implements PlugIn, MouseListener {
         System.out.println("\n## TEST  ##  \n"+test_folder +"\n------------------------------------\n");
 
         int curr_tst = 0;
-        int total_tst = 0;
-
 		boolean doTest = true;
 
 		File[] test_files_tif = listFilesEndingWith(dir_test, ".tif");
         File[] files_tst = new File[test_files_tif.length];
+
+		ImageStack isShow = new ImageStack();
+		if (sameSize) isShow = new ImageStack(W, H);
+		Overlay ovlyDetections = new Overlay();
 
 		for (int i = 0; i < test_files_tif.length && doTest; i++) { // for each tif file
 
@@ -579,15 +490,15 @@ public class DemoClassification implements PlugIn, MouseListener {
 
             check = listFilesEndingWith(dir_test, suffix);
             if(check!=null && check.length>0){
-                System.out.println("i: "+i);
                 files_tst[i] = check[0];
                 readMask = new ImagePlus(files_tst[i].getAbsolutePath());
+				//readMask.show();
                 //readMask.show();
                 // extract locations with logical 1
                 double[][] C = extractLocations((ByteProcessor) readMask.getProcessor());
                 locs_tst.add(C);
                 curr_tst = C.length;
-                total_tst += C.length;
+//                total_tst += C.length;
 
             }
             else{
@@ -598,20 +509,17 @@ public class DemoClassification implements PlugIn, MouseListener {
             // check if the mask has locations then add it to the list of Overlays
             if(curr_tst>0){
 
-                img = new ImagePlus(test_files_tif[i].getAbsolutePath());
+				if (!sameSize) ovlyDetections.clear();
+
+				img = convertToFloatImage(new ImagePlus(test_files_tif[i].getAbsolutePath()));
                 resetCalibration();
-                convertToFloatImage();
 
                 H = img.getHeight();
                 W = img.getWidth();
 
-                ovly = new Overlay();
-                System.out.println("\nclassifying " + curr_tst + " locations from " + img.getTitle());
+                System.out.println("\nclassifying " + curr_tst + " locations from " + img.getTitle() + " ... ");
 
-                float[][] full_profile = new float[curr_tst][nrFilters];
-                float[] selected_profile;
-
-                Instances tst = new Instances("Test", attList, curr_tst);
+//                Instances tst = new Instances("Test", attList, curr_tst);
 //                System.out.println(" created empty testset:" + tst.numInstances()+"  x "+tst.numAttributes());
 
 				for (int k = 0; k < curr_tst; k++) {
@@ -619,23 +527,40 @@ public class DemoClassification implements PlugIn, MouseListener {
                     int atX = (int)locs_tst.get(i)[k][0];
                     int atY = (int)locs_tst.get(i)[k][1];
 
-                    Calc.getProfile(img, atX, atY, patchRadius, vals, angs, rads);
+					float[] selScores = new float[best_indexes.length];
+					for (int l = 0; l < best_indexes.length; l++) {
+						selScores[l] = ccf3.score(atX, atY, best_indexes[l], img.getProcessor());
+					}
+                    int res = applyAdaBoost(adaboost, selScores);
 
-					selected_profile = Calc.getProfileResponseSelection(fs, best_indexes, vals, angs, rads);
-                    int res = applyAdaBoost(adaboost, selected_profile);
-                    if(res==1){
+					if(res==1){  //
                         PointRoi pt = new PointRoi(atX+0.5, atY+0.5);
                         pt.setStrokeColor(Color.YELLOW);
-                        ovly.addElement(pt);
+						if (sameSize) pt.setPosition(isShow.getSize()+1);
+						ovlyDetections.addElement(pt);
                     }
-
+//					else{
+//						PointRoi pt = new PointRoi(atX+0.5, atY+0.5);
+//						pt.setStrokeColor(Color.BLUE);
+//						if (sameSize) pt.setPosition(isShow.getSize()+1);
+//						ovlyDetections.addElement(pt);
+//
+//					}
                     // taking values for RF
 //                    for (int w = 0; w < nrFilters; w++)
 //                        full_profile[k][w] = Calc.getProfileResponse(fs, w, vals, angs, rads);
 
 				}
 
-                System.out.println("!!! done taking values.");
+				if(sameSize) isShow.addSlice("", img.getProcessor());
+				else {
+					ImagePlus showImgInd = img;
+					showImgInd.setTitle("test"+i);
+					showImgInd.setOverlay(ovlyDetections);
+					showImgInd.show();
+				}
+
+//                System.out.println("!!! done taking values.");
 
 //                // store image features to weka test dataset
 //			    for (int k1 = 0; k1 < curr_tst; k1++){
@@ -661,179 +586,173 @@ public class DemoClassification implements PlugIn, MouseListener {
 //                        }
 //                }
 //                } catch (Exception e) { }
-
-				ImagePlus showIt = new ImagePlus("RES_"+test_files_tif[i].getName(), img.getProcessor());
-				showIt.setOverlay(ovly);
-
-				showIt.show();
-                showIt.getCanvas().zoomIn(0,0);
-                showIt.getCanvas().zoomIn(0,0);
-//                showIt.getCanvas().zoomIn(0,0);
-//                showIt.getCanvas().zoomIn(0,0);
-
             }
 
-
-        System.out.println();
+        	System.out.println(ovlyDetections.size()+ " detections so far... ");
 
 		}
-
-        //show ImageStack with test images and each has overlay (if possible)
-
-	}
-
-	private int profileLength(int rin)
-	{
-
-		int cnt = 0;
-
-		for (int x = -rin; x <= rin; x++){
-			for (int y = -rin; y <= rin; y++){
-                if (x*x+y*y<=rin*rin)
-				    cnt++;
-			}
-		}
-
-		return cnt;
-
-	}
-
-	public void profile(
-								ImagePlus img,
-								int xin,
-								int yin,
-								int rin
-	)
-	{
-
-		// will extract out vals[], rads[], and angs[]
-		// those will be used to score() on filterSet
-
-		int xs = xin-rin;
-		int xe = xin+rin;
-
-		int ys = yin-rin;
-		int ye = yin+rin;
-
-		int cnt = 0;
-		for (int x = xs; x <= xe; x++){
-			for (int y = ys; y <= ye; y++){
-
-				float d = (float) (Math.pow(x-xin, 2) + Math.pow(y-yin, 2));
-
-				if(d <= rin*rin){
-
-					vals[cnt] = img.getProcessor().getPixelValue(x, y);
-					rads[cnt] = (float) (Math.sqrt(d) / rin);
-					angs[cnt] = (float) (Math.atan2(y-yin, x-xin) + Math.PI);
-					angs[cnt] = (angs[cnt]>=(float)(2*Math.PI))? 0 : angs[cnt];
-					angs[cnt] = (angs[cnt]<0)? 0 : angs[cnt];
-					cnt++;
-
-				}
-
-			}
-		}
-    }
-
-	public void profile(
-							   ImagePlus img,
-							   ImagePlus vx,
-							   ImagePlus vy,
-							   int xin,
-							   int yin,
-							   int rin
-	)
-	{
-
-		// will extract out vals[], rads[], and angs[], those will be used to score() on filterSet
-
-		int xs = xin-rin;
-		int xe = xin+rin;
-
-		int ys = yin-rin;
-		int ye = yin+rin;
-
-		int cnt = 0;
-		for (int x = xs; x <= xe; x++){
-			for (int y = ys; y <= ye; y++){
-
-				float d = (float) (Math.pow(x-xin, 2) + Math.pow(y-yin, 2));
-
-				if(d <= rin*rin){
-
-					float dx = x-xin;	//Math.sin(ang[len]);
-					float dy = y-yin;	//-Math.cos(ang[len]);
-
-					// unit vector pointing towards the center
-					dx = (float) (dx / Math.sqrt((x - xin) * (x - xin) + (y - yin) * (y - yin)));
-					dy = (float) (dy / Math.sqrt((x - xin) * (x - xin) + (y - yin) * (y - yin)));
-
-					float I 	= img.getProcessor().getPixelValue(x, y);
-					float VX 	= vx.getProcessor().getPixelValue(x, y);
-					float VY 	= vy.getProcessor().getPixelValue(x, y);
-
-					vals[cnt] = (float) Math.abs(I * VX * dx + I * VY * dy);
-					//vals[cnt] = img.getProcessor().getPixelValue(x, y);
-					rads[cnt] = (float) (Math.sqrt(d) / rin);
-					angs[cnt] = (float) (Math.atan2(y-yin, x-xin) + Math.PI);
-
-					cnt++;
-
-				}
-
-			}
+		if (sameSize){
+			ImagePlus a23 = new ImagePlus("clss", isShow);
+			a23.setOverlay(ovlyDetections);
+			a23.show();
+			a23.getCanvas().zoomIn(0,0);
+			a23.getCanvas().zoomIn(0,0);
 		}
 
 	}
 
+//	private int profileLength(int rin)
+//	{
+//
+//		int cnt = 0;
+//
+//		for (int x = -rin; x <= rin; x++){
+//			for (int y = -rin; y <= rin; y++){
+//                if (x*x+y*y<=rin*rin)
+//				    cnt++;
+//			}
+//		}
+//
+//		return cnt;
+//
+//	}
 
-	public ImageStack plotProfile()
-	{
-		ImageStack viz = new ImageStack(400, 200);
+//	public void profile(
+//								ImagePlus img,
+//								int xin,
+//								int yin,
+//								int rin
+//	)
+//	{
+//
+//		// will extract out vals[], rads[], and angs[]
+//		// those will be used to score() on filterSet
+//
+//		int xs = xin-rin;
+//		int xe = xin+rin;
+//
+//		int ys = yin-rin;
+//		int ye = yin+rin;
+//
+//		int cnt = 0;
+//		for (int x = xs; x <= xe; x++){
+//			for (int y = ys; y <= ye; y++){
+//
+//				float d = (float) (Math.pow(x-xin, 2) + Math.pow(y-yin, 2));
+//
+//				if(d <= rin*rin){
+//
+//					vals[cnt] = img.getProcessor().getPixelValue(x, y);
+//					rads[cnt] = (float) (Math.sqrt(d) / rin);
+//					angs[cnt] = (float) (Math.atan2(y-yin, x-xin) + Math.PI);
+//					angs[cnt] = (angs[cnt]>=(float)(2*Math.PI))? 0 : angs[cnt];
+//					angs[cnt] = (angs[cnt]<0)? 0 : angs[cnt];
+//					cnt++;
+//
+//				}
+//
+//			}
+//		}
+//    }
 
-		// find max for plotting
-		float max_val = vals[0];
-		for (int i = 1; i < vals.length; i++){
-			if (vals[i] > max_val) max_val = vals[i];
-		}
+//	public void profile(
+//							   ImagePlus img,
+//							   ImagePlus vx,
+//							   ImagePlus vy,
+//							   int xin,
+//							   int yin,
+//							   int rin
+//	)
+//	{
+//
+//		// will extract out vals[], rads[], and angs[], those will be used to score() on filterSet
+//
+//		int xs = xin-rin;
+//		int xe = xin+rin;
+//
+//		int ys = yin-rin;
+//		int ye = yin+rin;
+//
+//		int cnt = 0;
+//		for (int x = xs; x <= xe; x++){
+//			for (int y = ys; y <= ye; y++){
+//
+//				float d = (float) (Math.pow(x-xin, 2) + Math.pow(y-yin, 2));
+//
+//				if(d <= rin*rin){
+//
+//					float dx = x-xin;	//Math.sin(ang[len]);
+//					float dy = y-yin;	//-Math.cos(ang[len]);
+//
+//					// unit vector pointing towards the center
+//					dx = (float) (dx / Math.sqrt((x - xin) * (x - xin) + (y - yin) * (y - yin)));
+//					dy = (float) (dy / Math.sqrt((x - xin) * (x - xin) + (y - yin) * (y - yin)));
+//
+//					float I 	= img.getProcessor().getPixelValue(x, y);
+//					float VX 	= vx.getProcessor().getPixelValue(x, y);
+//					float VY 	= vy.getProcessor().getPixelValue(x, y);
+//
+//					vals[cnt] = (float) Math.abs(I * VX * dx + I * VY * dy);
+//					//vals[cnt] = img.getProcessor().getPixelValue(x, y);
+//					rads[cnt] = (float) (Math.sqrt(d) / rin);
+//					angs[cnt] = (float) (Math.atan2(y-yin, x-xin) + Math.PI);
+//
+//					cnt++;
+//
+//				}
+//
+//			}
+//		}
+//
+//	}
 
-		Plot p = new Plot("circular_profile", "angle[rad]", "value");
-		p.setLimits(0, 2*Math.PI, 0, max_val);
-		p.setSize(400, 200);
-		p.addPoints(angs, vals, Plot.BOX);
-		viz.addSlice("circular_profile", p.getProcessor());
 
-		Plot p1 = new Plot("radial_profile", "radius", "value");
-		p1.setLimits(0, 1, 0, max_val);
-		p1.setSize(400, 200);
-		p1.addPoints(rads, vals, Plot.CIRCLE);
-		viz.addSlice("radial_profile", p1.getProcessor());
-
-		// check circular score
-		float[] c_idx = new float[fs.circConfs.size()];
-		float[] c_sco = new float[fs.circConfs.size()];
-		for (int i = 0; i < fs.circConfs.size(); i++){
-			c_idx[i] = i;
-			c_sco[i] = fs.score[i];
-		}
-		Plot p3 = new Plot("filtering_score", "circular_configuration", "score", c_idx, c_sco);
-		p3.setSize(400, 200);
-		viz.addSlice("scores", p3.getProcessor());
-
-		// check radial score
-		float[] r_idx = new float[fs.radlConfs.size()];
-		float[] r_sco = new float[fs.radlConfs.size()];
-		for (int i = 0; i < fs.radlConfs.size(); i++){
-			r_idx[i] = i;
-			r_sco[i] = fs.score[fs.circConfs.size()+i];
-		}
-		Plot p4 = new Plot("filtering_score", "radial_configuration", "score", r_idx, r_sco);
-		p4.setSize(400, 200);
-		viz.addSlice("scores", p4.getProcessor());
-
-		return viz;
-	}
+//	public ImageStack plotProfile()
+//	{
+//		ImageStack viz = new ImageStack(400, 200);
+//
+//		// find max for plotting
+//		float max_val = vals[0];
+//		for (int i = 1; i < vals.length; i++){
+//			if (vals[i] > max_val) max_val = vals[i];
+//		}
+//
+//		Plot p = new Plot("circular_profile", "angle[rad]", "value");
+//		p.setLimits(0, 2*Math.PI, 0, max_val);
+//		p.setSize(400, 200);
+//		p.addPoints(angs, vals, Plot.BOX);
+//		viz.addSlice("circular_profile", p.getProcessor());
+//
+//		Plot p1 = new Plot("radial_profile", "radius", "value");
+//		p1.setLimits(0, 1, 0, max_val);
+//		p1.setSize(400, 200);
+//		p1.addPoints(rads, vals, Plot.CIRCLE);
+//		viz.addSlice("radial_profile", p1.getProcessor());
+//
+//		// check circular score
+//		float[] c_idx = new float[fs.circConfs.size()];
+//		float[] c_sco = new float[fs.circConfs.size()];
+//		for (int i = 0; i < fs.circConfs.size(); i++){
+//			c_idx[i] = i;
+//			c_sco[i] = fs.score[i];
+//		}
+//		Plot p3 = new Plot("filtering_score", "circular_configuration", "score", c_idx, c_sco);
+//		p3.setSize(400, 200);
+//		viz.addSlice("scores", p3.getProcessor());
+//
+//		// check radial score
+//		float[] r_idx = new float[fs.radlConfs.size()];
+//		float[] r_sco = new float[fs.radlConfs.size()];
+//		for (int i = 0; i < fs.radlConfs.size(); i++){
+//			r_idx[i] = i;
+//			r_sco[i] = fs.score[fs.circConfs.size()+i];
+//		}
+//		Plot p4 = new Plot("filtering_score", "radial_configuration", "score", r_idx, r_sco);
+//		p4.setSize(400, 200);
+//		viz.addSlice("scores", p4.getProcessor());
+//
+//		return viz;
+//	}
 
 	private void addProfilePoints(
 		ImagePlus img,
@@ -1147,11 +1066,26 @@ public class DemoClassification implements PlugIn, MouseListener {
 				
 	}
 	
-	private void convertToFloatImage(){
-		
-		if(!img.getProcessor().isDefaultLut()) return;
-		img.setProcessor("input_image", img.getProcessor().convertToFloat().duplicate());
-		
+//	private void convertToFloatImage(){
+//
+//		if(!img.getProcessor().isDefaultLut()) return;
+//		img.setProcessor("input_image", img.getProcessor().convertToFloat().duplicate());
+//
+//	}
+
+	private ImagePlus convertToFloatImage(ImagePlus inim){
+
+		int W = inim.getWidth();
+		int H = inim.getHeight();
+
+		ImageProcessor ip = new FloatProcessor(W, H);
+		for (int i = 0; i < H*W; i++ ) {
+			ip.setf(i, inim.getProcessor().getPixelValue(i%W, i/W));
+		}
+
+		ImagePlus outim = new ImagePlus(inim.getTitle()+"ToFloat", ip);
+		return outim;
+
 	}
 
 	private ImagePlus maxStackZ(ImagePlus inim){
@@ -1189,42 +1123,39 @@ public class DemoClassification implements PlugIn, MouseListener {
 
 	public void mouseClicked(MouseEvent e) {
 
-		int atX = 	img.getWindow().getCanvas().offScreenX(e.getX());
-		int atY = 	img.getWindow().getCanvas().offScreenY(e.getY());
+		ImageCanvas srcCanv = (ImageCanvas) e.getSource();
 
-		addProfilePoints(img, atX, atY, patchRadius);
-        img.getCanvas().unzoom();
-        img.getCanvas().zoomIn(atX, atY);
+		String source  =  srcCanv.getName();
 
+//		int atX = 	img.getWindow().getCanvas().offScreenX(e.getX());
+//		int atY = 	img.getWindow().getCanvas().offScreenY(e.getY());
+
+//		addProfilePoints(img, atX, atY, patchRadius);
+//        img.getCanvas().unzoom();
+//        img.getCanvas().zoomIn(atX, atY);
 //        if(useDotProd) profile(img_click, Vx, Vy, atX, atY, radius);
 //        else profile(img_click, atX, atY, radius);
-
 //		fs.score(vals, angs, rads);
 //        float[] ft_id = new float[fs.circConfs.size()+fs.radlConfs.size()];
 //        for (int i = 0; i < ft_id.length; i++) ft_id[i] = i+1;
+//        int choose_ft;
+//        GenericDialog gd = new GenericDialog("Choose Feature");
+//        gd.addNumericField("choose feature:" ,	1, 0);
+//        gd.showDialog();
+//        if (gd.wasCanceled()) return;
+//        choose_ft = (int)       gd.getNextNumber();
 
-        int choose_ft;
-        GenericDialog gd = new GenericDialog("Choose Feature");
-        gd.addNumericField("choose feature:" ,	1, 0);
-        gd.showDialog();
-        if (gd.wasCanceled()) return;
-        choose_ft = (int)       gd.getNextNumber();
+		if (source=="best") {
 
-        System.out.print("chosen ft: "+choose_ft);
-        float[] ft_id = new float[fs.circConfs.get(choose_ft).nrRot];
-        for (int i = 0; i < ft_id.length; i++) ft_id[i] = i;
+			int mouseZ = best_feat_img.getCurrentSlice()-1;
 
-        new ImagePlus("chosen_feature_", plotProfile()).show();
+			ImagePlus imTest = convertToFloatImage(IJ.openImage());
 
-//        for (int i = 0; i < vals.length; i++){
-//            System.out.println(""+i+" -> "+vals[i]);
-//        }
+			System.out.println("caluclate score on "+imTest.getTitle()+" with feature of idx. " + mouseZ);
+			new ImagePlus("max", ccf3.score(mouseZ, imTest.getProcessor())).show();
+			new ImagePlus("per.rot", ccf3.scoreAllRot(mouseZ, imTest.getProcessor())).show();
 
-        new ImagePlus("chosen_ft"+choose_ft+"/"+(fs.circConfs.size()-1), fs.circConfs.get(choose_ft).plotAllRotations(65)).show();
-        Plot p = new Plot("ft"+choose_ft+"/"+(fs.circConfs.size()-1), "rot#", "scores per rot.", ft_id, fs.circConfs.get(choose_ft).scoreAllRot(vals, angs, rads));
-        p.show();
-
-
+		}
 	}
 
 	public void mousePressed(MouseEvent e) {}

@@ -70,19 +70,25 @@ public class FilterSet {
 //			}
 //		}
 
-/*        // 2
-		int nrPer2 = (int) Math.pow(nrScales, 2); // 2x
-		int[][] per2 = new int[nrPer2][2];
-		c = 0;
-		for (int k = 0; k < nrScales; k++){
-			for (int l = 0; l < nrScales; l++){
-				per2[c][0] = angular_scale_degrees[k];
-				per2[c][1] = angular_scale_degrees[l];
-				c++;
-			}
+        // 2
+//		int nrPer2 = nrScales;//(int) Math.pow(nrScales, 2); // 2x
+		int[][] per2 = new int[nrScales][2];
+
+		for (int k = 0; k < nrScales; k++) {
+			per2[k][0] = angular_scale_degrees[k];
+			per2[k][1] = angular_scale_degrees[k];
 		}
 
-		for (int i = 0; i < nrPer2; i++){
+//		c = 0;
+//		for (int k = 0; k < nrScales; k++){
+//			for (int l = 0; l < nrScales; l++){
+//				per2[c][0] = angular_scale_degrees[k];
+//				per2[c][1] = angular_scale_degrees[l];
+//				c++;
+//			}
+//		}
+
+		for (int i = 0; i < nrScales; i++){
 			for (int d1 = minAngScaleDegrees; d1 < 360; d1+=minAngScaleDegrees/2){
 				for (int d2 = minAngScaleDegrees; d2 < 360; d2+=minAngScaleDegrees/2){
 					boolean isConfiguration = false;
@@ -118,11 +124,16 @@ public class FilterSet {
 						}
 
 						if(!covered){
+
+							if (angular_scale_radiuses.length==1){
+								circConfs.add(new CircularConfiguration(per2[i], new int[]{d1, d2},  new double[]{angular_scale_radiuses[0], 1.0}, innerRing));
+							}
+
                             for (int k = 0; k < angular_scale_radiuses.length-1; k++){
-                                //circConfs.add(new CircularConfiguration(per2[i], new int[]{d1, d2},  new double[]{0.0, angular_scale_radiuses[k]}));
                                 if (angular_scale_radiuses[k]<0.99)
                                     circConfs.add(new CircularConfiguration(per2[i], new int[]{d1, d2},  new double[]{angular_scale_radiuses[k], angular_scale_radiuses[k+1]}, innerRing));
-                                int last_one = angular_scale_radiuses.length-1;
+
+								int last_one = angular_scale_radiuses.length-1;
                                 circConfs.add(new CircularConfiguration(per2[i], new int[]{d1, d2},  new double[]{angular_scale_radiuses[last_one], 1.0}, innerRing));
                             }
 						}
@@ -130,24 +141,17 @@ public class FilterSet {
 					}
 				}
 			}
-		}*/
-
-        // 3
-		int nrPer3 = (int) Math.pow(nrScales, 3); // 3x
-		int[][] per3 = new int[nrPer3][3];
-		c = 0;
-		for (int k = 0; k < nrScales; k++){
-			for (int l = 0; l < nrScales; l++){
-				for (int m = 0; m < nrScales; m++){
-					per3[c][0] = angular_scale_degrees[k];
-					per3[c][1] = angular_scale_degrees[l];
-					per3[c][2] = angular_scale_degrees[m];
-					c++;
-				}
-			}
 		}
 
-		for (int i = 0; i < nrPer3; i++){
+        // 3
+		int[][] per3 = new int[nrScales][3];
+		for (int k = 0; k < nrScales; k++) {
+			per3[k][0] = angular_scale_degrees[k];
+			per3[k][1] = angular_scale_degrees[k];
+			per3[k][2] = angular_scale_degrees[k];
+		}
+
+		for (int i = 0; i < nrScales; i++){
 			for (int d1 = minAngScaleDegrees; d1 < 360; d1+=minAngScaleDegrees){
 				for (int d2 = minAngScaleDegrees; d2 < 360; d2+=minAngScaleDegrees){
 					for (int d3 = minAngScaleDegrees; d3 < 360; d3+=minAngScaleDegrees){
@@ -201,14 +205,11 @@ public class FilterSet {
 							if(!covered){
 								// add it for all radial scales
                                 if (angular_scale_radiuses.length==1){
-//                                    System.out.println("here!");
                                     circConfs.add(new CircularConfiguration(per3[i], new int[]{d1, d2, d3},  new double[]{angular_scale_radiuses[0], 1.0}, innerRing));
                                 }
 
 								for (int k = 0; k < angular_scale_radiuses.length-1; k++){
-									//circConfs.add(new CircularConfiguration(per3[i], new int[]{d1, d2, d3},  new double[]{0.0, angular_scale_radiuses[k]}));
                                     if (angular_scale_radiuses[k]<0.99)
-
                                         circConfs.add(new CircularConfiguration(per3[i], new int[]{d1, d2, d3},  new double[]{angular_scale_radiuses[k], angular_scale_radiuses[k+1]}, innerRing));
 
                                     int last_one = angular_scale_radiuses.length-1;
@@ -239,20 +240,20 @@ public class FilterSet {
 
         radlConfs = new Vector<RadialConfiguration>();
 
-        // 1
-        int nrRep1 = (int) Math.pow(nrScales, 1); // 1x
-        double[][] rep1 = new double[nrRep1][1];
-        c = 0;
-        for (int k = 0; k < nrScales; k++){
-            rep1[c][0] = radial_scale[k];
-            c++;
-        }
-
-        for (int i = 0; i < nrRep1; i++){
-            if (rep1[i][0]<1){
-                  radlConfs.add(new RadialConfiguration(rep1[i], new double[]{0}));
-            }
-        }
+//        // 1
+//        int nrRep1 = (int) Math.pow(nrScales, 1); // 1x
+//        double[][] rep1 = new double[nrRep1][1];
+//        c = 0;
+//        for (int k = 0; k < nrScales; k++){
+//            rep1[c][0] = radial_scale[k];
+//            c++;
+//        }
+//
+//        for (int i = 0; i < nrRep1; i++){
+//            if (rep1[i][0]<1){
+//                  radlConfs.add(new RadialConfiguration(rep1[i], new double[]{0}));
+//            }
+//        }
 
         // 2
         // 3

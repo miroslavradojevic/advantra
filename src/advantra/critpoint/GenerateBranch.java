@@ -201,50 +201,6 @@ public class GenerateBranch implements PlugIn {
 
         IJ.log("trainset:\n\n" + outDirTrain + "\n\ntestset:\n\n" + outDirTest);
 
-/*		// parameters
-		int 	stack_height 	= 64;
-		int 	stack_width 	= 64;
-		int 	stack_size 		= 32;
-		double 	radius_std		= 1.0;
-		
-		String out_path_h = 
-				System.getProperty("user.home")+File.separator+"gen_branch_hor.tif";
-		String out_path_v = 
-				System.getProperty("user.home")+File.separator+"gen_branch_ver.tif";
-		
-		// dialog to enter input values
-		GenericDialog gd = new GenericDialog("Generate Simple Bifurcation", IJ.getInstance());
-		gd.addNumericField("image stack height :", stack_height, 0, 5, "pix");
-		gd.addNumericField("image stack width  :", stack_width,  0, 5, "pix");
-		gd.addNumericField("image stack size   :", stack_size, 	 0, 5, "pix");  
-		gd.addNumericField("radius std 		   :", radius_std,   2, 5, "pix" );
-		gd.showDialog();
-		if (gd.wasCanceled()) return;
-		stack_height = (int)gd.getNextNumber();
-		stack_width  = (int)gd.getNextNumber();
-		stack_size   = (int)gd.getNextNumber();
-		radius_std   = (double)gd.getNextNumber();
-		
-		// imagej plugin
-		BranchModel3D bm = new BranchModel3D(stack_height, stack_width, stack_size, radius_std, 40, 150);
-		bm.drawHorizontalModel();
-        IJ.showMessage("Done!");
-		ImagePlus im_out = bm.getModelAsImage();
-		im_out.setTitle("horizontal_model");
-		im_out.show();
-		(new FileSaver(im_out)).saveAsTiffStack(out_path_h);
-		
-		bm.drawVerticalModel();
-		im_out = bm.getModelAsImage();
-		im_out.setTitle("vertical_model");
-		im_out.show();
-		(new FileSaver(im_out)).saveAsTiffStack(out_path_v);
-		
-		System.out.println("files exported in :\n" +
-				""+out_path_h+" and \n" +
-						""+out_path_v);*/
-
-		
 	}
 
     // terminal command option (empty)
