@@ -31,7 +31,7 @@ import weka.core.Instances;
 public class CPClassificationAdaBoost implements PlugIn, MouseListener {
 
 	ImagePlus 	img;
-	ImagePlus best_feat_img;
+	ImagePlus   best_feat_img;
 	String 		train_folder, test_folder;
 
     int 		patchRadius, patchDiameter;
@@ -239,7 +239,7 @@ public class CPClassificationAdaBoost implements PlugIn, MouseListener {
 
 			System.out.println();
 
-            if((curr_pos>0 && curr_neg>0) ){
+            if((curr_pos>0 || curr_neg>0) ){
 
 				if(!sameSize) ovly.clear();
 
@@ -265,18 +265,22 @@ public class CPClassificationAdaBoost implements PlugIn, MouseListener {
                 // only in case of artificial dataset because of the disbalance pos/neg
                 // each image will contribute in as many negatives as positives
                 // random without sampling
-                boolean[] chs = new boolean[curr_neg];
-                Random rand = new Random();
-                int cntMtches = 0;
-                while (cntMtches < curr_pos) {  // select curr_pos random ones
-                    System.out.println("curr_pos : "+curr_pos+" curr_neg "+curr_neg);
-                    int rIdx = rand.nextInt(curr_neg);
-                    if (!chs[rIdx]) {
-                        chs[rIdx] = true;
-                        cntMtches++;
+                boolean[] chs;
+                if(curr_neg<=0)  chs = new boolean[1];
+
+                else {
+                    chs = new boolean[curr_neg];
+                    Random rand = new Random();
+                    int cntMtches = 0;
+                    while (cntMtches < curr_pos) {  // select curr_pos random ones
+                        int rIdx = rand.nextInt(curr_neg);
+                        if (!chs[rIdx]) {
+                            chs[rIdx] = true;
+                            cntMtches++;
+                        }
                     }
                 }
-				if (!equal) {// annulate
+				if (!equal) {// annulate  randomizaiton
 					for (int k = 0; k < chs.length; k++){
 						chs[k] = true;
 					}
@@ -310,7 +314,7 @@ public class CPClassificationAdaBoost implements PlugIn, MouseListener {
 				}
 				else {
 					ImagePlus showImgInd = img;
-					showImgInd.setTitle("train"+i);
+					showImgInd.setTitle(img.getTitle());
 					System.out.println("overlay has: "+ovly.size());
 					showImgInd.setOverlay(ovly);
 					showImgInd.show();
@@ -452,7 +456,7 @@ public class CPClassificationAdaBoost implements PlugIn, MouseListener {
 				Plot plot = plotFearutePerAllSamples(featsP, featsN, (int)adaboost[i][0], adaboost[i][2]);
 				imstack.addSlice("thresh = " + adaboost[i][2], plot.getProcessor());
 			}
-			imp1.setStack("best_feats_scores", imstack);
+			imp1.setStack("best.scores", imstack);
 			imp1.show();
 
 		}
@@ -533,7 +537,7 @@ public class CPClassificationAdaBoost implements PlugIn, MouseListener {
 					}
                     int res = applyAdaBoost(adaboost, selScores);
 
-					if(res==1){  //
+					if(res==1){   //
                         PointRoi pt = new PointRoi(atX+0.5, atY+0.5);
                         pt.setStrokeColor(Color.YELLOW);
 						if (sameSize) pt.setPosition(isShow.getSize()+1);
@@ -555,7 +559,8 @@ public class CPClassificationAdaBoost implements PlugIn, MouseListener {
 				if(sameSize) isShow.addSlice("", img.getProcessor());
 				else {
 					ImagePlus showImgInd = img;
-					showImgInd.setTitle("test"+i);
+					showImgInd.setTitle(img.getTitle());
+                    System.out.println(ovlyDetections.size()+ " detections ");
 					showImgInd.setOverlay(ovlyDetections);
 					showImgInd.show();
 				}
@@ -588,11 +593,11 @@ public class CPClassificationAdaBoost implements PlugIn, MouseListener {
 //                } catch (Exception e) { }
             }
 
-        	System.out.println(ovlyDetections.size()+ " detections so far... ");
+
 
 		}
 		if (sameSize){
-			ImagePlus a23 = new ImagePlus("clss", isShow);
+			ImagePlus a23 = new ImagePlus("det", isShow);
 			a23.setOverlay(ovlyDetections);
 			a23.show();
 			a23.getCanvas().zoomIn(0,0);

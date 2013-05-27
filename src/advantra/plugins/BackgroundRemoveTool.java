@@ -24,7 +24,7 @@ public class BackgroundRemoveTool implements PlugInFilter  {
 	
 	ImagePlus 	img;
 	ImagePlus 	out;
-	String 		method;
+	int 		method;
 	double 		scale;
 
 	public void run(ImageProcessor arg0) {
@@ -46,11 +46,11 @@ public class BackgroundRemoveTool implements PlugInFilter  {
 		gd.showDialog();
 		if (gd.wasCanceled()) return;
 		
-		method 		= (String)gd.getNextChoice(); //getNextNumber();
+		method 		= gd.getNextChoiceIndex(); //getNextNumber();
 		scale		= (double)gd.getNextNumber();
 		
 		switch (method) {
-		case "Method_0":
+		case 0:
 			Image I 						= new FloatImage(Image.wrap(img));
 			Dimensions dims 				= I.dimensions();
 
@@ -82,7 +82,7 @@ public class BackgroundRemoveTool implements PlugInFilter  {
 			
 			break;
 
-		case "Method_1":
+		case 1:
 			OtsuBinarisation otsu = new OtsuBinarisation(img);
 			ImagePlus img_binarized = otsu.run();
 			
@@ -97,8 +97,6 @@ public class BackgroundRemoveTool implements PlugInFilter  {
 			out.show();
 			
 			break;
-
-			
 
 		default:
 			IJ.showMessage("Wrong method selected.");
