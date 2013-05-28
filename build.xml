@@ -1,13 +1,18 @@
 <project name="advantra" default="" basedir=".">
- 	<description>
+
+    <dirname property="module.advantra.basedir" file="${ant.file}"/>
+
+    <description>
     	imagej packages for neuron tracing project build file
     </description>
 
     <property environment="env"/>
 	<property name="src"    		location="src"   />
-  	<property name="build"  		location="build" />
+  	<property name="build"  		location="mybuild" />
 	<property name="user.name" 		value="miroslavR" />
-    <property name="javac1.5"        location="/opt/jdk1.7.0_21/bin/javac" />  <!-- compiles also if this line is out -->
+   <!-- <property name="javac1.5"        value="javac" />-->  <!-- compiles also if this line is out -->
+
+
 
 <target name="main" depends="compress" description="main target">
 </target>
@@ -28,8 +33,58 @@
 
 </target>
 
-<target name="compile" depends="" description="compiling">
-    <javac compiler="javac1.5" target="1.5" source="1.5" srcdir="${src}" destdir="${build}" />
-</target>
+
+    <path id="advantra.module.bootclasspath">
+        <!-- Paths to be included in compilation bootclasspath -->
+        <fileset dir="/home/miroslav/ImageJ/jre_prev/lib/" includes="rt.jar"/>
+    </path>
+
+
+    <path id="advantra.module.production.classpath">
+        <pathelement location="${basedir}/../jarlib/ij.jar"/>
+        <pathelement location="${basedir}/../jarlib/imagescience.jar"/>
+        <pathelement location="${basedir}/../jarlib/flanagan.jar"/>
+        <pathelement location="${basedir}/../jarlib/weka.jar"/>
+        <pathelement location="${basedir}/../jarlib/ij-plugins-toolkit.jar"/>
+        <pathelement location="${basedir}/../jarlib/jama.jar"/>
+        <pathelement location="${basedir}/../jarlib/VIB-lib.jar"/>
+    </path>
+
+    <path id="advantra.module.sourcepath">
+        <dirset dir="${module.advantra.basedir}">
+            <include name="src"/>
+        </dirset>
+    </path>
+
+    <patternset id="compiler.resources">
+        <exclude name="**/?*.java"/>
+        <exclude name="**/?*.form"/>
+        <exclude name="**/?*.class"/>
+        <exclude name="**/?*.groovy"/>
+        <exclude name="**/?*.scala"/>
+        <exclude name="**/?*.flex"/>
+        <exclude name="**/?*.kt"/>
+        <exclude name="**/?*.clj"/>
+    </patternset>
+
+    <target name="compile" description="Compile module advantra">
+        <mkdir dir="mybuild"/>
+        <javac destdir="mybuild" target="1.6" source="1.6">
+            <bootclasspath refid="advantra.module.bootclasspath"/>
+            <classpath refid="advantra.module.production.classpath"/>
+            <src refid="advantra.module.sourcepath"/>
+        </javac>
+
+
+
+        <copy todir="mybuild">
+            <fileset dir="${module.advantra.basedir}/src">
+                <patternset refid="compiler.resources"/>
+                <type type="file"/>
+            </fileset>
+        </copy>
+    </target>
+
+
 
 </project>
