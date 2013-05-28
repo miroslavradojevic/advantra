@@ -7,19 +7,13 @@
 	<property name="src"    		location="src"   />
   	<property name="build"  		location="build" />
 	<property name="user.name" 		value="miroslavR" />
+    <property name="javac1.5"        location="/opt/jdk1.7.0_21/bin/javac" />  <!-- compiles also if this line is out -->
 
-    <target name="main" depends="compress" description="Main target">
-	<echo>
-		finalize...
-	</echo>
+<target name="main" depends="compress" description="main target">
 </target>
 
 
-<target name="compress" depends="compile" description="generate the distribution">
-
-    <echo>
-        compressing the JAR file...
-    </echo>
+<target name="compress" depends="compile" description="generate distribution">
 
 	<jar jarfile="advantra_.jar">
  		<fileset dir="."          includes="plugins.config" />
@@ -29,17 +23,13 @@
  		</manifest>
  	</jar>
 
-    <echo>
-        copy the JAR file to ImageJ folder...
-    </echo>
-
-	<copy file="./advantra_.jar" 				toDir="${env.HOME}/ImageJ/plugins/" />
+	<copy file="./advantra_.jar"  toDir="${env.HOME}/ImageJ/plugins/" />
+    <copy file="./advantra_.jar"  toDir="${env.HOME}/Fiji.app/plugins/" />
 
 </target>
 
-<target name="compile">
-    <javac compiler="javac1.6" target="1.6" source="1.6" srcdir="${src}" destdir="${build}">
-    </javac>
+<target name="compile" depends="" description="compiling">
+    <javac compiler="javac1.5" target="1.5" source="1.5" srcdir="${src}" destdir="${build}" />
 </target>
 
 </project>
