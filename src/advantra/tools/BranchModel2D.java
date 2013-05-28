@@ -96,10 +96,6 @@ public class BranchModel2D {
 
         }
 
-		//alfa12 = minAngle + gen.nextInt(maxAngle-minAngle);
-		//alfa23 = alfa12 + minAngle + gen.nextInt(360 - (alfa12 + minAngle));
-
-
         double maxLength = Math.min(0.8*w/2, 0.8*h/2);
 
         l1 = Math.random() * maxLength * (1-toFix) + maxLength * toFix;

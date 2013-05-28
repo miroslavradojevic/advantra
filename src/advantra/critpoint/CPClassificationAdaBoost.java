@@ -30,6 +30,8 @@ import weka.core.Instances;
 
 public class CPClassificationAdaBoost implements PlugIn, MouseListener {
 
+    // this one will be cancelled soon...
+
 	ImagePlus 	img;
 	ImagePlus   best_feat_img;
 	String 		train_folder, test_folder;
@@ -133,14 +135,8 @@ public class CPClassificationAdaBoost implements PlugIn, MouseListener {
 
 		System.out.println("\n## TRAIN ##  \n"+train_folder+"\n------------------------------------\n");
 
-//        ImagePlus img1 = new ImagePlus(files_tif[0].getAbsolutePath());
-//        int W1 = img1.getWidth();
-//        int H1 = img1.getHeight();
-
 		ImageStack showStk = new ImageStack();
 		boolean initialized = false;
-
-
         Overlay ovly = new Overlay();
 
 		for (int i = 0; i < files_tif.length; i++) { // for each tif file
@@ -163,7 +159,7 @@ public class CPClassificationAdaBoost implements PlugIn, MouseListener {
 			AnalyzeCSV readCSV;
 			File[] check;
 			String suffix;
-            ImagePlus readMask;
+            //ImagePlus readMask;
 			String file_name = files_tif[i].getName();
 			file_name = file_name.substring(0, file_name.length()-4);
 
@@ -553,7 +549,6 @@ public class CPClassificationAdaBoost implements PlugIn, MouseListener {
                     // taking values for RF
 //                    for (int w = 0; w < nrFilters; w++)
 //                        full_profile[k][w] = Calc.getProfileResponse(fs, w, vals, angs, rads);
-
 				}
 
 				if(sameSize) isShow.addSlice("", img.getProcessor());
@@ -593,8 +588,6 @@ public class CPClassificationAdaBoost implements PlugIn, MouseListener {
 //                } catch (Exception e) { }
             }
 
-
-
 		}
 		if (sameSize){
 			ImagePlus a23 = new ImagePlus("det", isShow);
@@ -603,190 +596,6 @@ public class CPClassificationAdaBoost implements PlugIn, MouseListener {
 			a23.getCanvas().zoomIn(0,0);
 			a23.getCanvas().zoomIn(0,0);
 		}
-
-	}
-
-//	private int profileLength(int rin)
-//	{
-//
-//		int cnt = 0;
-//
-//		for (int x = -rin; x <= rin; x++){
-//			for (int y = -rin; y <= rin; y++){
-//                if (x*x+y*y<=rin*rin)
-//				    cnt++;
-//			}
-//		}
-//
-//		return cnt;
-//
-//	}
-
-//	public void profile(
-//								ImagePlus img,
-//								int xin,
-//								int yin,
-//								int rin
-//	)
-//	{
-//
-//		// will extract out vals[], rads[], and angs[]
-//		// those will be used to score() on filterSet
-//
-//		int xs = xin-rin;
-//		int xe = xin+rin;
-//
-//		int ys = yin-rin;
-//		int ye = yin+rin;
-//
-//		int cnt = 0;
-//		for (int x = xs; x <= xe; x++){
-//			for (int y = ys; y <= ye; y++){
-//
-//				float d = (float) (Math.pow(x-xin, 2) + Math.pow(y-yin, 2));
-//
-//				if(d <= rin*rin){
-//
-//					vals[cnt] = img.getProcessor().getPixelValue(x, y);
-//					rads[cnt] = (float) (Math.sqrt(d) / rin);
-//					angs[cnt] = (float) (Math.atan2(y-yin, x-xin) + Math.PI);
-//					angs[cnt] = (angs[cnt]>=(float)(2*Math.PI))? 0 : angs[cnt];
-//					angs[cnt] = (angs[cnt]<0)? 0 : angs[cnt];
-//					cnt++;
-//
-//				}
-//
-//			}
-//		}
-//    }
-
-//	public void profile(
-//							   ImagePlus img,
-//							   ImagePlus vx,
-//							   ImagePlus vy,
-//							   int xin,
-//							   int yin,
-//							   int rin
-//	)
-//	{
-//
-//		// will extract out vals[], rads[], and angs[], those will be used to score() on filterSet
-//
-//		int xs = xin-rin;
-//		int xe = xin+rin;
-//
-//		int ys = yin-rin;
-//		int ye = yin+rin;
-//
-//		int cnt = 0;
-//		for (int x = xs; x <= xe; x++){
-//			for (int y = ys; y <= ye; y++){
-//
-//				float d = (float) (Math.pow(x-xin, 2) + Math.pow(y-yin, 2));
-//
-//				if(d <= rin*rin){
-//
-//					float dx = x-xin;	//Math.sin(ang[len]);
-//					float dy = y-yin;	//-Math.cos(ang[len]);
-//
-//					// unit vector pointing towards the center
-//					dx = (float) (dx / Math.sqrt((x - xin) * (x - xin) + (y - yin) * (y - yin)));
-//					dy = (float) (dy / Math.sqrt((x - xin) * (x - xin) + (y - yin) * (y - yin)));
-//
-//					float I 	= img.getProcessor().getPixelValue(x, y);
-//					float VX 	= vx.getProcessor().getPixelValue(x, y);
-//					float VY 	= vy.getProcessor().getPixelValue(x, y);
-//
-//					vals[cnt] = (float) Math.abs(I * VX * dx + I * VY * dy);
-//					//vals[cnt] = img.getProcessor().getPixelValue(x, y);
-//					rads[cnt] = (float) (Math.sqrt(d) / rin);
-//					angs[cnt] = (float) (Math.atan2(y-yin, x-xin) + Math.PI);
-//
-//					cnt++;
-//
-//				}
-//
-//			}
-//		}
-//
-//	}
-
-
-//	public ImageStack plotProfile()
-//	{
-//		ImageStack viz = new ImageStack(400, 200);
-//
-//		// find max for plotting
-//		float max_val = vals[0];
-//		for (int i = 1; i < vals.length; i++){
-//			if (vals[i] > max_val) max_val = vals[i];
-//		}
-//
-//		Plot p = new Plot("circular_profile", "angle[rad]", "value");
-//		p.setLimits(0, 2*Math.PI, 0, max_val);
-//		p.setSize(400, 200);
-//		p.addPoints(angs, vals, Plot.BOX);
-//		viz.addSlice("circular_profile", p.getProcessor());
-//
-//		Plot p1 = new Plot("radial_profile", "radius", "value");
-//		p1.setLimits(0, 1, 0, max_val);
-//		p1.setSize(400, 200);
-//		p1.addPoints(rads, vals, Plot.CIRCLE);
-//		viz.addSlice("radial_profile", p1.getProcessor());
-//
-//		// check circular score
-//		float[] c_idx = new float[fs.circConfs.size()];
-//		float[] c_sco = new float[fs.circConfs.size()];
-//		for (int i = 0; i < fs.circConfs.size(); i++){
-//			c_idx[i] = i;
-//			c_sco[i] = fs.score[i];
-//		}
-//		Plot p3 = new Plot("filtering_score", "circular_configuration", "score", c_idx, c_sco);
-//		p3.setSize(400, 200);
-//		viz.addSlice("scores", p3.getProcessor());
-//
-//		// check radial score
-//		float[] r_idx = new float[fs.radlConfs.size()];
-//		float[] r_sco = new float[fs.radlConfs.size()];
-//		for (int i = 0; i < fs.radlConfs.size(); i++){
-//			r_idx[i] = i;
-//			r_sco[i] = fs.score[fs.circConfs.size()+i];
-//		}
-//		Plot p4 = new Plot("filtering_score", "radial_configuration", "score", r_idx, r_sco);
-//		p4.setSize(400, 200);
-//		viz.addSlice("scores", p4.getProcessor());
-//
-//		return viz;
-//	}
-
-	private void addProfilePoints(
-		ImagePlus img,
-		int xin,
-		int yin,
-		int rin
-	)
-	{
-		Overlay ol = new Overlay();
-
-		int xs = xin-rin;
-		int xe = xin+rin;
-
-		int ys = yin-rin;
-		int ye = yin+rin;
-
-		for (int x = xs; x <= xe; x++){
-			for (int y = ys; y <= ye; y++){
-
-				if(Math.pow(x-xin, 2) + Math.pow(y-yin, 2) <= rin*rin){
-
-					ol.add(new PointRoi(x-0.5, y-0.5));
-
-				}
-
-			}
-		}
-
-		img.setOverlay(ol);
 
 	}
 
@@ -1070,13 +879,6 @@ public class CPClassificationAdaBoost implements PlugIn, MouseListener {
 		img.setCalibration(c);
 				
 	}
-	
-//	private void convertToFloatImage(){
-//
-//		if(!img.getProcessor().isDefaultLut()) return;
-//		img.setProcessor("input_image", img.getProcessor().convertToFloat().duplicate());
-//
-//	}
 
 	private ImagePlus convertToFloatImage(ImagePlus inim){
 
@@ -1172,64 +974,3 @@ public class CPClassificationAdaBoost implements PlugIn, MouseListener {
 	public void mouseExited(MouseEvent e) {}
 
 }
-
-/*	public float[] extract(
-				ImagePlus img,
-				ImagePlus Vx,
-				ImagePlus Vy,
-				FilterSet filterSet,
-				int atX,
-				int atY,
-				float[] radiuses,
-				double darc,
-				boolean plotIt
-	)
-	{
-
-		Overlay ol = new Overlay();
-
-		int len = profileLen(radiuses, darc);
-
-		float[] val = new float[len];
-		float[] ang = new float[len];
-
-		len = 0;
-		for (int rI = 0; rI < radiuses.length; rI++) {
-			for (double arc = 0; arc < 2 * radiuses[rI] * Math.PI; arc += darc) {
-
-				ang[len] = (float) (arc / radiuses[rI]);
-
-				double d1 = Math.sin(ang[len]);
-				double d2 = -Math.cos(ang[len]);
-
-				double x2 = atX + radiuses[rI] * d1;
-				double y2 = atY + radiuses[rI] * d2;
-
-				int x_loc = (int) Math.round(x2);
-				int y_loc = (int) Math.round(y2);
-
-				float v1 = Vx.getProcessor().getPixelValue(x_loc, y_loc);
-				float v2 = Vy.getProcessor().getPixelValue(x_loc, y_loc);
-
-				float mult = img.getProcessor().getPixelValue(x_loc, y_loc);
-				val[len] = (float) Math.abs(mult * v1 * d1 + mult * v2 * d2);
-
-				if(plotIt){
-					ol.add(new PointRoi(x_loc-0.5, y_loc-0.5));
-					ol.add(new Line(x_loc-0.5, y_loc-0.5, x_loc-0.5+1*v1, y_loc-0.5+1*v2));
-				}
-
-				len++;
-
-
-			}
-		}
-		// allocate out
-		float[] outFeat = new float[filterSet.circConfs.size()];
-		for (int fI = 0; fI < filterSet.circConfs.size(); fI++){
-			outFeat[fI] = filterSet.circConfs.get(fI).calculateScore(val, ang);
-		}
-
-		return outFeat;
-
-	}*/

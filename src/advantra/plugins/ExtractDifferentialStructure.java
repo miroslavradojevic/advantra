@@ -132,7 +132,6 @@ public class ExtractDifferentialStructure implements PlugInFilter {
 	
 	/*
 	 * main() for terminal use
-	 * java -cp JAR_LIBRARIES:advantra_.jar advantra.plugins.ExtractDifferentialStructure ARG1 ARG2 ARG3 ARG4
 	 */
 	
 	public static void main(String[] args){

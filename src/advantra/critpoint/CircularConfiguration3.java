@@ -21,7 +21,7 @@ public class CircularConfiguration3 {
 	public int			r;
 	public int			d;
 
-	public static int 			nRot = 8;
+	public static int 			nRot = 15;
 	public static float 		rotStp = (float) ((2*Math.PI)/nRot);
 
 	public static float TwoPi = (float) (2*Math.PI);
@@ -44,11 +44,11 @@ public class CircularConfiguration3 {
 			for (float ratio = 1.0f; ratio > 0.2; ratio*=0.75){
 
 				int Tpix = (int) Math.round(ratio*Rpix);
-				if (Tpix>=2){
+
+                if (Tpix>=2){
 					int angRes = (int) Math.round( (ratio/TwoPi)*360 );
 					angRes = (angRes/20 + 1)*20;
 					comb.add(new int[]{Rpix, Tpix, angRes});
-					System.out.println(""+Rpix+","+Tpix+","+angRes);
 				}
 				else {
 					break;
@@ -57,8 +57,9 @@ public class CircularConfiguration3 {
 
 		}
 
-		System.out.println(""+comb.size()+" formed");
-		Vector<int[]> comb1 = new Vector<int[]>();
+		System.out.println(""+comb.size()+" R,T combinations formed");
+
+        Vector<int[]> comb1 = new Vector<int[]>();
 
 		for (int combIdx = 0; combIdx < comb.size(); combIdx++) {
 
@@ -70,7 +71,7 @@ public class CircularConfiguration3 {
 				for (int d2 = 2*minAngScaleDegrees; d2 < 360; d2+=minAngScaleDegrees){
 					for (int d3 = 2*minAngScaleDegrees; d3 < 360; d3+=minAngScaleDegrees){
 
-						boolean isConfiguration = (d1+d2+d3==360);
+						boolean isConfiguration = (d1+d2+d3==360) && (d1<180) && (d2<180) && (d3<180);
 
 						if(isConfiguration) {
 
@@ -129,8 +130,6 @@ public class CircularConfiguration3 {
 			}
 		}
 		System.out.println(""+kernels.size()+" formed");
-
-
 	}
 
 	public ImageStack plotKernels()
@@ -169,17 +168,11 @@ public class CircularConfiguration3 {
 	)
 	{
 
-		//ImageStack is = new ImageStack(d, d);
-
-		//for (int i = 0; i < nRot; i++) {
-			ImageProcessor ip = new FloatProcessor(d, d, kernels.get(kerIdx)[rotIdx]);
-		//	is.addSlice(names.get(idx), ip);
-		//}
+		ImageProcessor ip = new FloatProcessor(d, d, kernels.get(kerIdx)[rotIdx]);
 
 		return ip;
 
 	}
-
 
 	/*
 	SCORE CALCULATION WHOLE IMAGE
@@ -280,6 +273,11 @@ public class CircularConfiguration3 {
 
 	}
 
+
+    /*
+    AUX METHODS
+     */
+
 	private float[][] formKernel(
 		float[] angles,
 		int Rpix,
@@ -340,7 +338,7 @@ public class CircularConfiguration3 {
 							p[1] = y;
 
 							double dst = distance_point_to_line_2d(cent, n, p);
-							if (dst <= Tpix/2) {
+							if (Math.round(dst) <= Tpix/2) {
 								kernels[rIdx][x+kernelsW*y] = 1;
 								nrON++;
 								isON = true;
@@ -375,7 +373,7 @@ public class CircularConfiguration3 {
 				}
 			}
 
-			System.out.println(nrON + ", " + nrOFF);
+//			System.out.println(nrON + ", " + nrOFF);
 
 		}
 
@@ -383,8 +381,12 @@ public class CircularConfiguration3 {
 
 	}
 
-	private double 	distance_point_to_line_2d(int[] line_base_point, double[] line_unit_direction, int[] point){
-
+	private double 	distance_point_to_line_2d(
+            int[] line_base_point,
+            double[] line_unit_direction,
+            int[] point
+    )
+    {
 		// line is in vector form (point+unit_direction)
 
 		double distance_from_line = 0;
