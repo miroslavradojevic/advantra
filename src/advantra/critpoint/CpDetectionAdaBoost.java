@@ -47,10 +47,11 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
     CircularConfiguration2 ccf2;
     CircularConfiguration3 ccf3;
     CircularConfiguration1 ccf1;
+	SymmConfiguration scf;
 
     int[] best_indexes;
 
-    int nrFilters3, nrFilters2, nrFilters;
+    int nrFilters3, nrFilters2, nrFilters1, nrFilters;
 
     static float TwoPi = (float) (2*Math.PI);
 
@@ -89,10 +90,14 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
         ccf3 = new CircularConfiguration3(patchRadius);
         ccf2 = new CircularConfiguration2(patchRadius);
         ccf1 = new CircularConfiguration1(patchRadius);
+		scf = new SymmConfiguration(patchRadius);
+
+		if(true) return;
 
         nrFilters3  = ccf3.kernels.size();
         nrFilters2  = ccf2.kernels.size();
-        nrFilters   = nrFilters3 + nrFilters2;
+		nrFilters1  = ccf1.kernels.size();
+        nrFilters   = nrFilters3 + nrFilters2 + nrFilters1;
 
         ImagePlus feats3 = new ImagePlus("Y.feat."+patchRadius, ccf3.plotKernels());
         feats3.show();
@@ -101,12 +106,19 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
         feats3.getCanvas().zoomIn(0, 0);
         feats3.getCanvas().zoomIn(0, 0);
 
-        ImagePlus feats2 = new ImagePlus("I.feat."+patchRadius, ccf2.plotKernels());
+        ImagePlus feats2 = new ImagePlus("V.feat."+patchRadius, ccf2.plotKernels());
         feats2.show();
         feats2.getCanvas().zoomIn(0, 0);
         feats2.getCanvas().zoomIn(0, 0);
         feats2.getCanvas().zoomIn(0, 0);
         feats2.getCanvas().zoomIn(0, 0);
+
+		ImagePlus feats1 = new ImagePlus("I.feat."+patchRadius, ccf1.plotKernels());
+		feats1.show();
+		feats1.getCanvas().zoomIn(0, 0);
+		feats1.getCanvas().zoomIn(0, 0);
+		feats1.getCanvas().zoomIn(0, 0);
+		feats1.getCanvas().zoomIn(0, 0);
 
         /*
         ALLOCATE STORAGE TRAIN
@@ -256,6 +268,10 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
                         takeScores[nrFilters3+l] = ccf2.score(atX, atY, l, img.getProcessor());
                     }
 
+					for (int l = 0; l < nrFilters1; l++) {
+						takeScores[nrFilters3+nrFilters2+l] = ccf1.score(atX, atY, l, img.getProcessor());
+					}
+
                     pos_ft.addSlice(new FloatProcessor(nrFilters, 1, takeScores));
                     PointRoi pt = new PointRoi(atX+0.5, atY+0.5);
                     pt.setStrokeColor(Color.RED);
@@ -304,6 +320,7 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
                         int atX = (int)locs_neg.get(i)[k][0] + bias;
                         int atY = (int)locs_neg.get(i)[k][1] + bias;
 
+						// calculate filter scores at negatives
                         float[] takeScores = new float[nrFilters];
                         for (int l = 0; l < nrFilters3; l++) {
                             takeScores[l] = ccf3.score(atX, atY, l, img.getProcessor());
@@ -312,6 +329,10 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
                         for (int l = 0; l < nrFilters2; l++) {
                             takeScores[nrFilters3+l] = ccf2.score(atX, atY, l, img.getProcessor());
                         }
+
+						for (int l = 0; l < nrFilters1; l++) {
+							takeScores[nrFilters3+nrFilters2+l] = ccf1.score(atX, atY, l, img.getProcessor());
+						}
 
                         neg_ft.addSlice(new FloatProcessor(nrFilters, 1, takeScores));
                         PointRoi pt = new PointRoi(atX+0.5, atY+0.5);
@@ -418,6 +439,9 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
                 else if (id >= nrFilters3 && id < nrFilters2+nrFilters3) {
                     best_feat.addSlice(ccf2.plotKernel(id-nrFilters3, 0));
                 }
+				else if(id >= nrFilters3+nrFilters2 && id < nrFilters1+nrFilters2+nrFilters3) {
+					best_feat.addSlice(ccf1.plotKernel(id-nrFilters3-nrFilters2, 0));
+				}
 
             }
             best_feat_img.setStack("chosen.feats", best_feat);
@@ -515,12 +539,15 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
                         else if (bestIdx>=nrFilters3 && bestIdx<nrFilters2+nrFilters3) {
                             selScores[l] = ccf2.score(atX, atY, bestIdx-nrFilters3, img.getProcessor());
                         }
+						else if (bestIdx>=nrFilters2+nrFilters3 && bestIdx<nrFilters1+nrFilters2+nrFilters3) {
+							selScores[l] = ccf1.score(atX, atY, bestIdx-nrFilters3-nrFilters2, img.getProcessor());
+						}
 
                     }
 
                     int res = applyAdaBoost(adaboost, selScores);
 
-                    if(res==1){ // res==1
+                    if(res==1){
 
                         PointRoi pt = new PointRoi(atX+0.5, atY+0.5);
                         pt.setStrokeColor(Color.YELLOW);
@@ -788,7 +815,7 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
 
         Plot plot = new Plot("feature id = " + c, "Sample id", "Feature value", xp, yp);
         plot.setLimits(0, Math.max(sizen, sizep), Math.min(minyn, minyp), Math.max(maxyn, maxyp));
-        plot.setColor(Color.RED);
+        plot.setColor(Color.BLUE);
 
         plot.addPoints(xn, yn, Plot.LINE);
         plot.setColor(Color.BLACK);
@@ -797,7 +824,7 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
         double[] linex = new double[]{0, Math.max(sizen, sizep)};
         double[] liney = new double[]{thresh, thresh};
         plot.addPoints(linex, liney, Plot.LINE);
-        plot.setColor(Color.BLUE);
+        plot.setColor(Color.RED);
         plot.setLineWidth(2);
 
         return plot;
@@ -877,6 +904,10 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
                 new ImagePlus("max", ccf2.score(best_indexes[mouseZ]-nrFilters3, imTest.getProcessor())).show();
                 new ImagePlus("per.rot", ccf2.scoreAllRot(best_indexes[mouseZ]-nrFilters3, imTest.getProcessor())).show();
             }
+			else if (best_indexes[mouseZ]>=nrFilters3+nrFilters2 && best_indexes[mouseZ]<nrFilters3+nrFilters2+nrFilters1) {
+				new ImagePlus("max", ccf1.score(best_indexes[mouseZ]-nrFilters3-nrFilters2, imTest.getProcessor())).show();
+				new ImagePlus("per.rot", ccf1.scoreAllRot(best_indexes[mouseZ]-nrFilters3-nrFilters2, imTest.getProcessor())).show();
+			}
 
         }
 

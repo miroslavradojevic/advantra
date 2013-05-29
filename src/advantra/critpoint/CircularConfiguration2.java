@@ -20,6 +20,7 @@ public class CircularConfiguration2 {
     public int			r;
     public int			d;
 
+	public static int			nPeaks = 2;
     public static int 			nRot = 15;
     public static float 		rotStp = (float) ((2*Math.PI)/nRot);
 
@@ -81,7 +82,6 @@ public class CircularConfiguration2 {
                                         (
                                                 d1        ==comb1.get(k)[0] &&
                                                 d2        ==comb1.get(k)[1] &&
-//                                                        d3        ==comb1.get(k)[2] &&
                                                 Rpx		  ==comb1.get(k)[2] &&
                                                 Tpx		  ==comb1.get(k)[3]
                                         )
@@ -89,18 +89,9 @@ public class CircularConfiguration2 {
                                         (
                                                 d1        ==comb1.get(k)[1] &&
                                                 d2        ==comb1.get(k)[0] &&
-//                                                                d3        ==comb1.get(k)[0] &&
                                                 Rpx		  ==comb1.get(k)[2] &&
                                                 Tpx       ==comb1.get(k)[3]
                                         )
-//                                        ||
-//                                        (
-//                                                d1        ==comb1.get(k)[2] &&
-//                                                d2        ==comb1.get(k)[0] &&
-////                                                                d3        ==comb1.get(k)[1] &&
-//                                                Rpx		  ==comb1.get(k)[3] &&
-//                                                Tpx       ==comb1.get(k)[4]
-//                                                )
                                 )
                                 {
                                     covered = true;
@@ -110,11 +101,9 @@ public class CircularConfiguration2 {
                             if(!covered){
 
                                 comb1.add(new int[]{d1, d2, Rpx, Tpx});
-//								System.out.println("adding : "+d1+" , "+d2+" , "+d3+" , "+Rpx+" , "+Tpx);
-                                float[] inhere = new float[3];
+                                float[] inhere = new float[nPeaks];
                                 inhere[0] = (d1/360f)*TwoPi;
                                 inhere[1] = (d2/360f)*TwoPi;
-                                inhere[2] = (d2/360f)*TwoPi;
                                 String name = ""+d1+","+d2+","+Rpx+","+Tpx;
                                 names.add(name);
                                 kernels.add(formKernel(inhere, Rpx, Tpx));
@@ -285,13 +274,13 @@ public class CircularConfiguration2 {
     )
     {
 
-        float[][] peaksRad = new float[nRot][3];
+        float[][] peaksRad = new float[nRot][nPeaks];
 
         for (int cnt_rots = 0; cnt_rots < nRot; cnt_rots++) {
 
             float start_pos = cnt_rots*rotStp;
 
-            for (int cnt_pks = 0; cnt_pks < 3; cnt_pks++) {
+            for (int cnt_pks = 0; cnt_pks < nPeaks; cnt_pks++) {
 
                 if(cnt_pks==0)
                     peaksRad[cnt_rots][cnt_pks] 	= start_pos;
@@ -327,7 +316,7 @@ public class CircularConfiguration2 {
 
                         boolean isON = false;
 
-                        for (int pIdx = 0; pIdx < 3; pIdx++) {
+                        for (int pIdx = 0; pIdx < nPeaks; pIdx++) {
                             double ang = peaksRad[rIdx][pIdx];
 
                             n[0] = Math.sin(ang);

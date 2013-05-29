@@ -1,5 +1,10 @@
 package advantra.critpoint;
 
+import ij.ImageStack;
+import ij.plugin.filter.Convolver;
+import ij.process.FloatProcessor;
+import ij.process.ImageProcessor;
+
 import java.util.ArrayList;
 import java.util.Vector;
 
@@ -15,6 +20,7 @@ public class CircularConfiguration1 {
     public int			r;
     public int			d;
 
+	public static int			nPeaks = 1;
     public static int 			nRot = 15;
     public static float 		rotStp = (float) ((2*Math.PI)/nRot);
 
@@ -51,7 +57,7 @@ public class CircularConfiguration1 {
 
         }
 
-        System.out.println(""+comb.size()+" R,T combinations formed");
+        //System.out.println(""+comb.size()+" R,T combinations formed");
 
         Vector<int[]> comb1 = new Vector<int[]>();
 
@@ -61,64 +67,159 @@ public class CircularConfiguration1 {
             int Rpx = comb.get(combIdx)[0];
             int Tpx = comb.get(combIdx)[1];
 
-            //for (int d1 = 2*minAngScaleDegrees; d1 < 360; d1+=minAngScaleDegrees){
-                //for (int d2 = 2*minAngScaleDegrees; d2 < 360; d2+=minAngScaleDegrees){
-                    //for (int d3 = 2*minAngScaleDegrees; d3 < 360; d3+=minAngScaleDegrees){
-
-                    //boolean isConfiguration = (d1+d2==360); // && (d1<180) && (d2<180)
-
-                    //if(isConfiguration) {
-
-//                        boolean covered = false;
-                        // check if it exists so far in other rotations
-//                        for (int k = 0; k < comb1.size(); k++){
-//                            if(
-//                                    (
-//                                            d1        ==comb1.get(k)[0] &&
-//                                                    d2        ==comb1.get(k)[1] &&
-////                                                        d3        ==comb1.get(k)[2] &&
-//                                                    Rpx		  ==comb1.get(k)[2] &&
-//                                                    Tpx		  ==comb1.get(k)[3]
-//                                    )
-//                                            ||
-//                                            (
-//                                                    d1        ==comb1.get(k)[1] &&
-//                                                            d2        ==comb1.get(k)[0] &&
-////                                                                d3        ==comb1.get(k)[0] &&
-//                                                            Rpx		  ==comb1.get(k)[2] &&
-//                                                            Tpx       ==comb1.get(k)[3]
-//                                            )
-//                                    )
-//                            {
-//                                covered = true;
-//                            }
-//                        }
-
-                        //if(!covered){
-
-                            //comb1.add(new int[]{d1, d2, Rpx, Tpx});
-//								System.out.println("adding : "+d1+" , "+d2+" , "+d3+" , "+Rpx+" , "+Tpx);
-                            float[] inhere = new float[1];
-                            inhere[0] = TwoPi;
-//                            inhere[1] = (d2/360f)*TwoPi;
-//                            inhere[2] = (d2/360f)*TwoPi;
-                            String name = Rpx+","+Tpx;
+                            float[] inhere = new float[nPeaks];
+                            inhere[0] = 0;
+                            String name = 360+","+Rpx+","+Tpx;
                             names.add(name);
                             kernels.add(formKernel(inhere, Rpx, Tpx));
 
-                        //}
-
-                    //}
-
-                    //}
-
-                //}
-            //}
         }
 
         System.out.println(""+kernels.size()+" formed");
 
     }
+
+	public ImageStack plotKernels()
+	{
+
+		ImageStack is = new ImageStack(d, d);
+
+		for (int i = 0; i < kernels.size(); i++) {
+			ImageProcessor ip = new FloatProcessor(d, d, kernels.get(i)[0]);
+			is.addSlice(names.get(i), ip);
+		}
+
+		return is;
+
+	}
+
+	public ImageStack plotKernel(
+										int kerIdx
+	)
+	{
+
+		ImageStack is = new ImageStack(d, d);
+
+		for (int i = 0; i < nRot; i++) {
+			ImageProcessor ip = new FloatProcessor(d, d, kernels.get(kerIdx)[i]);
+			is.addSlice(names.get(kerIdx), ip);
+		}
+
+		return is;
+
+	}
+
+	public ImageProcessor plotKernel(
+											int kerIdx,
+											int rotIdx
+	)
+	{
+
+		ImageProcessor ip = new FloatProcessor(d, d, kernels.get(kerIdx)[rotIdx]);
+
+		return ip;
+
+	}
+
+	/*
+	SCORE CALCULATION WHOLE IMAGE
+	 */
+
+	public ImageProcessor score(
+									   int kernelIdx,
+									   ImageProcessor input
+	)
+	{
+		ImageProcessor ip = score(kernelIdx, 0, input);  // rot 0
+
+		for (int i = 1; i < nRot; i++) {
+			ImageProcessor ip_sc = score(kernelIdx, i, input);
+			for (int j = 0; j < ip_sc.getHeight()*ip_sc.getWidth(); j++) {
+				if (ip_sc.getf(j) > ip.getf(j)) {
+					ip.setf(j, ip_sc.getf(j));
+				}
+			}
+		}
+
+		return ip;
+
+	}
+
+	public ImageStack scoreAllRot(
+										 int kernelIdx,
+										 ImageProcessor input
+	)
+	{
+		ImageStack is = new ImageStack(input.getWidth(), input.getHeight());
+
+		for (int i = 0; i < nRot; i++) {
+			is.addSlice(score(kernelIdx, i, input));
+		}
+
+		return is;
+
+	}
+
+	public ImageProcessor score(
+									   int kernelIdx,
+									   int rotIdx,
+									   ImageProcessor input
+	)
+	{
+		ImageProcessor ip = input.duplicate();//new FloatProcessor(input.getWidth(), input.getHeight(), (float[]) input.getPixels());
+
+		//convolution
+		Convolver c = new Convolver();
+		c.setNormalize(false); // important not to normalize (did my own normalization)
+
+		float[] k = kernels.get(kernelIdx)[rotIdx];
+
+		c.convolveFloat(ip, k, d, d);
+
+		return ip;
+
+	}
+
+    /*
+	SCORE CALCULATION POSITION
+	 */
+
+	public float score(
+							  int atX,
+							  int atY,
+							  int kernelIdx,
+							  ImageProcessor input
+	)
+	{
+		float scMax = Float.NEGATIVE_INFINITY;
+
+		for (int rot = 0; rot < nRot; rot++) {
+
+			float sc = 0;
+
+			for (int x = 0; x < d; x++) {
+				for (int y = 0; y < d; y++) {
+
+					int x_img = x + atX - r;
+					int y_img = y + atY - r;
+
+					if (x_img>=0 && x_img<input.getWidth() && y_img>=0 && y_img<input.getHeight()) {
+						sc += kernels.get(kernelIdx)[rot][x+d*y] * input.getf(x_img, y_img);
+					}
+
+				}
+			}
+
+			if(sc>scMax) {
+				scMax = sc;
+			}
+
+		}
+
+		return scMax;
+
+	}
+
 
     /*
     AUX METHODS
@@ -131,13 +232,13 @@ public class CircularConfiguration1 {
     )
     {
 
-        float[][] peaksRad = new float[nRot][1];
+        float[][] peaksRad = new float[nRot][nPeaks];
 
         for (int cnt_rots = 0; cnt_rots < nRot; cnt_rots++) {
 
             float start_pos = cnt_rots*rotStp;
 
-            for (int cnt_pks = 0; cnt_pks < 1; cnt_pks++) {
+            for (int cnt_pks = 0; cnt_pks < nPeaks; cnt_pks++) {
 
                 if(cnt_pks==0)
                     peaksRad[cnt_rots][cnt_pks] 	= start_pos;
@@ -173,7 +274,7 @@ public class CircularConfiguration1 {
 
                         boolean isON = false;
 
-                        for (int pIdx = 0; pIdx < 3; pIdx++) {
+                        for (int pIdx = 0; pIdx < nPeaks; pIdx++) {
                             double ang = peaksRad[rIdx][pIdx];
 
                             n[0] = Math.sin(ang);
@@ -217,8 +318,6 @@ public class CircularConfiguration1 {
                     }
                 }
             }
-
-//			System.out.println(nrON + ", " + nrOFF);
 
         }
 

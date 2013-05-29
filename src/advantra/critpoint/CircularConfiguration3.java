@@ -21,6 +21,7 @@ public class CircularConfiguration3 {
 	public int			r;
 	public int			d;
 
+	public static int			nPeaks = 3;
 	public static int 			nRot = 15;
 	public static float 		rotStp = (float) ((2*Math.PI)/nRot);
 
@@ -57,7 +58,7 @@ public class CircularConfiguration3 {
 
 		}
 
-		System.out.println(""+comb.size()+" R,T combinations formed");
+		//System.out.println(""+comb.size()+" R,T combinations formed");
 
         Vector<int[]> comb1 = new Vector<int[]>();
 
@@ -111,8 +112,7 @@ public class CircularConfiguration3 {
 							if(!covered){
 
 								comb1.add(new int[]{d1, d2, d3, Rpx, Tpx});
-//								System.out.println("adding : "+d1+" , "+d2+" , "+d3+" , "+Rpx+" , "+Tpx);
-								float[] inhere = new float[3];
+								float[] inhere = new float[nPeaks];
 								inhere[0] = (d1/360f)*TwoPi;
 								inhere[1] = (d2/360f)*TwoPi;
 								inhere[2] = (d2/360f)*TwoPi;
@@ -285,13 +285,13 @@ public class CircularConfiguration3 {
 	)
 	{
 
-		float[][] peaksRad = new float[nRot][3];
+		float[][] peaksRad = new float[nRot][nPeaks];
 
 		for (int cnt_rots = 0; cnt_rots < nRot; cnt_rots++) {
 
 			float start_pos = cnt_rots*rotStp;
 
-			for (int cnt_pks = 0; cnt_pks < 3; cnt_pks++) {
+			for (int cnt_pks = 0; cnt_pks < nPeaks; cnt_pks++) {
 
 				if(cnt_pks==0)
 					peaksRad[cnt_rots][cnt_pks] 	= start_pos;
@@ -328,7 +328,7 @@ public class CircularConfiguration3 {
 
 						boolean isON = false;
 
-						for (int pIdx = 0; pIdx < 3; pIdx++) {
+						for (int pIdx = 0; pIdx < nPeaks; pIdx++) {
 							double ang = peaksRad[rIdx][pIdx];
 
 							n[0] = Math.sin(ang);
@@ -372,8 +372,6 @@ public class CircularConfiguration3 {
 					}
 				}
 			}
-
-//			System.out.println(nrON + ", " + nrOFF);
 
 		}
 

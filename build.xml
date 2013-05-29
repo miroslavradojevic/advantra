@@ -50,7 +50,7 @@
 
     <path id="sourcepath">
         <dirset dir="${basedir}">
-            <include name="src/*"/>    <!-- it was important to add the source to be visible in debug when printing stack trace -->
+            <include name="src/*"/>    <!-- it was important to add the source with * to be visible in debug when printing stack trace -->
         </dirset>
     </path>
     <!-- compilation command (compile & copy to build folder) -->
