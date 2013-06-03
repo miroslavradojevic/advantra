@@ -60,7 +60,7 @@
 
         <mkdir dir="${build}"/>
 
-        <javac destdir="${build}" debug="true" debuglevel="lines,vars,source">
+        <javac target="1.5" destdir="${build}" debug="true" debuglevel="lines,vars,source">
             <classpath refid="classpath"/>
             <src refid="sourcepath"/>
         </javac>

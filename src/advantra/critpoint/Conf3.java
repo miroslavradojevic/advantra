@@ -2,6 +2,7 @@ package advantra.critpoint;
 
 import ij.IJ;
 import ij.ImageStack;
+import ij.gui.Plot;
 import ij.plugin.filter.Convolver;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
@@ -23,7 +24,7 @@ public class Conf3 {
 	public int			d;
 
 	public static int			nPeaks = 3;
-	public static int 			nRot = 15;
+	public static int 			nRot = 12;
 	public static float 		rotStp = (float) ((2*Math.PI)/nRot);
 
 	public static float TwoPi = (float) (2*Math.PI);
@@ -37,8 +38,7 @@ public class Conf3 {
 
 	// aim is to calculate average in each region (2*nrPeaks+1 regions)
 	float[] regionSums; // this variable will store sums for current rotation regions when calculating score at some location
-	float Xon, Xoff;
-
+	float Xon, Xoff;  // parameters to set the score for each region
 
 	public Conf3(
 		int 	patchRadius
@@ -151,8 +151,8 @@ public class Conf3 {
 								inhere[1] = (d2/360f)*TwoPi;
 								inhere[2] = (d3/360f)*TwoPi;
 
-								int[][] idxMap = new int[nRot][];
-								int[][] regSzs = new int[nRot][];
+								int[][] idxMap = new int[nRot][]; // nRot x (d*d)
+								int[][] regSzs = new int[nRot][]; // nRot x (2*nPeaks+1)
 
 								boolean isOK = formIdxMap(inhere, Rpx, Rlower, Rinner, Tpx, idxMap, regSzs);
 
@@ -201,6 +201,7 @@ public class Conf3 {
 		ImageStack is = new ImageStack(d, d);
 
 		for (int i = 0; i < nRot; i++) {
+            System.out.println("rot "+i+" -> "+regionIdxMap.get(kernelIdx)[i].length);
 			ImageProcessor ip = new FloatProcessor(d, d, regionIdxMap.get(kernelIdx)[i]);
 			is.addSlice("rot."+i+","+names.get(i), ip);
 		}
@@ -260,12 +261,12 @@ public class Conf3 {
 		Convolver c = new Convolver();
 		c.setNormalize(false); // important not to normalize (did my own normalization)
 
-		float[] k = kernels.get(kernelIdx)[rotIdx];
+		//float[] k = kernels.get(kernelIdx)[rotIdx];
 
 		//new ImagePlus("before."+rotIdx, input.duplicate()).show();
 		//new ImagePlus("kernel."+rotIdx, new FloatProcessor(d, d, k)).show();
 
-		c.convolveFloat(ip, k, d, d);
+		//c.convolveFloat(ip, k, d, d);
 
 		//new ImagePlus("after."+rotIdx, ip).show();
 
@@ -277,40 +278,94 @@ public class Conf3 {
 	SCORE CALCULATION POSITION
 	 */
 
-	public float scoreAtPos(
+	public double scoreAtPos(
 		int atX,
 		int atY,
 		int kernelIdx,
-		ImageProcessor input
+		ImageProcessor input,
+        float Xon,
+        float Xoff
 	)
 	{
-		float scMax = Float.NEGATIVE_INFINITY;
+		double highestScr = 0;
+        int getIndex;   // variable to store the index each time
 
 		for (int rot = 0; rot < nRot; rot++) {
 
-			//float sc = 0;
-			int getIndex;
-			for (int x = 0; x < d; x++) {
-				for (int y = 0; y < d; y++) {
+			//reset region sums for each rotation each time (max. will be taken)
+            for (int t = 0; t < regionSums.length; t++) {
+                regionSums[t] = 0;
+            }
 
-					int x_img = x + atX - r;
-					int y_img = y + atY - r;
+            for (int l = 0; l < d*d; l++) { // check all template locations for sum indexes
+                getIndex  =  regionIdxMap.get(kernelIdx)[rot][l];
+                if (getIndex>=0 && getIndex<=2*nPeaks) { // if the index is meaningful
 
-					if (x_img>=0 && x_img<input.getWidth() && y_img>=0 && y_img<input.getHeight()) {
-						getIndex = regionIdxMap.get(kernelIdx)[rot][];// no need to double loop!!!
-						//sc += kernels.get(kernelIdx)[rot][x+d*y] * input.getf(x_img, y_img);
-					}
+                    int x = l % d; // col
+                    int y = l / d; // row
 
-				}
+                    int x_img = x + atX - r;
+                    int y_img = y + atY - r;
+
+                    if (x_img>=0 && x_img<input.getWidth() && y_img>=0 && y_img<input.getHeight()) { // if value can be read from this location
+                        regionSums[ regionIdxMap.get(kernelIdx)[rot][l] ]+=input.getf(x_img, y_img);
+                    }
+                    else {
+                        regionSums[ regionIdxMap.get(kernelIdx)[rot][l] ]+=0;
+                    }
+                }
+            }
+
+            double score = 1;
+
+            //System.out.println(" before score... rotation "+rot);
+
+            float[] x_axis_test = new float[regionSums.length];
+            float[] lhoods = new float[regionSums.length];
+            for (int t = 0; t < regionSums.length; t++) {
+                x_axis_test[t] = t;
+            }
+
+            for (int t = 0; t < regionSums.length; t++) {
+
+                //System.out.println("region "+t+" sum =  "+regionSums[t]+"  , size = "+regionSize.get(kernelIdx)[rot][t]+" avg: ");
+
+                regionSums[t] /= regionSize.get(kernelIdx)[rot][t]; // t corresponds to region size at this rotation
+
+                //System.out.print(t + " -> " + regionSums[t] + "  ,   ");
+
+                // now make the final calculation
+                if (t==0) { // it is central one
+                    score *= 1 - Math.exp(-regionSums[0]/Xon); // higher value -> 1
+                    //System.out.println(1 - Math.exp(-regionSums[0]/Xon));
+                    lhoods[t] = (float) (1 - Math.exp(-regionSums[t]/Xon));
+                }
+                if (t>=1 && t <= nPeaks) { // peak regions
+                    score *= 1 - Math.exp(-regionSums[t]/Xon);
+                    //System.out.println(1 - Math.exp(-regionSums[t]/Xon));
+                    lhoods[t] = (float) (1 - Math.exp(-regionSums[t]/Xon));
+                }
+                if (t>=nPeaks+1 && t <= 2*nPeaks) {
+                    score *= Math.exp(-regionSums[t]/Xoff);
+                    //System.out.println(Math.exp(-regionSums[t]/Xoff));
+                    lhoods[t] = (float) (Math.exp(-regionSums[t]/Xoff));
+                }
+            }
+
+            /*Plot p = new Plot("rot"+rot, "region", "avg", x_axis_test, regionSums);
+            p.show();
+
+            p = new Plot("rot"+rot, "region", "lhood", x_axis_test, lhoods);
+            p.show();
+            */
+
+			if(score>highestScr) {
+                highestScr = score;
 			}
-
-//			if(sc>scMax) {
-//				scMax = sc;
-//			}
 
 		}
 
-		return scMax;
+		return highestScr;
 
 	}
 
