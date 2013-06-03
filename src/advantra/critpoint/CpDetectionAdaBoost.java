@@ -48,10 +48,12 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
     CircularConfiguration3 ccf3;
     CircularConfiguration1 ccf1;
 	SymmConfiguration scf;
+	AsymmConfiguration acf;
+	CircularConfiguration4 ccf4;
 
     int[] best_indexes;
 
-    int nrFilters3, nrFilters2, nrFilters1, nrFilters;
+    int nrFilters3, nrFilters2, nrFilters1, nrFiltersS, nrFiltersA, nrFilters4, nrFilters;
 
     static float TwoPi = (float) (2*Math.PI);
 
@@ -62,23 +64,16 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
         test_folder     = (String)Prefs.get("advantra.critpoint.test_folder", (System.getProperty("user.home")+File.separator));
 
         GenericDialog gd = new GenericDialog("Critpoint Detection");
-
         gd.addNumericField("patch_radius", patchRadius, 0, 5, "");
-
         gd.addStringField("train folder : ", train_folder, 	40);
         gd.addStringField("test  folder : ", test_folder, 	40);
-
         gd.addCheckbox("images got same dimensions", false);
         gd.addCheckbox("equal # (+) and (-)", false);
-
         gd.showDialog();
         if (gd.wasCanceled()) return;
-
         patchRadius =  (int)gd.getNextNumber();
-
         train_folder = 	gd.getNextString();
         test_folder = 	gd.getNextString();
-
         boolean sameSize = gd.getNextBoolean();
         boolean equal = gd.getNextBoolean();
 
@@ -86,18 +81,30 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
         Prefs.set("advantra.critpoint.test_folder",     test_folder);
         Prefs.set("advantra.critpoint.patch_radius", 	patchRadius);
 
+		/*
+		CREATE FEATS
+		 */
+
         patchDiameter = 2*patchRadius+1;
-        ccf3 = new CircularConfiguration3(patchRadius);
+
+		ccf3 = new CircularConfiguration3(patchRadius);
         ccf2 = new CircularConfiguration2(patchRadius);
         ccf1 = new CircularConfiguration1(patchRadius);
 		scf = new SymmConfiguration(patchRadius);
-
-		if(true) return;
+		acf = new AsymmConfiguration(patchRadius);
+		ccf4 = new CircularConfiguration4(patchRadius);
 
         nrFilters3  = ccf3.kernels.size();
-        nrFilters2  = ccf2.kernels.size();
-		nrFilters1  = ccf1.kernels.size();
-        nrFilters   = nrFilters3 + nrFilters2 + nrFilters1;
+        nrFilters2  = 0;//ccf2.kernels.size();
+		nrFilters1  = 0;//ccf1.kernels.size();
+		nrFiltersS 	= 0;//scf.kernels.size();
+		nrFiltersA  = 0;//acf.kernels.size();
+		nrFilters4  = ccf4.kernels.size();
+        nrFilters   = nrFilters3 + nrFilters2 + nrFilters1 + nrFiltersS + nrFiltersA + nrFilters4;
+
+		/*
+		SHOW FEATS
+		 */
 
         ImagePlus feats3 = new ImagePlus("Y.feat."+patchRadius, ccf3.plotKernels());
         feats3.show();
@@ -106,19 +113,48 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
         feats3.getCanvas().zoomIn(0, 0);
         feats3.getCanvas().zoomIn(0, 0);
 
+		if(nrFilters2>0){
         ImagePlus feats2 = new ImagePlus("V.feat."+patchRadius, ccf2.plotKernels());
         feats2.show();
         feats2.getCanvas().zoomIn(0, 0);
         feats2.getCanvas().zoomIn(0, 0);
         feats2.getCanvas().zoomIn(0, 0);
         feats2.getCanvas().zoomIn(0, 0);
+		}
 
+		if(nrFilters2>0){
 		ImagePlus feats1 = new ImagePlus("I.feat."+patchRadius, ccf1.plotKernels());
 		feats1.show();
 		feats1.getCanvas().zoomIn(0, 0);
 		feats1.getCanvas().zoomIn(0, 0);
 		feats1.getCanvas().zoomIn(0, 0);
 		feats1.getCanvas().zoomIn(0, 0);
+		}
+
+		if(nrFiltersS>0){
+		ImagePlus featsS = new ImagePlus("S.feat."+patchRadius, scf.plotKernels());
+		featsS.show();
+		featsS.getCanvas().zoomIn(0, 0);
+		featsS.getCanvas().zoomIn(0, 0);
+		featsS.getCanvas().zoomIn(0, 0);
+		featsS.getCanvas().zoomIn(0, 0);
+		}
+
+		if(nrFiltersA>0){
+		ImagePlus featsA = new ImagePlus("A.feat."+patchRadius, acf.plotKernels());
+		featsA.show();
+		featsA.getCanvas().zoomIn(0, 0);
+		featsA.getCanvas().zoomIn(0, 0);
+		featsA.getCanvas().zoomIn(0, 0);
+		featsA.getCanvas().zoomIn(0, 0);
+		}
+
+		ImagePlus feats4 = new ImagePlus("X.feat."+patchRadius, ccf4.plotKernels());
+		feats4.show();
+		feats4.getCanvas().zoomIn(0, 0);
+		feats4.getCanvas().zoomIn(0, 0);
+		feats4.getCanvas().zoomIn(0, 0);
+		feats4.getCanvas().zoomIn(0, 0);
 
         /*
         ALLOCATE STORAGE TRAIN
@@ -127,7 +163,7 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
         File dir = new File(train_folder);
         train_folder = dir.getAbsolutePath();
         if(!dir.isDirectory() ){
-            IJ.error("Wrong train-set directory: " + train_folder + "   closing...");
+            IJ.error("Wrong trainset directory: " + train_folder + "   closing...");
             return;
         }
 
@@ -258,7 +294,9 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
                     int atX = (int)locs_pos.get(i)[k][0] + bias;
                     int atY = (int)locs_pos.get(i)[k][1] + bias;
 
-                    // calculate filter scores at positives
+                    /*
+                    calculate filter scores at positives
+                     */
                     float[] takeScores = new float[nrFilters];
                     for (int l = 0; l < nrFilters3; l++) {
                         takeScores[l] = ccf3.score(atX, atY, l, img.getProcessor());
@@ -272,7 +310,20 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
 						takeScores[nrFilters3+nrFilters2+l] = ccf1.score(atX, atY, l, img.getProcessor());
 					}
 
-                    pos_ft.addSlice(new FloatProcessor(nrFilters, 1, takeScores));
+					for (int l = 0; l < nrFiltersS; l++) {
+						takeScores[nrFilters3+nrFilters2+nrFilters1+l] = scf.score(atX, atY, l, img.getProcessor());
+					}
+
+					for (int l = 0; l < nrFiltersA; l++) {
+						takeScores[nrFilters3+nrFilters2+nrFilters1+nrFiltersS+l] = acf.score(atX, atY, l, img.getProcessor());
+					}
+
+					for (int l = 0; l < nrFilters4; l++) {
+						takeScores[nrFilters3+nrFilters2+nrFilters1+nrFiltersS+nrFiltersA+l] = ccf4.score(atX, atY, l, img.getProcessor());
+					}
+
+
+					pos_ft.addSlice(new FloatProcessor(nrFilters, 1, takeScores));
                     PointRoi pt = new PointRoi(atX+0.5, atY+0.5);
                     pt.setStrokeColor(Color.RED);
 
@@ -312,15 +363,15 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
                     }
                 }
 
-                //System.out.println("feature extraction for negatives "+img.getTitle());
-
                 for (int k = 0; k < curr_neg; k++) {
                     if (chs[k]){
 
                         int atX = (int)locs_neg.get(i)[k][0] + bias;
                         int atY = (int)locs_neg.get(i)[k][1] + bias;
 
-						// calculate filter scores at negatives
+						/*
+						 calculate filter scores at negatives input: img.getProcessor(), output: takeScores
+						  */
                         float[] takeScores = new float[nrFilters];
                         for (int l = 0; l < nrFilters3; l++) {
                             takeScores[l] = ccf3.score(atX, atY, l, img.getProcessor());
@@ -332,6 +383,18 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
 
 						for (int l = 0; l < nrFilters1; l++) {
 							takeScores[nrFilters3+nrFilters2+l] = ccf1.score(atX, atY, l, img.getProcessor());
+						}
+
+						for (int l = 0; l < nrFiltersS; l++) {
+							takeScores[nrFilters3+nrFilters2+nrFilters1+l] = scf.score(atX, atY, l, img.getProcessor());
+						}
+
+						for (int l = 0; l < nrFiltersA; l++) {
+							takeScores[nrFilters3+nrFilters2+nrFilters1+nrFiltersS+l] = acf.score(atX, atY, l, img.getProcessor());
+						}
+
+						for (int l = 0; l < nrFilters4; l++) {
+							takeScores[nrFilters3+nrFilters2+nrFilters1+nrFiltersS+nrFiltersA+l] = ccf4.score(atX, atY, l, img.getProcessor());
 						}
 
                         neg_ft.addSlice(new FloatProcessor(nrFilters, 1, takeScores));
@@ -433,7 +496,11 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
             ImageStack best_feat = new ImageStack(patchDiameter, patchDiameter);
             for (int i = 0; i < adaboost.length; i++){
                 int id = (int) adaboost[i][0];
-                if (id < nrFilters3) {
+
+				/*
+				showing... be careful on index
+				 */
+				if (id < nrFilters3) {
                     best_feat.addSlice(ccf3.plotKernel(id, 0));
                 }
                 else if (id >= nrFilters3 && id < nrFilters2+nrFilters3) {
@@ -441,6 +508,15 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
                 }
 				else if(id >= nrFilters3+nrFilters2 && id < nrFilters1+nrFilters2+nrFilters3) {
 					best_feat.addSlice(ccf1.plotKernel(id-nrFilters3-nrFilters2, 0));
+				}
+				else if (id>= nrFilters1+nrFilters2+nrFilters3 && id < nrFiltersS+nrFilters1+nrFilters2+nrFilters3) {
+					best_feat.addSlice(scf.plotKernel(id-nrFilters3-nrFilters2-nrFilters1, 0));
+				}
+				else if (id>= nrFiltersS+nrFilters1+nrFilters2+nrFilters3 && id < nrFiltersA+nrFiltersS+nrFilters1+nrFilters2+nrFilters3) {
+					best_feat.addSlice(acf.plotKernel(id-nrFilters3-nrFilters2-nrFilters1-nrFiltersS, 0));
+				}
+				else if (id>= nrFiltersA+nrFiltersS+nrFilters1+nrFilters2+nrFilters3 && id < nrFilters4+nrFiltersA+nrFiltersS+nrFilters1+nrFilters2+nrFilters3) {
+					best_feat.addSlice(ccf4.plotKernel(id-nrFilters3-nrFilters2-nrFilters1-nrFiltersS-nrFiltersA, 0));
 				}
 
             }
@@ -528,6 +604,10 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
                     int atX = (int)locs_tst.get(i)[k][0]; // these are read using imagej, no need for fixing bias
                     int atY = (int)locs_tst.get(i)[k][1];
 
+					/*
+					calculate score on selected - take care of index
+					 */
+
                     float[] selScores = new float[best_indexes.length];
                     for (int l = 0; l < best_indexes.length; l++) {
 
@@ -541,6 +621,15 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
                         }
 						else if (bestIdx>=nrFilters2+nrFilters3 && bestIdx<nrFilters1+nrFilters2+nrFilters3) {
 							selScores[l] = ccf1.score(atX, atY, bestIdx-nrFilters3-nrFilters2, img.getProcessor());
+						}
+						else if (bestIdx>=nrFilters1+nrFilters2+nrFilters3 && bestIdx<nrFiltersS+nrFilters1+nrFilters2+nrFilters3) {
+							selScores[l] = scf.score(atX, atY, bestIdx-nrFilters3-nrFilters2-nrFilters1, img.getProcessor());
+						}
+						else if (bestIdx>=nrFiltersS+nrFilters1+nrFilters2+nrFilters3 && bestIdx<nrFiltersA+nrFiltersS+nrFilters1+nrFilters2+nrFilters3) {
+							selScores[l] = acf.score(atX, atY, bestIdx-nrFilters3-nrFilters2-nrFilters1-nrFiltersS, img.getProcessor());
+						}
+						else if (bestIdx>=nrFiltersA+nrFiltersS+nrFilters1+nrFilters2+nrFilters3 && bestIdx<nrFilters4+nrFiltersA+nrFiltersS+nrFilters1+nrFilters2+nrFilters3) {
+							selScores[l] = ccf4.score(atX, atY, bestIdx-nrFilters3-nrFilters2-nrFilters1-nrFiltersS-nrFiltersA, img.getProcessor());
 						}
 
                     }
@@ -567,7 +656,7 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
                 }
 
                 if(sameSize)
-                    isShow.addSlice("", img.getProcessor());
+                    isShow.addSlice(img.getTitle(), img.getProcessor());
                 else {
                     ImagePlus showImgInd = img;
                     showImgInd.setTitle(img.getTitle());
@@ -907,6 +996,19 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
 			else if (best_indexes[mouseZ]>=nrFilters3+nrFilters2 && best_indexes[mouseZ]<nrFilters3+nrFilters2+nrFilters1) {
 				new ImagePlus("max", ccf1.score(best_indexes[mouseZ]-nrFilters3-nrFilters2, imTest.getProcessor())).show();
 				new ImagePlus("per.rot", ccf1.scoreAllRot(best_indexes[mouseZ]-nrFilters3-nrFilters2, imTest.getProcessor())).show();
+			}
+			else if (best_indexes[mouseZ]>=nrFilters3+nrFilters2+nrFilters1 && best_indexes[mouseZ]<nrFilters3+nrFilters2+nrFilters1+nrFiltersS) {
+				new ImagePlus("max", scf.score(best_indexes[mouseZ]-nrFilters3-nrFilters2-nrFilters1, imTest.getProcessor())).show();
+				new ImagePlus("per.rot", scf.scoreAllRot(best_indexes[mouseZ]-nrFilters3-nrFilters2-nrFilters1, imTest.getProcessor())).show();
+			}
+			else if (best_indexes[mouseZ]>=nrFilters3+nrFilters2+nrFilters1+nrFiltersS && best_indexes[mouseZ]<nrFilters3+nrFilters2+nrFilters1+nrFiltersS+nrFiltersA) {
+				new ImagePlus("max", acf.score(best_indexes[mouseZ]-nrFilters3-nrFilters2-nrFilters1-nrFiltersS, imTest.getProcessor())).show();
+				new ImagePlus("per.rot", acf.scoreAllRot(best_indexes[mouseZ]-nrFilters3-nrFilters2-nrFilters1-nrFiltersS, imTest.getProcessor())).show();
+			}
+
+			else if (best_indexes[mouseZ]>=nrFilters3+nrFilters2+nrFilters1+nrFiltersS+nrFiltersA && best_indexes[mouseZ]<nrFilters3+nrFilters2+nrFilters1+nrFiltersS+nrFiltersA+nrFilters4) {
+				new ImagePlus("max", ccf4.score(best_indexes[mouseZ]-nrFilters3-nrFilters2-nrFilters1-nrFiltersS-nrFiltersA, imTest.getProcessor())).show();
+				new ImagePlus("per.rot", ccf4.scoreAllRot(best_indexes[mouseZ]-nrFilters3-nrFilters2-nrFilters1-nrFiltersS-nrFiltersA, imTest.getProcessor())).show();
 			}
 
         }

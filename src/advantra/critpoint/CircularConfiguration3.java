@@ -1,5 +1,6 @@
 package advantra.critpoint;
 
+import ij.ImagePlus;
 import ij.ImageStack;
 import ij.plugin.filter.Convolver;
 import ij.process.FloatProcessor;
@@ -42,14 +43,15 @@ public class CircularConfiguration3 {
 
 		for (int Rpix = r; Rpix >= (int)(0.5*r); Rpix*= 0.75) {
 
-			for (float ratio = 1.0f; ratio > 0.2; ratio*=0.75){
+			//System.out.println("start from "+(int) Math.round(0.6*Rpix));
+			for (float ratio = 0.5f; ratio >= 0.1; ratio*=0.75){
 
 				int Tpix = (int) Math.round(ratio*Rpix);
 
                 if (Tpix>=2){
 					int angRes = (int) Math.round( (ratio/TwoPi)*360 );
-					angRes = (angRes/20 + 1)*20;
-					comb.add(new int[]{Rpix, Tpix, angRes});
+					angRes = (angRes/10 + 1)*10;
+					comb.add(new int[]{Rpix, Tpix, angRes}); System.out.println("3 : "+Rpix+","+Tpix+","+angRes);
 				}
 				else {
 					break;
@@ -57,8 +59,6 @@ public class CircularConfiguration3 {
 			}
 
 		}
-
-		//System.out.println(""+comb.size()+" R,T combinations formed");
 
         Vector<int[]> comb1 = new Vector<int[]>();
 
@@ -68,11 +68,13 @@ public class CircularConfiguration3 {
 			int Rpx = comb.get(combIdx)[0];
 			int Tpx = comb.get(combIdx)[1];
 
-			for (int d1 = 2*minAngScaleDegrees; d1 < 360; d1+=minAngScaleDegrees){
-				for (int d2 = 2*minAngScaleDegrees; d2 < 360; d2+=minAngScaleDegrees){
-					for (int d3 = 2*minAngScaleDegrees; d3 < 360; d3+=minAngScaleDegrees){
+			int startscale = 2;
 
-						boolean isConfiguration = (d1+d2+d3==360) && (d1<180) && (d2<180) && (d3<180);
+			for (int d1 = startscale*minAngScaleDegrees; d1 < 360; d1+=minAngScaleDegrees){
+				for (int d2 = startscale*minAngScaleDegrees; d2 < 360; d2+=minAngScaleDegrees){
+					for (int d3 = startscale*minAngScaleDegrees; d3 < 360; d3+=minAngScaleDegrees){
+
+						boolean isConfiguration = (d1+d2+d3==360) && (d1<=180) && (d2<=180) && (d3<=180);
 
 						if(isConfiguration) {
 
@@ -115,9 +117,10 @@ public class CircularConfiguration3 {
 								float[] inhere = new float[nPeaks];
 								inhere[0] = (d1/360f)*TwoPi;
 								inhere[1] = (d2/360f)*TwoPi;
-								inhere[2] = (d2/360f)*TwoPi;
+								inhere[2] = (d3/360f)*TwoPi;
 								String name = ""+d1+","+d2+","+d3+","+Rpx+","+Tpx;
 								names.add(name);
+								//System.out.println("3 forming : "+name);
 								kernels.add(formKernel(inhere, Rpx, Tpx));
 
 							}
@@ -129,7 +132,6 @@ public class CircularConfiguration3 {
 				}
 			}
 		}
-		System.out.println(""+kernels.size()+" formed");
 	}
 
 	public ImageStack plotKernels()
@@ -227,7 +229,12 @@ public class CircularConfiguration3 {
 
 		float[] k = kernels.get(kernelIdx)[rotIdx];
 
+		//new ImagePlus("before."+rotIdx, input.duplicate()).show();
+		//new ImagePlus("kernel."+rotIdx, new FloatProcessor(d, d, k)).show();
+
 		c.convolveFloat(ip, k, d, d);
+
+		//new ImagePlus("after."+rotIdx, ip).show();
 
 		return ip;
 
@@ -272,7 +279,6 @@ public class CircularConfiguration3 {
 		return scMax;
 
 	}
-
 
     /*
     AUX METHODS
@@ -338,7 +344,7 @@ public class CircularConfiguration3 {
 							p[1] = y;
 
 							double dst = distance_point_to_line_2d(cent, n, p);
-							if (Math.round(dst) <= Tpix/2) {
+							if (Math.round(dst) < Tpix/2) { // <= Tpix/2
 								kernels[rIdx][x+kernelsW*y] = 1;
 								nrON++;
 								isON = true;

@@ -13,15 +13,15 @@ import java.util.Vector;
  * Created with IntelliJ IDEA.
  * User: miroslav
  * Date: 5/29/13
- * Time: 3:37 AM
+ * Time: 8:25 PM
  * To change this template use File | Settings | File Templates.
  */
-public class SymmConfiguration {
+public class AsymmConfiguration {
 
 	public int			r;
 	public int			d;
 
-	public static int			maxNrOnRegions = 1;
+	public static int			N = 4;
 	public static int 			nRot = 15;
 	public static float 		rotStp = (float) ((2*Math.PI)/nRot);
 
@@ -30,7 +30,7 @@ public class SymmConfiguration {
 	ArrayList<float[][]> kernels = new ArrayList<float[][]>();
 	ArrayList<String> names = new ArrayList<String>();
 
-	public SymmConfiguration(
+	public AsymmConfiguration(
 		int 	patchRadius
 	)
 	{
@@ -41,8 +41,10 @@ public class SymmConfiguration {
 
 		for (int Rpix = r; Rpix >= (int)(0.5*r); Rpix*= 0.75) {
 
-			for (int nrOnRegions = 1; nrOnRegions <= maxNrOnRegions; nrOnRegions+=1){
-				comb.add(new int[]{Rpix, nrOnRegions});
+			for (int i = 1; i < N; i++){
+
+				int Tpix = (int)Math.round((i*Rpix)/(float)N);
+				comb.add(new int[]{Rpix, Tpix});
 			}
 
 		}
@@ -50,19 +52,19 @@ public class SymmConfiguration {
 		for (int combIdx = 0; combIdx < comb.size(); combIdx++) {
 
 			int Rpx = comb.get(combIdx)[0];
-			int Nrg = comb.get(combIdx)[1];
+			int Tpx = comb.get(combIdx)[1];
 
-			float[][] inhere = new float[Nrg][2];
+//			float[][] inhere = new float[Nrg][2];
 
-			String name = Rpx+",";
+			String name = Rpx+","+Tpx;
 
-			for (int i = 0; i < Nrg; i++) {
-				inhere[i][0] = (2*i)*(TwoPi/(2*Nrg)); inhere[i][1] = (2*i+1)*(TwoPi/(2*Nrg));
-				name+="["+IJ.d2s(inhere[i][0],2)+","+IJ.d2s(inhere[i][1],2)+"]";
-			}
+//			for (int i = 0; i < Nrg; i++) {
+//				inhere[i][0] = (2*i)*(TwoPi/(2*Nrg)); inhere[i][1] = (2*i+1)*(TwoPi/(2*Nrg));
+//				name+="["+ IJ.d2s(inhere[i][0], 2)+","+IJ.d2s(inhere[i][1],2)+"]";
+//			}
 
 			names.add(name);
-			kernels.add(formKernel(inhere, Rpx));
+			kernels.add(formKernel(Rpx, Tpx));
 
 		}
 
@@ -82,7 +84,7 @@ public class SymmConfiguration {
 	}
 
 	public ImageStack plotKernel(
-		int kerIdx
+										int kerIdx
 	)
 	{
 
@@ -98,8 +100,8 @@ public class SymmConfiguration {
 	}
 
 	public ImageProcessor plotKernel(
-		int kerIdx,
-		int rotIdx
+											int kerIdx,
+											int rotIdx
 	)
 	{
 
@@ -109,13 +111,13 @@ public class SymmConfiguration {
 
 	}
 
-	/*
+		/*
 	SCORE CALCULATION WHOLE IMAGE
 	 */
 
 	public ImageProcessor score(
-		int kernelIdx,
-		ImageProcessor input
+									   int kernelIdx,
+									   ImageProcessor input
 	)
 	{
 		ImageProcessor ip = score(kernelIdx, 0, input);  // rot 0
@@ -134,8 +136,8 @@ public class SymmConfiguration {
 	}
 
 	public ImageStack scoreAllRot(
-		int kernelIdx,
-		ImageProcessor input
+										 int kernelIdx,
+										 ImageProcessor input
 	)
 	{
 		ImageStack is = new ImageStack(input.getWidth(), input.getHeight());
@@ -149,9 +151,9 @@ public class SymmConfiguration {
 	}
 
 	public ImageProcessor score(
-		int kernelIdx,
-		int rotIdx,
-		ImageProcessor input
+									   int kernelIdx,
+									   int rotIdx,
+									   ImageProcessor input
 	)
 	{
 		ImageProcessor ip = input.duplicate();//new FloatProcessor(input.getWidth(), input.getHeight(), (float[]) input.getPixels());
@@ -209,29 +211,15 @@ public class SymmConfiguration {
 	}
 
 
-    /*
+	/*
     AUX METHODS
      */
 
 	private float[][] formKernel(
-										float[][] intervals,
-										int Rpix
+										int Rpix,
+										int Tpix
 	)
 	{
-
-		float[][][] intervalsRot = new float[nRot][intervals.length][];
-
-		for (int cnt_rots = 0; cnt_rots < nRot; cnt_rots++) {
-
-			float start_pos = 0;//*rotStp;
-
-			for (int cnt_itvs = 0; cnt_itvs < intervals.length; cnt_itvs++) {
-
-				intervalsRot[cnt_rots][cnt_itvs] 	= new float[]{cnt_rots*rotStp+intervals[cnt_itvs][0], cnt_rots*rotStp+intervals[cnt_itvs][1]};
-
-			}
-
-		}
 
 		float[][] kernels = new float[nRot][];
 
@@ -242,10 +230,10 @@ public class SymmConfiguration {
 		int xc = kernelsW/2;
 		int yc = kernelsH/2;
 		int[] cent = new int[]{xc, yc};
-		double[] n = new double[2];
-		int[] p = new int[2];
+		double[] dir = new double[2];
+		double[] p = new double[2];
 
-		for (int rIdx = 0; rIdx < nRot; rIdx++) {
+		for (int rIdx = 0; rIdx < nRot; rIdx++) {  // nRot
 
 			kernels[rIdx] = new float[kernelsH*kernelsW];
 
@@ -253,35 +241,27 @@ public class SymmConfiguration {
 
 			for (int x = 0; x < kernelsW; x++) {
 				for (int y = 0; y < kernelsH; y++) {
-					if ( (x-xc)*(x-xc)+(y-yc)*(y-yc) <= Rpix*Rpix){
+					if ( (x-xc)*(x-xc)+(y-yc)*(y-yc) <= Rpix*Rpix ) {
 
-						boolean isON = false;
+//						boolean isON = false;
 
-						for (int intvIdx = 0; intvIdx < intervals.length; intvIdx++) {
+						float rotAngle = rIdx*rotStp;
 
-							float ang1 = wrap_0_2PI(intervalsRot[rIdx][intvIdx][0]);
-							float ang2 = wrap_0_2PI(intervalsRot[rIdx][intvIdx][1]);
+						dir[0] = -Tpix * Math.sin(rotAngle);
+						dir[1] = -Tpix * (-Math.cos(rotAngle));
 
-							float ang = wrap_0_2PI((float) (Math.atan2(y-yc, x-xc)+Math.PI));
+						p[0] = x - (xc-dir[0]);
+						p[1] = y - (yc-dir[1]);
 
-//							n[0] = Math.sin(ang);
-//							n[1] = -Math.cos(ang);
-//
-//							p[0] = x;
-//							p[1] = y;
-
-//							double dst = distance_point_to_line_2d(cent, n, p);
-							if (wrap_PI(ang - ang1) >= 0 && wrap_PI(ang-ang2) <= 0) {
-								kernels[rIdx][x+kernelsW*y] = 1;
-								nrON++;
-								isON = true;
-								break;
-							}
-
+						if ( p[0]*dir[0] + p[1]*dir[1] > 0 ) { //wrap_PI(ang - ang1) >= 0 && wrap_PI(ang-ang2) <= 0
+							kernels[rIdx][x+kernelsW*y] = 1;
+							nrON++;
+//							isON = true;
+//							break;
 						}
 
-						if(!isON) {
-
+//						if(!isON) {
+						else {
 							kernels[rIdx][x+kernelsW*y] = -1;
 							nrOFF++;
 
@@ -315,39 +295,5 @@ public class SymmConfiguration {
 
 	}
 
-
-	private float wrap_0_2PI(
-		float in
-	)
-	{
-
-		float out = in;
-
-		while(out<0){
-			out += 2*Math.PI;
-		}
-		while(out>=2*Math.PI){
-			out -= 2*Math.PI;
-		}
-
-		return out;
-	}
-
-	private static double wrap_PI(
-		float in
-	)
-	{
-
-		float out = in;
-
-		while(out<=-Math.PI){
-			out += 2*Math.PI;
-		}
-		while(out>Math.PI){
-			out -= 2*Math.PI;
-		}
-
-		return out;
-	}
 
 }

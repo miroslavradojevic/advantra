@@ -75,7 +75,7 @@ public class BranchModel2D {
 
     }
 
-    public byte[] generateRandomBranch(int bgBias, int bgRange, int fgBias, int fgRange)
+    public byte[] generateRandomBranch(int bgBias, int bgRange, int fgBias, int fgRange, int minStd, int rngStd)
     {
 
         Random gen = new Random();
@@ -147,7 +147,7 @@ public class BranchModel2D {
         v3[0]        = v3[0] / v_norm;
         v3[1]        = v3[1] / v_norm;
 
-        rstd = gen.nextInt(2) + 1;
+        rstd = gen.nextInt(rngStd) + minStd;
 
         writeLineBetween(pc, p1);
         writeLineBetween(pc, p2);
