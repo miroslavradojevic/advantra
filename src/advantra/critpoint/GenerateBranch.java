@@ -73,6 +73,9 @@ public class GenerateBranch implements PlugIn {
 		int N = (int) gd.getNextNumber();
         int L = (int) gd.getNextNumber();
         outDirPath = gd.getNextString();
+        if (!outDirPath.endsWith(File.separator)) {
+            outDirPath += File.separator;
+        }
         bgBias = (int) gd.getNextNumber();
         fgBias = (int) gd.getNextNumber();
 

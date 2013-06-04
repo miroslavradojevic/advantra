@@ -69,13 +69,38 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
         gd.addStringField("test  folder : ", test_folder, 	40);
         gd.addCheckbox("images got same dimensions", false);
         gd.addCheckbox("equal # (+) and (-)", false);
+
+        gd.addMessage("Feature profiles");
+
+        gd.addCheckbox("1x", false);
+        gd.addCheckbox("2x", false);
+        gd.addCheckbox("3x", false);
+        gd.addCheckbox("4x", false);
+        gd.addCheckbox("Symm.", false);
+        gd.addCheckbox("ASymm.", false);
         gd.showDialog();
         if (gd.wasCanceled()) return;
         patchRadius =  (int)gd.getNextNumber();
         train_folder = 	gd.getNextString();
         test_folder = 	gd.getNextString();
+
+        // check folders
+        if(! new File(train_folder).exists()) {IJ.showMessage("train folder does not exist!"); return;}
+        else {
+            train_folder+=File.separator;
+        }
+        if(! new File(test_folder).exists()) {IJ.showMessage("test folder does not exist!"); return;}
+        else {
+            test_folder+=File.separator;
+        }
         boolean sameSize = gd.getNextBoolean();
         boolean equal = gd.getNextBoolean();
+        boolean enableF1 = gd.getNextBoolean();
+        boolean enableF2 = gd.getNextBoolean();
+        boolean enableF3 = gd.getNextBoolean();
+        boolean enableF4 = gd.getNextBoolean();
+        boolean enableSymm = gd.getNextBoolean();
+        boolean enableAsymm = gd.getNextBoolean();
 
         Prefs.set("advantra.critpoint.train_folder",    train_folder);
         Prefs.set("advantra.critpoint.test_folder",     test_folder);
@@ -94,24 +119,27 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
 		acf = new AsymmConfiguration(patchRadius);
 		ccf4 = new CircularConfiguration4(patchRadius);
 
-        nrFilters3  = ccf3.kernels.size();
-        nrFilters2  = 0;//ccf2.kernels.size();
-		nrFilters1  = 0;//ccf1.kernels.size();
-		nrFiltersS 	= 0;//scf.kernels.size();
-		nrFiltersA  = 0;//acf.kernels.size();
-		nrFilters4  = ccf4.kernels.size();
+        nrFilters3  = (enableF3)? ccf3.kernels.size() : 0;
+        nrFilters2  = (enableF2)? ccf2.kernels.size() : 0;
+		nrFilters1  = (enableF1)? ccf1.kernels.size() : 0;
+		nrFiltersS 	= (enableSymm)? scf.kernels.size() : 0;
+		nrFiltersA  = (enableAsymm)? acf.kernels.size() : 0;
+		nrFilters4  = (enableF4)? ccf4.kernels.size() : 0;
         nrFilters   = nrFilters3 + nrFilters2 + nrFilters1 + nrFiltersS + nrFiltersA + nrFilters4;
 
 		/*
 		SHOW FEATS
 		 */
 
-        ImagePlus feats3 = new ImagePlus("Y.feat."+patchRadius, ccf3.plotKernels());
-        feats3.show();
-        feats3.getCanvas().zoomIn(0, 0);
-        feats3.getCanvas().zoomIn(0, 0);
-        feats3.getCanvas().zoomIn(0, 0);
-        feats3.getCanvas().zoomIn(0, 0);
+        if(nrFilters3>0) {
+            ImagePlus feats3 = new ImagePlus("Y.feat."+patchRadius, ccf3.plotKernels());
+            feats3.show();
+            feats3.getCanvas().zoomIn(0, 0);
+            feats3.getCanvas().zoomIn(0, 0);
+            feats3.getCanvas().zoomIn(0, 0);
+            feats3.getCanvas().zoomIn(0, 0);
+        }
+
 
 		if(nrFilters2>0){
         ImagePlus feats2 = new ImagePlus("V.feat."+patchRadius, ccf2.plotKernels());
@@ -122,7 +150,7 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
         feats2.getCanvas().zoomIn(0, 0);
 		}
 
-		if(nrFilters2>0){
+		if(nrFilters1>0){
 		ImagePlus feats1 = new ImagePlus("I.feat."+patchRadius, ccf1.plotKernels());
 		feats1.show();
 		feats1.getCanvas().zoomIn(0, 0);
@@ -149,12 +177,15 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
 		featsA.getCanvas().zoomIn(0, 0);
 		}
 
-		ImagePlus feats4 = new ImagePlus("X.feat."+patchRadius, ccf4.plotKernels());
-		feats4.show();
-		feats4.getCanvas().zoomIn(0, 0);
-		feats4.getCanvas().zoomIn(0, 0);
-		feats4.getCanvas().zoomIn(0, 0);
-		feats4.getCanvas().zoomIn(0, 0);
+        if(nrFilters4>0) {
+            ImagePlus feats4 = new ImagePlus("X.feat."+patchRadius, ccf4.plotKernels());
+            feats4.show();
+            feats4.getCanvas().zoomIn(0, 0);
+            feats4.getCanvas().zoomIn(0, 0);
+            feats4.getCanvas().zoomIn(0, 0);
+            feats4.getCanvas().zoomIn(0, 0);
+        }
+
 
         /*
         ALLOCATE STORAGE TRAIN
