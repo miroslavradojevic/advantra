@@ -11,10 +11,7 @@ import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.Prefs;
-import ij.gui.GenericDialog;
-import ij.gui.Line;
-import ij.gui.Overlay;
-import ij.gui.Plot;
+import ij.gui.*;
 import ij.measure.Calibration;
 import ij.plugin.ZProjector;
 import ij.plugin.filter.PlugInFilter;
@@ -26,14 +23,19 @@ import imagescience.image.Image;
 
 public class VizFeatures implements PlugInFilter, MouseListener {
 
-	ImagePlus 	img, gab, gabAll;
-	ImagePlus	weighted;
-	ImagePlus	vector_field;
-	ImagePlus	neuriteness;
-	ImagePlus 	Vx, Vy;
-	
-	ImagePlus show_profiles;
-	ImagePlus show_scores;
+
+    Roi         ovalRoi;
+    Overlay     ovalOvly;
+	ImagePlus 	img;
+
+//    ImagePlus gab, gabAll;
+//	ImagePlus	weighted;
+//	ImagePlus	vector_field;
+//	ImagePlus	neuriteness;
+//	ImagePlus 	Vx, Vy;
+//
+//	ImagePlus show_profiles;
+//	ImagePlus show_scores;
 	
 	// multi-scale
 	double 		t1, t2; 
@@ -50,209 +52,226 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 	boolean 	isReal = true;
 	
 	// features
-	double 		radius; // calculated wrt. hughest scale but can be fixed
+	double 		radius;
 	double 		dr, darc, rratio;
 	int			surr=3;
 	
 	int 		W, H;
 	
 	int			nr_proc;
-	
-	public void run(ImageProcessor arg0) {
-		System.out.print("djksghkd");
-		
-		t1  	= Prefs.get("advantra.critpoint.start_scale", 		3.0);
-		t2    	= Prefs.get("advantra.critpoint.end_scale", 		7.0);
-		tn 		= (int)Prefs.get("advantra.critpoint.nr_scales", 	3);
-		M		= (int)Prefs.get("advantra.critpoint.nr_angles", 	8);
-		dr    	= Prefs.get("advantra.critpoint.dr", 				1.0);
-		darc    = Prefs.get("advantra.critpoint.darc", 				1.0);
-		rratio	= Prefs.get("advantra.critpoint.rratio", 			0.2);
-		nr_proc = (int)Prefs.get("advantra.critpoint.nr_proc", 		4);
-		
-		GenericDialog gd = new GenericDialog("VizFeatures");
-		
-		gd.addNumericField("start scale", 		t1, 1);
-		gd.addNumericField("end   scale", 		t2, 1);
-		gd.addNumericField("nr   scales", 		tn, 0, 5, "");
-		gd.addNumericField("angles(per 180 deg)",M,	0, 5, "");
-		
-		gd.addMessage("circular extraction parameters");
-		gd.addNumericField("x(lagest scale std)",	surr, 	0);
-		gd.addNumericField("radius step", 			dr, 	1);
-		gd.addNumericField("arc    step", 			darc, 	1);
-		gd.addNumericField("rratio step", 			rratio, 1);
-		
-		gd.addMessage("parallelization");
-		gd.addNumericField("CPU #",					nr_proc, 0);
-		
-		gd.showDialog();
-		if (gd.wasCanceled()) return;
-		
-		t1 	= 		gd.getNextNumber();
-		t2	= 		gd.getNextNumber();
-		tn	= (int)	gd.getNextNumber();
-		M 	= (int)	gd.getNextNumber();
-		
-		surr = (int)gd.getNextNumber();
-		dr  = 		gd.getNextNumber();
-		darc  = 		gd.getNextNumber();
-		rratio  = 		gd.getNextNumber();
-		
-		nr_proc = (int)gd.getNextNumber();
-		
-		Prefs.set("advantra.critpoint.start_scale", t1);
-		Prefs.set("advantra.critpoint.end_scale", 	t2);
-		Prefs.set("advantra.critpoint.nr_scales", 	tn);
-		Prefs.set("advantra.critpoint.nr_angles", 	M);
-		Prefs.set("advantra.critpoint.dr", 			dr);
-		Prefs.set("advantra.critpoint.darc", 		darc);
-		Prefs.set("advantra.critpoint.rratio", 		rratio);
-		Prefs.set("advantra.critpoint.nr_proc", 	nr_proc);
-		
-		// scales
-		t = new double[tn];
-		s = new double[tn];
-		for (int i = 0; i < tn; i++) {
-			t[i] = (i==0)? t1 : t1+i*((t2-t1)/(tn-1));
-			s[i] = Math.sqrt(t[i]);
-		}
-		
-		radius = surr*Math.sqrt(t[t.length-1]); // x GaussianStd.
-		
-		// angles theta angle it makes with x axis (angle it makes with the first row)
-		theta_pi 	= new double[M];
-		theta_2pi	= new double[2*M];
-		for (int i = 0; i < 2*M; i++) {
-			theta_2pi[i] = i * (Math.PI/(double)(M));
-		}
-		for (int i = 0; i < M; i++) {
-			theta_pi[i] = i * (Math.PI/(double)M);
-		}
-		
-		/*
-		 *  convert to float , prepare image
-		 */
-		// reset the calibration
-		Calibration c = img.getCalibration();
-		c.pixelWidth 	= c.pixelHeight = c.pixelDepth = 1;
-		c.setUnit("pixel");
-		img.setCalibration(c);
-		
-		if(!img.getProcessor().isDefaultLut()) return;
-		img.setProcessor("testImage", img.getProcessor().convertToFloat().duplicate());
-		img.getWindow().getCanvas().addMouseListener(this);
-		
-		H = img.getHeight();
-		W = img.getWidth();
-		
-		/*
-		 * extract directional Gabor-filter responses
-		 */
-		
-		System.out.print("extracting gabor, "+t.length+" scales, "+theta_pi.length+" angles... ");
-		
-		int N 				= theta_pi.length; // parallelize
-		
-		GaborFilt2D.load(
-				img, 
-				theta_pi,
-				t,
-				new double[t.length],
-				bandwidth,
-				psi,
-				gamma,
-				isReal);
 
-		long t0, t1;
-		t0 = System.currentTimeMillis();
-		GaborFilt2D gab_jobs[] = new GaborFilt2D[nr_proc];
-		for (int i = 0; i < gab_jobs.length; i++) {
-			
-			int start_interval 	= i*N/nr_proc;
-			int end_interval	= (i+1)*N/nr_proc;
-			
-			gab_jobs[i] = new GaborFilt2D(start_interval,  end_interval);
-			gab_jobs[i].start();
-		}
-		for (int i = 0; i < gab_jobs.length; i++) {
-			try {
-				gab_jobs[i].join();
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
-		}
-		gab = new ImagePlus("", GaborFilt2D.gabor_directional_responses);
-		gab.setTitle("gabor filter, directional responses");
-		t1 = System.currentTimeMillis();
-		System.out.println("done, "+((t1-t0)/1000f)+" seconds");
-		//gab.show();
-		
-		/*
-		 * extract maximal directional gabor response in every point
-		 */
+    public void run(ImageProcessor arg0) {
 
-		ZProjector zmax = new ZProjector();
-		zmax.setImage(gab);
-		zmax.setStartSlice(1);	
-		zmax.setStopSlice(gab.getStackSize());
-		zmax.setMethod(ZProjector.MAX_METHOD);
-		zmax.doProjection();
-		gabAll = new ImagePlus("gabor filter, directional responses, max", zmax.getProjection().getChannelProcessor());
-		//gabAll.show();
-		
-		boolean normalize = false;
-		if(normalize){
-			weighted = new ImagePlus("gabor filter, directional responses, max, min-max normalized", 
-					normalizeStackMinMax(gabAll.getStack()));
-		}
-		else{
-			weighted = new ImagePlus("gabor filter, directional responses, max, min-max normalized", 
-					gabAll.getStack());
-		}
-		
-		weighted.show();
-		
-		/*
-		 *  extract neuriteness & eigen vecs
-		 */
+        IJ.log(img.getWidth()+", "+img.getHeight());
+        ovalRoi = new OvalRoi(img.getWidth()/2, img.getHeight()/2, 30, 30);
+        ovalOvly = new Overlay();
+        ovalOvly.add(ovalRoi);
+        img.setRoi(ovalRoi);
 
-		long t11 = System.currentTimeMillis();
-		Vector<ImagePlus> nness = extractNeuritenessAndEigenVec(img, s);
-		System.out.println("to get nness: "+((System.currentTimeMillis()-t11)/1000f)+" seconds");
-		
-		neuriteness = nness.get(0);
-		neuriteness.setTitle("neuriteness");
-		neuriteness.show();
-		
-		Vx = nness.get(1);
-		Vx.setTitle("Vx");
-		//Vx.show();
-		
-		Vy = nness.get(2);
-		Vy.setTitle("Vy");
-		//Vy.show();
+        ImageCanvas imgCanv = img.getCanvas();
+        imgCanv.addMouseListener(this);
 
-		/*
-		 * eigenvec on original
-		 */
-		vector_field = new ImagePlus("vector_field", img.getProcessor());
-		Overlay eigenVecs = new Overlay();
-		for (int row = 0; row < H; row++) {
-			for (int col = 0; col < W; col++) {
-				double vx 	= Vx.getProcessor().getf(col, row);
-				double vy 	= Vy.getProcessor().getf(col, row);
-				if(vx*vx+vy*vy>0)
-					eigenVecs.add(new Line(col+0.5, row+0.5, col+0.5+vx, row+0.5+vy));
-			}
-		}
-		vector_field.setOverlay(eigenVecs);
-		vector_field.show();
+        new ImagePlus("oval.mask", ovalRoi.getMask()).show();
+        System.out.println("oval roi current position "+ovalRoi.getCPosition());
 
-		System.out.println("click now to see features at the  point!");
-		IJ.setTool("hand");
-		
-	}
+    }
+
+//	public void run(ImageProcessor arg0) {
+//
+//        System.out.print("djksghkd");
+//
+//		t1  	= Prefs.get("advantra.critpoint.start_scale", 		3.0);
+//		t2    	= Prefs.get("advantra.critpoint.end_scale", 		7.0);
+//		tn 		= (int)Prefs.get("advantra.critpoint.nr_scales", 	3);
+//		M		= (int)Prefs.get("advantra.critpoint.nr_angles", 	8);
+//		dr    	= Prefs.get("advantra.critpoint.dr", 				1.0);
+//		darc    = Prefs.get("advantra.critpoint.darc", 				1.0);
+//		rratio	= Prefs.get("advantra.critpoint.rratio", 			0.2);
+//		nr_proc = (int)Prefs.get("advantra.critpoint.nr_proc", 		4);
+//
+//		GenericDialog gd = new GenericDialog("VizFeatures");
+//
+//		gd.addNumericField("start scale", 		t1, 1);
+//		gd.addNumericField("end   scale", 		t2, 1);
+//		gd.addNumericField("nr   scales", 		tn, 0, 5, "");
+//		gd.addNumericField("angles(per 180 deg)",M,	0, 5, "");
+//
+//		gd.addMessage("circular extraction parameters");
+//		gd.addNumericField("x(lagest scale std)",	surr, 	0);
+//		gd.addNumericField("radius step", 			dr, 	1);
+//		gd.addNumericField("arc    step", 			darc, 	1);
+//		gd.addNumericField("rratio step", 			rratio, 1);
+//
+//		gd.addMessage("parallelization");
+//		gd.addNumericField("CPU #",					nr_proc, 0);
+//
+//		gd.showDialog();
+//		if (gd.wasCanceled()) return;
+//
+//		t1 	= 		gd.getNextNumber();
+//		t2	= 		gd.getNextNumber();
+//		tn	= (int)	gd.getNextNumber();
+//		M 	= (int)	gd.getNextNumber();
+//
+//		surr = (int)gd.getNextNumber();
+//		dr  = 		gd.getNextNumber();
+//		darc  = 		gd.getNextNumber();
+//		rratio  = 		gd.getNextNumber();
+//
+//		nr_proc = (int)gd.getNextNumber();
+//
+//		Prefs.set("advantra.critpoint.start_scale", t1);
+//		Prefs.set("advantra.critpoint.end_scale", 	t2);
+//		Prefs.set("advantra.critpoint.nr_scales", 	tn);
+//		Prefs.set("advantra.critpoint.nr_angles", 	M);
+//		Prefs.set("advantra.critpoint.dr", 			dr);
+//		Prefs.set("advantra.critpoint.darc", 		darc);
+//		Prefs.set("advantra.critpoint.rratio", 		rratio);
+//		Prefs.set("advantra.critpoint.nr_proc", 	nr_proc);
+//
+//		// scales
+//		t = new double[tn];
+//		s = new double[tn];
+//		for (int i = 0; i < tn; i++) {
+//			t[i] = (i==0)? t1 : t1+i*((t2-t1)/(tn-1));
+//			s[i] = Math.sqrt(t[i]);
+//		}
+//
+//		radius = surr*Math.sqrt(t[t.length-1]); // x GaussianStd.
+//
+//		// angles theta angle it makes with x axis (angle it makes with the first row)
+//		theta_pi 	= new double[M];
+//		theta_2pi	= new double[2*M];
+//		for (int i = 0; i < 2*M; i++) {
+//			theta_2pi[i] = i * (Math.PI/(double)(M));
+//		}
+//		for (int i = 0; i < M; i++) {
+//			theta_pi[i] = i * (Math.PI/(double)M);
+//		}
+//
+//		/*
+//		 *  convert to float , prepare image
+//		 */
+//		// reset the calibration
+//		Calibration c = img.getCalibration();
+//		c.pixelWidth 	= c.pixelHeight = c.pixelDepth = 1;
+//		c.setUnit("pixel");
+//		img.setCalibration(c);
+//
+//		if(!img.getProcessor().isDefaultLut()) return;
+//		img.setProcessor("testImage", img.getProcessor().convertToFloat().duplicate());
+//		img.getWindow().getCanvas().addMouseListener(this);
+//
+//		H = img.getHeight();
+//		W = img.getWidth();
+//
+//		/*
+//		 * extract directional Gabor-filter responses
+//		 */
+//
+//		System.out.print("extracting gabor, "+t.length+" scales, "+theta_pi.length+" angles... ");
+//
+//		int N 				= theta_pi.length; // parallelize
+//
+//		GaborFilt2D.load(
+//				img,
+//				theta_pi,
+//				t,
+//				new double[t.length],
+//				bandwidth,
+//				psi,
+//				gamma,
+//				isReal);
+//
+//		long t0, t1;
+//		t0 = System.currentTimeMillis();
+//		GaborFilt2D gab_jobs[] = new GaborFilt2D[nr_proc];
+//		for (int i = 0; i < gab_jobs.length; i++) {
+//
+//			int start_interval 	= i*N/nr_proc;
+//			int end_interval	= (i+1)*N/nr_proc;
+//
+//			gab_jobs[i] = new GaborFilt2D(start_interval,  end_interval);
+//			gab_jobs[i].start();
+//		}
+//		for (int i = 0; i < gab_jobs.length; i++) {
+//			try {
+//				gab_jobs[i].join();
+//			} catch (InterruptedException e) {
+//				e.printStackTrace();
+//			}
+//		}
+//		gab = new ImagePlus("", GaborFilt2D.gabor_directional_responses);
+//		gab.setTitle("gabor filter, directional responses");
+//		t1 = System.currentTimeMillis();
+//		System.out.println("done, "+((t1-t0)/1000f)+" seconds");
+//		//gab.show();
+//
+//		/*
+//		 * extract maximal directional gabor response in every point
+//		 */
+//
+//		ZProjector zmax = new ZProjector();
+//		zmax.setImage(gab);
+//		zmax.setStartSlice(1);
+//		zmax.setStopSlice(gab.getStackSize());
+//		zmax.setMethod(ZProjector.MAX_METHOD);
+//		zmax.doProjection();
+//		gabAll = new ImagePlus("gabor filter, directional responses, max", zmax.getProjection().getChannelProcessor());
+//		//gabAll.show();
+//
+//		boolean normalize = false;
+//		if(normalize){
+//			weighted = new ImagePlus("gabor filter, directional responses, max, min-max normalized",
+//					normalizeStackMinMax(gabAll.getStack()));
+//		}
+//		else{
+//			weighted = new ImagePlus("gabor filter, directional responses, max, min-max normalized",
+//					gabAll.getStack());
+//		}
+//
+//		weighted.show();
+//
+//		/*
+//		 *  extract neuriteness & eigen vecs
+//		 */
+//
+//		long t11 = System.currentTimeMillis();
+//		Vector<ImagePlus> nness = extractNeuritenessAndEigenVec(img, s);
+//		System.out.println("to get nness: "+((System.currentTimeMillis()-t11)/1000f)+" seconds");
+//
+//		neuriteness = nness.get(0);
+//		neuriteness.setTitle("neuriteness");
+//		neuriteness.show();
+//
+//		Vx = nness.get(1);
+//		Vx.setTitle("Vx");
+//		//Vx.show();
+//
+//		Vy = nness.get(2);
+//		Vy.setTitle("Vy");
+//		//Vy.show();
+//
+//		/*
+//		 * eigenvec on original
+//		 */
+//		vector_field = new ImagePlus("vector_field", img.getProcessor());
+//		Overlay eigenVecs = new Overlay();
+//		for (int row = 0; row < H; row++) {
+//			for (int col = 0; col < W; col++) {
+//				double vx 	= Vx.getProcessor().getf(col, row);
+//				double vy 	= Vy.getProcessor().getf(col, row);
+//				if(vx*vx+vy*vy>0)
+//					eigenVecs.add(new Line(col+0.5, row+0.5, col+0.5+vx, row+0.5+vy));
+//			}
+//		}
+//		vector_field.setOverlay(eigenVecs);
+//		vector_field.show();
+//
+//		System.out.println("click now to see features at the  point!");
+//		IJ.setTool("hand");
+//
+//	}
 
 	public int setup(String arg0, ImagePlus arg1) {
 		img = arg1;
@@ -443,43 +462,45 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 		
 		int mouseX = 	img.getWindow().getCanvas().offScreenX(e.getX());
 		int mouseY = 	img.getWindow().getCanvas().offScreenY(e.getY());
-		
+
+        System.out.println("oval roi current position "+ovalRoi.getLength());
+
 		int nrang  = 128;
 		
 		double[] 	orts			= new double[nrang];
 		
-		double[] profile1 = extractProfile(weighted, Vx, Vy, mouseX, mouseY, radius, dr, darc, rratio, nrang);
-		double[] coeffs1 = extractProfile(weighted, mouseX, mouseY, radius, dr, darc, rratio, nrang);
+//		double[] profile1 = extractProfile(weighted, Vx, Vy, mouseX, mouseY, radius, dr, darc, rratio, nrang);
+//		double[] coeffs1 = extractProfile(weighted, mouseX, mouseY, radius, dr, darc, rratio, nrang);
+//
+//		double[] profile2 = extractProfile(neuriteness, Vx, Vy, mouseX, mouseY, radius, dr, darc, rratio, nrang);
+//		double[] coeffs2 = extractProfile(neuriteness, mouseX, mouseY, radius, dr, darc, rratio, nrang);
+//
+//		double[] profile3 = extractProfile(img, Vx, Vy, mouseX, mouseY, radius, dr, darc, rratio, nrang);
+//		double[] coeffs3 = extractProfile(img, mouseX, mouseY, radius, dr, darc, rratio, nrang);
 		
-		double[] profile2 = extractProfile(neuriteness, Vx, Vy, mouseX, mouseY, radius, dr, darc, rratio, nrang);
-		double[] coeffs2 = extractProfile(neuriteness, mouseX, mouseY, radius, dr, darc, rratio, nrang);
-		
-		double[] profile3 = extractProfile(img, Vx, Vy, mouseX, mouseY, radius, dr, darc, rratio, nrang);
-		double[] coeffs3 = extractProfile(img, mouseX, mouseY, radius, dr, darc, rratio, nrang);
-		
-		for (int i = 0; i < nrang; i++) {
-			orts[i] = i*(2*Math.PI/nrang);
-		}
+//		for (int i = 0; i < nrang; i++) {
+//			orts[i] = i*(2*Math.PI/nrang);
+//		}
 		
 		//show_profiles.close();
-		ImageStack show_profiles1 = new ImageStack(600, 300);
-		show_profiles1.addSlice("gabor+dotProd", plotValues(orts, profile1, Plot.BOX));
-		show_profiles1.addSlice("gabor", plotValues(orts, coeffs1, Plot.CROSS));
-		show_profiles1.addSlice("nness+dotProd", plotValues(orts, profile2, Plot.BOX));
-		show_profiles1.addSlice("nness", plotValues(orts, coeffs2, Plot.CROSS));
-		show_profiles1.addSlice("pixVals+dotProd", plotValues(orts, profile3, Plot.BOX));
-		show_profiles1.addSlice("pixVals", plotValues(orts, coeffs3, Plot.CROSS));
-		show_profiles = new ImagePlus("profiles", show_profiles1);
-		show_profiles.show();
+//		ImageStack show_profiles1 = new ImageStack(600, 300);
+//		show_profiles1.addSlice("gabor+dotProd", plotValues(orts, profile1, Plot.BOX));
+//		show_profiles1.addSlice("gabor", plotValues(orts, coeffs1, Plot.CROSS));
+//		show_profiles1.addSlice("nness+dotProd", plotValues(orts, profile2, Plot.BOX));
+//		show_profiles1.addSlice("nness", plotValues(orts, coeffs2, Plot.CROSS));
+//		show_profiles1.addSlice("pixVals+dotProd", plotValues(orts, profile3, Plot.BOX));
+//		show_profiles1.addSlice("pixVals", plotValues(orts, coeffs3, Plot.CROSS));
+//		show_profiles = new ImagePlus("profiles", show_profiles1);
+//		show_profiles.show();
 		
-		int[] angleRes = new int[]{60};
+//		int[] angleRes = new int[]{60};
 		//FilterSet cft = new FilterSet(angleRes);
 		//cft.showConfigs();
 		
-		long t00 = System.currentTimeMillis();
+//		long t00 = System.currentTimeMillis();
 		//double[] scores = cft.calculateScore(profile2);
-		long t01 = System.currentTimeMillis();
-		System.out.println("to calculate filter scores for one example: "+((t01-t00)/1000f)+" sec.");
+//		long t01 = System.currentTimeMillis();
+//		System.out.println("to calculate filter scores for one example: "+((t01-t00)/1000f)+" sec.");
 		
 		//show_scores.close();
 		//show_scores = new ImagePlus("scores per configuration", plotValues(scores, Plot.BOX));
@@ -513,50 +534,50 @@ public class VizFeatures implements PlugInFilter, MouseListener {
 		}
 		*/
 		
-		Overlay ov1 = new Overlay();
-		Overlay ov2 = new Overlay();
-		Overlay ov3 = new Overlay();
+//		Overlay ov1 = new Overlay();
+//		Overlay ov2 = new Overlay();
+//		Overlay ov3 = new Overlay();
 
-		for (double r = radius; r >= radius*rratio; r-=dr) {
-			for (double arc = 0; arc < 2*r*Math.PI; arc+=darc) {
+//		for (double r = radius; r >= radius*rratio; r-=dr) {
+//			for (double arc = 0; arc < 2*r*Math.PI; arc+=darc) {
 				
-				double ang = arc/r;
+//				double ang = arc/r;
+//
+//				double d1 = Math.sin(ang);
+//				double d2 = -Math.cos(ang);
+//
+//				double x2 = mouseX + r * d1;
+//				double y2 = mouseY + r * d2;
+//
+//				int x_loc = (int)Math.round(x2);
+//				int y_loc = (int)Math.round(y2);
 				
-				double d1 = Math.sin(ang);
-				double d2 = -Math.cos(ang);
+//				float mult1 = weighted.getProcessor().getPixelValue(x_loc, y_loc);
+//				float mult2 = neuriteness.getProcessor().getPixelValue(x_loc, y_loc);
+//				float mult3 = img.getProcessor().getPixelValue(x_loc, y_loc);
 				
-				double x2 = mouseX + r * d1;
-				double y2 = mouseY + r * d2;
+//				float v1 = Vx.getProcessor().getPixelValue(x_loc, y_loc);
+//				float v2 = Vy.getProcessor().getPixelValue(x_loc, y_loc);
 				
-				int x_loc = (int)Math.round(x2);
-				int y_loc = (int)Math.round(y2);
+//				ov1.add(new Line(x2+0.5, y2+0.5, x2+0.5+mult1*v1, y2+0.5+mult1*v2));
+//				ov2.add(new Line(x2+0.5, y2+0.5, x2+0.5+mult2*v1, y2+0.5+mult2*v2));
+//				ov3.add(new Line(x2+0.5, y2+0.5, x2+0.5+mult3*v1, y2+0.5+mult3*v2));
 				
-				float mult1 = weighted.getProcessor().getPixelValue(x_loc, y_loc);
-				float mult2 = neuriteness.getProcessor().getPixelValue(x_loc, y_loc);
-				float mult3 = img.getProcessor().getPixelValue(x_loc, y_loc); 
-				
-				float v1 = Vx.getProcessor().getPixelValue(x_loc, y_loc);
-				float v2 = Vy.getProcessor().getPixelValue(x_loc, y_loc);
-				
-				ov1.add(new Line(x2+0.5, y2+0.5, x2+0.5+mult1*v1, y2+0.5+mult1*v2));
-				ov2.add(new Line(x2+0.5, y2+0.5, x2+0.5+mult2*v1, y2+0.5+mult2*v2));
-				ov3.add(new Line(x2+0.5, y2+0.5, x2+0.5+mult3*v1, y2+0.5+mult3*v2));
-				
-			}
-			
-		}
+//			}
+//
+//		}
 		
-		weighted.setOverlay(ov1);
-		weighted.getCanvas().zoom100Percent();
-		weighted.getCanvas().zoomIn(mouseX, mouseY);
-		
-		neuriteness.setOverlay(ov2);
-		neuriteness.getCanvas().zoom100Percent();
-		neuriteness.getCanvas().zoomIn(mouseX, mouseY);
+//		weighted.setOverlay(ov1);
+//		weighted.getCanvas().zoom100Percent();
+//		weighted.getCanvas().zoomIn(mouseX, mouseY);
+//
+//		neuriteness.setOverlay(ov2);
+//		neuriteness.getCanvas().zoom100Percent();
+//		neuriteness.getCanvas().zoomIn(mouseX, mouseY);
 
-		img.setOverlay(ov3);
-		img.getCanvas().zoom100Percent();
-		img.getCanvas().zoomIn(mouseX, mouseY);
+//		img.setOverlay(ov3);
+//		img.getCanvas().zoom100Percent();
+//		img.getCanvas().zoomIn(mouseX, mouseY);
 		
 		/*
 		ImageStack show_profiles = new ImageStack(800, 400); 		 * 

@@ -72,21 +72,21 @@ public class GenerateBranch implements PlugIn {
 		gd.showDialog();
 		if (gd.wasCanceled()) return;
 
-        int H = (int) gd.getNextNumber();
-		int W = (int) gd.getNextNumber();
-		int N = (int) gd.getNextNumber();
-        int L = (int) gd.getNextNumber();
-        outDirPath = gd.getNextString();
+        int H = (int)   gd.getNextNumber();
+		int W = (int)   gd.getNextNumber();
+		int N = (int)   gd.getNextNumber();
+        int L = (int)   gd.getNextNumber();
+        outDirPath =    gd.getNextString();
         if (!outDirPath.endsWith(File.separator)) {
             outDirPath += File.separator;
         }
-        bgBias = (int) gd.getNextNumber();
-        fgBias = (int) gd.getNextNumber();
+        bgBias = (int)  gd.getNextNumber();
+        fgBias = (int)  gd.getNextNumber();
 
-		minStd = (int) gd.getNextNumber();
-		rngStd = (int) gd.getNextNumber();
+		minStd = (int)  gd.getNextNumber();
+		rngStd = (int)  gd.getNextNumber();
 
-		gd.getNextBoolean();
+		addPoisson =    gd.getNextBoolean();
 
 //        bgBias  = 20;
         bgRange = 5;
@@ -155,8 +155,6 @@ public class GenerateBranch implements PlugIn {
                 fw.write(IJ.d2s(mid2[1], 2)+", "+IJ.d2s(mid2[0], 2)+"\n");
                 fw.write(IJ.d2s(mid3[1], 2)+", "+IJ.d2s(mid3[0], 2)+"\n");
 
-
-
                 int bor_row, bor_col;
 
 				for (float k = 0.1f; k <=0.5; k+=0.1f) {      // till +/-0.5 std
@@ -197,7 +195,7 @@ public class GenerateBranch implements PlugIn {
 			// imagej
 			ImagePlus im_to_add = new ImagePlus(file_name, ip_to_add);
 
-			if (addPoisson) {
+			if (addPoisson) {   //addPoisson
 
 				// imagescience
 				//IJ.run(new ImagePlus(file_name, ip_to_add), "RandomJ Poisson", "mean=10 insertion=additive");
@@ -230,7 +228,7 @@ public class GenerateBranch implements PlugIn {
             file_name = "bch_"+i;
             ImagePlus im_to_add = new ImagePlus(file_name, ip_to_add);
 
-			if (addPoisson) {
+			if (addPoisson) { //
 				IJ.run(im_to_add, "Poisson Noise", "");
 			}
 

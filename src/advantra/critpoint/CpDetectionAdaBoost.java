@@ -89,11 +89,11 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
         // check folders
         if(! new File(train_folder).exists()) {IJ.showMessage("train folder does not exist!"); return;}
         else {
-            train_folder += (!train_folder.endsWith(File.separator))? File.separator : "";
+            //train_folder += (!train_folder.endsWith(File.separator))? File.separator : "";
         }
         if(! new File(test_folder).exists()) {IJ.showMessage("test folder does not exist!"); return;}
         else {
-            test_folder += (!test_folder.endsWith(File.separator))? File.separator : "";
+            //test_folder += (!test_folder.endsWith(File.separator))? File.separator : "";
         }
         boolean sameSize = gd.getNextBoolean();
         boolean equal = gd.getNextBoolean();
@@ -702,7 +702,7 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
             }
 
         }
-        if (sameSize){
+        if (sameSize && isShow!=null){
             ImagePlus a23 = new ImagePlus("det", isShow);
             //System.out.println("finally "+ovlyDetections.size()+ " detections ");
             a23.setOverlay(ovlyDetections);
@@ -1060,6 +1060,5 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
 
     public void mouseExited(MouseEvent e) {
     }
-
 
 }

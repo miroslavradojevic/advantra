@@ -545,13 +545,25 @@ public class CpDetectionRF implements PlugIn {
 		trn.setClassIndex(trn.numAttributes()-1);
 		System.out.println("weka trainset formed " + trn.numInstances() + ", atts " + trn.numAttributes());
 
+        int nrTrees = 10;
+        int nrFeatsToConsider = (int)Math.sqrt(trn.numAttributes());
+        GenericDialog gd1 = new GenericDialog("RF training");
+        gd1.addNumericField("# of trees", nrTrees, 0, 6, "");
+        gd1.addNumericField("# of features to consider", nrFeatsToConsider, 0, 6, " (out of " + trn.numAttributes() + ")");
+        gd1.showDialog();
+        if (gd1.wasCanceled()) return;
+        nrTrees = (int)       gd1.getNextNumber();
+        nrFeatsToConsider = (int)       gd1.getNextNumber();
+
 		// train random forest
 		RandomForest rf = new RandomForest();
-		rf.setNumTrees(10);
-		rf.setNumFeatures((int)Math.sqrt(trn.numAttributes()));
+		rf.setNumTrees(nrTrees);
+		rf.setNumFeatures(nrFeatsToConsider);
 		try {
+
+            System.out.println("building RF... " + nrTrees+" trees and "+nrFeatsToConsider+" features considered");
 			rf.buildClassifier(trn);
-			System.out.println("building RF...");
+
 		} catch (Exception e) {
 
 		}

@@ -116,8 +116,15 @@ public class CpDetectionFeatures implements PlugIn, MouseListener {
 			ImagePlus imTest = convertToFloatImage(IJ.openImage());
 			System.out.println("caluclate score on "+imTest.getTitle()+"\nwith extracted feature of idx. " + mouseZ);
 			imTest.show();
-			new ImagePlus("max", ccf3.score(mouseZ, imTest.getProcessor())).show();
+
+            new ImagePlus("max", ccf3.score(mouseZ, imTest.getProcessor())).show();
 			new ImagePlus("per.rot", ccf3.scoreAllRot(mouseZ, imTest.getProcessor())).show();
+
+            ccf3.score_Experimental(mouseZ, 0, imTest.getProcessor());
+
+//            for (int i = 0; i < CircularConfiguration3.nRot; i++) {
+//                new ImagePlus("ft", new FloatProcessor(ccf3.d, ccf3.d, ccf3.kernels.get(mouseZ)[i]));
+//            }
 		}
 
 		if (source=="feats2") {

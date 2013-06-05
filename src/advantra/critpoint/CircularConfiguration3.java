@@ -228,17 +228,69 @@ public class CircularConfiguration3 {
 		c.setNormalize(false); // important not to normalize (did my own normalization)
 
 		float[] k = kernels.get(kernelIdx)[rotIdx];
-
 		//new ImagePlus("before."+rotIdx, input.duplicate()).show();
 		//new ImagePlus("kernel."+rotIdx, new FloatProcessor(d, d, k)).show();
-
 		c.convolveFloat(ip, k, d, d);
-
 		//new ImagePlus("after."+rotIdx, ip).show();
 
 		return ip;
-
 	}
+
+    public ImageStack score_Experimental(
+            int kernelIdx,
+            int rotIdx,
+            ImageProcessor input
+//            int atX,
+//            int atY
+    )
+    {
+
+//        ImageProcessor ip = input.duplicate();//new FloatProcessor(input.getWidth(), input.getHeight(), (float[]) input.getPixels());
+//        //convolution
+//        Convolver c = new Convolver();
+//        c.setNormalize(false); // important not to normalize (did my own normalization)
+
+        ImageProcessor ipOut = new FloatProcessor(input.getWidth(), input.getHeight());
+
+        float[] k = kernels.get(kernelIdx)[rotIdx];
+
+        float val = 0;
+
+        for (int imgX = r; imgX < input.getWidth()-r; imgX++) {
+            for (int imgY = r; imgY < input.getHeight()-r; imgY++) {
+
+                System.out.print("x: "+imgX+" , y: "+imgY+"    ");
+
+                int cntP = 0;
+                int cntN = 0;
+
+                // Welford algorithm
+
+                for (int ki = 0; ki < k.length; ki++) {  // take mean and variance estimate in one loop
+
+                    if (k[ki]>0) {
+                        cntP++;
+                    }
+                    else if(k[ki]<0) {
+                        cntN++;
+                    }
+
+
+                }
+
+                System.out.println("positives counted:  "+cntP+" , negatives counted "+cntN);
+            }
+        }
+
+        return null;
+
+
+        //new ImagePlus("before."+rotIdx, input.duplicate()).show();
+        //new ImagePlus("kernel."+rotIdx, new FloatProcessor(d, d, k)).show();
+        //c.convolveFloat(ip, k, d, d);
+        //new ImagePlus("after."+rotIdx, ip).show();
+        //return ip;
+    }
 
 	/*
 	SCORE CALCULATION POSITION
