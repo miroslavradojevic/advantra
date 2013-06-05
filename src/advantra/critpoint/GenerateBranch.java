@@ -37,6 +37,8 @@ public class GenerateBranch implements PlugIn {
 
     int bgBias, bgRange, fgBias, fgRange;
 
+	boolean addPoisson;
+
 	int minStd, rngStd;
 
 	public void run(
@@ -65,6 +67,8 @@ public class GenerateBranch implements PlugIn {
 		gd.addNumericField("min.std:", 1, 0, 5, "");
 		gd.addNumericField("max.std:", 2, 0, 5, "(random int 0 -- max.std-1)");
 
+		gd.addCheckbox("add poisson", true);
+
 		gd.showDialog();
 		if (gd.wasCanceled()) return;
 
@@ -81,6 +85,8 @@ public class GenerateBranch implements PlugIn {
 
 		minStd = (int) gd.getNextNumber();
 		rngStd = (int) gd.getNextNumber();
+
+		gd.getNextBoolean();
 
 //        bgBias  = 20;
         bgRange = 5;
@@ -188,17 +194,24 @@ public class GenerateBranch implements PlugIn {
             }
             catch(IOException exIO){}
 
-            // imagescience
-            //IJ.run(new ImagePlus(file_name, ip_to_add), "RandomJ Poisson", "mean=10 insertion=additive");
-            // imagej
-            ImagePlus im_to_add = new ImagePlus(file_name, ip_to_add);
-            IJ.run(im_to_add, "Poisson Noise", "");
-            //the other one was more convenient giving 8-bit output
-            // and storing it directly into opened image
-            // but you have to be careful setting bg and fg values
-            // save image
-            FileSaver fs = new FileSaver(im_to_add);
-            fs.saveAsTiff(outDirTrain+file_name+".tif");
+			// imagej
+			ImagePlus im_to_add = new ImagePlus(file_name, ip_to_add);
+
+			if (addPoisson) {
+
+				// imagescience
+				//IJ.run(new ImagePlus(file_name, ip_to_add), "RandomJ Poisson", "mean=10 insertion=additive");
+
+				IJ.run(im_to_add, "Poisson Noise", "");
+				//the other one was more convenient giving 8-bit output
+				// and storing it directly into opened image
+				// but you have to be careful setting bg and fg values
+
+			}
+
+			// save image
+			FileSaver fs = new FileSaver(im_to_add);
+			fs.saveAsTiff(outDirTrain+file_name+".tif");
 
         }
 
@@ -216,7 +229,10 @@ public class GenerateBranch implements PlugIn {
             }
             file_name = "bch_"+i;
             ImagePlus im_to_add = new ImagePlus(file_name, ip_to_add);
-            IJ.run(im_to_add, "Poisson Noise", "");
+
+			if (addPoisson) {
+				IJ.run(im_to_add, "Poisson Noise", "");
+			}
 
             //save
             FileSaver fs = new FileSaver(im_to_add);

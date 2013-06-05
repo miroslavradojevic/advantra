@@ -70,7 +70,7 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
         gd.addCheckbox("images got same dimensions", false);
         gd.addCheckbox("equal # (+) and (-)", false);
 
-        gd.addMessage("Feature profiles");
+        gd.addMessage("Feature profiles to use");
 
         gd.addCheckbox("1x", false);
         gd.addCheckbox("2x", false);
@@ -84,14 +84,16 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
         train_folder = 	gd.getNextString();
         test_folder = 	gd.getNextString();
 
+		System.out.println(" train folder "+train_folder);
+
         // check folders
         if(! new File(train_folder).exists()) {IJ.showMessage("train folder does not exist!"); return;}
         else {
-            train_folder+=File.separator;
+            train_folder += (!train_folder.endsWith(File.separator))? File.separator : "";
         }
         if(! new File(test_folder).exists()) {IJ.showMessage("test folder does not exist!"); return;}
         else {
-            test_folder+=File.separator;
+            test_folder += (!test_folder.endsWith(File.separator))? File.separator : "";
         }
         boolean sameSize = gd.getNextBoolean();
         boolean equal = gd.getNextBoolean();
@@ -126,6 +128,8 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
 		nrFiltersA  = (enableAsymm)? acf.kernels.size() : 0;
 		nrFilters4  = (enableF4)? ccf4.kernels.size() : 0;
         nrFilters   = nrFilters3 + nrFilters2 + nrFilters1 + nrFiltersS + nrFiltersA + nrFilters4;
+
+		if(nrFilters==0){System.out.println("no filters set"); return;}
 
 		/*
 		SHOW FEATS
@@ -676,7 +680,6 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
                             pt.setPosition(isShow.getSize()+1); // indexed with 1
                             //pt.setPosition(0, showStk.getSize(), 0);
                             ovlyDetections.addElement(pt);
-//                            System.out.println(ovlyDetections.size()+ " detections to "+(isShow.getSize()+1));
                         }
                         else {
                             ovlyThisImage.addElement(pt);
