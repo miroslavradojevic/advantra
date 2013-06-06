@@ -24,7 +24,6 @@ import java.util.Vector;
  * User: miroslav
  * Date: 5/28/13
  * Time: 11:59 AM
- * To change this template use File | Settings | File Templates.
  */
 public class CpDetectionAdaBoost implements PlugIn, MouseListener {
 
