@@ -14,7 +14,6 @@ import java.util.Vector;
  * User: miroslav
  * Date: 5/25/13
  * Time: 3:37 PM
- * To change this template use File | Settings | File Templates.
  */
 
 public class CircularConfiguration3 {
@@ -44,14 +43,14 @@ public class CircularConfiguration3 {
 		for (int Rpix = r; Rpix >= (int)(0.5*r); Rpix*= 0.75) {
 
 			//System.out.println("start from "+(int) Math.round(0.6*Rpix));
-			for (float ratio = 0.5f; ratio >= 0.1; ratio*=0.75){
+			for (float ratio = 0.5f; ratio >= 0.3; ratio*=0.75){
 
 				int Tpix = (int) Math.round(ratio*Rpix);
 
                 if (Tpix>=2){
 					int angRes = (int) Math.round( (ratio/TwoPi)*360 );
 					angRes = (angRes/10 + 1)*10;
-					comb.add(new int[]{Rpix, Tpix, angRes}); System.out.println("3 : "+Rpix+","+Tpix+","+angRes);
+					comb.add(new int[]{Rpix, Tpix, angRes}); //System.out.println("3 : "+Rpix+","+Tpix+","+angRes);
 				}
 				else {
 					break;
@@ -238,52 +237,98 @@ public class CircularConfiguration3 {
 
     public ImageStack score_Experimental(
             int kernelIdx,
-            int rotIdx,
+            //int rotIdx,
             ImageProcessor input
 //            int atX,
 //            int atY
     )
     {
 
-//        ImageProcessor ip = input.duplicate();//new FloatProcessor(input.getWidth(), input.getHeight(), (float[]) input.getPixels());
 //        //convolution
 //        Convolver c = new Convolver();
 //        c.setNormalize(false); // important not to normalize (did my own normalization)
 
-        ImageProcessor ipOut = new FloatProcessor(input.getWidth(), input.getHeight());
+        ImageStack isOut = new ImageStack(input.getWidth(), input.getHeight());
 
-        float[] k = kernels.get(kernelIdx)[rotIdx];
+        for (int rotIdx = 0; rotIdx < nRot; rotIdx++) {
 
-        float val = 0;
+            ImageProcessor ipOut = new FloatProcessor(input.getWidth(), input.getHeight());
 
-        for (int imgX = r; imgX < input.getWidth()-r; imgX++) {
-            for (int imgY = r; imgY < input.getHeight()-r; imgY++) {
+            float[] k = kernels.get(kernelIdx)[rotIdx];
 
-                System.out.print("x: "+imgX+" , y: "+imgY+"    ");
+            int cntP;
+            float sumP;
 
-                int cntP = 0;
-                int cntN = 0;
+            int cntN;
+            float sumN;
 
-                // Welford algorithm
+            float varP;
+            float varN;
 
-                for (int ki = 0; ki < k.length; ki++) {  // take mean and variance estimate in one loop
+            for (int imgX = r; imgX < input.getWidth()-r; imgX++) {
+                for (int imgY = r; imgY < input.getHeight()-r; imgY++) {
 
-                    if (k[ki]>0) {
-                        cntP++;
+                    //System.out.print("x: "+imgX+" , y: "+imgY+"      ");
+                    // for this location
+                    cntP = 0;
+                    sumP = 0;
+
+                    cntN = 0;
+                    sumN = 0;
+
+//                    float v = input.getf(imgX, imgY);
+//                    System.out.print("x: "+imgX+" , y: "+imgY+"      "+ " v: "+v+"  , ");
+
+                    for (int ki = 0; ki < k.length; ki++) {  // take mean and variance estimate in one loop
+
+                        int imgXK = imgX-r+ki/d;
+                        int imgYK = imgY-r+ki%d;
+
+                        if (k[ki]>0) {
+                            sumP+=input.getf(imgXK, imgYK);
+                            cntP++;
+                        }
+                        else if(k[ki]<0) {
+                            sumN+=input.getf(imgXK, imgYK);
+                            cntN++;
+                        }
+
                     }
-                    else if(k[ki]<0) {
-                        cntN++;
+
+                    float avgDiff = sumP/cntP - sumN/cntN;
+                    //System.out.println(sumP+" <> "+cntP+" , "+sumN+" <> "+cntN+" score recorded:  "+sc + "    "+(sumP/cntP)+"   -  "+(sumN/cntN));
+
+                    varP = 0;
+                    varN = 0;
+
+                    for (int ki = 0; ki < k.length; ki++) {
+
+                        int imgXK = imgX-r+ki/d;
+                        int imgYK = imgY-r+ki%d;
+
+                        if (k[ki]>0) {
+                            varP+=(input.getf(imgXK, imgYK) - (sumP/cntP))*(input.getf(imgXK, imgYK) - (sumP/cntP));
+                        }
+                        else if(k[ki]<0) {
+                            varN+=(input.getf(imgXK, imgYK) - (sumN/cntN))*(input.getf(imgXK, imgYK) - (sumN/cntN));
+                        }
+
                     }
 
+                    float stdP = (float)Math.sqrt(varP/(cntP-1));
+                    float stdN = (float)Math.sqrt(varN/(cntN-1));
+
+//                    ipOut.setf(imgX, imgY, avgDiff/(stdP*stdN));
+                    ipOut.setf(imgX, imgY, 1f/(stdP));
 
                 }
-
-                System.out.println("positives counted:  "+cntP+" , negatives counted "+cntN);
             }
+
+            isOut.addSlice(ipOut);
+
         }
 
-        return null;
-
+        return isOut;
 
         //new ImagePlus("before."+rotIdx, input.duplicate()).show();
         //new ImagePlus("kernel."+rotIdx, new FloatProcessor(d, d, k)).show();
@@ -420,6 +465,7 @@ public class CircularConfiguration3 {
 			}
 
 			// normalize
+            // NOTE: commented out the normalization for now
 			for (int x = 0; x < kernelsW; x++) {
 				for (int y = 0; y < kernelsH; y++) {
 					if (kernels[rIdx][x+kernelsW*y] > 0) {

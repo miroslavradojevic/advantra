@@ -17,11 +17,11 @@ import java.awt.event.MouseListener;
  * User: miroslav
  * Date: 5/31/13
  * Time: 10:12 AM
- * To change this template use File | Settings | File Templates.
  */
 public class DummyClass implements PlugIn, MouseListener {
 
     Conf3 c3;
+    CircularConfiguration3 ccf3;
     ImagePlus img;
 
 	public void run(String s) {
@@ -40,32 +40,25 @@ public class DummyClass implements PlugIn, MouseListener {
         gd.addNumericField("patch radius", d, 0, 5, "pixels");
 		gd.addNumericField("XON",  Xon, 0, 5, " defines exponential curve for ON");
         gd.addNumericField("XOFF", Xoff, 0, 5, " defines exponential curve for OFF");
-
         gd.showDialog();
         if (gd.wasCanceled()) return;
-        d =  (int)gd.getNextNumber();
-        Xon =  (float)gd.getNextNumber();
-        Xoff =  (float)gd.getNextNumber();
+        d       =  (int)gd.getNextNumber();
+        Xon     =  (float)gd.getNextNumber();
+        Xoff    =  (float)gd.getNextNumber();
 
-        System.out.println("loaded -> "+d+" , "+Xon+" and "+Xoff);
-
-        c3 = new Conf3(d);
+/*        c3 = new Conf3(d);
 		new ImagePlus("all", c3.plotAll()).show();
-		//new ImagePlus("one", c3.plotOne(37)).show();
-
 
         ImageStack is = new ImageStack(img.getWidth(), img.getHeight());
         for (int t = 0; t < c3.regionIdxMap.size(); t++) {
 
-            System.out.println("calculating feature " + t + " on whole image...");
-
             ImageProcessor ip2 = new FloatProcessor(img.getWidth(), img.getHeight());
 
             // compare with calculation per point
-            for (int x = 0; x < img.getWidth(); x++) {
-                for (int y =0; y < img.getHeight(); y++) {
+            for (int x = d; x < img.getWidth()-d; x++) {
+                for (int y = d; y < img.getHeight()-d; y++) {
 
-                    float val = (float) c3.scoreAtPos(x, y, t, img.getProcessor(), Xon, Xoff);
+                    float val = 1;//(float) c3.scoreAtPos(x, y, t, img.getProcessor(), Xon, Xoff);
                     ip2.setf(x, y, val);
 
                 }
@@ -75,8 +68,47 @@ public class DummyClass implements PlugIn, MouseListener {
 
         }
 
-		ImagePlus      im2 = new ImagePlus("score.all", is);
-		im2.show();
+		ImagePlus      im2 = new ImagePlus("score.all.multiplication", is);
+		im2.show();*/
+
+
+        /*
+        ccf3
+         */
+
+
+
+        ccf3 = new CircularConfiguration3(d);
+        ImagePlus feats3 = new ImagePlus("Y.feat."+d, ccf3.plotKernels());
+        feats3.show();
+        feats3.getCanvas().zoomIn(0, 0);
+
+        for (int t = 0; t < 2; t++) { // ccf3.kernels.size()
+
+//            ImageStack isExperimental = new ImageStack(img.getWidth(), img.getHeight());
+//            ImageProcessor ipExperimental = new FloatProcessor(img.getWidth(), img.getHeight());
+//            isExperimental.addSlice(ipExperimental);
+
+
+              System.out.println("scoring for "+t+" feature...");
+              ImageStack isExperimental = ccf3.score_Experimental(t, img.getProcessor());
+
+//            // compare with calculation per point
+//            for (int x = d; x < img.getWidth()-d; x++) {
+//                for (int y = d; y < img.getHeight()-d; y++) {
+//
+//                    float val = (float) c3.scoreAtPos(x, y, t, img.getProcessor(), Xon, Xoff);
+//                    ip2.setf(x, y, val);
+//
+//                }
+//            }
+
+            ImagePlus      imExperimental = new ImagePlus("score.ap_an."+t+"feature", isExperimental);
+            imExperimental.show();
+
+        }
+
+
 
 	}
 
@@ -98,10 +130,7 @@ public class DummyClass implements PlugIn, MouseListener {
 
 	}
 
-    @Override
     public void mouseClicked(MouseEvent e) {
-        //To change body of implemented methods use File | Settings | File Templates.
-
 
         ImageCanvas srcCanv = (ImageCanvas) e.getSource();
 
@@ -115,23 +144,15 @@ public class DummyClass implements PlugIn, MouseListener {
 
     }
 
-    @Override
     public void mousePressed(MouseEvent e) {
-        //To change body of implemented methods use File | Settings | File Templates.
     }
 
-    @Override
     public void mouseReleased(MouseEvent e) {
-        //To change body of implemented methods use File | Settings | File Templates.
     }
 
-    @Override
     public void mouseEntered(MouseEvent e) {
-        //To change body of implemented methods use File | Settings | File Templates.
     }
 
-    @Override
     public void mouseExited(MouseEvent e) {
-        //To change body of implemented methods use File | Settings | File Templates.
     }
 }

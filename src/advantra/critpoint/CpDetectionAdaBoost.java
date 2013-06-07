@@ -145,39 +145,39 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
 
 
 		if(nrFilters2>0){
-        ImagePlus feats2 = new ImagePlus("V.feat."+patchRadius, ccf2.plotKernels());
-        feats2.show();
-        feats2.getCanvas().zoomIn(0, 0);
-        feats2.getCanvas().zoomIn(0, 0);
-        feats2.getCanvas().zoomIn(0, 0);
-        feats2.getCanvas().zoomIn(0, 0);
+            ImagePlus feats2 = new ImagePlus("V.feat."+patchRadius, ccf2.plotKernels());
+            feats2.show();
+            feats2.getCanvas().zoomIn(0, 0);
+            feats2.getCanvas().zoomIn(0, 0);
+            feats2.getCanvas().zoomIn(0, 0);
+            feats2.getCanvas().zoomIn(0, 0);
 		}
 
 		if(nrFilters1>0){
-		ImagePlus feats1 = new ImagePlus("I.feat."+patchRadius, ccf1.plotKernels());
-		feats1.show();
-		feats1.getCanvas().zoomIn(0, 0);
-		feats1.getCanvas().zoomIn(0, 0);
-		feats1.getCanvas().zoomIn(0, 0);
-		feats1.getCanvas().zoomIn(0, 0);
+		    ImagePlus feats1 = new ImagePlus("I.feat."+patchRadius, ccf1.plotKernels());
+		    feats1.show();
+		    feats1.getCanvas().zoomIn(0, 0);
+		    feats1.getCanvas().zoomIn(0, 0);
+		    feats1.getCanvas().zoomIn(0, 0);
+		    feats1.getCanvas().zoomIn(0, 0);
 		}
 
 		if(nrFiltersS>0){
-		ImagePlus featsS = new ImagePlus("S.feat."+patchRadius, scf.plotKernels());
-		featsS.show();
-		featsS.getCanvas().zoomIn(0, 0);
-		featsS.getCanvas().zoomIn(0, 0);
-		featsS.getCanvas().zoomIn(0, 0);
-		featsS.getCanvas().zoomIn(0, 0);
+		    ImagePlus featsS = new ImagePlus("S.feat."+patchRadius, scf.plotKernels());
+		    featsS.show();
+		    featsS.getCanvas().zoomIn(0, 0);
+		    featsS.getCanvas().zoomIn(0, 0);
+		    featsS.getCanvas().zoomIn(0, 0);
+		    featsS.getCanvas().zoomIn(0, 0);
 		}
 
 		if(nrFiltersA>0){
-		ImagePlus featsA = new ImagePlus("A.feat."+patchRadius, acf.plotKernels());
-		featsA.show();
-		featsA.getCanvas().zoomIn(0, 0);
-		featsA.getCanvas().zoomIn(0, 0);
-		featsA.getCanvas().zoomIn(0, 0);
-		featsA.getCanvas().zoomIn(0, 0);
+		    ImagePlus featsA = new ImagePlus("A.feat."+patchRadius, acf.plotKernels());
+		    featsA.show();
+		    featsA.getCanvas().zoomIn(0, 0);
+		    featsA.getCanvas().zoomIn(0, 0);
+		    featsA.getCanvas().zoomIn(0, 0);
+		    featsA.getCanvas().zoomIn(0, 0);
 		}
 
         if(nrFilters4>0) {
@@ -189,7 +189,6 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
             feats4.getCanvas().zoomIn(0, 0);
         }
 
-
         /*
         ALLOCATE STORAGE TRAIN
          */
@@ -200,6 +199,8 @@ public class CpDetectionAdaBoost implements PlugIn, MouseListener {
             IJ.error("Wrong trainset directory: " + train_folder + "   closing...");
             return;
         }
+
+      //  if (true) return;
 
         File[] files_tif = listFilesEndingWith(dir, ".tif");
         File[] files_pos = new File[files_tif.length];
