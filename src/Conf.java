@@ -1,5 +1,7 @@
 import ij.IJ;
+import ij.ImagePlus;
 import ij.ImageStack;
+import ij.plugin.filter.Convolver;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 
@@ -18,38 +20,50 @@ public class Conf {
     public int			d;
     public int          diam;
 
+    public int          rInner;
+    public int          rLower;
+
     public static int   nPeaks = 3;
     public static int 	nRot = 8;
     public static float rotStp = (float) ((2*Math.PI)/nRot);
     public static float TwoPi = (float) (2*Math.PI);
 
-    ArrayList<int[]> angles         = new ArrayList<int[]>();
+    ArrayList<int[]> angles         = new ArrayList<int[]>();  // as many as configurations
+    ArrayList<String> names         = new ArrayList<String>();
+    // with rotation
     ArrayList<int[]> regionIdxMap   = new ArrayList<int[]>();
     ArrayList<int[]> regionSize	    = new ArrayList<int[]>();
-    ArrayList<String> names         = new ArrayList<String>();
-    ArrayList<int[]> kernels      = new ArrayList<int[]>(); // for each index map (configuration) -> set of rotations
+    ArrayList<float[]> kernels        = new ArrayList<float[]>(); // for each index map (configuration) -> set of rotations
 
-    public Conf(int confRadius, int diam) {
+    Convolver convolver;
 
-        r = confRadius;
-        r = (r<5)? 5 : r; // lower limit
-        d = 2*r+1;
+    public Conf(int diam, double scale) {
 
         this.diam = diam;
+
+        r = (int) (diam*scale);
+        r = (r<6)? 6 : r; // lower limit
+        d = 2*r+1;
+
+        rInner = diam/2;
+        rLower = r/2;
+
+        convolver = new Convolver();
+        convolver.setNormalize(false);
 
         // diam will define min angle step
         double  angStep     = 2 * Math.asin((float)diam/(2*r));
         int resol = 10;
         int     angStepDeg  = (int) Math.round( ((angStep/(2*Math.PI))*360) / resol) * resol;
         angStepDeg = (angStepDeg<resol)?resol:angStepDeg;
-        System.out.println(angStep+" , step deg.  -> "+angStepDeg+" "+(((angStep/(2*Math.PI))*360)));
+
         //create different angular combinations of 3 angles
         // making 360 together,
-        for (int a1 = angStepDeg; a1<360; a1+=resol) {
+        for (int a1 = angStepDeg; a1<360; a1+=resol) { // angStepDeg
 
-            for (int a2 = angStepDeg; a2<360; a2+=resol) {
+            for (int a2 = angStepDeg; a2<360; a2+=resol) {   //
 
-                for (int a3 = angStepDeg; a3<360; a3+=resol) {
+                for (int a3 = angStepDeg; a3<360; a3+=resol) {   //
 
                     if(a1+a2+a3==360 && a1<=180 && a2<=180 && a3<=180) {
 
@@ -58,13 +72,16 @@ public class Conf {
                         angRad[1] = (a2/360f)*TwoPi;
                         angRad[2] = (a3/360f)*TwoPi;
 
-                        //int[] idxMap1 = new int[d*d];     // (d*d)
-                        //int[] regSzs1 = new int[2*nPeaks+1];
-                        int[][] idxSzs = new int[2][];
-                        //idxSzs[0] = idxMap1;
-                       // idxSzs[1] = regSzs1;
+                        int[][][] index_map = new int[1][][];
+                        int[][][] region_size = new int[1][][];
+                        float[][][] kernel_rot = new float[1][][];
 
-                        boolean isOK = formIdxMap(angRad, r, 4, 3, diam, idxSzs);
+//                        System.out.println(""+a1+","+a2+","+a3+" : "+angStepDeg+" : "+resol);
+//                        System.out.println(""+angRad[0]+","+angRad[1]+","+angRad[2]+" : "+angStepDeg+" : "+resol);
+
+                        boolean isOK = createTemplates(angRad, r, rLower, rInner, diam, index_map, region_size, kernel_rot);
+
+                        if (a1==0) {System.out.println("it was ok? "+isOK);}
 
                         if(isOK) {
 
@@ -100,8 +117,13 @@ public class Conf {
                                 String name = ""+a1+","+a2+","+a3+","+r+","+diam;
                                 names.add(name);
                                 angles.add(new int[]{a1, a2, a3});
-                                regionIdxMap.add(idxSzs[0]);
-                                regionSize.add(idxSzs[1]);
+
+                                for (int r = 0; r<nRot; r++) {
+                                    regionIdxMap.add(index_map[0][r]);
+                                    regionSize.add(region_size[0][r]);
+                                    kernels.add(kernel_rot[0][r]);
+                                }
+
                             }
 
                         }
@@ -114,38 +136,53 @@ public class Conf {
 
         }
 
-        System.out.println("total "+regionIdxMap.size()+" configurations!");
+        System.out.println("total "+regionIdxMap.size()+", "+angles.size()+" configurations, "+Conf.nRot+"  rotations each ");
 
     }
 
-    private boolean formIdxMap(
+    private boolean createTemplates(
             float[] 	angles,
             int 		Rpix,
             int 		Rlower,
             int 		Rinner,
             float 		Tpix,
-            int[][]   	AAA
+            // outputs
+            int[][][]     index_map,
+            int[][][]     region_size,
+            float[][][]   kernels_rot
     )
     {
 
-        int[] idxMapLocal;
-        int[] regSzsLocal;
+        int[][]     idxMapLocal = new int[nRot][];
+        int[][]     regSzsLocal = new int[nRot][];
+        float[][]   kernelLocal = new float[nRot][];
 
-        float[] peaksRad = new float[nPeaks];
+        float[][] peaksRad = new float[nRot][nPeaks];
 
-        for (int cnt_pks = 0; cnt_pks < nPeaks; cnt_pks++) {
+        for (int cnt_rots = 0; cnt_rots < nRot; cnt_rots++) {
+
+            float start_pos = cnt_rots*rotStp;
+
+            for (int cnt_pks = 0; cnt_pks < nPeaks; cnt_pks++) {
 
                 if(cnt_pks==0)
-                    peaksRad[cnt_pks] 	= 0;
+                    peaksRad[cnt_rots][cnt_pks] 	= start_pos;
                 else
-                    peaksRad[cnt_pks] 	=
-                            peaksRad[cnt_pks-1] +
+                    peaksRad[cnt_rots][cnt_pks] 	=
+                            peaksRad[cnt_rots][cnt_pks-1] +
                                     angles[cnt_pks-1];
 
+            }
         }
 
-//        for (int k = 0; k < nPeaks; k++)
-//            System.out.println(k+" : "+peaksRad[k]);
+        System.out.println("forming with angles...");
+        for (int cnt_rots = 0; cnt_rots < nRot; cnt_rots++) {
+            for (int cnt_pks = 0; cnt_pks < nPeaks; cnt_pks++) {
+                System.out.print(peaksRad[cnt_rots][cnt_pks]+", ");
+            }
+            System.out.println();
+        }
+        System.out.println("--\n");
 
         // form the kernels
         int xc = d/2;
@@ -155,13 +192,32 @@ public class Conf {
         int[] p = new int[2];
         float[] ap = new float[nPeaks];
 
-        idxMapLocal = new int[d*d];
-        regSzsLocal = new int[2*nPeaks+1];
+        for (int rIdx = 0; rIdx < nRot; rIdx++) {
 
-        for (int pIdx = 0; pIdx < nPeaks; pIdx++)
-            ap[pIdx] = wrap_0_2PI( peaksRad[pIdx] );
+            idxMapLocal[rIdx] = new int[d*d];
+            regSzsLocal[rIdx] = new int[2*nPeaks+1];
+            kernelLocal[rIdx] = new float[d*d];
 
-        Arrays.sort(ap); // wrapped and sorted angles for this rotation
+
+
+            for (int pIdx = 0; pIdx < nPeaks; pIdx++)
+                ap[pIdx] = ( peaksRad[rIdx][pIdx] );
+
+            for (int i = 0; i<3; i++) {System.out.print("ap in:"+ap[i]);}
+
+            Arrays.sort(ap);
+
+            for (int i = 0; i<3; i++) {System.out.print("ap srt:"+ap[i]);}
+
+            for (int pIdx = 0; pIdx < nPeaks; pIdx++)
+                ap[pIdx] = wrap_0_2PI( peaksRad[rIdx][pIdx] );
+
+             // wrapped and sorted angles for this rotation
+
+            for (int i = 0; i<3; i++) {System.out.print("ap wrapped:"+ap[i]);}
+
+            int sumON = 0;
+            int sumOFF = 0;// for kernel normalization
 
             for (int x = 0; x < d; x++) {
                 for (int y = 0; y < d; y++) {
@@ -175,21 +231,23 @@ public class Conf {
 
                         boolean isON = false;
 
-                        for (int pIdx = 0; pIdx < nPeaks; pIdx++) {
+                        for (int pIdx = 0; pIdx < nPeaks; pIdx++) {      // check first peak first always
 
-                            float ang = peaksRad[pIdx];  		// read the angle
+                            float ang = peaksRad[rIdx][pIdx];  		// read the angle
 
                             n[0] = (float) Math.cos(ang);
                             n[1] = (float) Math.sin(ang);
 
                             float dst = point2dir(cent, n, p);
 
-                            if ( dst <= Tpix/2) { // belongs to pIdx ON peak
+                            if (dst<=Tpix/2 && idxMapLocal[rIdx][x+d*y]==0) { // belongs to pIdx ON peak and not filled
 
-                                idxMapLocal[x+d*y] = pIdx+1;
-                                regSzsLocal[pIdx+1]++;
+                                idxMapLocal[rIdx][x+d*y] = pIdx+1;
+                                regSzsLocal[rIdx][pIdx+1]++;
+                                kernelLocal[rIdx][x+d*y] = +1;
+                                sumON++;
                                 isON = true;
-                                break;
+                                //break; check all three peaks independently
 
                             }
 
@@ -202,45 +260,72 @@ public class Conf {
                             boolean added = false;
                             for (int pIdx = 0; pIdx < nPeaks-1; pIdx++) {
 
-                                if (a>ap[pIdx] && a<=ap[pIdx+1]) {
-                                    idxMapLocal[x+d*y] = nPeaks+1+pIdx;
-                                    regSzsLocal[nPeaks+1+pIdx]++;
+                                if (wrap_PI(a-ap[pIdx])>0 && wrap_PI(a-ap[pIdx+1])<=0 && idxMapLocal[rIdx][x+d*y]==0) {
+
+                                    idxMapLocal[rIdx][x+d*y] = nPeaks+1+pIdx;
+                                    regSzsLocal[rIdx][nPeaks+1+pIdx]++;
+                                    kernelLocal[rIdx][x+d*y] = -1;
+                                    sumOFF++;
                                     added = true;
-                                    break;
+                                    //break;
                                 }
 
                             }
                             if (!added) {
-                                idxMapLocal[x+d*y] = 2*nPeaks;
-                                regSzsLocal[2*nPeaks]++;
+                                idxMapLocal[rIdx][x+d*y] = 2*nPeaks;
+                                regSzsLocal[rIdx][2*nPeaks]++;
+                                kernelLocal[rIdx][x+d*y] = -1;
+                                sumOFF++;
                             }
 
                         }
 
                     }
                     else if ( d2 <= Rinner*Rinner ) {
-                        idxMapLocal[x+d*y] = 0;
-                        regSzsLocal[0]++;
+                        idxMapLocal[rIdx][x+d*y] = 0;
+                        regSzsLocal[rIdx][0]++;
+                        kernelLocal[rIdx][x+d*y] = +1;
+                        sumON++;
                     }
                     else {
-                        idxMapLocal[x+d*y] = -1; // nothing
+                        idxMapLocal[rIdx][x+d*y] = -1; // nothing
+                        kernelLocal[rIdx][x+d*y] = 0;
                     }
                 }
             }
 
-        for (int k = 0; k < 2*nPeaks+1; k++) {
+            System.out.println("\nrot. "+rIdx);
+            for (int i = 0; i<2*nPeaks+1; i++) {
+                    System.out.print("["+i+" -> "+regSzsLocal[rIdx][i]+"],");
+            }
+            System.out.println();
 
-            if (regSzsLocal[k] <= 3 ) {
-//                System.out.println("some reg was small "+k+"   : "+regSzsLocal[k]+" elements");
-                return false;
+            // if it happens that it's too small region in one of the rotations, don't add the whole rotation
+            for (int k = 0; k < 2*nPeaks+1; k++) {
+
+                if (regSzsLocal[rIdx][k] <= 3) { // allow second sum to be 0 elements (overlaping with first)  && k!=2 && k!=4
+
+                    System.out.println("some reg was small "+k+"th sum   : "+regSzsLocal[rIdx][k]+" elements");
+                    return false;
+                }
+
+            }
+
+            // normalize kernel for this rotation
+            for (int k = 0; k<d*d; k++) {
+                if (kernelLocal[rIdx][k]>0) {
+                    kernelLocal[rIdx][k] /= sumON;
+                }
+                else if (kernelLocal[rIdx][k]<0) {
+                    kernelLocal[rIdx][k] /= sumOFF;
+                }
             }
 
         }
 
-        AAA[0] = idxMapLocal;
-        AAA[1] = regSzsLocal;
-
-//        System.out.println("AAA "+AAA.length+" x "+AAA[0].length);
+        index_map[0] = idxMapLocal;
+        region_size[0] = regSzsLocal;
+        kernels_rot[0] = kernelLocal;
 
         return true;
 
@@ -257,6 +342,23 @@ public class Conf {
             out += 2*Math.PI;
         }
         while(out>=2*Math.PI){
+            out -= 2*Math.PI;
+        }
+
+        return out;
+    }
+
+    private static float wrap_PI(
+            float in
+    )
+    {
+
+        float out = in;
+
+        while(out<=-Math.PI){
+            out += 2*Math.PI;
+        }
+        while(out>Math.PI){
             out -= 2*Math.PI;
         }
 
@@ -299,34 +401,112 @@ public class Conf {
     plot
      */
 
-    public ImageStack plot(
-            int kernelIdx
-    )
+//    public ImageStack plot()
+//    {
+//
+//        ImageStack is = new ImageStack(d, d);
+//
+//        ImageProcessor ip = new FloatProcessor(d, d, regionIdxMap.get(kernelIdx*nRot));
+//        is.addSlice("kernel,"+names.get(kernelIdx), ip);
+//
+//        return is;
+//
+//    }
+
+
+    public ImageStack plotTemplates()
     {
 
         ImageStack is = new ImageStack(d, d);
 
-        ImageProcessor ip = new FloatProcessor(d, d, regionIdxMap.get(kernelIdx));
-        is.addSlice("kernel,"+names.get(kernelIdx), ip);
+        for (int l = 0; l<angles.size(); l++) {
+
+            ImageProcessor ip = new FloatProcessor(d, d, regionIdxMap.get(l*nRot));
+            is.addSlice("template,"+names.get(l), ip);
+
+        }
 
         return is;
 
     }
 
-
-    public ImageStack plot()
+    public ImageStack plotTemplatesAll()
     {
-
-        System.out.println("index map : "+regionIdxMap.size());
 
         ImageStack is = new ImageStack(d, d);
 
         for (int l = 0; l<regionIdxMap.size(); l++) {
+
             ImageProcessor ip = new FloatProcessor(d, d, regionIdxMap.get(l));
-            is.addSlice("kernel,"+names.get(l), ip);
+            is.addSlice("template,"+names.get(l/nRot), ip);
+
         }
 
         return is;
+
+    }
+
+    public ImageStack plotKernels()
+    {
+
+        ImageStack is = new ImageStack(d, d);
+
+        for (int l = 0; l<angles.size(); l++) {
+
+            ImageProcessor ip = new FloatProcessor(d, d, kernels.get(l*nRot));
+            is.addSlice("kernel,"+names.get(l), ip);
+
+        }
+
+        return is;
+
+    }
+
+    public ImageStack plotKernel(int configurationIdx)
+    {
+
+        ImageStack is = new ImageStack(d, d);
+
+
+        ImageProcessor ip = new FloatProcessor(d, d, kernels.get(configurationIdx));
+        is.addSlice("kernel,"+names.get(configurationIdx/nRot), ip);
+
+//        for (int l = 0; l<angles.size(); l++) {
+//        }
+
+        return is;
+
+    }
+
+    public ImageProcessor fit(FloatProcessor inip){
+
+        int W = inip.getWidth();
+        int H = inip.getHeight();
+
+        ImageProcessor ipIdxs = new FloatProcessor(inip.getWidth(), inip.getHeight());
+        ImageProcessor ipScos = inip.duplicate();
+        convolver.convolveFloat(ipScos, kernels.get(0), d, d);//new FloatProcessor(inip.getWidth(), inip.getHeight());
+
+       // new ImagePlus("after.convolving", ipScos).show();
+
+        // find the best fit configuration/rotation for this feature
+        // number of convolutions
+        for (int convIdx = 1; convIdx<kernels.size(); convIdx++) {
+
+//            System.out.println("convolving "+convIdx+" ...");
+
+            ImageProcessor ipconv = inip.duplicate();
+            convolver.convolveFloat(ipconv, kernels.get(convIdx), d, d);
+            // check if there was max
+            for (int l = 0; l<H*W; l++) {
+                if(ipconv.getf(l)>ipScos.getf(l)) {
+                    ipScos.setf(l, ipconv.getf(l));
+                    ipIdxs.setf(l, convIdx);
+                }
+            }
+        }
+
+        return  ipIdxs;
 
     }
 
