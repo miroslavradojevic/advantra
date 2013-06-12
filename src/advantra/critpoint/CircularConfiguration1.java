@@ -13,7 +13,6 @@ import java.util.Vector;
  * User: miroslav
  * Date: 5/28/13
  * Time: 6:00 PM
- * To change this template use File | Settings | File Templates.
  */
 public class CircularConfiguration1 {
 
