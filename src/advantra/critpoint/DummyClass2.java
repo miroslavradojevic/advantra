@@ -13,8 +13,14 @@ public class DummyClass2 implements PlugIn {
 
     public void run(String s) {
 
+		ImagePlus inputimg = new ImagePlus("/home/miroslav/d2.tif");
+		inputimg.show();
+
         CircularConfiguration3 ccf3 = new CircularConfiguration3(10);
-        new ImagePlus("", ccf3.plotKernel(2).getProcessor(1)).show();
+		//new ImagePlus("", ccf3.plotKernels()).show();
+        new ImagePlus("kernel.0", ccf3.plotKernel(0)).show();
+
+		new ImagePlus("", ccf3.scoreAllRot(0, inputimg.getProcessor())).show();
 
     }
 

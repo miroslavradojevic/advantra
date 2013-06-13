@@ -76,8 +76,6 @@ public class DummyClass implements PlugIn, MouseListener {
         ccf3
          */
 
-
-
         ccf3 = new CircularConfiguration3(d);
         ImagePlus feats3 = new ImagePlus("Y.feat."+d, ccf3.plotKernels());
         feats3.show();
@@ -91,7 +89,7 @@ public class DummyClass implements PlugIn, MouseListener {
 
 
               System.out.println("scoring for "+t+" feature...");
-              ImageStack isExperimental = ccf3.score_Experimental(t, img.getProcessor());
+//              ImageStack isExperimental = ccf3.score_Experimental(t, img.getProcessor());
 
 //            // compare with calculation per point
 //            for (int x = d; x < img.getWidth()-d; x++) {
@@ -103,8 +101,8 @@ public class DummyClass implements PlugIn, MouseListener {
 //                }
 //            }
 
-            ImagePlus      imExperimental = new ImagePlus("score.ap_an."+t+"feature", isExperimental);
-            imExperimental.show();
+//            ImagePlus      imExperimental = new ImagePlus("score.ap_an."+t+"feature", isExperimental);
+//            imExperimental.show();
 
         }
 
