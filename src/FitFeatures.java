@@ -21,6 +21,8 @@ public class FitFeatures implements PlugIn, MouseListener {
 
     Conf c;
 
+	Feat f;
+
     public void run(String s) {
 
         int t = 5;
@@ -34,7 +36,12 @@ public class FitFeatures implements PlugIn, MouseListener {
         if (gd.wasCanceled()) return;
 		t 		=  	(int)gd.getNextNumber();
         scale   =   gd.getNextNumber();
-        c = new Conf(t, scale);
+
+		f= new Feat(t, scale);
+
+        //c = new Conf(t, scale);
+
+		if(true) return;
 
 //        System.out.println("\n\n SUMMARY: \n\n");
 //        System.out.println(""+c.regionIdxMap.size()+" , "+c.regionSize.size()+" index maps");

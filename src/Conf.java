@@ -136,7 +136,7 @@ public class Conf {
 
         }
 
-        System.out.println("total "+regionIdxMap.size()+", "+angles.size()+" configurations, "+Conf.nRot+"  rotations each ");
+        System.out.println("added total "+regionIdxMap.size()+", "+angles.size()+" configurations, "+Conf.nRot+"  rotations each ");
 
     }
 
