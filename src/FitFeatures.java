@@ -18,6 +18,7 @@ import java.awt.event.MouseListener;
 public class FitFeatures implements PlugIn, MouseListener {
 
     ImageProcessor ipFit;
+    ImagePlus inimg;
 
     Conf c;
 
@@ -39,9 +40,9 @@ public class FitFeatures implements PlugIn, MouseListener {
 
 		f= new Feat(t, scale);
 
-        //c = new Conf(t, scale);
+        c = new Conf(t, scale);
 
-		if(true) return;
+//		if(true) return;
 
 //        System.out.println("\n\n SUMMARY: \n\n");
 //        System.out.println(""+c.regionIdxMap.size()+" , "+c.regionSize.size()+" index maps");
@@ -71,30 +72,13 @@ public class FitFeatures implements PlugIn, MouseListener {
         showC.getCanvas().zoomIn(0, 0);
 
 
-        showC = new ImagePlus("templates(diam="+c.diam+",r="+c.r+")", c.plotTemplates());
-
-        showC.show();
-        showC.getCanvas().zoomIn(0, 0);
-        showC.getCanvas().zoomIn(0, 0);
-        showC.getCanvas().zoomIn(0, 0);
-        showC.getCanvas().zoomIn(0, 0);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+//        showC = new ImagePlus("templates(diam="+c.diam+",r="+c.r+")", c.plotTemplates());
+//
+//        showC.show();
+//        showC.getCanvas().zoomIn(0, 0);
+//        showC.getCanvas().zoomIn(0, 0);
+//        showC.getCanvas().zoomIn(0, 0);
+//        showC.getCanvas().zoomIn(0, 0);
 
         //if(true) return;
 
@@ -108,7 +92,7 @@ public class FitFeatures implements PlugIn, MouseListener {
 
         // fit
         IJ.showMessage("Open image to fit the configurations on");
-        ImagePlus inimg = convertToFloatImage(IJ.openImage());
+        inimg = convertToFloatImage(IJ.openImage());
         inimg.setTitle("input_image");
 
         IJ.showMessage("start calculating best configurations of the feature...");
@@ -141,6 +125,10 @@ public class FitFeatures implements PlugIn, MouseListener {
         IJ.selectWindow("input_image");
         IJ.run("Add Image...", "image=a1 x="+(atX-bestFitImage.getWidth()/2)+" y="+(atY-bestFitImage.getHeight()/2)+" opacity=50");
         bestFitImage.close();
+
+        // show the profile
+        new ImagePlus("", f.plotSums(atX, atY, (FloatProcessor) inimg.getProcessor())).show();
+        new ImagePlus("offsets", f.showOffsets()).show();
 
     }
 
