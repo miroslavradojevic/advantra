@@ -20,7 +20,7 @@ public class FitFeatures implements PlugIn, MouseListener {
     ImageProcessor ipFit;
     ImagePlus inimg;
 
-    Conf c;
+//    Conf c;
 
 	Feat f;
 
@@ -40,26 +40,15 @@ public class FitFeatures implements PlugIn, MouseListener {
 
 		f= new Feat(t, scale);
 
-        c = new Conf(t, scale);
-
-//		if(true) return;
-
-//        System.out.println("\n\n SUMMARY: \n\n");
-//        System.out.println(""+c.regionIdxMap.size()+" , "+c.regionSize.size()+" index maps");
+//        c = new Conf(t, scale);
 
 //        for (int m = 0; m<c.regionIdxMap.size(); m++) {
-//
 //            System.out.println("\nReg. "+m+" : rotation "+(m/Conf.nRot));
 //            System.out.println(""+c.names.get(m/Conf.nRot)+" ");
 //            for (int i = 0; i<c.regionSize.get(m).length; i++) {
 //                System.out.print("["+i+" -> "+c.regionSize.get(m)[i]+"],");
 //            }
-//
 //        }
-
-//        System.out.println(""+c.angles.size()+" angle");
-//        System.out.println(""+c.names.size()+" names");
-//        System.out.println("\n\n --- \n\n");
 
         ImagePlus showC;
 
@@ -71,7 +60,6 @@ public class FitFeatures implements PlugIn, MouseListener {
 //        showC.getCanvas().zoomIn(0, 0);
 //        showC.getCanvas().zoomIn(0, 0);
 
-
 //        showC = new ImagePlus("templates(diam="+c.diam+",r="+c.r+")", c.plotTemplates());
 //
 //        showC.show();
@@ -80,26 +68,23 @@ public class FitFeatures implements PlugIn, MouseListener {
 //        showC.getCanvas().zoomIn(0, 0);
 //        showC.getCanvas().zoomIn(0, 0);
 
-        //if(true) return;
+        showC = new ImagePlus("", f.showOffsets());
 
-//        showC = new ImagePlus("kernels(diam="+c.diam+",r="+c.r+")", c.plotKernels());
+        showC.show();
+        showC.getCanvas().zoomIn(0, 0);
+        showC.getCanvas().zoomIn(0, 0);
+        showC.getCanvas().zoomIn(0, 0);
+        showC.getCanvas().zoomIn(0, 0);
 
-//        showC.show();
-//        showC.getCanvas().zoomIn(0, 0);
-//        showC.getCanvas().zoomIn(0, 0);
-//        showC.getCanvas().zoomIn(0, 0);
-//        showC.getCanvas().zoomIn(0, 0);
-
-        // fit
         IJ.showMessage("Open image to fit the configurations on");
         inimg = convertToFloatImage(IJ.openImage());
         inimg.setTitle("input_image");
 
-        IJ.showMessage("start calculating best configurations of the feature...");
-        IJ.log("wait, calculating...");
-        ipFit = c.fit((FloatProcessor)inimg.getProcessor());
-        IJ.log("finished.");
-        IJ.showMessage("found best fits");
+//        IJ.showMessage("start calculating best configurations of the feature...");
+//        IJ.log("wait, calculating...");
+//        ipFit = c.fit((FloatProcessor)inimg.getProcessor());
+//        IJ.log("finished.");
+//        IJ.showMessage("found best fits");
 
         inimg.show();
         inimg.getCanvas().addMouseListener(this);
@@ -113,23 +98,30 @@ public class FitFeatures implements PlugIn, MouseListener {
         int atX = 	srcCanv.offScreenX(e.getX());
 		int atY = 	srcCanv.offScreenY(e.getY());
 
-//        System.out.println("X: "+atX+" , Y: "+atY);
+        //int configurationIdx = (int)Math.round(ipFit.getf(atX, atY));
+        double[] angs = f.get3Angles(atX, atY, (FloatProcessor)inimg.getProcessor(), 200, 200, 0.0001, 1, 0.5);
 
-        int configurationIdx = (int)Math.round(ipFit.getf(atX, atY));
-        System.out.println("configuration index to plot here: "+configurationIdx);
-        // show one that fits there
+        angs = new double[]{0.0, 1.0, 2.0};
+        //angs = new double[]{Math.PI, Math.PI+Math.PI/2, Math.PI*2};
 
-        ImagePlus bestFitImage = new ImagePlus("a1", c.plotKernel(configurationIdx));
-        bestFitImage.show();
-        //System.out.println(bestFitImage.getShortTitle());
-        IJ.selectWindow("input_image");
-        IJ.run("Add Image...", "image=a1 x="+(atX-bestFitImage.getWidth()/2)+" y="+(atY-bestFitImage.getHeight()/2)+" opacity=50");
-        bestFitImage.close();
+        if (angs!=null) {
 
-        // show the profile
-        new ImagePlus("", f.plotSums(atX, atY, (FloatProcessor) inimg.getProcessor())).show();
+            for (int g = 0; g < angs.length; g++) {
+                IJ.log("arg: "+angs[g]);
+            }
 
-//        new ImagePlus("offsets", f.showOffsets()).show();
+            int[][] regionMap = new int[1][];
+            int[][] regionSize = new int[1][];
+            float[][] kernel = new float[1][];
+
+            ImageProcessor templ = f.template(angs, regionMap, regionSize, kernel);
+            ImagePlus bestFitImage = new ImagePlus("a1", templ);
+            bestFitImage.show();
+            IJ.selectWindow("input_image");
+            IJ.run("Add Image...", "image=a1 x="+(atX-bestFitImage.getWidth()/2)+" y="+(atY-bestFitImage.getHeight()/2)+" opacity=50");
+            bestFitImage.close();
+            new ImagePlus("", f.plotSums(atX, atY, (FloatProcessor) inimg.getProcessor())).show();
+        }
 
     }
 

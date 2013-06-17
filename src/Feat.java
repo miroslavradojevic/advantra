@@ -93,12 +93,10 @@ public class Feat {
 			}
 
 			offsets.add(offsetsAngle);
-//			System.out.println(offsets.size()+" -> adding "+offsetsAngle.size()+" elements");
 
 		}
 
 //		System.out.println("total "+offsets.size());
-
 //		String[] s_all = new String[]{"'ro'", "'go'", "'bo'", "'yo'"};
 //		for (int c = 0; c<offsets.size(); c+=4) {
 //			System.out.println("a = [...");
@@ -136,41 +134,84 @@ public class Feat {
 
     }
 
-//	public Vector<Double> getPeakAnglesDeg360(int atX, int atY, FloatProcessor inip) {
-//
-//		float[] sumsPerOrt  = new float[offsets.size()];
-//
-//		for (int dirIdx = 0; dirIdx<offsets.size(); dirIdx++) {
-//
-//			for (int locIdx = 0; locIdx<offsets.get(dirIdx).size(); locIdx++) {
-//
-//				sumsPerOrt[dirIdx] += inip.getf(
-//					atX+offsets.get(dirIdx).get(locIdx)[0], atY+offsets.get(dirIdx).get(locIdx)[1]
-//				);
-//
-//			}
-//
-//		}
-//
-//		// find peaks - initialize start points for ms iterations
-//		int Npoints = 200;
-//		double eps = 0.0001;
-//		int Niter = 200;
-//		int M = 1;
-//
-//		double[] start = new double[Npoints];
-//		double[] finish = new double[start.length];
-//
-//		for (int i=0; i<Npoints; i++)
-//			start[i] = ((double)i/Npoints)*sumsPerOrt.length;
-//
-//		finish = runMS(start, sumsPerOrt, Niter, eps, h);
-//
-//		Vector<Double> cls = extractClusters(finish, 0.5, M);
-//
-//
-//
-//	}
+	public  double[] get3Angles(
+            int             atX,
+            int             atY,
+            FloatProcessor  inip,
+            int             Npoints,
+            int             Niter,
+            double          eps,
+            int             M,
+            double          minD
+    )
+    {
+
+		float[] sumsPerOrt  = new float[offsets.size()];
+
+		for (int dirIdx = 0; dirIdx<offsets.size(); dirIdx++) {
+			for (int locIdx = 0; locIdx<offsets.get(dirIdx).size(); locIdx++) {
+				sumsPerOrt[dirIdx] += inip.getf(
+					atX+offsets.get(dirIdx).get(locIdx)[0], atY+offsets.get(dirIdx).get(locIdx)[1]
+				);
+			}
+		}
+
+		double[] start = new double[Npoints];
+		double[] finish;
+
+		for (int i=0; i<Npoints; i++)
+			start[i] = ((double)i/Npoints)*sumsPerOrt.length;
+
+		finish = runMS(start, sumsPerOrt, Niter, eps, h);
+
+        Vector<double[]> cls = extractClusters(finish, minD, M);
+
+        double[] anglesDirections;
+
+        IJ.log("clustered "+cls.size()+" elements...");
+
+        if (cls.size()>=3) {
+
+            // extract 3 angles with most convergence points
+            boolean[] checked = new boolean[cls.size()]; // all to false
+            anglesDirections = new double[3];
+
+            // find top 3
+            for (int k = 0; k<3; k++) {
+
+                // reset max search
+                double  currMax = Double.MIN_VALUE;
+                int     currMaxIdx = -1;
+
+                for (int i=0; i<cls.size(); i++) {
+
+                    // find max in this round
+                    if (!checked[i]) {
+                        if (cls.get(i)[1]>currMax) {
+
+                            currMax = cls.get(i)[1];
+                            currMaxIdx = i;
+
+                        }
+                    }
+                }
+
+                checked[currMaxIdx] = true;
+                anglesDirections[k] = wrap_0_2PI( cls.get(currMaxIdx)[0]* (((double)resolDeg/360)*Math.PI*2) );
+                IJ.log(k+" > "+anglesDirections[k]+" > "+ ((anglesDirections[k]/(2*Math.PI))*360) );
+
+            }
+
+        }
+        else {
+
+            anglesDirections = null;
+
+        }
+
+        return anglesDirections;
+
+	}
 
     public ImageStack plotSums(int atX, int atY, FloatProcessor inip) {
 
@@ -216,37 +257,102 @@ public class Feat {
 		double[] plotFinish;//= new double[start.length];
 
 		double eps = 0.0001;
-		int maxIter = 200;
-		int M = 5;
-		double minD = 0.1;
-		int h = 4;
+		int maxIter = 15;
 
-		for (maxIter = 1; maxIter<=15; maxIter++) {
-
-			//finish = runMS(start, sumsPerOrt, Niter, eps, h);
-			finish = runBlurring(start, sumsPerOrt, maxIter, eps, h, M, minD);
-
-			plotFinish = new double[finish.length];
-			for (int i=0; i<finish.length; i++)
+		finish = runBlurring(start, sumsPerOrt, maxIter, eps, h);
+		plotFinish = new double[finish.length];
+		for (int i=0; i<finish.length; i++)
 				plotFinish[i]=interp1Darray(finish[i], sumsPerOrt);
 
-			Vector<Double> cls = extractClusters(finish, minD, M);
-			p = new Plot("", maxIter+" iters,h="+h+","+cls.size()+"clusters", "", angles, sumsPerOrt);
-			p.addPoints(finish, plotFinish, Plot.CROSS);
-			if (cls.size()>0) {
-				double[] plotClsY = new double[cls.size()];
-				double[] plotClsX = new double[cls.size()];
-				for (int i=0; i<plotClsY.length; i++) {
-					plotClsY[i] = interp1Darray(cls.get(i), sumsPerOrt);
-					plotClsX[i] = cls.get(i);
-				}
-				p.addPoints(plotClsX, plotClsY, Plot.BOX);
-			}
+		p = new Plot("", "blurring,"+maxIter+" iters,h="+h, "", angles, sumsPerOrt);
+		p.addPoints(finish, plotFinish, Plot.BOX);
+        isOut.addSlice(p.getProcessor());
 
-			isOut.addSlice(p.getProcessor());
+        maxIter = 200;
+        finish = runMS(start, sumsPerOrt, maxIter, eps, h);
+        plotFinish = new double[finish.length];
+        for (int i=0; i<finish.length; i++)
+            plotFinish[i]=interp1Darray(finish[i], sumsPerOrt);
+        p = new Plot("", "regularMS,"+maxIter+" iters,h="+h, "", angles, sumsPerOrt);
+        p.addPoints(finish, plotFinish, Plot.X);
+
+        int M = 1;
+        double minD = 0.5;
+        Vector<double[]> cls = extractClusters(finish, minD, M);
+
+        double[] anglesDirections;
+
+        if (cls.size()>=3) {
+
+            IJ.log("\n");
+            for (int i=0; i<cls.size(); i++) {
+                IJ.log("cluster "+i+": location "+cls.get(i)[0]+" , "+cls.get(i)[1]);
+            }
+            IJ.log("\n");
+
+            // extract directions
+            boolean[] checked = new boolean[cls.size()]; // all to false
+            anglesDirections = new double[3];
+            // find top 3
+            for (int k = 0; k<3; k++) {
+
+                //IJ.log("round "+k);
+
+//                for (int l = 0; l<cls.size(); l++) {
+//                    IJ.log("checked "+l+" -> "+checked[l]);
+//                }
+
+                // reset max search
+                double  currMax = Double.MIN_VALUE;
+                int     currMaxIdx = -1;
+
+                for (int i=0; i<cls.size(); i++) {
+
+                    // find max in this round
+                    if (!checked[i]) {
+                        if (cls.get(i)[1]>currMax) {
+
+                            //IJ.log("found "+cls.get(i)[1]+" ( > "+currMax+" ) ");
+
+                            currMax = cls.get(i)[1];
+
+                            currMaxIdx = i;
+
+                            //IJ.log("at "+currMaxIdx);
+
+                        }
+                    }
+                }
+
+                checked[currMaxIdx] = true;
+
+                anglesDirections[k] = cls.get(currMaxIdx)[0];
+                //IJ.log("found at "+ currMaxIdx +" -> "+anglesDirections[k]);
+
+            }
+
+            double[] plotClsY = new double[3];
+            double[] plotClsX = new double[3];
+            IJ.log("\n");
+            for (int i=0; i<3; i++) {
+
+                plotClsY[i] = interp1Darray(anglesDirections[i], sumsPerOrt);
+                plotClsX[i] = anglesDirections[i];
+                IJ.log("PLOT: cluster "+i+": angle "+ plotClsX[i]*resolDeg);
+
+            }
+            p.addPoints(plotClsX, plotClsY, Plot.BOX);
 
 		}
+        else {
 
+            anglesDirections = null;
+
+        }
+
+		isOut.addSlice(p.getProcessor());
+
+		//}
         return isOut;
 
     }
@@ -319,10 +425,9 @@ public class Feat {
 		float[] 	inputProfile,
 		int 		maxIter,
 		double 		epsilon,
-		int 		h,
-		int 		M,
-		double		intraDist
-	){
+		int 		h
+	)
+    {
 
 		double[]	S = new double[start.length];
 		double[] 	T = new double[start.length];
@@ -338,7 +443,7 @@ public class Feat {
 
 			dmax = Double.MIN_VALUE;
 
-			for (int i = 0; i < S.length; i++) {      //
+			for (int i = 0; i < S.length; i++) {
 
 				double sum = 0;
 				double weightedShift = 0;
@@ -386,9 +491,6 @@ public class Feat {
 
 			}
 
-			// check the amount of clusters
-			//Vector<Double> cls = extractClusters(T, intraDist, M);
-
 //			if (cls.size()<=3) {
 //				IJ.log("found <= 3");
 //				break;
@@ -407,9 +509,14 @@ public class Feat {
 
 	}
 
-	public Vector<Double> extractClusters(double[] msConvergence, double range, int M){
+	public Vector<double[]> extractClusters(
+            double[] msConvergence,
+            double range,
+            int M
+    )
+    { // cluster location, nr.elements there
 
-		// 'range' describes neighborhood range size,
+		// 'range' describes intra neighborhood range size,
 		// 'M' number of samples within the cluster
 
 		boolean[] 	seed_clustered 		= new boolean[msConvergence.length];
@@ -455,7 +562,7 @@ public class Feat {
 		}
 
 		//System.out.println("\n---\ncluster sizes for "+msConvergence.length+" conv. pts\n---\n");
-		Vector<Double> clust = new Vector<Double>();
+		Vector<double[]> clust = new Vector<double[]>();
 		for (int k = 0; k < cluster_sizes.size(); k++) {
 			if (cluster_sizes.get(k)>M) {
 
@@ -474,20 +581,21 @@ public class Feat {
 				}
 
 				if (cnt>0) {
-					clust.add(sum/cnt);
-//					System.out.println("\n\ncluster[" + clust.size()+"]="+clust.get(clust.size()-1));
+					clust.add(new double[] {sum/cnt, cnt});
 				}
-
 
 			}
 		}
 
 		return clust;
 
-
 	}
 
-    private double interp1Darray(double x, float[] inarray) {
+    private double interp1Darray(
+            double x,
+            float[] inarray
+    )
+    {
 
         int wth = inarray.length;
 
@@ -510,7 +618,10 @@ public class Feat {
         return (1-a)*I11 + a*I12;
     }
 
-	private double 	runOne(double curr_pos, int h, float[] inputProfile){
+	private double 	runOne(
+            double  curr_pos,
+            int     h,
+            float[] inputProfile){
 		double 	    new_pos     = 0;
 		double 		sum 		= 0;
 
@@ -536,199 +647,172 @@ public class Feat {
 		return new_pos;
 	}
 
-//	public float scoreAt(){
+    private double wrap_0_2PI(
+            double  in
+    )
+    {
+
+        double out = in;
+
+        while(out<0){
+            out += 2*Math.PI;
+        }
+        while(out>=2*Math.PI){
+            out -= 2*Math.PI;
+        }
+
+        return out;
+    }
+
+	public ImageProcessor template(
+	    double[] 	directionAngles3,
+		int[][]     regionMap,
+		int[][]     region_size,
+		float[][]   kernel
+	)
+	{
+
+		int[]     idxMapLocal = new int[d*d];
+		int[]     regSzsLocal = new int[d*d];
+		float[]   kernelLocal = new float[d*d];
+
+		// form the kernels
+		int xc = d/2;
+		int yc = d/2;
+		int[] cent = new int[]{0, 0};
+		float[] n = new float[2];
+		int[] p = new int[2];
+		double[] ap = new double[3];
+
+/*        for (int pIdx = 0; pIdx < 3; pIdx++)
+            ap[pIdx] = directionAngles3[pIdx];
+
+        Arrays.sort(ap);
+
+        for (int pIdx = 0; pIdx < 3; pIdx++)
+            ap[pIdx] = wrap_0_2PI( directionAngles3[pIdx] );*/
+
+
+        int sumON = 0;
+        int sumOFF = 0;
+
+        for (int x = 0; x < d; x++) {
+            for (int y = 0; y < d; y++) {
+
+                int d2 = (x-xc)*(x-xc)+(y-yc)*(y-yc);
+
+                if (d2 <= r*r && d2 >= rLower*rLower) {
+
+                    p[0] = x-xc;
+                    p[1] = -(y-yc);
+
+                    boolean isON = false;
+
+                    for (int pIdx = 0; pIdx < 3; pIdx++) {      // check first peak first always
+
+                        double ang = directionAngles3[pIdx];//peaksRad[rIdx][pIdx];  		// read the angle
+
+                        n[0] = (float) Math.cos(ang);
+                        n[1] = (float) Math.sin(ang);
+
+                        float dst = point2dir(cent, n, p);
+
+                        if (dst<=diam/2) { // belongs to pIdx ON peak and not filled  // && idxMapLocal[x+d*y]==0
+
+                            idxMapLocal[x+d*y] = pIdx+1;
+                            regSzsLocal[pIdx+1]++;
+                            kernelLocal[x+d*y] = +1;
+                            sumON++;
+                            isON = true;
+                            break;
+
+                        }
+
+                    }
+
+                    if(!isON) {
+
+                        double a = wrap_0_2PI(Math.atan2(p[1], p[0]));
+
+                        boolean added = false;
+                        for (int pIdx = 0; pIdx < 3-1; pIdx++) {
+
+                            if (wrap_PI(a-ap[pIdx])>0 && wrap_PI(a-ap[pIdx+1])<=0 ) {  // && idxMapLocal[rIdx][x+d*y]==0
+                                idxMapLocal[x+d*y] = 3+1+pIdx;
+                                regSzsLocal[3+1+pIdx]++;
+                                kernelLocal[x+d*y] = -1;
+                                sumOFF++;
+                                added = true;
+                                break;
+                            }
+
+                        }
+                        if (!added) {
+                            idxMapLocal[x+d*y] = 2*3;
+                            regSzsLocal[2*3]++;
+                            kernelLocal[x+d*y] = -1;
+                            sumOFF++;
+                        }
+
+                    }
+
+                }
+                else if ( d2 <= rInner*rInner ) {
+                    idxMapLocal[x+d*y] = 0;
+                    regSzsLocal[0]++;
+                    kernelLocal[x+d*y] = +1;
+                    sumON++;
+                }
+                else {
+                    idxMapLocal[x+d*y] = -1; // nothing
+                    kernelLocal[x+d*y] = 0;
+                }
+            }
+        }
+
+//        for (int k = 0; k < 2*3+1; k++) {
 //
-//	}
+//            if (regSzsLocal[k] <= 3) { // allow second sum to be 0 elements (overlaping with first)  && k!=2 && k!=4
+//                //System.out.println("some reg was small "+k+"th sum   : "+regSzsLocal[k]+" elements");
+//                return null;
+//            }
 //
-//	public ImageProcessor template(
-//										   float[] 	directionAngles,
-//										   int 		Rpix,
-//										   int 		Rlower,
-//										   int 		Rinner,
-//										   float 	Tpix,
-//										   // outputs
-//										   int[][][]     regionMap,
-//										   //int[][][]     region_size,
-//										   float[][][]   kernel
-//	)
-//	{
-//
-//		int[][]     idxMapLocal = new int[nRot][];
-//		int[][]     regSzsLocal = new int[nRot][];
-//		float[][]   kernelLocal = new float[nRot][];
-//
-//		float[][] peaksRad = new float[nRot][nPeaks];
-//
-//		for (int cnt_rots = 0; cnt_rots < nRot; cnt_rots++) {
-//
-//			float start_pos = cnt_rots*rotStp;
-//
-//			for (int cnt_pks = 0; cnt_pks < nPeaks; cnt_pks++) {
-//
-//				if(cnt_pks==0)
-//					peaksRad[cnt_rots][cnt_pks] 	= start_pos;
-//				else
-//					peaksRad[cnt_rots][cnt_pks] 	=
-//							peaksRad[cnt_rots][cnt_pks-1] +
-//									angles[cnt_pks-1];
-//
-//			}
-//		}
-//
-//		System.out.println("forming with angles...");
-//		for (int cnt_rots = 0; cnt_rots < nRot; cnt_rots++) {
-//			for (int cnt_pks = 0; cnt_pks < nPeaks; cnt_pks++) {
-//				System.out.print(peaksRad[cnt_rots][cnt_pks]+", ");
-//			}
-//			System.out.println();
-//		}
-//		System.out.println("--\n");
-//
-//		// form the kernels
-//		int xc = d/2;
-//		int yc = d/2;
-//		int[] cent = new int[]{0, 0};
-//		float[] n = new float[2];
-//		int[] p = new int[2];
-//		float[] ap = new float[nPeaks];
-//
-//		for (int rIdx = 0; rIdx < nRot; rIdx++) {
-//
-//			idxMapLocal[rIdx] = new int[d*d];
-//			regSzsLocal[rIdx] = new int[2*nPeaks+1];
-//			kernelLocal[rIdx] = new float[d*d];
-//
-//
-//
-//			for (int pIdx = 0; pIdx < nPeaks; pIdx++)
-//				ap[pIdx] = ( peaksRad[rIdx][pIdx] );
-//
-//			for (int i = 0; i<3; i++) {System.out.print("ap in:"+ap[i]);}
-//
-//			Arrays.sort(ap);
-//
-//			for (int i = 0; i<3; i++) {System.out.print("ap srt:"+ap[i]);}
-//
-//			for (int pIdx = 0; pIdx < nPeaks; pIdx++)
-//				ap[pIdx] = wrap_0_2PI( peaksRad[rIdx][pIdx] );
-//
-//			// wrapped and sorted angles for this rotation
-//
-//			for (int i = 0; i<3; i++) {System.out.print("ap wrapped:"+ap[i]);}
-//
-//			int sumON = 0;
-//			int sumOFF = 0;// for kernel normalization
-//
-//			for (int x = 0; x < d; x++) {
-//				for (int y = 0; y < d; y++) {
-//
-//					int d2 = (x-xc)*(x-xc)+(y-yc)*(y-yc);
-//
-//					if (d2 <= Rpix*Rpix && d2 >= Rlower*Rlower) {
-//
-//						p[0] = x-xc;
-//						p[1] = -(y-yc);
-//
-//						boolean isON = false;
-//
-//						for (int pIdx = 0; pIdx < nPeaks; pIdx++) {      // check first peak first always
-//
-//							float ang = peaksRad[rIdx][pIdx];  		// read the angle
-//
-//							n[0] = (float) Math.cos(ang);
-//							n[1] = (float) Math.sin(ang);
-//
-//							float dst = point2dir(cent, n, p);
-//
-//							if (dst<=Tpix/2 && idxMapLocal[rIdx][x+d*y]==0) { // belongs to pIdx ON peak and not filled
-//
-//								idxMapLocal[rIdx][x+d*y] = pIdx+1;
-//								regSzsLocal[rIdx][pIdx+1]++;
-//								kernelLocal[rIdx][x+d*y] = +1;
-//								sumON++;
-//								isON = true;
-//								//break; check all three peaks independently
-//
-//							}
-//
-//						}
-//
-//						if(!isON) {
-//
-//							float a = wrap_0_2PI((float) Math.atan2(p[1], p[0]));
-//
-//							boolean added = false;
-//							for (int pIdx = 0; pIdx < nPeaks-1; pIdx++) {
-//
-//								if (wrap_PI(a-ap[pIdx])>0 && wrap_PI(a-ap[pIdx+1])<=0 && idxMapLocal[rIdx][x+d*y]==0) {
-//
-//									idxMapLocal[rIdx][x+d*y] = nPeaks+1+pIdx;
-//									regSzsLocal[rIdx][nPeaks+1+pIdx]++;
-//									kernelLocal[rIdx][x+d*y] = -1;
-//									sumOFF++;
-//									added = true;
-//									//break;
-//								}
-//
-//							}
-//							if (!added) {
-//								idxMapLocal[rIdx][x+d*y] = 2*nPeaks;
-//								regSzsLocal[rIdx][2*nPeaks]++;
-//								kernelLocal[rIdx][x+d*y] = -1;
-//								sumOFF++;
-//							}
-//
-//						}
-//
-//					}
-//					else if ( d2 <= Rinner*Rinner ) {
-//						idxMapLocal[rIdx][x+d*y] = 0;
-//						regSzsLocal[rIdx][0]++;
-//						kernelLocal[rIdx][x+d*y] = +1;
-//						sumON++;
-//					}
-//					else {
-//						idxMapLocal[rIdx][x+d*y] = -1; // nothing
-//						kernelLocal[rIdx][x+d*y] = 0;
-//					}
-//				}
-//			}
-//
-//			System.out.println("\nrot. "+rIdx);
-//			for (int i = 0; i<2*nPeaks+1; i++) {
-//				System.out.print("["+i+" -> "+regSzsLocal[rIdx][i]+"],");
-//			}
-//			System.out.println();
-//
-//			// if it happens that it's too small region in one of the rotations, don't add the whole rotation
-//			for (int k = 0; k < 2*nPeaks+1; k++) {
-//
-//				if (regSzsLocal[rIdx][k] <= 3) { // allow second sum to be 0 elements (overlaping with first)  && k!=2 && k!=4
-//
-//					System.out.println("some reg was small "+k+"th sum   : "+regSzsLocal[rIdx][k]+" elements");
-//					return false;
-//				}
-//
-//			}
-//
-//			// normalize kernel for this rotation
-//			for (int k = 0; k<d*d; k++) {
-//				if (kernelLocal[rIdx][k]>0) {
-//					kernelLocal[rIdx][k] /= sumON;
-//				}
-//				else if (kernelLocal[rIdx][k]<0) {
-//					kernelLocal[rIdx][k] /= sumOFF;
-//				}
-//			}
-//
-//		}
-//
-//		index_map[0] = idxMapLocal;
-//		region_size[0] = regSzsLocal;
-//		kernels_rot[0] = kernelLocal;
-//
-//		return true;
-//
-//	}
+//        }
+
+        ImageProcessor ipOut = new FloatProcessor(d, d, kernelLocal);
+
+        // normalize kernel for this rotation
+        for (int k = 0; k<d*d; k++) {
+            if (kernelLocal[k]>0) {
+                kernelLocal[k] /= sumON;
+            }
+            else if (kernelLocal[k]<0) {
+                kernelLocal[k] /= sumOFF;
+            }
+        }
+
+		regionMap[0] = idxMapLocal;
+		region_size[0] = regSzsLocal;
+        kernel[0] = kernelLocal;
+
+		return ipOut;
+
+	}
+
+    private static double wrap_PI(
+        double in
+    )
+    {
+        double out = in;
+
+        while(out<=-Math.PI){
+            out += 2*Math.PI;
+        }
+        while(out>Math.PI){
+            out -= 2*Math.PI;
+        }
+
+        return out;
+    }
 
 }
