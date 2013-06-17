@@ -81,7 +81,7 @@ public class Conf {
 
                         boolean isOK = createTemplates(angRad, r, rLower, rInner, diam, index_map, region_size, kernel_rot);
 
-                        if (a1==0) {System.out.println("it was ok? "+isOK);}
+                        //if (a1==0) {System.out.println("it was ok? "+isOK);}
 
                         if(isOK) {
 
@@ -114,6 +114,7 @@ public class Conf {
                             }
 
                             if (!covered) {
+
                                 String name = ""+a1+","+a2+","+a3+","+r+","+diam;
                                 names.add(name);
                                 angles.add(new int[]{a1, a2, a3});
@@ -470,9 +471,6 @@ public class Conf {
 
         ImageProcessor ip = new FloatProcessor(d, d, kernels.get(configurationIdx));
         is.addSlice("kernel,"+names.get(configurationIdx/nRot), ip);
-
-//        for (int l = 0; l<angles.size(); l++) {
-//        }
 
         return is;
 

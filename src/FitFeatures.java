@@ -63,13 +63,13 @@ public class FitFeatures implements PlugIn, MouseListener {
 
         ImagePlus showC;
 
-        showC = new ImagePlus("templates(diam="+c.diam+",r="+c.r+")", c.plotTemplatesAll());
-
-        showC.show();
-        showC.getCanvas().zoomIn(0, 0);
-        showC.getCanvas().zoomIn(0, 0);
-        showC.getCanvas().zoomIn(0, 0);
-        showC.getCanvas().zoomIn(0, 0);
+//        showC = new ImagePlus("templates(diam="+c.diam+",r="+c.r+")", c.plotTemplatesAll());
+//
+//        showC.show();
+//        showC.getCanvas().zoomIn(0, 0);
+//        showC.getCanvas().zoomIn(0, 0);
+//        showC.getCanvas().zoomIn(0, 0);
+//        showC.getCanvas().zoomIn(0, 0);
 
 
 //        showC = new ImagePlus("templates(diam="+c.diam+",r="+c.r+")", c.plotTemplates());
@@ -82,7 +82,7 @@ public class FitFeatures implements PlugIn, MouseListener {
 
         //if(true) return;
 
-        showC = new ImagePlus("kernels(diam="+c.diam+",r="+c.r+")", c.plotKernels());
+//        showC = new ImagePlus("kernels(diam="+c.diam+",r="+c.r+")", c.plotKernels());
 
 //        showC.show();
 //        showC.getCanvas().zoomIn(0, 0);
@@ -113,7 +113,7 @@ public class FitFeatures implements PlugIn, MouseListener {
         int atX = 	srcCanv.offScreenX(e.getX());
 		int atY = 	srcCanv.offScreenY(e.getY());
 
-        System.out.println("X: "+atX+" , Y: "+atY);
+//        System.out.println("X: "+atX+" , Y: "+atY);
 
         int configurationIdx = (int)Math.round(ipFit.getf(atX, atY));
         System.out.println("configuration index to plot here: "+configurationIdx);
@@ -128,7 +128,8 @@ public class FitFeatures implements PlugIn, MouseListener {
 
         // show the profile
         new ImagePlus("", f.plotSums(atX, atY, (FloatProcessor) inimg.getProcessor())).show();
-        new ImagePlus("offsets", f.showOffsets()).show();
+
+//        new ImagePlus("offsets", f.showOffsets()).show();
 
     }
 
