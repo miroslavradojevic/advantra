@@ -1,10 +1,13 @@
 import ij.IJ;
+import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.Plot;
 import ij.process.ByteProcessor;
+import ij.process.ColorProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 
+import java.awt.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Vector;
@@ -24,7 +27,7 @@ public class Feat {
 	public int          rInner;
 	public int          rLower;
 
-	int					resolDeg;
+	int					resolDeg = 10;
 	int					h;
 
 	ArrayList<ArrayList<int[]>> offsets;
@@ -40,6 +43,13 @@ public class Feat {
 	float[] 	n;
 	int[] 		p;
 	double[] 	ap;
+    double[]    start;
+
+    // ms
+    int Niter = 150;
+    double eps = 0.001;
+    double minD = 0.5;
+    int M = 1;
 
 	public Feat(
 					   int diam,
@@ -55,7 +65,7 @@ public class Feat {
 		rInner = diam/2;
 		rLower = r/2;
 
-		resolDeg = 10;
+		//resolDeg = 10;
 
 		double  angStep     = 2 * Math.asin((float)diam/(2*r));
 		int     angStepDeg  = (int) Math.round( ((angStep/(2*Math.PI))*360) );
@@ -114,6 +124,12 @@ public class Feat {
 
 		sumsPerOrt  = new float[offsets.size()];
 
+        // ms-variables fixed parameters
+        int Npoints = 3;
+        start = new double[offsets.size()*Npoints];
+        for (int i=0; i<start.length; i++)
+            start[i] = ((double)i/start.length)*sumsPerOrt.length;
+
 	}
 
     public ImageStack plotOffsets()
@@ -146,49 +162,64 @@ public class Feat {
         int             atX,
         int             atY,
         FloatProcessor  inip,
-        int             Npoints,
-        int             Niter,
-        double          eps,
-        int             M,
-    	double          minD
+        boolean         print
     )
     {
 
 		// check if values can be taken for the profile
 		int margin = d/2+1;
-		if ( atX<=margin || atY>=inip.getWidth()-margin ) {
-			IJ.log("it's out of margin");
-			return null; // out
+		if ( atX<=margin || atX>=inip.getWidth()-margin ) {
+			return null;
 		}
 		if ( atY<=margin || atY>=inip.getHeight()-margin ) {
-			IJ.log("it's out of margin");
-			return null; // out
+			return null;
 		}
+
+        for (int dirIdx = 0; dirIdx<sumsPerOrt.length; dirIdx++) {
+            sumsPerOrt[dirIdx] = 0;     // reset
+        }
 
 		for (int dirIdx = 0; dirIdx<offsets.size(); dirIdx++) {
 			for (int locIdx = 0; locIdx<offsets.get(dirIdx).size(); locIdx++) {
 				sumsPerOrt[dirIdx] += inip.getf(
-					atX+offsets.get(dirIdx).get(locIdx)[0], atY+offsets.get(dirIdx).get(locIdx)[1]
-				);
+					atX+offsets.get(dirIdx).get(locIdx)[0], atY+offsets.get(dirIdx).get(locIdx)[1]);
 			}
 		}
 
-		double[] start = new double[Npoints];
 		double[] finish;
-
-		for (int i=0; i<Npoints; i++)
-			start[i] = ((double)i/Npoints)*sumsPerOrt.length;
 
 		finish = runMS(start, sumsPerOrt, Niter, eps, h);
 
         Vector<double[]> cls = extractClusters(finish, minD, M);
 
-        double[] anglesDirections;
+        double[] anglesDirections = null;
+        boolean[] checked = new boolean[cls.size()]; // all to false
+
+        if (cls.size()<=0) {
+            anglesDirections = null;
+        }
+
+        if (cls.size()==1) {
+            anglesDirections = new double[1];
+            anglesDirections[0] = (cls.get(0)[0]+.0f) * (double)resolDeg;
+            anglesDirections[0] = (anglesDirections[0] * (TwoPI/360));
+            anglesDirections[0] = wrap_0_2PI(anglesDirections[0]);
+        }
+
+        if (cls.size()==2) {
+            anglesDirections = new double[2];
+            anglesDirections[0] = (cls.get(0)[0]+.0f) * (double)resolDeg;
+            anglesDirections[0] = (anglesDirections[0] * (TwoPI/360));
+            anglesDirections[0] = wrap_0_2PI(anglesDirections[0]);
+
+            anglesDirections[1] = (cls.get(1)[0]+.0f) * (double)resolDeg;
+            anglesDirections[1] = (anglesDirections[1] * (TwoPI/360));
+            anglesDirections[1] = wrap_0_2PI(anglesDirections[1]);
+        }
 
         if (cls.size()>=3) {
 
             // extract 3 angles with most convergence points
-            boolean[] checked = new boolean[cls.size()]; // all to false
             anglesDirections = new double[3];
 
             // find top 3
@@ -212,140 +243,145 @@ public class Feat {
                 }
 
                 checked[currMaxIdx] = true;
-                anglesDirections[k] = wrap_0_2PI( cls.get(currMaxIdx)[0]* (((double)resolDeg/360)*Math.PI*2) );
+                // set the output value
+                anglesDirections[k] = (cls.get(currMaxIdx)[0]) * (double)resolDeg;
+                anglesDirections[k] = (anglesDirections[k] * (TwoPI/360));
+                anglesDirections[k] = wrap_0_2PI(anglesDirections[k]);
 
             }
 
         }
-        else {
-			IJ.log("clustered out "+cls.size()+" elements...");
-            return null;
+
+        if (print) {
+
+            // find peaks - initialize start points for ms iterations
+            double[] plotStart = new double[start.length];
+            double[] plotFinish = new double[finish.length];
+
+            for (int i=0; i<plotStart.length; i++)
+                plotStart[i]=interp1Darray(start[i], sumsPerOrt);
+
+            for (int i=0; i<plotFinish.length; i++)
+                plotFinish[i]=interp1Darray(finish[i], sumsPerOrt);
+
+            float[] angles = new float[offsets.size()];
+            for (int dirIdx = 0; dirIdx<offsets.size(); dirIdx++) {
+                angles[dirIdx] = dirIdx;
+            }
+
+            Plot p;
+            p = new Plot("", start.length+" points start", "", start, plotStart);
+            p.draw();
+            p.setColor(Color.BLUE);
+            p.addPoints(finish, plotFinish, Plot.X);
+
+            if (cls.size()==1) {
+                double[] cluster = new double[1];
+                double[] plotCluster = new double[1];
+                cluster[0] = cls.get(0)[0];
+                plotCluster[0] = interp1Darray(cluster[0], sumsPerOrt);
+                p.setColor(Color.RED);
+                p.addPoints(cluster, plotCluster, Plot.BOX);
+            }
+
+            if (cls.size()==2) {
+                double[] cluster = new double[2];
+                double[] plotCluster = new double[2];
+                cluster[0] = cls.get(0)[0];
+                cluster[1] = cls.get(1)[0];
+                plotCluster[0] = interp1Darray(cluster[0], sumsPerOrt);
+                plotCluster[1] = interp1Darray(cluster[1], sumsPerOrt);
+                p.setColor(Color.RED);
+                p.addPoints(cluster, plotCluster, Plot.BOX);
+            }
+
+            if (cls.size()>=3) { // take max
+                double[] cluster = new double[3];
+                double[] plotCluster = new double[3];
+
+                int cnt = 0;
+
+                for (int k=0; k<cls.size(); k++) {
+
+                    if (checked[k]) {
+                        cluster[cnt] = cls.get(k)[0];
+                        plotCluster[cnt] = interp1Darray(cls.get(k)[0], sumsPerOrt);
+                        cnt++;
+                    }
+
+                }
+                p.setColor(Color.RED);
+                p.addPoints(cluster, plotCluster, Plot.BOX);
+
+
+            }
+
+            new ImagePlus("print", p.getProcessor()).show();
+            //p.show();
+
         }
 
         return anglesDirections;
 
 	}
 
-    public ImageStack plotProfilesWithMSDetection(
-		int 			atX,
-		int 			atY,
-		FloatProcessor 	inip,
-		int				Npoints,
-		int 			maxIterBlurring,
-		int 			maxIterNonBlurring,
-		double			eps,
-		double			minD,
-		int 			M
-	)
-	{
-
+    public ImageStack plotIntegResponse(
+            int             atX,
+            int             atY,
+            FloatProcessor  inip
+    )
+    {
         // calculate sums at each orientation
         float[] angles      = new float[offsets.size()];
+        float[] intSum  = new float[offsets.size()]; // substitute class variable
 
         for (int dirIdx = 0; dirIdx<offsets.size(); dirIdx++) {
             angles[dirIdx] = dirIdx;
             for (int locIdx = 0; locIdx<offsets.get(dirIdx).size(); locIdx++) {
-                sumsPerOrt[dirIdx] += inip.getf(
-                        atX+offsets.get(dirIdx).get(locIdx)[0], atY+offsets.get(dirIdx).get(locIdx)[1]
-                );
+                intSum[dirIdx] += inip.getf(
+                        atX+offsets.get(dirIdx).get(locIdx)[0], atY+offsets.get(dirIdx).get(locIdx)[1]);
             }
         }
 
-		// plot angles vs. sums
-		Plot p;
-		ImageStack isOut;
-		p = new Plot("", "orientation (degrees)", "integrated response", angles, sumsPerOrt);
-		isOut = new ImageStack(p.getProcessor().getWidth(), p.getProcessor().getHeight());
-		isOut.addSlice(p.getProcessor());
-
-		// find peaks - initialize start points for ms iterations
-		double[] start = new double[Npoints];
-		for (int i=0; i<Npoints; i++)
-			start[i] = ((double)i/Npoints)*sumsPerOrt.length;
-
-		double[] plotStart = new double[Npoints];
-		for (int i=0; i<Npoints; i++)
-			plotStart[i]=interp1Darray(start[i], sumsPerOrt);
-
-		p = new Plot("", Npoints+" points start", "", angles, sumsPerOrt);
-		p.addPoints(start, plotStart, Plot.CIRCLE);
-		isOut.addSlice(p.getProcessor());
-
-		double[] finish;
-		double[] plotFinish;
-
-		finish = runBlurring(start, sumsPerOrt, maxIterBlurring, eps, h);
-		plotFinish = new double[finish.length];
-		for (int i=0; i<finish.length; i++)
-				plotFinish[i]=interp1Darray(finish[i], sumsPerOrt);
-
-		p = new Plot("", "blurring,"+maxIterBlurring+" iters,h="+h, "", angles, sumsPerOrt);
-		p.addPoints(finish, plotFinish, Plot.BOX);
+        // plot angles vs. sums
+        Plot p;
+        ImageStack isOut;
+        p = new Plot("", "orientation", "integrated response", angles, intSum);
+        p.setColor(Color.BLACK);
+        isOut = new ImageStack(p.getProcessor().getWidth(), p.getProcessor().getHeight());
         isOut.addSlice(p.getProcessor());
 
-        finish = runMS(start, sumsPerOrt, maxIterNonBlurring, eps, h);
-        plotFinish = new double[finish.length];
-        for (int i=0; i<finish.length; i++)
-            plotFinish[i]=interp1Darray(finish[i], sumsPerOrt);
-        p = new Plot("", "regularMS,"+maxIterNonBlurring+" iters,h="+h, "", angles, sumsPerOrt);
-        p.addPoints(finish, plotFinish, Plot.X);
+        return isOut;
 
-        Vector<double[]> cls = extractClusters(finish, minD, M);
+    }
 
-        double[] anglesDirections;
+    public void plotProfilesWithMSDetection(
+		int 			atX,
+		int 			atY,
+		FloatProcessor 	inip
+	)
+	{
+        /*
+		finish = runBlurring(start, intSum, maxIterBlurring, eps, h);
+		plotFinish = new double[finish.length];
+		for (int i=0; i<finish.length; i++)
+				plotFinish[i]=interp1Darray(finish[i], intSum);
 
-        if (cls.size()>=3) { // location -> cls.get(i)[0] elements -> cls.get(i)[1]
+		p = new Plot("", "blurring,"+maxIterBlurring+" iters,h="+h, "", angles, intSum);
+        p.setColor(Color.BLACK); // so that the color can be added later
+		p.addPoints(finish, plotFinish, Plot.BOX);
+        isOut.addSlice("with_blurring", p.getProcessor());
+        */
+        double[] anglesDirections = getAngles(atX, atY, inip, true);
 
-            // extract directions
-            boolean[] checked = new boolean[cls.size()]; // all to false
-            anglesDirections = new double[3];
-
-            // find top 3
-            for (int k = 0; k<3; k++) {
-
-                // reset max search
-                double  currMax = Double.MIN_VALUE;
-                int     currMaxIdx = -1;
-
-                for (int i=0; i<cls.size(); i++) {
-
-                    // find max in this round
-                    if (!checked[i]) {
-                        if (cls.get(i)[1]>currMax) {
-
-                            currMax = cls.get(i)[1];
-                            currMaxIdx = i;
-
-                        }
-                    }
-                }
-
-                checked[currMaxIdx] = true;
-
-                anglesDirections[k] = cls.get(currMaxIdx)[0];
-
+        if (anglesDirections!=null) {
+            IJ.log("\nfinal angles:");
+            for (int g = 0; g<anglesDirections.length; g++) {
+                IJ.log("angle"+g+" > "+(anglesDirections[g]*(360f/TwoPI))+" degrees");
             }
-
-            double[] plotClsY = new double[3];
-            double[] plotClsX = new double[3];
-
-			for (int i=0; i<3; i++) {
-                plotClsY[i] = interp1Darray(anglesDirections[i], sumsPerOrt);
-                plotClsX[i] = anglesDirections[i];
-            }
-
-			p.addPoints(plotClsX, plotClsY, Plot.BOX);
-
-		}
-        else {
-
-            anglesDirections = null;
-
         }
 
-		isOut.addSlice(p.getProcessor());
-
-        return isOut;
+        scores(atX, atY, inip);
 
     }
 
@@ -380,7 +416,7 @@ public class Feat {
 		return (float) Math.sqrt(p_b[0]*p_b[0]+p_b[1]*p_b[1]);
 	}
 
-    public double[] runMS(
+    private double[] runMS(
 		double[] 	start,
 		float[] 	inputProfile,
 		int 		max_iter,
@@ -504,10 +540,8 @@ public class Feat {
             int M
     )
     {
-		// 'range' describes intra neighborhood range size,
-		// 'M' number of samples within the cluster
 
-		boolean[] 	seed_clustered 		= new boolean[msConvergence.length];
+        boolean[] 	seed_clustered 		= new boolean[msConvergence.length];
 		int[] 		seed_cluster_idx 	= new int[msConvergence.length];
 		Vector<Integer> cluster_sizes	= new Vector<Integer>();
 		int nr_clusters 				= 0;
@@ -543,7 +577,7 @@ public class Feat {
 			if(!seed_clustered[i]){
 				seed_clustered[i] = true;
 				seed_cluster_idx[i] = nr_clusters;
-				cluster_sizes.add(1);//set(nr_clusters, 1);
+				cluster_sizes.add(1);
 				nr_clusters++;
 			}
 
@@ -551,7 +585,7 @@ public class Feat {
 
 		Vector<double[]> clust = new Vector<double[]>();
 		for (int k = 0; k < cluster_sizes.size(); k++) {
-			if (cluster_sizes.get(k)>M) {
+			if (cluster_sizes.get(k)>=M) {
 
 				double sum = 0;
 				int cnt = 0;
@@ -651,32 +685,53 @@ public class Feat {
         return out;
     }
 
+    /*
+    //
+     */
+    public int nrDirections(
+            int             atX,
+            int             atY,
+            FloatProcessor  inip
+    ){
+
+        double[] angs = getAngles(atX, atY, inip, false);
+        return (angs!=null)? angs.length : 0 ;
+
+    }
+
+    public ImageProcessor nrDirections(
+            FloatProcessor  inip
+    ){
+
+        FloatProcessor sc = new FloatProcessor(inip.getWidth(), inip.getHeight());
+
+        // fill the values in
+        for (int x = 0; x<inip.getWidth(); x++) {
+            for (int y = 0; y<inip.getHeight(); y++) {
+
+                //System.out.println(""+x+","+y);
+                int nrd = nrDirections(x, y,inip);
+                sc.setf(x, y, ((nrd>=3)? 255f : 0f) );
+
+            }
+        }
+
+        return sc;
+
+    }
+
 	public double[] scores(
 		int             atX,
 		int             atY,
-		FloatProcessor  inip,
-		int             Npoints,
-		int             Niter,
-		double          eps,
-		int             M,
-		double          minD
+		FloatProcessor  inip
 	)
 	{
 
-		long t1 = System.currentTimeMillis(); // calculation time
+		//long t1 = System.currentTimeMillis(); // calculation time
 
-		double[] angs = getAngles( 	atX, atY,
-		  							inip,
-		             				Npoints,
-		             				Niter,
-		          					eps,
-		             				M,
-		          					minD
-		); // will give 3 angles or nothing
+		double[] angs = getAngles(atX, atY, inip, false);
 
-		if (angs!=null) {
-
-
+		if (angs!=null && angs.length>=3) {   // return null otherwise
 
 			int sumON, sumOFF, nrON, nrOFF;
 			sumON = sumOFF = nrON = nrOFF = 0;
@@ -812,17 +867,61 @@ public class Feat {
 				}
 			}
 
-			long t2 = System.currentTimeMillis(); // calculation time
+			//long t2 = System.currentTimeMillis(); // calculation time
 
-			IJ.log(((t2-t1)/1000f)+" sec. calculated: "+sumON+" ("+nrON+"), "+sumOFF+" ("+nrON+")");
+			//IJ.log(((t2-t1)/1000f)+" sec. calculated: "+sumON+" ("+nrON+"), "+sumOFF+" ("+nrON+")");
 
-			return new double[]{};
+            double avgON    = (nrON>0)? (sumON/nrON) : (0);
+            double avgOFF   = (nrOFF>0)? (sumOFF/nrOFF) : (0);
+
+            double avgA0   = (nrA0>0)? (sumA0/nrA0) : (0);
+            double avgA1   = (nrA1>0)? (sumA1/nrA1) : (0);
+            double avgA2   = (nrA2>0)? (sumA2/nrA2) : (0);
+            double avgA3   = (nrA3>0)? (sumA3/nrA3) : (0);
+
+            double avgB1   = (nrB1>0)? (sumB1/nrB1) : (0);
+            double avgB2   = (nrB2>0)? (sumB2/nrB2) : (0);
+            double avgB3   = (nrB3>0)? (sumB3/nrB3) : (0);
+
+            return new double[]{avgON-avgOFF, Math.pow(avgA0*avgA1*avgA2*avgA3, 1/4)-Math.pow(avgB1*avgB2*avgB3, 1/3)};
+
 		}
 		else {
+            // if angs was null or <=2 for some reason
 			return null;
 		}
 
 	}
+
+    public ImageStack scores(
+            FloatProcessor  inip
+    )
+    {
+        FloatProcessor score0 = new FloatProcessor(inip.getWidth(), inip.getHeight());
+        FloatProcessor score1 = new FloatProcessor(inip.getWidth(), inip.getHeight());
+
+        // fill the values in
+        for (int x = 0; x<inip.getWidth(); x++) {
+            for (int y = 0; y<inip.getHeight(); y++) {
+                double[] sc = scores(x, y, inip);
+                if (sc!=null && sc.length==2) {
+                    score0.setf(x, y, (float)sc[0]);
+                    score1.setf(x, y, (float)sc[1]);
+                }
+                else {
+                    score0.setf(x, y, Float.MIN_VALUE);
+                    score1.setf(x, y, Float.MIN_VALUE);
+                }
+
+            }
+        }
+
+        ImageStack isOut = new ImageStack(inip.getWidth(), inip.getHeight());
+        isOut.addSlice(score0);
+        isOut.addSlice(score1);
+        return isOut;
+
+    }
 
 	public ImageStack exportTemplate(
 	    double[] 	directionAngles
