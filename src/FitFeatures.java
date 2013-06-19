@@ -1,5 +1,6 @@
 import ij.IJ;
 import ij.ImagePlus;
+import ij.ImageStack;
 import ij.gui.GenericDialog;
 import ij.gui.ImageCanvas;
 import ij.plugin.PlugIn;
@@ -19,13 +20,13 @@ public class FitFeatures implements PlugIn, MouseListener {
 
     ImageProcessor ipFit;
     ImagePlus inimg;
-
-//    Conf c;
+	ImagePlus profileImage;
 
 	Feat f;
 
     public void run(String s) {
 
+		//default
         int t = 5;
         double scale = 2.0;
 
@@ -40,43 +41,12 @@ public class FitFeatures implements PlugIn, MouseListener {
 
 		f= new Feat(t, scale);
 
-//        c = new Conf(t, scale);
-
-//        for (int m = 0; m<c.regionIdxMap.size(); m++) {
-//            System.out.println("\nReg. "+m+" : rotation "+(m/Conf.nRot));
-//            System.out.println(""+c.names.get(m/Conf.nRot)+" ");
-//            for (int i = 0; i<c.regionSize.get(m).length; i++) {
-//                System.out.print("["+i+" -> "+c.regionSize.get(m)[i]+"],");
-//            }
-//        }
-
         ImagePlus showC;
+        showC = new ImagePlus("", f.plotOffsets());
+        /*showC.show();
+        for (int q=0; q<5; q++) showC.getCanvas().zoomIn(0, 0);*/
 
-//        showC = new ImagePlus("templates(diam="+c.diam+",r="+c.r+")", c.plotTemplatesAll());
-//
-//        showC.show();
-//        showC.getCanvas().zoomIn(0, 0);
-//        showC.getCanvas().zoomIn(0, 0);
-//        showC.getCanvas().zoomIn(0, 0);
-//        showC.getCanvas().zoomIn(0, 0);
-
-//        showC = new ImagePlus("templates(diam="+c.diam+",r="+c.r+")", c.plotTemplates());
-//
-//        showC.show();
-//        showC.getCanvas().zoomIn(0, 0);
-//        showC.getCanvas().zoomIn(0, 0);
-//        showC.getCanvas().zoomIn(0, 0);
-//        showC.getCanvas().zoomIn(0, 0);
-
-        showC = new ImagePlus("", f.showOffsets());
-
-        showC.show();
-        showC.getCanvas().zoomIn(0, 0);
-        showC.getCanvas().zoomIn(0, 0);
-        showC.getCanvas().zoomIn(0, 0);
-        showC.getCanvas().zoomIn(0, 0);
-
-        IJ.showMessage("Open image to fit the configurations on");
+        //IJ.showMessage("Open image to fit the configurations on");
         inimg = convertToFloatImage(IJ.openImage());
         inimg.setTitle("input_image");
 
@@ -88,7 +58,7 @@ public class FitFeatures implements PlugIn, MouseListener {
 
         inimg.show();
         inimg.getCanvas().addMouseListener(this);
-        IJ.showMessage("click on the location to see the configuration fit there");
+        //IJ.showMessage("click on the location to see the configuration fit there");
 
     }
 
@@ -98,30 +68,44 @@ public class FitFeatures implements PlugIn, MouseListener {
         int atX = 	srcCanv.offScreenX(e.getX());
 		int atY = 	srcCanv.offScreenY(e.getY());
 
-        //int configurationIdx = (int)Math.round(ipFit.getf(atX, atY));
-        double[] angs = f.get3Angles(atX, atY, (FloatProcessor)inimg.getProcessor(), 200, 200, 0.0001, 1, 0.5);
+		FloatProcessor inip = (FloatProcessor)inimg.getProcessor();
+		int Npoints = 200;
+		int maxIterBlurring = 15;
+		int maxIterNonBlurring = 200;
+		double eps = 0.0001;
+		double minD = 0.2;
+		int M = 1;
 
-        angs = new double[]{0.0, 1.0, 2.0};
-        //angs = new double[]{Math.PI, Math.PI+Math.PI/2, Math.PI*2};
+
+        double[] angs = f.getAngles(atX, atY, inip, Npoints, maxIterNonBlurring, eps, M, minD);
+		double[] sc = f.scores(atX, atY, inip, Npoints, maxIterNonBlurring, eps, M, minD);
+
+		/*
+			visualization
+		 */
+
+		ImageStack is = f.plotProfilesWithMSDetection(atX, atY,	inip, Npoints, maxIterBlurring,	maxIterNonBlurring,	eps, minD, M);
+
+		if (profileImage==null) {     // create it if it did not exist
+			profileImage = new ImagePlus("profile", is);
+			profileImage.show();
+		}
+		else {
+			profileImage.setStack(is);
+			profileImage.updateImage();
+			profileImage.draw();
+
+		}
 
         if (angs!=null) {
 
-            for (int g = 0; g < angs.length; g++) {
-                IJ.log("arg: "+angs[g]);
-            }
-
-            int[][] regionMap = new int[1][];
-            int[][] regionSize = new int[1][];
-            float[][] kernel = new float[1][];
-
-            ImageProcessor templ = f.template(angs, regionMap, regionSize, kernel);
-            ImagePlus bestFitImage = new ImagePlus("a1", templ);
-            bestFitImage.show();
+			ImagePlus templateFit = new ImagePlus("template", f.exportTemplate(angs));
+			templateFit.show();
             IJ.selectWindow("input_image");
-            IJ.run("Add Image...", "image=a1 x="+(atX-bestFitImage.getWidth()/2)+" y="+(atY-bestFitImage.getHeight()/2)+" opacity=50");
-            bestFitImage.close();
-            new ImagePlus("", f.plotSums(atX, atY, (FloatProcessor) inimg.getProcessor())).show();
-        }
+            IJ.run("Add Image...", "image=template x="+(atX-templateFit.getWidth()/2)+" y="+(atY-templateFit.getHeight()/2)+" opacity=50");
+			templateFit.close();
+
+		}
 
     }
 
