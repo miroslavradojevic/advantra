@@ -919,7 +919,7 @@ public class Feat {
 
 			}
 
-			return ( 1-Math.exp(-(L11)/20) ) * ( 1-Math.exp(-(L21)/20) ) * ( 1-Math.exp(-(L31)/20) ) * ( 1-Math.exp(-(avgA0)/30) );
+			return ( 1-Math.exp(-(L11)/50) ) * ( 1-Math.exp(-(L21)/50) ) * ( 1-Math.exp(-(L31)/50) ) * ( 1-Math.exp(-(avgA0)/50) );
 
 		}
 		else {

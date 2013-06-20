@@ -42,13 +42,6 @@ public class TryFeatures implements PlugInFilter, MouseListener {
 
 		f= new Feat(t, scale);
 
-        /*
-        ImagePlus showC;
-        showC = new ImagePlus("", f.plotOffsets());
-        showC.show();
-        for (int q=0; q<5; q++) showC.getCanvas().zoomIn(0, 0);
-        */
-
 //        inimg = convertToFloatImage(IJ.openImage());
 //        inimg.setTitle("input_image");
 
@@ -83,12 +76,21 @@ public class TryFeatures implements PlugInFilter, MouseListener {
 
         double[] angs = f.getAngles(atX, atY, inip, false);
         if (angs.length>=3) {
-			ImagePlus templateFit = new ImagePlus("template", f.exportTemplate(angs));
+
+            ImagePlus templateFit = new ImagePlus("template", f.exportTemplate(angs));
 			templateFit.show();
             IJ.selectWindow("input_image");
             IJ.run("Add Image...", "image=template x="+(atX-templateFit.getWidth()/2)+" y="+(atY-templateFit.getHeight()/2)+" opacity=50");
 			templateFit.close();
+
+            ImagePlus showC;
+            showC = new ImagePlus("feature.template", f.exportTemplate(angs));
+            showC.show();
+            for (int q=0; q<5; q++) showC.getCanvas().zoomIn(0, 0);
+
 		}
+
+
 
     }
 
@@ -123,6 +125,7 @@ public class TryFeatures implements PlugInFilter, MouseListener {
     }
 
 	public int setup(String s, ImagePlus imagePlus) {
+        if(imagePlus==null) {IJ.showMessage("needs image to work!"); return DONE; }
 		inimg = convertToFloatImage(imagePlus);
 		inimg.setTitle("input_image");
 		return DOES_8G+DOES_32+NO_CHANGES;
