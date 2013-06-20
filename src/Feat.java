@@ -6,6 +6,11 @@ import ij.process.ByteProcessor;
 import ij.process.ColorProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
+import org.jfree.chart.ChartFactory;
+import org.jfree.chart.JFreeChart;
+import org.jfree.chart.plot.PlotOrientation;
+import org.jfree.data.category.DefaultCategoryDataset;
+import org.jfree.ui.RefineryUtilities;
 
 import java.awt.*;
 import java.util.ArrayList;
@@ -381,7 +386,7 @@ public class Feat {
             }
         }
 
-        scores(atX, atY, inip);
+        score(atX, atY, inip, true);
 
     }
 
@@ -720,10 +725,11 @@ public class Feat {
 
     }
 
-	public double[] scores(
+	public double score(
 		int             atX,
 		int             atY,
-		FloatProcessor  inip
+		FloatProcessor  inip,
+		boolean 		print
 	)
 	{
 
@@ -734,11 +740,12 @@ public class Feat {
 		if (angs!=null && angs.length>=3) {   // return null otherwise
 
 			int sumON, sumOFF, nrON, nrOFF;
-			sumON = sumOFF = nrON = nrOFF = 0;
+			sumON = sumOFF = 1;
+			nrON = nrOFF = 0;
+
 
 			int sumA0, nrA0, sumA1, nrA1, sumA2, nrA2, sumA3, nrA3;
 			sumA0 = nrA0 = sumA1 = nrA1 = sumA2 = nrA2 = sumA3 = nrA3 = 0;
-
 			int sumB1, nrB1, sumB2, nrB2, sumB3, nrB3;
 			sumB1 = nrB1 = sumB2 = nrB2 = sumB3 = nrB3 = 0;
 
@@ -794,6 +801,7 @@ public class Feat {
 							if (dst<=diam/2) { // belongs to pIdx ON peak and not filled  // && idxMapLocal[x+d*y]==0
 
 								sumON  += inip.getf(atX+p[0], atY+p[1]);nrON++;
+
 								if (pIdx==0) {
 									sumA1 += inip.getf(atX+p[0], atY+p[1]); nrA1++;
 								}
@@ -803,6 +811,7 @@ public class Feat {
 								else if (pIdx==2) {
 									sumA3 += inip.getf(atX+p[0], atY+p[1]); nrA3++;
 								}
+
 								//templateAngle.add(new int[]{p[0], p[1]});
 							}
 						}
@@ -875,7 +884,8 @@ public class Feat {
             double avgOFF   = (nrOFF>0)? (sumOFF/nrOFF) : (0);
 
             double avgA0   = (nrA0>0)? (sumA0/nrA0) : (0);
-            double avgA1   = (nrA1>0)? (sumA1/nrA1) : (0);
+
+			double avgA1   = (nrA1>0)? (sumA1/nrA1) : (0);
             double avgA2   = (nrA2>0)? (sumA2/nrA2) : (0);
             double avgA3   = (nrA3>0)? (sumA3/nrA3) : (0);
 
@@ -883,42 +893,72 @@ public class Feat {
             double avgB2   = (nrB2>0)? (sumB2/nrB2) : (0);
             double avgB3   = (nrB3>0)? (sumB3/nrB3) : (0);
 
-            return new double[]{avgON-avgOFF, Math.pow(avgA0*avgA1*avgA2*avgA3, 1/4)-Math.pow(avgB1*avgB2*avgB3, 1/3)};
+			double L0 	= (3*avgA0-avgB1-avgB2-avgB3>0)? (3*avgA0-avgB1-avgB2-avgB3) : 0;
+
+			double L11 = (2*avgA1-avgB1-avgB3>0)? (2*avgA1-avgB1-avgB3) : 0;
+			double L12 = (avgA1-avgB3>0)? (avgA1-avgB3) : 0;
+
+			double L21 = (2*avgA2-avgB2-avgB1>0)? (2*avgA2-avgB2-avgB1) : 0;
+			double L22 = (avgA2-avgB1>0)? (avgA2-avgB1) : 0;
+
+			double L31 = (2*avgA3-avgB3-avgB2>0)? (2*avgA3-avgB3-avgB2) : 0;
+			double L32 = (avgA3-avgB2>0)? (avgA3-avgB2) : 0;
+
+			if(print) {
+
+				final double[][] data = new double[][] {
+															   {avgON	, 		avgA1, 	avgA2, 	avgA3, 	avgA0},
+															   {avgOFF	,     	avgB1, 	avgB2, 	avgB3, 	0},
+															   {avgON-avgOFF, 	L11, 	L21, 	L31, 	avgA0-0},
+				};
+
+				MyBarChart chart = new MyBarChart("", data);
+				chart.pack();
+				RefineryUtilities.centerFrameOnScreen(chart);
+				chart.setVisible(true);
+
+			}
+
+			return ( 1-Math.exp(-(L11)/20) ) * ( 1-Math.exp(-(L21)/20) ) * ( 1-Math.exp(-(L31)/20) ) * ( 1-Math.exp(-(avgA0)/30) );
 
 		}
 		else {
             // if angs was null or <=2 for some reason
-			return null;
+			return 0;
 		}
 
 	}
 
-    public ImageStack scores(
+    public ImageStack score(
             FloatProcessor  inip
     )
     {
         FloatProcessor score0 = new FloatProcessor(inip.getWidth(), inip.getHeight());
-        FloatProcessor score1 = new FloatProcessor(inip.getWidth(), inip.getHeight());
+        //FloatProcessor score1 = new FloatProcessor(inip.getWidth(), inip.getHeight());
 
         // fill the values in
         for (int x = 0; x<inip.getWidth(); x++) {
             for (int y = 0; y<inip.getHeight(); y++) {
-                double[] sc = scores(x, y, inip);
-                if (sc!=null && sc.length==2) {
+
+				double sc = score(x, y, inip, false);
+
+				score0.setf(x, y, (float)sc);
+
+                /*if (sc!=null && sc.length==2) {
                     score0.setf(x, y, (float)sc[0]);
                     score1.setf(x, y, (float)sc[1]);
                 }
                 else {
                     score0.setf(x, y, Float.MIN_VALUE);
                     score1.setf(x, y, Float.MIN_VALUE);
-                }
+                }*/
 
             }
         }
 
         ImageStack isOut = new ImageStack(inip.getWidth(), inip.getHeight());
         isOut.addSlice(score0);
-        isOut.addSlice(score1);
+//        isOut.addSlice(score1);
         return isOut;
 
     }

@@ -39,6 +39,8 @@
     <path id="classpath">
         <!-- external modules -->
         <pathelement location="${env.HOME}/jarlib/ij.jar"/>
+        <pathelement location="${env.HOME}/jarlib/jfreechart-1.0.14.jar"/>
+        <pathelement location="${env.HOME}/jarlib/jcommon-1.0.17.jar"/>
     </path>
 
     <path id="sourcepath">

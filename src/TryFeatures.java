@@ -4,6 +4,7 @@ import ij.ImageStack;
 import ij.gui.GenericDialog;
 import ij.gui.ImageCanvas;
 import ij.plugin.PlugIn;
+import ij.plugin.filter.PlugInFilter;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 
@@ -16,7 +17,7 @@ import java.awt.event.MouseListener;
  * Date: 6/11/13
  * Time: 2:53 PM
  */
-public class FitFeatures implements PlugIn, MouseListener {
+public class TryFeatures implements PlugInFilter, MouseListener {
 
     ImageProcessor ipFit;
     ImagePlus inimg;
@@ -24,11 +25,11 @@ public class FitFeatures implements PlugIn, MouseListener {
 
 	Feat f;
 
-    public void run(String s) {
+    public void run(ImageProcessor imageProcessor) {
 
 		//default
-        int t = 4;
-        double scale = 1.5;
+        int t = 2;
+        double scale = 2.0;
 
         GenericDialog gd = new GenericDialog("Fit Features");
         gd.addMessage("feature parameters");
@@ -45,11 +46,11 @@ public class FitFeatures implements PlugIn, MouseListener {
         ImagePlus showC;
         showC = new ImagePlus("", f.plotOffsets());
         showC.show();
-        for (int q=0; q<5; q++) showC.getCanvas().zoomIn(0, 0);*/
+        for (int q=0; q<5; q++) showC.getCanvas().zoomIn(0, 0);
+        */
 
-        //IJ.showMessage("Open image to fit the configurations on");
-        inimg = convertToFloatImage(IJ.openImage());
-        inimg.setTitle("input_image");
+//        inimg = convertToFloatImage(IJ.openImage());
+//        inimg.setTitle("input_image");
 
 //        IJ.showMessage("start calculating best configurations of the feature...");
 //        IJ.log("wait, calculating...");
@@ -60,7 +61,9 @@ public class FitFeatures implements PlugIn, MouseListener {
         inimg.show();
         inimg.getCanvas().addMouseListener(this);
 
-        new ImagePlus("scores", f.scores((FloatProcessor)inimg.getProcessor())).show();
+		IJ.log("calculating scores...");
+        new ImagePlus("scores", f.score((FloatProcessor) inimg.getProcessor())).show();
+		IJ.showMessage("done.");
 
     }
 
@@ -73,13 +76,9 @@ public class FitFeatures implements PlugIn, MouseListener {
 
 		FloatProcessor inip = (FloatProcessor)inimg.getProcessor();
 
-		double[] sc = f.scores(atX, atY, inip);    // TODO; add partial results
-        if (sc!=null) IJ.log("\nscore : "+sc[0]+"\n");
-
 		/*
 			visualization
 		 */
-        int maxIterBlurring = 15;
 		f.plotProfilesWithMSDetection(atX, atY,	inip);
 
         double[] angs = f.getAngles(atX, atY, inip, false);
@@ -90,7 +89,6 @@ public class FitFeatures implements PlugIn, MouseListener {
             IJ.run("Add Image...", "image=template x="+(atX-templateFit.getWidth()/2)+" y="+(atY-templateFit.getHeight()/2)+" opacity=50");
 			templateFit.close();
 		}
-
 
     }
 
@@ -123,5 +121,11 @@ public class FitFeatures implements PlugIn, MouseListener {
         return outim;
 
     }
+
+	public int setup(String s, ImagePlus imagePlus) {
+		inimg = convertToFloatImage(imagePlus);
+		inimg.setTitle("input_image");
+		return DOES_8G+DOES_32+NO_CHANGES;
+	}
 
 }
