@@ -1,9 +1,7 @@
 import ij.IJ;
 import ij.ImagePlus;
-import ij.ImageStack;
 import ij.gui.GenericDialog;
 import ij.gui.ImageCanvas;
-import ij.plugin.PlugIn;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
@@ -28,7 +26,7 @@ public class TryFeatures implements PlugInFilter, MouseListener {
     public void run(ImageProcessor imageProcessor) {
 
 		//default
-        int t = 2;
+        int t = 4;
         double scale = 2.0;
 
         GenericDialog gd = new GenericDialog("Fit Features");
@@ -44,7 +42,6 @@ public class TryFeatures implements PlugInFilter, MouseListener {
 
 //        inimg = convertToFloatImage(IJ.openImage());
 //        inimg.setTitle("input_image");
-
 //        IJ.showMessage("start calculating best configurations of the feature...");
 //        IJ.log("wait, calculating...");
 //        ipFit = c.fit((FloatProcessor)inimg.getProcessor());
@@ -54,10 +51,12 @@ public class TryFeatures implements PlugInFilter, MouseListener {
         inimg.show();
         inimg.getCanvas().addMouseListener(this);
 
+        /*
 		IJ.log("calculating scores...");
         new ImagePlus("scores", f.score((FloatProcessor) inimg.getProcessor())).show();
 		IJ.showMessage("done.");
 
+        */
     }
 
     public void mouseClicked(MouseEvent e)
@@ -83,14 +82,14 @@ public class TryFeatures implements PlugInFilter, MouseListener {
             IJ.run("Add Image...", "image=template x="+(atX-templateFit.getWidth()/2)+" y="+(atY-templateFit.getHeight()/2)+" opacity=50");
 			templateFit.close();
 
+            /*
             ImagePlus showC;
             showC = new ImagePlus("feature.template", f.exportTemplate(angs));
             showC.show();
             for (int q=0; q<5; q++) showC.getCanvas().zoomIn(0, 0);
+            */
 
 		}
-
-
 
     }
 

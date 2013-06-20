@@ -51,10 +51,11 @@ public class Feat {
     double[]    start;
 
     // ms
-    int Niter = 150;
+    int Niter = 100;
     double eps = 0.001;
     double minD = 0.5;
     int M = 1;
+    int Kpts = 1;
 
 	public Feat(
 					   int diam,
@@ -130,8 +131,7 @@ public class Feat {
 		sumsPerOrt  = new float[offsets.size()];
 
         // ms-variables fixed parameters
-        int Npoints = 3;
-        start = new double[offsets.size()*Npoints];
+        start = new double[offsets.size()*Kpts];
         for (int i=0; i<start.length; i++)
             start[i] = ((double)i/start.length)*sumsPerOrt.length;
 
@@ -739,9 +739,9 @@ public class Feat {
 
 		if (angs!=null && angs.length>=3) {   // return null otherwise
 
-			int sumON, sumOFF, nrON, nrOFF;
-			sumON = sumOFF = 1;
-			nrON = nrOFF = 0;
+//			int sumON, sumOFF, nrON, nrOFF;
+//			sumON = sumOFF = 1;
+//			nrON = nrOFF = 0;
 
 
 			int sumA0, nrA0, sumA1, nrA1, sumA2, nrA2, sumA3, nrA3;
@@ -769,7 +769,7 @@ public class Feat {
 						p[1] = -(y-yc);
 
 						sumA0 += inip.getf(atX+p[0], atY+p[1]); nrA0++;
-						sumON  += inip.getf(atX+p[0], atY+p[1]);nrON++;
+						//sumON  += inip.getf(atX+p[0], atY+p[1]);nrON++;
 						//templateCenter.add(new int[]{p[0], p[1]});
 
 					}
@@ -800,7 +800,7 @@ public class Feat {
 
 							if (dst<=diam/2) { // belongs to pIdx ON peak and not filled  // && idxMapLocal[x+d*y]==0
 
-								sumON  += inip.getf(atX+p[0], atY+p[1]);nrON++;
+								//sumON  += inip.getf(atX+p[0], atY+p[1]);nrON++;
 
 								if (pIdx==0) {
 									sumA1 += inip.getf(atX+p[0], atY+p[1]); nrA1++;
@@ -855,7 +855,7 @@ public class Feat {
 
 							boolean added = false;
 
-							sumOFF  += inip.getf(atX+p[0], atY+p[1]);nrOFF++;
+							//sumOFF  += inip.getf(atX+p[0], atY+p[1]);nrOFF++;
 
 							if (wrap_PI(a-ap[0])>0 && wrap_PI(a-ap[1])<=0 ) {  // 0-1
 								sumB1 += inip.getf(atX+p[0], atY+p[1]); nrB1++;
@@ -878,10 +878,8 @@ public class Feat {
 
 			//long t2 = System.currentTimeMillis(); // calculation time
 
-			//IJ.log(((t2-t1)/1000f)+" sec. calculated: "+sumON+" ("+nrON+"), "+sumOFF+" ("+nrON+")");
-
-            double avgON    = (nrON>0)? (sumON/nrON) : (0);
-            double avgOFF   = (nrOFF>0)? (sumOFF/nrOFF) : (0);
+            //double avgON    = (nrON>0)? (sumON/nrON) : (0);
+            //double avgOFF   = (nrOFF>0)? (sumOFF/nrOFF) : (0);
 
             double avgA0   = (nrA0>0)? (sumA0/nrA0) : (0);
 
@@ -889,37 +887,51 @@ public class Feat {
             double avgA2   = (nrA2>0)? (sumA2/nrA2) : (0);
             double avgA3   = (nrA3>0)? (sumA3/nrA3) : (0);
 
-            double avgB1   = (nrB1>0)? (sumB1/nrB1) : (0);
-            double avgB2   = (nrB2>0)? (sumB2/nrB2) : (0);
-            double avgB3   = (nrB3>0)? (sumB3/nrB3) : (0);
+            double avgB1   = (nrB1>3)? (sumB1/nrB1) : (Double.MAX_VALUE);
+            double avgB2   = (nrB2>3)? (sumB2/nrB2) : (Double.MAX_VALUE);
+            double avgB3   = (nrB3>3)? (sumB3/nrB3) : (Double.MAX_VALUE);
 
-			double L0 	= (3*avgA0-avgB1-avgB2-avgB3>0)? (3*avgA0-avgB1-avgB2-avgB3) : 0;
+			double L0 	= (3*avgA0-avgB1-avgB2-avgB3>0)? ((3*avgA0-avgB1-avgB2-avgB3)/3) : 0;
 
-			double L11 = (2*avgA1-avgB1-avgB3>0)? (2*avgA1-avgB1-avgB3) : 0;
-			double L12 = (avgA1-avgB3>0)? (avgA1-avgB3) : 0;
+			double L11 = (2*avgA1-avgB1-avgB3>0)? ((2*avgA1-avgB1-avgB3)/2) : 0;
+//			double L12 = (avgA1-avgB3>0)? (avgA1-avgB3) : 0;
 
-			double L21 = (2*avgA2-avgB2-avgB1>0)? (2*avgA2-avgB2-avgB1) : 0;
-			double L22 = (avgA2-avgB1>0)? (avgA2-avgB1) : 0;
+			double L21 = (2*avgA2-avgB2-avgB1>0)? ((2*avgA2-avgB2-avgB1)/2) : 0;
+//			double L22 = (avgA2-avgB1>0)? (avgA2-avgB1) : 0;
 
-			double L31 = (2*avgA3-avgB3-avgB2>0)? (2*avgA3-avgB3-avgB2) : 0;
-			double L32 = (avgA3-avgB2>0)? (avgA3-avgB2) : 0;
+			double L31 = (2*avgA3-avgB3-avgB2>0)? ((2*avgA3-avgB3-avgB2)/2) : 0;
+//			double L32 = (avgA3-avgB2>0)? (avgA3-avgB2) : 0;
 
 			if(print) {
 
-				final double[][] data = new double[][] {
-															   {avgON	, 		avgA1, 	avgA2, 	avgA3, 	avgA0},
-															   {avgOFF	,     	avgB1, 	avgB2, 	avgB3, 	0},
-															   {avgON-avgOFF, 	L11, 	L21, 	L31, 	avgA0-0},
-				};
+//				final double[][] data = new double[][] {
+//                    {avgA1, 	avgA2, 	avgA3, 	avgA0},
+//                    {avgB1, 	avgB2, 	avgB3, 	0},
+//                    {L11, 	    L21, 	L31, 	avgA0-0},
+//				};
 
+                /*
+                ArrayList<double[]> data = new ArrayList<double[]>();
+                                    //x,  y,  z
+                data.add(new double[]{0, 	1, 	2, 	0,  0});
+                data.add(new double[]{1, 	2, 	3, 	1,  0});
+                data.add(new double[]{2, 	3, 	4, 	2,  0});
+                */
+                JFreeChartTools chart = new JFreeChartTools("MyPlot");
+                chart.plotVec("profile", "",      "int.sum.", sumsPerOrt);
+                //chart.plotVec("title", "start", "",         start);
+
+				/*
 				MyBarChart chart = new MyBarChart("", data);
 				chart.pack();
 				RefineryUtilities.centerFrameOnScreen(chart);
 				chart.setVisible(true);
+				*/
 
 			}
 
-			return ( 1-Math.exp(-(L11)/50) ) * ( 1-Math.exp(-(L21)/50) ) * ( 1-Math.exp(-(L31)/50) ) * ( 1-Math.exp(-(avgA0)/50) );
+            int D = 20;
+			return ( 1-Math.exp(-(L11)/D) ) * ( 1-Math.exp(-(L21)/D) ) * ( 1-Math.exp(-(L31)/D) ) * ( 1-Math.exp(-(avgA0)/D) );
 
 		}
 		else {
