@@ -41,10 +41,10 @@ public class CircularConfiguration3 {
 
 		Vector<int[]> comb = new Vector<int[]>();
 
-		for (int Rpix = r; Rpix >= (int)(1.0*r); Rpix*= 0.5) {
+		for (int Rpix = r; Rpix >= (int)(0.5*r); Rpix*= 0.75) {
 
 			//System.out.println("start from "+(int) Math.round(0.6*Rpix));
-			for (float ratio = 0.5f; ratio >= 0.5; ratio*=0.75){
+			for (float ratio = 1.0f; ratio >= 0.5; ratio*=0.75){
 
 				int Tpix = (int) Math.round(ratio*Rpix);
 
@@ -70,9 +70,9 @@ public class CircularConfiguration3 {
 
 			int startscale = 2;
 
-			for (int d1 = startscale*minAngScaleDegrees; d1 < 360; d1+=minAngScaleDegrees){
-				for (int d2 = startscale*minAngScaleDegrees; d2 < 360; d2+=minAngScaleDegrees){
-					for (int d3 = startscale*minAngScaleDegrees; d3 < 360; d3+=minAngScaleDegrees){
+			for (int d1 = startscale*minAngScaleDegrees; d1 < 360; d1+=10){  // minAngScaleDegrees
+				for (int d2 = startscale*minAngScaleDegrees; d2 < 360; d2+=10){
+					for (int d3 = startscale*minAngScaleDegrees; d3 < 360; d3+=10){
 
 						boolean isConfiguration = (d1+d2+d3==360) && (d1<=180) && (d2<=180) && (d3<=180);
 
