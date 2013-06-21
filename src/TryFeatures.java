@@ -51,12 +51,12 @@ public class TryFeatures implements PlugInFilter, MouseListener {
         inimg.show();
         inimg.getCanvas().addMouseListener(this);
 
-        /*
 		IJ.log("calculating scores...");
+		long t1 = System.currentTimeMillis();
         new ImagePlus("scores", f.score((FloatProcessor) inimg.getProcessor())).show();
-		IJ.showMessage("done.");
+		long t2 = System.currentTimeMillis();
+		IJ.showMessage("done. "+((t2-t1)/1000f)+" sec.");
 
-        */
     }
 
     public void mouseClicked(MouseEvent e)

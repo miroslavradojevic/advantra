@@ -733,8 +733,6 @@ public class Feat {
 	)
 	{
 
-		//long t1 = System.currentTimeMillis(); // calculation time
-
 		double[] angs = getAngles(atX, atY, inip, false);
 
 		if (angs!=null && angs.length>=3) {   // return null otherwise
@@ -742,7 +740,6 @@ public class Feat {
 //			int sumON, sumOFF, nrON, nrOFF;
 //			sumON = sumOFF = 1;
 //			nrON = nrOFF = 0;
-
 
 			int sumA0, nrA0, sumA1, nrA1, sumA2, nrA2, sumA3, nrA3;
 			sumA0 = nrA0 = sumA1 = nrA1 = sumA2 = nrA2 = sumA3 = nrA3 = 0;
@@ -758,77 +755,69 @@ public class Feat {
 
 			Arrays.sort(ap);
 
-			for (int x = 0; x < d; x++) {
-				for (int y = 0; y < d; y++) {
-
-					int d2 = (x-xc)*(x-xc)+(y-yc)*(y-yc);
-
-					if ( d2 <= rInner*rInner ) {
-
-						p[0] = x-xc;
-						p[1] = -(y-yc);
-
-						sumA0 += inip.getf(atX+p[0], atY+p[1]); nrA0++;
-						//sumON  += inip.getf(atX+p[0], atY+p[1]);nrON++;
-						//templateCenter.add(new int[]{p[0], p[1]});
-
-					}
-				}
-			}
+//			for (int x = 0; x < d; x++) {
+//				for (int y = 0; y < d; y++) {
+//
+//					int d2 = (x-xc)*(x-xc)+(y-yc)*(y-yc);
+//
+//					if ( d2 <= rInner*rInner ) {
+//
+//						p[0] = x-xc;
+//						p[1] = -(y-yc);
+//
+//						sumA0 += inip.getf(atX+p[0], atY+p[1]); nrA0++;
+//						//sumON  += inip.getf(atX+p[0], atY+p[1]);nrON++;
+//						//templateCenter.add(new int[]{p[0], p[1]});
+//
+//					}
+//				}
+//			}
 
 			// template(1, 2, 3)
-			for (int pIdx = 0; pIdx < 3; pIdx++) {
-
-				double ang = angs[pIdx];
-
-//				ArrayList<int[]> templateAngle = new ArrayList<int[]>();
-
-				for (int x = 0; x < d; x++) {
-					for (int y = 0; y < d; y++) {
-
-						int d2 = (x-xc)*(x-xc)+(y-yc)*(y-yc);
-
-						if (d2 <= r*r && d2 >= rLower*rLower) {
-
-							p[0] = x-xc;
-							p[1] = -(y-yc);
-
-							n[0] = (float) Math.cos(ang);
-							n[1] = (float) Math.sin(ang);
-
-							float dst = point2dir(n, p);
-
-							if (dst<=diam/2) { // belongs to pIdx ON peak and not filled  // && idxMapLocal[x+d*y]==0
-
-								//sumON  += inip.getf(atX+p[0], atY+p[1]);nrON++;
-
-								if (pIdx==0) {
-									sumA1 += inip.getf(atX+p[0], atY+p[1]); nrA1++;
-								}
-								else if (pIdx==1) {
-									sumA2 += inip.getf(atX+p[0], atY+p[1]); nrA2++;
-								}
-								else if (pIdx==2) {
-									sumA3 += inip.getf(atX+p[0], atY+p[1]); nrA3++;
-								}
-
-								//templateAngle.add(new int[]{p[0], p[1]});
-							}
-						}
-					}
-				}
-				//template.add(templateAngle); // added template(1, 2, 3)
-			}
+//			for (int pIdx = 0; pIdx < 3; pIdx++) {
+//
+//				double ang = angs[pIdx];
+//
+////				ArrayList<int[]> templateAngle = new ArrayList<int[]>();
+//
+//				for (int x = 0; x < d; x++) {
+//					for (int y = 0; y < d; y++) {
+//
+//						int d2 = (x-xc)*(x-xc)+(y-yc)*(y-yc);
+//
+//						if (d2 <= r*r && d2 >= rLower*rLower) {
+//
+//							p[0] = x-xc;
+//							p[1] = -(y-yc);
+//
+//							n[0] = (float) Math.cos(ang);
+//							n[1] = (float) Math.sin(ang);
+//
+//							float dst = point2dir(n, p);
+//
+//							if (dst<=diam/2) { // belongs to pIdx ON peak and not filled  // && idxMapLocal[x+d*y]==0
+//
+//								//sumON  += inip.getf(atX+p[0], atY+p[1]);nrON++;
+//
+//
+//
+//								//templateAngle.add(new int[]{p[0], p[1]});
+//							}
+//						}
+//					}
+//				}
+//				//template.add(templateAngle); // added template(1, 2, 3)
+//			}
 
 			for (int x = 0; x < d; x++) {
 				for (int y = 0; y < d; y++) {
 
 					int d2 = (x-xc)*(x-xc)+(y-yc)*(y-yc);
 
-					if (d2 <= r*r && d2 >= rLower*rLower) {
+					p[0] = x-xc;
+					p[1] = -(y-yc);
 
-						p[0] = x-xc;
-						p[1] = -(y-yc);
+					if (d2 <= r*r && d2 >= rLower*rLower) {
 
 						boolean isON = false;
 
@@ -842,6 +831,17 @@ public class Feat {
 							float dst = point2dir(n, p);
 
 							if (dst<=diam/2) {
+
+								if (pIdx==0) {
+									sumA1 += inip.getf(atX+p[0], atY+p[1]); nrA1++;
+								}
+								else if (pIdx==1) {
+									sumA2 += inip.getf(atX+p[0], atY+p[1]); nrA2++;
+								}
+								else if (pIdx==2) {
+									sumA3 += inip.getf(atX+p[0], atY+p[1]); nrA3++;
+								}
+
 								isON = true;
 								break;
 							}
@@ -873,10 +873,17 @@ public class Feat {
 						}
 
 					}
+					else if ( d2 <= rInner*rInner ) {
+//						p[0] = x-xc;
+//						p[1] = -(y-yc);
+
+						sumA0 += inip.getf(atX+p[0], atY+p[1]); nrA0++;
+						//sumON  += inip.getf(atX+p[0], atY+p[1]);nrON++;
+						//templateCenter.add(new int[]{p[0], p[1]});
+
+					}
 				}
 			}
-
-			//long t2 = System.currentTimeMillis(); // calculation time
 
             //double avgON    = (nrON>0)? (sumON/nrON) : (0);
             //double avgOFF   = (nrOFF>0)? (sumOFF/nrOFF) : (0);
@@ -910,27 +917,14 @@ public class Feat {
 //                    {L11, 	    L21, 	L31, 	avgA0-0},
 //				};
 
-                /*
-                ArrayList<double[]> data = new ArrayList<double[]>();
-                                    //x,  y,  z
-                data.add(new double[]{0, 	1, 	2, 	0,  0});
-                data.add(new double[]{1, 	2, 	3, 	1,  0});
-                data.add(new double[]{2, 	3, 	4, 	2,  0});
-                */
-                JFreeChartTools chart = new JFreeChartTools("MyPlot");
-                chart.plotVec("profile", "",      "int.sum.", sumsPerOrt);
-                //chart.plotVec("title", "start", "",         start);
+//                JFreeChartTools chart = new JFreeChartTools("MyPlot");
+//                chart.plotVec("profile", "",      "int.sum.", sumsPerOrt);
 
-				/*
-				MyBarChart chart = new MyBarChart("", data);
-				chart.pack();
-				RefineryUtilities.centerFrameOnScreen(chart);
-				chart.setVisible(true);
-				*/
 
 			}
 
             int D = 20;
+
 			return ( 1-Math.exp(-(L11)/D) ) * ( 1-Math.exp(-(L21)/D) ) * ( 1-Math.exp(-(L31)/D) ) * ( 1-Math.exp(-(avgA0)/D) );
 
 		}
