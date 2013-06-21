@@ -50,28 +50,30 @@ public class Feat {
 	double[] 	ap;
     double[]    start;
 
-    // ms
-    int Niter = 100;
-    double eps = 0.001;
+    // mean-shift
+    int Niter   = 100;
+    double eps  = 0.001;
     double minD = 0.5;
-    int M = 1;
-    int Kpts = 1;
+    int M       = 1;
+    float Kpts  = 3.0f;
+
+    // features used
+    double A0=0, A1=0, A2=0, A3=0, B1=0, B2=0, B3=0;
+    int nA0=0, nA1=0, nA2=0, nA3=0, nB1=0, nB2=0, nB3=0;
 
 	public Feat(
-					   int diam,
-					   double scale
+	    int diam,
+		double scale
 	)
 	{
 
 		this.diam = diam;
-		r = (int) (diam*scale);
+		r = (int) Math.round(diam*scale);
 		r = (r<6)? 6 : r; // lower limit
 		d = 2*r+1;
 
 		rInner = diam/2;
-		rLower = r/2;
-
-		//resolDeg = 10;
+		rLower = (int) Math.round(r/2.0); // (1.0*scale) // 2*scale at max
 
 		double  angStep     = 2 * Math.asin((float)diam/(2*r));
 		int     angStepDeg  = (int) Math.round( ((angStep/(2*Math.PI))*360) );
@@ -131,9 +133,11 @@ public class Feat {
 		sumsPerOrt  = new float[offsets.size()];
 
         // ms-variables fixed parameters
-        start = new double[offsets.size()*Kpts];
-        for (int i=0; i<start.length; i++)
-            start[i] = ((double)i/start.length)*sumsPerOrt.length;
+        int nrStartPoints = (int) Math.round(sumsPerOrt.length*Kpts);
+        start = new double[nrStartPoints];
+        for (int i=0; i<start.length; i++) {
+            start[i] = ((double)i/nrStartPoints)*sumsPerOrt.length;
+        }
 
 	}
 
@@ -220,6 +224,21 @@ public class Feat {
             anglesDirections[1] = (cls.get(1)[0]+.0f) * (double)resolDeg;
             anglesDirections[1] = (anglesDirections[1] * (TwoPI/360));
             anglesDirections[1] = wrap_0_2PI(anglesDirections[1]);
+        }
+
+        if (cls.size()==3) {
+            anglesDirections = new double[3];
+            anglesDirections[0] = (cls.get(0)[0]+.0f) * (double)resolDeg;
+            anglesDirections[0] = (anglesDirections[0] * (TwoPI/360));
+            anglesDirections[0] = wrap_0_2PI(anglesDirections[0]);
+
+            anglesDirections[1] = (cls.get(1)[0]+.0f) * (double)resolDeg;
+            anglesDirections[1] = (anglesDirections[1] * (TwoPI/360));
+            anglesDirections[1] = wrap_0_2PI(anglesDirections[1]);
+
+            anglesDirections[2] = (cls.get(2)[0]+.0f) * (double)resolDeg;
+            anglesDirections[2] = (anglesDirections[2] * (TwoPI/360));
+            anglesDirections[2] = wrap_0_2PI(anglesDirections[2]);
         }
 
         if (cls.size()>=3) {
@@ -386,7 +405,7 @@ public class Feat {
             }
         }
 
-        score(atX, atY, inip, true);
+        //score(atX, atY, inip, true);
 
     }
 
@@ -539,7 +558,7 @@ public class Feat {
 
 	}
 
-	public Vector<double[]> extractClusters(
+	private Vector<double[]> extractClusters(
             double[] msConvergence,
             double range,
             int M
@@ -690,124 +709,24 @@ public class Feat {
         return out;
     }
 
-    /*
-    //
-     */
-    public int nrDirections(
-            int             atX,
-            int             atY,
-            FloatProcessor  inip
-    ){
-
-        double[] angs = getAngles(atX, atY, inip, false);
-        return (angs!=null)? angs.length : 0 ;
-
-    }
-
-    public ImageProcessor nrDirections(
-            FloatProcessor  inip
-    ){
-
-        FloatProcessor sc = new FloatProcessor(inip.getWidth(), inip.getHeight());
-
-        // fill the values in
-        for (int x = 0; x<inip.getWidth(); x++) {
-            for (int y = 0; y<inip.getHeight(); y++) {
-
-                //System.out.println(""+x+","+y);
-                int nrd = nrDirections(x, y,inip);
-                sc.setf(x, y, ((nrd>=3)? 255f : 0f) );
-
-            }
-        }
-
-        return sc;
-
-    }
-
-	public double score(
+	public void features(
 		int             atX,
 		int             atY,
-		FloatProcessor  inip,
-		boolean 		print
+		FloatProcessor  inip
 	)
 	{
 
 		double[] angs = getAngles(atX, atY, inip, false);
 
-		if (angs!=null && angs.length>=3) {   // return null otherwise
+        A0 = A1 = A2 = A3 =     nA0 = nA1 = nA2 = nA3   = 0;
+        B1 = B2 = B3 =          nB1 = nB2 = nB3         = 0;
 
-//			int sumON, sumOFF, nrON, nrOFF;
-//			sumON = sumOFF = 1;
-//			nrON = nrOFF = 0;
+		if (angs!=null && angs.length>=3) {   // return 0 otherwise
 
-			int sumA0, nrA0, sumA1, nrA1, sumA2, nrA2, sumA3, nrA3;
-			sumA0 = nrA0 = sumA1 = nrA1 = sumA2 = nrA2 = sumA3 = nrA3 = 0;
-			int sumB1, nrB1, sumB2, nrB2, sumB3, nrB3;
-			sumB1 = nrB1 = sumB2 = nrB2 = sumB3 = nrB3 = 0;
-
-			// skeleton is similar to the one from  calculateTemplate( angles )
-			// it is not necessary to calculate the template ArrayList
-
-			// form the template elements
 			for (int pIdx = 0; pIdx < 3; pIdx++)
 				ap[pIdx] = angs[pIdx];
 
 			Arrays.sort(ap);
-
-//			for (int x = 0; x < d; x++) {
-//				for (int y = 0; y < d; y++) {
-//
-//					int d2 = (x-xc)*(x-xc)+(y-yc)*(y-yc);
-//
-//					if ( d2 <= rInner*rInner ) {
-//
-//						p[0] = x-xc;
-//						p[1] = -(y-yc);
-//
-//						sumA0 += inip.getf(atX+p[0], atY+p[1]); nrA0++;
-//						//sumON  += inip.getf(atX+p[0], atY+p[1]);nrON++;
-//						//templateCenter.add(new int[]{p[0], p[1]});
-//
-//					}
-//				}
-//			}
-
-			// template(1, 2, 3)
-//			for (int pIdx = 0; pIdx < 3; pIdx++) {
-//
-//				double ang = angs[pIdx];
-//
-////				ArrayList<int[]> templateAngle = new ArrayList<int[]>();
-//
-//				for (int x = 0; x < d; x++) {
-//					for (int y = 0; y < d; y++) {
-//
-//						int d2 = (x-xc)*(x-xc)+(y-yc)*(y-yc);
-//
-//						if (d2 <= r*r && d2 >= rLower*rLower) {
-//
-//							p[0] = x-xc;
-//							p[1] = -(y-yc);
-//
-//							n[0] = (float) Math.cos(ang);
-//							n[1] = (float) Math.sin(ang);
-//
-//							float dst = point2dir(n, p);
-//
-//							if (dst<=diam/2) { // belongs to pIdx ON peak and not filled  // && idxMapLocal[x+d*y]==0
-//
-//								//sumON  += inip.getf(atX+p[0], atY+p[1]);nrON++;
-//
-//
-//
-//								//templateAngle.add(new int[]{p[0], p[1]});
-//							}
-//						}
-//					}
-//				}
-//				//template.add(templateAngle); // added template(1, 2, 3)
-//			}
 
 			for (int x = 0; x < d; x++) {
 				for (int y = 0; y < d; y++) {
@@ -833,13 +752,16 @@ public class Feat {
 							if (dst<=diam/2) {
 
 								if (pIdx==0) {
-									sumA1 += inip.getf(atX+p[0], atY+p[1]); nrA1++;
+									A1 += inip.getf(atX+p[0], atY+p[1]);
+                                    nA1++;
 								}
 								else if (pIdx==1) {
-									sumA2 += inip.getf(atX+p[0], atY+p[1]); nrA2++;
+									A2 += inip.getf(atX+p[0], atY+p[1]);
+                                    nA2++;
 								}
 								else if (pIdx==2) {
-									sumA3 += inip.getf(atX+p[0], atY+p[1]); nrA3++;
+									A3 += inip.getf(atX+p[0], atY+p[1]);
+                                    nA3++;
 								}
 
 								isON = true;
@@ -853,118 +775,88 @@ public class Feat {
 							// check where it is
 							double a = wrap_0_2PI(Math.atan2(p[1], p[0]));
 
-							boolean added = false;
-
-							//sumOFF  += inip.getf(atX+p[0], atY+p[1]);nrOFF++;
-
 							if (wrap_PI(a-ap[0])>0 && wrap_PI(a-ap[1])<=0 ) {  // 0-1
-								sumB1 += inip.getf(atX+p[0], atY+p[1]); nrB1++;
-								//templateBtwAngle12.add(new int[]{p[0], p[1]});
+								B1 += inip.getf(atX+p[0], atY+p[1]);
+                                nB1++;
 							}
 							else if (wrap_PI(a-ap[1])>0 && wrap_PI(a-ap[2])<=0 ) { // 1-2
-								sumB2 += inip.getf(atX+p[0], atY+p[1]); nrB2++;
-								//templateBtwAngle23.add(new int[]{p[0], p[1]});
+								B2 += inip.getf(atX+p[0], atY+p[1]);
+                                nB2++;
 							}
 							else {
-								sumB3 += inip.getf(atX+p[0], atY+p[1]); nrB3++;
-								//templateBtwAngle31.add(new int[]{p[0], p[1]}); // 2-0
+								B3 += inip.getf(atX+p[0], atY+p[1]);
+                                nB3++;
 							}
 
 						}
 
 					}
 					else if ( d2 <= rInner*rInner ) {
-//						p[0] = x-xc;
-//						p[1] = -(y-yc);
 
-						sumA0 += inip.getf(atX+p[0], atY+p[1]); nrA0++;
-						//sumON  += inip.getf(atX+p[0], atY+p[1]);nrON++;
-						//templateCenter.add(new int[]{p[0], p[1]});
+						A0 += inip.getf(atX+p[0], atY+p[1]);
+                        nA0++;
 
 					}
 				}
 			}
 
-            //double avgON    = (nrON>0)? (sumON/nrON) : (0);
-            //double avgOFF   = (nrOFF>0)? (sumOFF/nrOFF) : (0);
-
-            double avgA0   = (nrA0>0)? (sumA0/nrA0) : (0);
-
-			double avgA1   = (nrA1>0)? (sumA1/nrA1) : (0);
-            double avgA2   = (nrA2>0)? (sumA2/nrA2) : (0);
-            double avgA3   = (nrA3>0)? (sumA3/nrA3) : (0);
-
-            double avgB1   = (nrB1>3)? (sumB1/nrB1) : (Double.MAX_VALUE);
-            double avgB2   = (nrB2>3)? (sumB2/nrB2) : (Double.MAX_VALUE);
-            double avgB3   = (nrB3>3)? (sumB3/nrB3) : (Double.MAX_VALUE);
-
-			double L0 	= (3*avgA0-avgB1-avgB2-avgB3>0)? ((3*avgA0-avgB1-avgB2-avgB3)/3) : 0;
-
-			double L11 = (2*avgA1-avgB1-avgB3>0)? ((2*avgA1-avgB1-avgB3)/2) : 0;
-//			double L12 = (avgA1-avgB3>0)? (avgA1-avgB3) : 0;
-
-			double L21 = (2*avgA2-avgB2-avgB1>0)? ((2*avgA2-avgB2-avgB1)/2) : 0;
-//			double L22 = (avgA2-avgB1>0)? (avgA2-avgB1) : 0;
-
-			double L31 = (2*avgA3-avgB3-avgB2>0)? ((2*avgA3-avgB3-avgB2)/2) : 0;
-//			double L32 = (avgA3-avgB2>0)? (avgA3-avgB2) : 0;
-
-			if(print) {
-
-//				final double[][] data = new double[][] {
-//                    {avgA1, 	avgA2, 	avgA3, 	avgA0},
-//                    {avgB1, 	avgB2, 	avgB3, 	0},
-//                    {L11, 	    L21, 	L31, 	avgA0-0},
-//				};
-
-//                JFreeChartTools chart = new JFreeChartTools("MyPlot");
-//                chart.plotVec("profile", "",      "int.sum.", sumsPerOrt);
-
-
-			}
-
-            int D = 20;
-
-			return ( 1-Math.exp(-(L11)/D) ) * ( 1-Math.exp(-(L21)/D) ) * ( 1-Math.exp(-(L31)/D) ) * ( 1-Math.exp(-(avgA0)/D) );
-
-		}
-		else {
-            // if angs was null or <=2 for some reason
-			return 0;
 		}
 
 	}
 
-    public ImageStack score(
-            FloatProcessor  inip
+    public double bifurcationess(
+        int     atX,
+        int     atY,
+        FloatProcessor  inip,
+        double D
+    )
+    {
+        features(atX, atY, inip);
+
+            double avgA0   = (nA0>3)? (A0/nA0) : (Double.MIN_VALUE);
+			double avgA1   = (nA1>3)? (A1/nA1) : (Double.MIN_VALUE);
+            double avgA2   = (nA2>3)? (A2/nA2) : (Double.MIN_VALUE);
+            double avgA3   = (nA3>3)? (A3/nA3) : (Double.MIN_VALUE);
+            double avgB1   = (nB1>3)? (B1/nB1) : (Double.MAX_VALUE);
+            double avgB2   = (nB2>3)? (B2/nB2) : (Double.MAX_VALUE);
+            double avgB3   = (nB3>3)? (B3/nB3) : (Double.MAX_VALUE);
+
+			double L0 	= (3*avgA0-avgB1-avgB2-avgB3)/3;
+            L0 = (L0>0)? L0 : 0;
+			double L11 = (2*avgA1-avgB1-avgB3)/2;
+            L11 = (L11>0)? L11 : 0;
+			double L21 = (2*avgA2-avgB2-avgB1)/2;
+            L21 = (L21>0)? L21 : 0;
+            double L31 = (2*avgA3-avgB3-avgB1)/2;
+            L31 = (L31>0)? L31 : 0;
+
+            return (1-Math.exp(-L11/D)) *
+                    (1-Math.exp(-L21/D)) *
+                        (1-Math.exp(-L31/D)) *
+                            (1-Math.exp(-L0/D));
+
+    }
+
+    public ImageStack bifurcationess(
+            FloatProcessor  inip,
+            double          D
     )
     {
         FloatProcessor score0 = new FloatProcessor(inip.getWidth(), inip.getHeight());
-        //FloatProcessor score1 = new FloatProcessor(inip.getWidth(), inip.getHeight());
 
         // fill the values in
         for (int x = 0; x<inip.getWidth(); x++) {
             for (int y = 0; y<inip.getHeight(); y++) {
 
-				double sc = score(x, y, inip, false);
+				double sc = bifurcationess(x, y, inip, D);
 
 				score0.setf(x, y, (float)sc);
-
-                /*if (sc!=null && sc.length==2) {
-                    score0.setf(x, y, (float)sc[0]);
-                    score1.setf(x, y, (float)sc[1]);
-                }
-                else {
-                    score0.setf(x, y, Float.MIN_VALUE);
-                    score1.setf(x, y, Float.MIN_VALUE);
-                }*/
 
             }
         }
 
         ImageStack isOut = new ImageStack(inip.getWidth(), inip.getHeight());
         isOut.addSlice(score0);
-//        isOut.addSlice(score1);
         return isOut;
 
     }
