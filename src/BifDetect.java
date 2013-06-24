@@ -44,8 +44,14 @@ public class BifDetect implements PlugInFilter {
 		gd.addMessage("feature parameters");
 		gd.addNumericField("neuron diameter min", t, 0, 5, "pix");
 		gd.addNumericField("n'hood", scale, 1, 5, "x diameter");
+
+        gd.addMessage("detection parameters");
 		gd.addNumericField("D", D, 1, 5, "");
 		gd.addNumericField("E", E, 1, 5, "");
+
+        gd.addMessage("detection parameters - configuration file");
+
+        gd.addMessage("mask (avoid processing all)");
 		gd.addStringField("mask path", inmaskPath, 50);
 		gd.addCheckbox("", useMask);
 
@@ -106,9 +112,7 @@ public class BifDetect implements PlugInFilter {
 		for (int x=0; x<input.getWidth(); x++) {
 			for (int y=0; y<input.getHeight(); y++) {
 				if (msk.getf(x, y)==255) {
-					//
 					double sc = f.bifurcationess1(x, y, input, D, E);
-
 					ipOut.setf(x, y, (float)sc );
 				}
 			}

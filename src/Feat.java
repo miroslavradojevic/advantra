@@ -93,7 +93,7 @@ public class Feat {
 		n = new float[2];
 		p = new int[2];
 		ap 	= new double[3];
-		feats = new double[7];
+		feats = new double[9];
 
 		// form the list of offsets
 		//offsets = new ArrayList<ArrayList<int[]>>();
@@ -180,7 +180,6 @@ public class Feat {
         boolean         print
     )
     {
-
 		// check if values can be taken for the profile
 		int margin = d/2+1;
 		if ( atX<=margin || atX>=inip.getWidth()-margin ) {
@@ -486,44 +485,24 @@ public class Feat {
 
 		regionScores(atX, atY, inip, angs); // forms ap, A0, A1, nA0...
 
-		int minSamples = 3;
-		if (
-				nA0>minSamples &&
-						nA1>minSamples &&
-						nA2>minSamples &&
-						nA2>minSamples &&
-						nB1>minSamples &&
-						nB2>minSamples &&
-						nB3>minSamples
-		)
-		{
-			double avgA0   = A0/nA0;
-			double avgA1   = A1/nA1;
-			double avgA2   = A2/nA2;
-			double avgA3   = A3/nA3;
-			double avgB1   = B1/nB1;
-			double avgB2   = B2/nB2;
-			double avgB3   = B3/nB3;
+        double aA0 = (nA0>0)? (A0/nA0) : Double.NaN;
+        double aA1 = (nA1>0)? (A1/nA1) : Double.NaN;
+        double aA2 = (nA2>0)? (A2/nA2) : Double.NaN;
+        double aA3 = (nA3>0)? (A3/nA3) : Double.NaN;
+        double aB1 = (nB1>0)? (B1/nB1) : Double.NaN;
+        double aB2 = (nB2>0)? (B2/nB2) : Double.NaN;
+        double aB3 = (nB3>0)? (B3/nB3) : Double.NaN;
 
-			// change here!
-			feats[0] = (3*avgA0-avgB1-avgB2-avgB3)/3;
-			feats[1] = (2*avgA1-avgB1-avgB3)/2;
-			feats[2] = (2*avgA2-avgB2-avgB1)/2;
-			feats[3] = (2*avgA3-avgB3-avgB1)/2;
-			feats[4] = (avgA1+avgA2-2*avgB1)/2;
-			feats[5] = (avgA2+avgA3-2*avgB2)/2;
-			feats[6] = (avgA3+avgA1-2*avgB3)/2;
-		}
-		else
-		{
-			feats[0] = Double.NaN;
-			feats[1] = Double.NaN;
-			feats[2] = Double.NaN;
-			feats[3] = Double.NaN;
-			feats[4] = Double.NaN;
-			feats[5] = Double.NaN;
-			feats[6] = Double.NaN;
-		}
+        // change here!
+        feats[0] = aA0-aB1;
+        feats[1] = aA0-aB2;
+        feats[2] = aA0-aB3;
+        feats[3] = aA1-aB1;
+        feats[4] = aA1-aB3;
+        feats[5] = aA2-aB2;
+        feats[6] = aA2-aB1;
+        feats[7] = aA3-aB3;
+        feats[8] = aA3-aB2;
 
 	}
 

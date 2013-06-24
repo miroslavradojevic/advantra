@@ -12,6 +12,7 @@ import ij.process.ImageProcessor;
 import java.awt.*;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.io.*;
 
 /**
  * Created with IntelliJ IDEA.
@@ -23,8 +24,7 @@ public class TryFeatures implements PlugInFilter, MouseListener {
 
     ImagePlus   inimg;
     String      inimgPath;
-//	ImagePlus   inmask;
-//    String      inmaskPath;
+    String      confFile;
 
 	Feat f;
 
@@ -51,6 +51,16 @@ public class TryFeatures implements PlugInFilter, MouseListener {
 
         inimg.getCanvas().addMouseListener(this);
 
+        confFile = "current.conf";
+        PrintWriter writer = null;
+        try {
+            writer = new PrintWriter(confFile);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+        writer.print("");
+        writer.close();
+
     }
 
     public void mouseClicked(MouseEvent e)
@@ -60,7 +70,7 @@ public class TryFeatures implements PlugInFilter, MouseListener {
         int atX = 	srcCanv.offScreenX(e.getX());
 		int atY = 	srcCanv.offScreenY(e.getY());
 
-		FloatProcessor inip = (FloatProcessor)inimg.getProcessor(); // make it possible to cast here
+		FloatProcessor inip = (FloatProcessor) inimg.getProcessor().duplicate(); // make it possible to cast here  (FloatProcessor)
 
 		//f.plotIntegResponse(atX, atY, inip);
 
@@ -90,40 +100,81 @@ public class TryFeatures implements PlugInFilter, MouseListener {
 			}
 		}
 
-		IJ.log("A0 : "+f.A0+" ("+f.nA0+"),"+IJ.d2s((f.nA0>0)? (f.A0/f.nA0) : Double.NaN, 1));
+        double aA0 = (f.nA0>0)? (f.A0/f.nA0) : Double.NaN;
+		IJ.log("A0 : "+f.A0+" ("+f.nA0+"), "+IJ.d2s(aA0, 1));
+
 		IJ.log("---");
-		IJ.log("A1 : "+f.A1+" ("+f.nA1+"),"+IJ.d2s((f.nA1>0)? (f.A1/f.nA1) : Double.NaN, 1));
-		IJ.log("A2 : "+f.A2+" ("+f.nA2+"),"+IJ.d2s((f.nA2>0)? (f.A2/f.nA2) : Double.NaN, 1));
-		IJ.log("A3 : "+f.A3+" ("+f.nA3+"),"+IJ.d2s((f.nA3>0)? (f.A3/f.nA3) : Double.NaN, 1));
-		IJ.log("---");
-		IJ.log("B1 : "+f.B1+" ("+f.nB1+"),"+IJ.d2s((f.nB1>0)? (f.B1/f.nB1) : Double.NaN, 1));
+
+        double aA1 = (f.nA1>0)? (f.A1/f.nA1) : Double.NaN;
+        IJ.log("A1 : "+f.A1+" ("+f.nA1+"),"+IJ.d2s(aA1, 1));
+        double aA2 = (f.nA2>0)? (f.A2/f.nA2) : Double.NaN;
+		IJ.log("A2 : "+f.A2+" ("+f.nA2+"),"+IJ.d2s(aA2, 1));
+        double aA3 = (f.nA3>0)? (f.A3/f.nA3) : Double.NaN;
+		IJ.log("A3 : "+f.A3+" ("+f.nA3+"),"+IJ.d2s(aA3, 1));
+
+        IJ.log("---");
+
+        double aB1 = (f.nB1>0)? (f.B1/f.nB1) : Double.NaN;
+        IJ.log("B1 : "+f.B1+" ("+f.nB1+"),"+IJ.d2s((f.nB1>0)? (f.B1/f.nB1) : Double.NaN, 1));
+        double aB2 = (f.nB2>0)? (f.B2/f.nB2) : Double.NaN;
 		IJ.log("B2 : "+f.B2+" ("+f.nB2+"),"+IJ.d2s((f.nB2>0)? (f.B2/f.nB2) : Double.NaN, 1));
+        double aB3 = (f.nB3>0)? (f.B3/f.nB3) : Double.NaN;
 		IJ.log("B3 : "+f.B3+" ("+f.nB3+"),"+IJ.d2s((f.nB3>0)? (f.B3/f.nB3) : Double.NaN, 1));
-		IJ.log("---");
-		IJ.log(""+((f.A0/f.nA0)-(f.B1/f.nB1))/(f.A0/f.nA0));
 
-		boolean showRegionAverages = false;
-		if (showRegionAverages && angs!=null) {
+        IJ.log("---");
+        double ev0  = aA0-aB1; //(aA0>aB1)? ((aA0-aB1)/aA0) : 0;
+        double ev1  = aA0-aB2; //((aA0-aB2)/aA0) : 0;
+        double ev2  = aA0-aB3; //((aA0-aB3)/aA0) : 0;
 
-			double[] ang_x = new double[7];
-			ang_x[0]   = (f.nA0>3)? (f.A0/f.nA0) : (Double.MIN_VALUE);
-			ang_x[1]   = (f.nA1>3)? (f.A1/f.nA1) : (Double.MIN_VALUE);
-			ang_x[2]   = (f.nB1>3)? (f.B1/f.nB1) : (Double.MAX_VALUE);
-			ang_x[3]   = (f.nA2>3)? (f.A2/f.nA2) : (Double.MIN_VALUE);
-			ang_x[4]   = (f.nB2>3)? (f.B2/f.nB2) : (Double.MAX_VALUE);
-			ang_x[5]   = (f.nA3>3)? (f.A3/f.nA3) : (Double.MIN_VALUE);
-			ang_x[6]   = (f.nB3>3)? (f.B3/f.nB3) : (Double.MAX_VALUE);
+        double ev3  = aA1-aB1; //(aA1>aB1)? ((aA1-aB1)/aA1) : 0;
+        double ev4  = aA1-aB3; //(aA1>aB3)? ((aA1-aB3)/aA1) : 0;
 
-			double[] ang_y = new double[7];
-			ang_y[0] = 0;
-			ang_y[1] = ang_y[2] = f.ap[0];
-			ang_y[3] = ang_y[4] = f.ap[1];
-			ang_y[5] = ang_y[6] = f.ap[2];
+        double ev5  = aA2-aB2; //(aA2>aB2)? ((aA2-aB2)/aA2) : 0;
+        double ev6  = aA2-aB1; //(aA2>aB1)? ((aA2-aB3)/aA2) : 0;
 
-			Plot p = new Plot("", "", "", ang_y, ang_x);
+        double ev7  = aA3-aB3; //(aA3>aB3)? ((aA3-aB3)/aA3) : 0;
+        double ev8  = aA3-aB2; //(aA3>aB2)? ((aA3-aB2)/aA3) : 0;
+
+        String printEvidences = ""+IJ.d2s(ev0, 3)+" , "+IJ.d2s(ev1, 3)+" , "+IJ.d2s(ev2, 3)+" , "+
+                IJ.d2s(ev3, 3)+" , "+IJ.d2s(ev4, 1)+" , "+
+                IJ.d2s(ev5, 1)+" , "+IJ.d2s(ev6, 1)+" , "+
+                IJ.d2s(ev7, 1)+" , "+IJ.d2s(ev8, 1);
+
+        IJ.log(printEvidences);
+
+        // append line
+        try {
+            PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(confFile, true)));
+            out.println(printEvidences);
+            out.close();
+        } catch (IOException e1) {
+            //oh noes!
+        }
+
+		boolean showFeatures = false;
+		if (showFeatures && angs!=null) {
+
+			double[] ang_x = new double[9];
+            double[] ang_y = new double[9];
+
+            for (int i=0; i<9; i++) {
+                ang_x[i] = i;
+            }
+
+			ang_y[0]   = ev0;
+            ang_y[1]   = ev1;
+            ang_y[2]   = ev2;
+            ang_y[3]   = ev3;
+            ang_y[4]   = ev4;
+            ang_y[5]   = ev5;
+            ang_y[6]   = ev6;
+            ang_y[7]   = ev7;
+            ang_y[8]   = ev8;
+
+			Plot p = new Plot("", "", "", ang_x, ang_y);
 			p.draw();
 			p.setColor(Color.RED);
-			p.addPoints(ang_y, ang_x, Plot.BOX);
+			p.addPoints(ang_x, ang_y, Plot.BOX);
 			p.show();
 
 		}

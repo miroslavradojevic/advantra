@@ -36,7 +36,7 @@ public class ShowAnnotation implements PlugIn, MouseListener {
 
         double[][] A = null;
 
-        if (!extension.equals(new String("pos"))) {
+        if (!(extension.equals(new String("pos")) || extension.equals(new String("neg")))) {
             IJ.log("wrong extension: "+extension);
             return;
         }

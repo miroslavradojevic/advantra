@@ -2,6 +2,9 @@ import ij.ImagePlus;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 
+import java.io.File;
+import java.io.FilenameFilter;
+
 /**
  * Created with IntelliJ IDEA.
  * User: miroslav
@@ -45,5 +48,21 @@ public class Tools {
 			extension = filePath.substring(0, dotIdx);
 		return  extension;
 	}
+
+    public static File[] listFilesEndingWith(
+            File dir,
+            String suffix
+    )
+    {
+        final String sfx = suffix;
+        File[] tif_train = dir.listFiles(
+                new FilenameFilter() {
+                    public boolean accept(File dir, String name) {
+                        return name.toLowerCase().endsWith(sfx);
+                    }
+                }
+        );
+        return tif_train;
+    }
 
 }
