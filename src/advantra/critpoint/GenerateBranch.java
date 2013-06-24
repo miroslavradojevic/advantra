@@ -42,7 +42,7 @@ public class GenerateBranch implements PlugIn {
 	int minStd, rngStd;
 
 	public void run(
-						   String arg0
+		String arg0
 	)
 	{
 

@@ -151,6 +151,9 @@ public class BranchModel2D {
 
         writeLineBetween(pc, p1);
         writeLineBetween(pc, p2);
+
+		rstd = gen.nextInt(rngStd) + minStd;
+
         writeLineBetween(pc, p3);
 
 /*        // bor1
