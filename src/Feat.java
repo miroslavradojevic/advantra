@@ -79,7 +79,7 @@ public class Feat {
 		resolDeg = (resolDeg>=1)? resolDeg : 1;
 
 		rInner = diam/2;
-		rLower = (int) Math.round(r/2.0); // (1.0*scale) // 2*scale at max
+		rLower = 3;//(int) Math.round(r/2.0); // (1.0*scale) // 2*scale at max
 
 		double  angStep     = 2 * Math.asin((float)diam/(2*r));
 		int     angStepDeg  = (int) Math.round( ((angStep/(2*Math.PI))*360) );
@@ -173,7 +173,7 @@ public class Feat {
 
     }
 
-	public  double[] getAngles(
+	public  ImageProcessor getAngles(
         int             atX,
         int             atY,
         FloatProcessor  inip,
@@ -282,6 +282,18 @@ public class Feat {
 
         }
 
+		if (anglesDirections==null) {
+			ap = null;
+		}
+		else {
+			for (int pIdx = 0; pIdx < anglesDirections.length; pIdx++)
+				ap[pIdx] = anglesDirections[pIdx];
+		}
+
+		Arrays.sort(ap);
+
+		Plot p = null;
+
         if (print) {
 
             // find peaks - initialize start points for ms iterations
@@ -299,7 +311,6 @@ public class Feat {
                 angles[dirIdx] = dirIdx;
             }
 
-            Plot p;
             p = new Plot("", start.length+" points start", "", start, plotStart);
             p.draw();
             p.setColor(Color.BLUE);
@@ -346,11 +357,11 @@ public class Feat {
 
 
             }
-			p.show();
+			//p.show();
 
         }
 
-        return anglesDirections;
+        return p.getProcessor();
 
 	}
 
@@ -481,9 +492,9 @@ public class Feat {
 	public void extractFeatures(int atX, int atY, FloatProcessor  inip)
 	{
 
-		double[] angs = getAngles(atX, atY, inip, false);
+		getAngles(atX, atY, inip, false);
 
-		regionScores(atX, atY, inip, angs); // forms ap, A0, A1, nA0...
+		regionScores(atX, atY, inip, ap); // forms ap, A0, A1, nA0...
 
         double aA0 = (nA0>0)? (A0/nA0) : Double.NaN;
         double aA1 = (nA1>0)? (A1/nA1) : Double.NaN;
@@ -513,9 +524,9 @@ public class Feat {
         double D
     )
     {
-		double[] angs = getAngles(atX, atY, inip, false);
+		getAngles(atX, atY, inip, false);
 
-        regionScores(atX, atY, inip, angs);
+        regionScores(atX, atY, inip, ap);
 
         double avgA0   = (nA0>3)? (A0/nA0) : (Double.MIN_VALUE);
 		double avgA1   = (nA1>3)? (A1/nA1) : (Double.MIN_VALUE);
@@ -560,9 +571,9 @@ public class Feat {
 	double 	E
 	)
 	{
-		double[] angs = getAngles(atX, atY, inip, false);
+		getAngles(atX, atY, inip, false);
 
-		regionScores(atX, atY, inip, angs);
+		regionScores(atX, atY, inip, ap);
 
 		double avgA0   = (nA0>3)? (A0/nA0) : (Double.MIN_VALUE);
 		double avgA1   = (nA1>3)? (A1/nA1) : (Double.MIN_VALUE);

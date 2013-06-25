@@ -23,6 +23,7 @@ import java.io.*;
 public class TryFeatures implements PlugInFilter, MouseListener {
 
     ImagePlus   inimg;
+	ImagePlus 	profileImg;
     String      inimgPath;
     String      confFile;
 
@@ -34,6 +35,7 @@ public class TryFeatures implements PlugInFilter, MouseListener {
         int     t       = 4;
         double  scale   = 2.0;
         double  D       = 10;
+
         GenericDialog gd = new GenericDialog("Fit Features");
         gd.addMessage("feature parameters");
         gd.addNumericField("neuron diameter", t, 0, 5, "pix");
@@ -44,6 +46,7 @@ public class TryFeatures implements PlugInFilter, MouseListener {
         scale   =   gd.getNextNumber();
 
 		f= new Feat(t, scale);
+
 		//new ImagePlus("offsets",f.plotOffsets()).show();
 		//new ImagePlus("pattern", f.exportTemplate(new double[]{0, Math.PI/2, Math.PI})).show();
 
@@ -61,6 +64,8 @@ public class TryFeatures implements PlugInFilter, MouseListener {
         writer.print("");
         writer.close();
 
+		profileImg = new ImagePlus();
+
     }
 
     public void mouseClicked(MouseEvent e)
@@ -76,20 +81,24 @@ public class TryFeatures implements PlugInFilter, MouseListener {
 
 		long t1, t2;
 		t1 = System.currentTimeMillis();
-        double[] angs = f.getAngles(atX, atY, inip, true);
+        ImageProcessor ipPlot = f.getAngles(atX, atY, inip, true);
 		t2 = System.currentTimeMillis();
+
+		profileImg.setProcessor(ipPlot);
+		profileImg.updateAndDraw();
+		profileImg.show();
 
 		IJ.log("\nextracted angles in "+((float)(t2-t1))+" msec.");
 
-		if (angs!=null) {
+		if (f.ap!=null) {
 			IJ.log("final angles:");
-			for (int g = 0; g<angs.length; g++) {
-				IJ.log("angle"+g+" > "+(angs[g]*(360f/((float)Math.PI*2)))+" degrees");
+			for (int g = 0; g<f.ap.length; g++) {
+				IJ.log("angle"+g+" > "+(f.ap[g]*(360f/((float)Math.PI*2)))+" degrees");
 			}
 		}
 
 		t1 = System.currentTimeMillis();
-		f.regionScores(atX, atY, inip, angs);
+		f.regionScores(atX, atY, inip, f.ap);
 		t2 = System.currentTimeMillis();
 		IJ.log("extracted features in "+((float)(t2-t1))+" msec.");
 
@@ -122,15 +131,15 @@ public class TryFeatures implements PlugInFilter, MouseListener {
 		IJ.log("B3 : "+f.B3+" ("+f.nB3+"),"+IJ.d2s((f.nB3>0)? (f.B3/f.nB3) : Double.NaN, 1));
 
         IJ.log("---");
-        double ev0  = aA0-aB1; //(aA0>aB1)? ((aA0-aB1)/aA0) : 0;
-        double ev1  = aA0-aB2; //((aA0-aB2)/aA0) : 0;
-        double ev2  = aA0-aB3; //((aA0-aB3)/aA0) : 0;
+        double ev0  = aA0-aB1;
+        double ev1  = aA0-aB2;
+        double ev2  = aA0-aB3;
 
-        double ev3  = aA1-aB1; //(aA1>aB1)? ((aA1-aB1)/aA1) : 0;
-        double ev4  = aA1-aB3; //(aA1>aB3)? ((aA1-aB3)/aA1) : 0;
+        double ev3  = aA1-aB1;
+        double ev4  = aA1-aB3;
 
-        double ev5  = aA2-aB2; //(aA2>aB2)? ((aA2-aB2)/aA2) : 0;
-        double ev6  = aA2-aB1; //(aA2>aB1)? ((aA2-aB3)/aA2) : 0;
+        double ev5  = aA2-aB2;
+        double ev6  = aA2-aB1;
 
         double ev7  = aA3-aB3; //(aA3>aB3)? ((aA3-aB3)/aA3) : 0;
         double ev8  = aA3-aB2; //(aA3>aB2)? ((aA3-aB2)/aA3) : 0;
@@ -152,7 +161,7 @@ public class TryFeatures implements PlugInFilter, MouseListener {
         }
 
 		boolean showFeatures = false;
-		if (showFeatures && angs!=null) {
+		if (showFeatures && f.ap!=null) {
 
 			double[] ang_x = new double[9];
             double[] ang_y = new double[9];
@@ -179,9 +188,9 @@ public class TryFeatures implements PlugInFilter, MouseListener {
 
 		}
 
-        if (angs.length>=3) {
+        if (f.ap.length>=3) {
 
-            ImagePlus templateFit = new ImagePlus("template", f.exportTemplate(angs));
+            ImagePlus templateFit = new ImagePlus("template", f.exportTemplate(f.ap));
 			templateFit.show();
             IJ.selectWindow("inimg");
             IJ.run("Add Image...", "image=template x="+(atX-templateFit.getWidth()/2)+" y="+(atY-templateFit.getHeight()/2)+" opacity=50");
@@ -195,6 +204,8 @@ public class TryFeatures implements PlugInFilter, MouseListener {
             */
 
 		}
+
+		IJ.selectWindow("inimg");
 
     }
 
