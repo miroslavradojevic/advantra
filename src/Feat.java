@@ -361,7 +361,13 @@ public class Feat {
 
         }
 
-        return p.getProcessor();
+        if (p==null) {
+            return null;
+        }
+        else {
+            return p.getProcessor();
+        }
+
 
 	}
 
@@ -434,20 +440,45 @@ public class Feat {
 
 							double dst = point2dir(nx, ny, px, py);
 
-							if (dst<=diam/2) {
+                            if (dst<=(double)diam) {
 
-								if (pIdx==0) {
-									A1 += Interpolator.interpolateAt(atX+px, atY+py, inip);
-									nA1++;
-								}
-								else if (pIdx==1) {
-									A2 += Interpolator.interpolateAt(atX+px, atY+py, inip);
-									nA2++;
-								}
-								else if (pIdx==2) {
-									A3 += Interpolator.interpolateAt(atX+px, atY+py, inip);
-									nA3++;
-								}
+                                if (dst<=(double)diam/2) {
+
+                                    if (pIdx==0) {
+                                        A1 += Interpolator.interpolateAt(atX+px, atY+py, inip);
+                                        nA1++;
+                                    }
+                                    else if (pIdx==1) {
+                                        A2 += Interpolator.interpolateAt(atX+px, atY+py, inip);
+                                        nA2++;
+                                    }
+                                    else if (pIdx==2) {
+                                        A3 += Interpolator.interpolateAt(atX+px, atY+py, inip);
+                                        nA3++;
+                                    }
+
+                                }
+                                else {
+
+                                    if (pIdx==0) {
+                                        B1 += Interpolator.interpolateAt(atX+px, atY+py, inip);
+                                        nB1++;
+                                    }
+                                    else if (pIdx==1) {
+                                        B2 += Interpolator.interpolateAt(atX+px, atY+py, inip);
+                                        nB2++;
+                                    }
+
+                                }
+
+
+                            }
+
+							if (dst<=(double)diam/2) {
+
+
+
+
 
 								isON = true;
 								break;
