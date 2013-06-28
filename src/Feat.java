@@ -468,46 +468,45 @@ public class Feat {
                                         B2 += Interpolator.interpolateAt(atX+px, atY+py, inip);
                                         nB2++;
                                     }
+									else if (pIdx==2) {
+										B3 += Interpolator.interpolateAt(atX+px, atY+py, inip);
+										nB3++;
+									}
 
                                 }
 
 
                             }
 
-							if (dst<=(double)diam/2) {
-
-
-
-
-
-								isON = true;
-								break;
-							}
+//							if (dst<=(double)diam/2) {
+//								isON = true;
+//								break;
+//							}
 
 						}
 
-						if (!isON) {
-
-							// check where it is
-							double a = wrap_0_2PI(Math.atan2(py, px));
-
-							if (wrap_PI(a-ap[0])>0 && wrap_PI(a-ap[1])<=0 ) {  // 0-1
-								B1 += Interpolator.interpolateAt(atX+px, atY+py, inip);
-								nB1++;
-							}
-							else if (wrap_PI(a-ap[1])>0 && wrap_PI(a-ap[2])<=0 ) { // 1-2
-								B2 += Interpolator.interpolateAt(atX+px, atY+py, inip);
-								nB2++;
-							}
-							else {
-								B3 += Interpolator.interpolateAt(atX+px, atY+py, inip);
-								nB3++;
-							}
-
-						}
+//						if (!isON) {
+//
+//							// check where it is
+//							double a = wrap_0_2PI(Math.atan2(py, px));
+//
+//							if (wrap_PI(a-ap[0])>0 && wrap_PI(a-ap[1])<=0 ) {  // 0-1
+//								B1 += Interpolator.interpolateAt(atX+px, atY+py, inip);
+//								nB1++;
+//							}
+//							else if (wrap_PI(a-ap[1])>0 && wrap_PI(a-ap[2])<=0 ) { // 1-2
+//								B2 += Interpolator.interpolateAt(atX+px, atY+py, inip);
+//								nB2++;
+//							}
+//							else {
+//								B3 += Interpolator.interpolateAt(atX+px, atY+py, inip);
+//								nB3++;
+//							}
+//
+//						}
 
 					}
-					else if ( d2 <= rInner*rInner ) {
+					else if ( d2 <= (double)rInner*(double)rInner ) {
 
 						A0 += Interpolator.interpolateAt(atX+px, atY+py, inip);//inip.getf(atX+p[0], atY+p[1]);
 						nA0++;
@@ -1051,6 +1050,9 @@ public class Feat {
 						n[1] = (float) Math.sin(ang);
 
 						float dst = point2dir(n, p);
+
+
+						// here
 
 						if (dst<=diam/2) { // belongs to pIdx ON peak and not filled  // && idxMapLocal[x+d*y]==0
 

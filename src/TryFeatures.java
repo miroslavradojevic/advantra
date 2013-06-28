@@ -130,24 +130,27 @@ public class TryFeatures implements PlugInFilter, MouseListener {
         double aB3 = (f.nB3>0)? (f.B3/f.nB3) : Double.NaN;
 		IJ.log("B3 : "+f.B3+" ("+f.nB3+"),"+IJ.d2s((f.nB3>0)? (f.B3/f.nB3) : Double.NaN, 1));
 
-        IJ.log("---");
+
+
+		IJ.log("---");
         double ev0  = aA0-aB1;
         double ev1  = aA0-aB2;
         double ev2  = aA0-aB3;
 
         double ev3  = aA1-aB1;
-        double ev4  = aA1-aB3;
+        double ev4  = aA2-aB2;
+        double ev5  = aA3-aB3;
 
-        double ev5  = aA2-aB2;
-        double ev6  = aA2-aB1;
-
-        double ev7  = aA3-aB3; //(aA3>aB3)? ((aA3-aB3)/aA3) : 0;
-        double ev8  = aA3-aB2; //(aA3>aB2)? ((aA3-aB2)/aA3) : 0;
+//		double ev6  = aA2-aB1;
+//        double ev7  = aA3-aB3; //(aA3>aB3)? ((aA3-aB3)/aA3) : 0;
+//        double ev8  = aA3-aB2; //(aA3>aB2)? ((aA3-aB2)/aA3) : 0;
 
         String printEvidences = ""+IJ.d2s(ev0, 3)+" , "+IJ.d2s(ev1, 3)+" , "+IJ.d2s(ev2, 3)+" , "+
-                IJ.d2s(ev3, 3)+" , "+IJ.d2s(ev4, 1)+" , "+
-                IJ.d2s(ev5, 1)+" , "+IJ.d2s(ev6, 1)+" , "+
-                IJ.d2s(ev7, 1)+" , "+IJ.d2s(ev8, 1);
+                IJ.d2s(ev3, 3)+" , "+IJ.d2s(ev4, 3)+" , "+
+                IJ.d2s(ev5, 3);
+//										+" , "+IJ.d2s(ev6, 1);
+//		+" , "+
+//                IJ.d2s(ev7, 1)+" , "+IJ.d2s(ev8, 1);
 
         IJ.log(printEvidences);
 
@@ -176,9 +179,9 @@ public class TryFeatures implements PlugInFilter, MouseListener {
             ang_y[3]   = ev3;
             ang_y[4]   = ev4;
             ang_y[5]   = ev5;
-            ang_y[6]   = ev6;
-            ang_y[7]   = ev7;
-            ang_y[8]   = ev8;
+//            ang_y[6]   = ev6;
+//            ang_y[7]   = ev7;
+//            ang_y[8]   = ev8;
 
 			Plot p = new Plot("", "", "", ang_x, ang_y);
 			p.draw();
