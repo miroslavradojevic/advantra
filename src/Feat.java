@@ -1015,9 +1015,9 @@ public class Feat {
 		for (int x = 0; x < d; x++) {
 			for (int y = 0; y < d; y++) {
 
-				int d2 = (x-xc)*(x-xc)+(y-yc)*(y-yc);
+				double d2 = (x-xc)*(x-xc)+(y-yc)*(y-yc);
 
-				if ( d2 <= rInner*rInner ) {
+				if ( d2 <= (double)rInner*(double)rInner ) {
 
 					p[0] = x-xc;
 					p[1] = -(y-yc);
@@ -1029,104 +1029,79 @@ public class Feat {
 		}
 		template.add(templateCenter);  // template(0) added
 
-		// template(1, 2, 3)
+        ArrayList<int[]> templateBtwAngle12 = new ArrayList<int[]>();
+        ArrayList<int[]> templateBtwAngle23 = new ArrayList<int[]>();
+        ArrayList<int[]> templateBtwAngle31 = new ArrayList<int[]>();
+
+        ArrayList<int[]> AtAngle1 = new ArrayList<int[]>();
+        ArrayList<int[]> AtAngle2 = new ArrayList<int[]>();
+        ArrayList<int[]> AtAngle3 = new ArrayList<int[]>();
+
 		for (int pIdx = 0; pIdx < 3; pIdx++) {
-
-			double ang = directionAngles[pIdx];
-
-			ArrayList<int[]> templateAngle = new ArrayList<int[]>();
 
 			for (int x = 0; x < d; x++) {
 				for (int y = 0; y < d; y++) {
 
-					int d2 = (x-xc)*(x-xc)+(y-yc)*(y-yc);
+					double d2 = (x-xc)*(x-xc)+(y-yc)*(y-yc);
 
-					if (d2 <= r*r && d2 >= rLower*rLower) {
+					if (d2 <= (double)r*(double)r && d2 >= (double)rLower*(double)rLower) {
 
-						p[0] = x-xc;
-						p[1] = -(y-yc);
+						double px = x-xc;
+						double py = -(y-yc);
 
-						n[0] = (float) Math.cos(ang);
-						n[1] = (float) Math.sin(ang);
+						double nx = (float) Math.cos(ap[pIdx]);
+						double ny = (float) Math.sin(ap[pIdx]);
 
-						float dst = point2dir(n, p);
+						//float dst = point2dir(n, p);
+                        double dst = point2dir(nx, ny, px, py);
+
+                        if (dst<=(double)diam) {
+
+                            if (dst<=(double)diam/2) { // belongs to pIdx ON peak and not filled  // && idxMapLocal[x+d*y]==0
+
+                                if (pIdx==0) {
+                                    AtAngle1.add(new int[]{x-xc, -(y-yc)});
+                                }
+                                else if (pIdx==1) {
+                                    AtAngle2.add(new int[]{x-xc, -(y-yc)});
+                                }
+                                else if (pIdx==2) {
+                                    AtAngle3.add(new int[]{x-xc, -(y-yc)});
+                                }
+
+                            }
+                            else {
+
+                                if (pIdx==0) {
+                                    templateBtwAngle12.add(new int[]{x-xc, -(y-yc)});
+                                }
+                                else if (pIdx==1) {
+                                    templateBtwAngle23.add(new int[]{x-xc, -(y-yc)});
+                                }
+                                else if (pIdx==2) {
+                                    templateBtwAngle31.add(new int[]{x-xc, -(y-yc)});
+                                }
 
 
-						// here
+                            }
 
-						if (dst<=diam/2) { // belongs to pIdx ON peak and not filled  // && idxMapLocal[x+d*y]==0
-
-							templateAngle.add(new int[]{p[0], p[1]});
-
-						}
-
+                        }
 
 					}
 				}
 			}
 
-			template.add(templateAngle); // added template(1, 2, 3)
-
 		}
 
-		ArrayList<int[]> templateBtwAngle12 = new ArrayList<int[]>();
-		ArrayList<int[]> templateBtwAngle23 = new ArrayList<int[]>();
-		ArrayList<int[]> templateBtwAngle31 = new ArrayList<int[]>();
+        //IJ.log("---> "+AtAngle1.size()+" direction 1");
 
-		for (int x = 0; x < d; x++) {
-			for (int y = 0; y < d; y++) {
+		template.add(AtAngle1);
+		template.add(AtAngle2);
+		template.add(AtAngle3);
 
-				int d2 = (x-xc)*(x-xc)+(y-yc)*(y-yc);
-
-				if (d2 <= r*r && d2 >= rLower*rLower) {
-
-					p[0] = x-xc;
-					p[1] = -(y-yc);
-
-					boolean isON = false;
-
-					for (int pIdx = 0; pIdx < 3; pIdx++) {
-
-						double ang = directionAngles[pIdx];
-
-						n[0] = (float) Math.cos(ang);
-						n[1] = (float) Math.sin(ang);
-
-						float dst = point2dir(n, p);
-
-						if (dst<=diam/2) {
-							isON = true;
-							break;
-						}
-
-					}
-
-					if (!isON) {
-
-						// check where it is
-						double a = wrap_0_2PI(Math.atan2(p[1], p[0]));
-
-						boolean added = false;
-
-						if (wrap_PI(a-ap[0])>0 && wrap_PI(a-ap[1])<=0 ) {  // 0-1
-							templateBtwAngle12.add(new int[]{p[0], p[1]});
-						}
-						else if (wrap_PI(a-ap[1])>0 && wrap_PI(a-ap[2])<=0 ) { // 1-2
-							templateBtwAngle23.add(new int[]{p[0], p[1]});
-						}
-						else {
-							templateBtwAngle31.add(new int[]{p[0], p[1]}); // 2-0
-						}
-
-					}
-
-				}
-			}
-		}
-
-		template.add(templateBtwAngle12);
-		template.add(templateBtwAngle23);
-		template.add(templateBtwAngle31);  // added template(4, 5, 6)
+        template.add(templateBtwAngle12);
+        template.add(templateBtwAngle23);
+        template.add(templateBtwAngle31);
 
 		return template;
 	}
@@ -1163,7 +1138,7 @@ public class Feat {
 			for (int b = 0; b<template.get(templateIdx).size(); b++) {
 				int offX = template.get(templateIdx).get(b)[0];
 				int offY = template.get(templateIdx).get(b)[1];
-				ip.setf(d/2+offX, d/2+offY, +0);
+				ip.setf(d/2+offX, d/2+offY, +128);
 			}
 		}
 //		}
