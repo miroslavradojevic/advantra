@@ -671,12 +671,12 @@ public class Feat {
 
     }
 
-	public ImageStack exportTemplate(
+	public ImageProcessor exportTemplate(
 	    double[] 	directionAngles
 	)
 	{
 
-		return plotTemplate(calculateTemplate(directionAngles));
+		return plotTemplate(directionAngles);
 
 	}
 
@@ -733,7 +733,7 @@ public class Feat {
 
 		if(proj<0){
 			// "behind" the orientation
-			return Math.sqrt(p_b[0]*p_b[0]+p_b[1]*p_b[1]);
+			return Double.MAX_VALUE;//Math.sqrt(p_b[0]*p_b[0]+p_b[1]*p_b[1]);
 		}
 
 		// || (p-b) - dot(p-b,n) * n ||
@@ -971,7 +971,8 @@ public class Feat {
 	private double 	runOne(
 									double  curr_pos,
 									int     h,
-									float[] inputProfile){
+									float[] inputProfile)
+    {
 		double 	    new_pos     = 0;
 		double 		sum 		= 0;
 
@@ -998,7 +999,7 @@ public class Feat {
 	}
 
 
-	private ArrayList<ArrayList<int[]>> calculateTemplate( // exportTemplate() uses
+	public ImageProcessor plotTemplate(
 		double[] 	directionAngles
 	)
 	{
@@ -1008,146 +1009,198 @@ public class Feat {
 
 		Arrays.sort(ap);
 
-		template.clear();
+        int size = (int) Math.ceil( Math.sqrt((double)r*(double)r+(double)diam*(double)diam) );
+        ImageProcessor ip = new ByteProcessor(size, size);
 
-		// template(0)
-		ArrayList<int[]> templateCenter = new ArrayList<int[]>();
-		for (int x = 0; x < d; x++) {
-			for (int y = 0; y < d; y++) {
+        for (int x = 0; x < size; x++) {
+            for (int y = 0; y < size; y++) {
 
-				double d2 = (x-xc)*(x-xc)+(y-yc)*(y-yc);
+                double px = x-size/2;
+                double py = -(y-size/2);
 
-				if ( d2 <= (double)rInner*(double)rInner ) {
+                for (int pIdx = 0; pIdx < 3; pIdx++) {
 
-					p[0] = x-xc;
-					p[1] = -(y-yc);
+                    double nx = (float) Math.cos(ap[pIdx]);
+                    double ny = (float) Math.sin(ap[pIdx]);
 
-					templateCenter.add(new int[]{p[0], p[1]});
+                    double dst = point2dir(rLower*nx, rLower*ny, px, py);
 
-				}
-			}
-		}
-		template.add(templateCenter);  // template(0) added
+                    if (dst<=(double)diam) {
 
-        ArrayList<int[]> templateBtwAngle12 = new ArrayList<int[]>();
-        ArrayList<int[]> templateBtwAngle23 = new ArrayList<int[]>();
-        ArrayList<int[]> templateBtwAngle31 = new ArrayList<int[]>();
+                        if (dst<=(double)diam/2) {
 
-        ArrayList<int[]> AtAngle1 = new ArrayList<int[]>();
-        ArrayList<int[]> AtAngle2 = new ArrayList<int[]>();
-        ArrayList<int[]> AtAngle3 = new ArrayList<int[]>();
-
-		for (int pIdx = 0; pIdx < 3; pIdx++) {
-
-			for (int x = 0; x < d; x++) {
-				for (int y = 0; y < d; y++) {
-
-					double d2 = (x-xc)*(x-xc)+(y-yc)*(y-yc);
-
-					if (d2 <= (double)r*(double)r && d2 >= (double)rLower*(double)rLower) {
-
-						double px = x-xc;
-						double py = -(y-yc);
-
-						double nx = (float) Math.cos(ap[pIdx]);
-						double ny = (float) Math.sin(ap[pIdx]);
-
-						//float dst = point2dir(n, p);
-                        double dst = point2dir(nx, ny, px, py);
-
-                        if (dst<=(double)diam) {
-
-                            if (dst<=(double)diam/2) { // belongs to pIdx ON peak and not filled  // && idxMapLocal[x+d*y]==0
-
-                                if (pIdx==0) {
-                                    AtAngle1.add(new int[]{x-xc, -(y-yc)});
-                                }
-                                else if (pIdx==1) {
-                                    AtAngle2.add(new int[]{x-xc, -(y-yc)});
-                                }
-                                else if (pIdx==2) {
-                                    AtAngle3.add(new int[]{x-xc, -(y-yc)});
-                                }
-
+                            if (pIdx==0) {
+                                ip.setf(x, y, +255);
                             }
-                            else {
-
-                                if (pIdx==0) {
-                                    templateBtwAngle12.add(new int[]{x-xc, -(y-yc)});
-                                }
-                                else if (pIdx==1) {
-                                    templateBtwAngle23.add(new int[]{x-xc, -(y-yc)});
-                                }
-                                else if (pIdx==2) {
-                                    templateBtwAngle31.add(new int[]{x-xc, -(y-yc)});
-                                }
-
-
+                            else if (pIdx==1) {
+                                ip.setf(x, y, +255);
+                            }
+                            else if (pIdx==2) {
+                                ip.setf(x, y, +255);
                             }
 
                         }
+                        else {
 
-					}
-				}
-			}
+                            if (pIdx==0) {
+                                ip.setf(x, y, +128);
+                            }
+                            else if (pIdx==1) {
+                                ip.setf(x, y, +128);
+                            }
+                            else if (pIdx==2) {
+                                ip.setf(x, y, +128);
+                            }
+                        }
+                    }
 
-		}
+                }
+            }
+        }
 
-        //IJ.log("---> "+AtAngle1.size()+" direction 1");
+        return ip;
 
-		template.add(AtAngle1);
-		template.add(AtAngle2);
-		template.add(AtAngle3);
 
-        template.add(templateBtwAngle12);
-        template.add(templateBtwAngle23);
-        template.add(templateBtwAngle31);
-
-		return template;
-	}
-
-	private ImageStack plotTemplate(ArrayList<ArrayList<int[]>> template) // exportTemplate() uses
-	{
-
-		ImageStack isOut = new ImageStack(d, d);
-		ImageProcessor ip = new ByteProcessor(d, d);
-
-		// inner template(0)
-		if(template.size()>0) {
-			for (int b = 0; b<template.get(0).size(); b++) {
-				int offX = template.get(0).get(b)[0];
-				int offY = template.get(0).get(b)[1];
-				ip.setf(d/2+offX, d/2+offY, +255);
-			}
-		}
-
-		// on
-		//if(template.size()>=4) {
-		for (int templateIdx=1; templateIdx<=3; templateIdx++) {
-			for (int b = 0; b<template.get(templateIdx).size(); b++) {
-				int offX = template.get(templateIdx).get(b)[0];
-				int offY = template.get(templateIdx).get(b)[1];
-				ip.setf(d/2+offX, d/2+offY, +255);
-			}
-		}
-		//}
-
-		// off
-//		if(template.size()<=7) {
-		for (int templateIdx=4; templateIdx<=6; templateIdx++) {
-			for (int b = 0; b<template.get(templateIdx).size(); b++) {
-				int offX = template.get(templateIdx).get(b)[0];
-				int offY = template.get(templateIdx).get(b)[1];
-				ip.setf(d/2+offX, d/2+offY, +128);
-			}
-		}
+//        template.clear();
+//
+//		// template(0)
+//		ArrayList<int[]> templateCenter = new ArrayList<int[]>();
+//		for (int x = 0; x < d; x++) {
+//			for (int y = 0; y < d; y++) {
+//
+//				double d2 = (x-xc)*(x-xc)+(y-yc)*(y-yc);
+//
+//				if ( d2 <= (double)rInner*(double)rInner ) {
+//
+//					p[0] = x-xc;
+//					p[1] = -(y-yc);
+//
+//					templateCenter.add(new int[]{p[0], p[1]});
+//
+//				}
+//			}
 //		}
-
-		isOut.addSlice(ip);
-
-		return isOut;
-
+//		template.add(templateCenter);  // template(0) added
+//
+//        ArrayList<int[]> templateBtwAngle12 = new ArrayList<int[]>();
+//        ArrayList<int[]> templateBtwAngle23 = new ArrayList<int[]>();
+//        ArrayList<int[]> templateBtwAngle31 = new ArrayList<int[]>();
+//
+//        ArrayList<int[]> AtAngle1 = new ArrayList<int[]>();
+//        ArrayList<int[]> AtAngle2 = new ArrayList<int[]>();
+//        ArrayList<int[]> AtAngle3 = new ArrayList<int[]>();
+//
+//		for (int pIdx = 0; pIdx < 3; pIdx++) {
+//
+//			for (int x = 0; x < d; x++) {
+//				for (int y = 0; y < d; y++) {
+//
+//					double d2 = (x-xc)*(x-xc)+(y-yc)*(y-yc);
+//
+//					if (d2 <= (double)r*(double)r && d2 >= (double)rLower*(double)rLower) {
+//
+//						double px = x-xc;
+//						double py = -(y-yc);
+//
+//						double nx = (float) Math.cos(ap[pIdx]);
+//						double ny = (float) Math.sin(ap[pIdx]);
+//
+//						//float dst = point2dir(n, p);
+//                        double dst = point2dir(nx, ny, px, py);
+//
+//                        if (dst<=(double)diam) {
+//
+//                            if (dst<=(double)diam/2) { // belongs to pIdx ON peak and not filled  // && idxMapLocal[x+d*y]==0
+//
+//                                if (pIdx==0) {
+//                                    AtAngle1.add(new int[]{x-xc, -(y-yc)});
+//                                }
+//                                else if (pIdx==1) {
+//                                    AtAngle2.add(new int[]{x-xc, -(y-yc)});
+//                                }
+//                                else if (pIdx==2) {
+//                                    AtAngle3.add(new int[]{x-xc, -(y-yc)});
+//                                }
+//
+//                            }
+//                            else {
+//
+//                                if (pIdx==0) {
+//                                    templateBtwAngle12.add(new int[]{x-xc, -(y-yc)});
+//                                }
+//                                else if (pIdx==1) {
+//                                    templateBtwAngle23.add(new int[]{x-xc, -(y-yc)});
+//                                }
+//                                else if (pIdx==2) {
+//                                    templateBtwAngle31.add(new int[]{x-xc, -(y-yc)});
+//                                }
+//
+//
+//                            }
+//
+//                        }
+//
+//					}
+//				}
+//			}
+//
+//		}
+//
+//        //IJ.log("---> "+AtAngle1.size()+" direction 1");
+//
+//		template.add(AtAngle1);
+//		template.add(AtAngle2);
+//		template.add(AtAngle3);
+//
+//        template.add(templateBtwAngle12);
+//        template.add(templateBtwAngle23);
+//        template.add(templateBtwAngle31);
+//
+//		return template;
 	}
+
+//	private ImageStack plotTemplate(ArrayList<ArrayList<int[]>> template) // exportTemplate() uses
+//	{
+//
+//		ImageStack isOut = new ImageStack(d, d);
+//		ImageProcessor ip = new ByteProcessor(d, d);
+//
+//		// inner template(0)
+//		if(template.size()>0) {
+//			for (int b = 0; b<template.get(0).size(); b++) {
+//				int offX = template.get(0).get(b)[0];
+//				int offY = template.get(0).get(b)[1];
+//				ip.setf(d/2+offX, d/2+offY, +255);
+//			}
+//		}
+//
+//		// on
+//		//if(template.size()>=4) {
+//		for (int templateIdx=1; templateIdx<=3; templateIdx++) {
+//			for (int b = 0; b<template.get(templateIdx).size(); b++) {
+//				int offX = template.get(templateIdx).get(b)[0];
+//				int offY = template.get(templateIdx).get(b)[1];
+//				ip.setf(d/2+offX, d/2+offY, +255);
+//			}
+//		}
+//		//}
+//
+//		// off
+////		if(template.size()<=7) {
+//		for (int templateIdx=4; templateIdx<=6; templateIdx++) {
+//			for (int b = 0; b<template.get(templateIdx).size(); b++) {
+//				int offX = template.get(templateIdx).get(b)[0];
+//				int offY = template.get(templateIdx).get(b)[1];
+//				ip.setf(d/2+offX, d/2+offY, +128);
+//			}
+//		}
+////		}
+//
+//		isOut.addSlice(ip);
+//
+//		return isOut;
+//
+//	}
 
     private static double wrap_PI(
         double in
