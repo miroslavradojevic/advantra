@@ -103,9 +103,7 @@ public class ExtractPatches implements PlugInFilter, MouseListener, ActionListen
 		
 		// extract hessian eigen values and eigen vectors for different scales
 		Image im = new FloatImage(Image.wrap(img));
-		
 		Dimensions dims 		= im.dimensions();
-		
 		Dimensions new_dims 	= new Dimensions(img.getWidth(), img.getHeight(), s.length);
 		
 		L1scales = new FloatImage(new_dims); L1scales.axes(Axes.X);
