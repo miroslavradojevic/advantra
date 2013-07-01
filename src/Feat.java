@@ -745,6 +745,52 @@ public class Feat {
 		return Math.sqrt(p_b[0]*p_b[0]+p_b[1]*p_b[1]);
 	}
 
+	private double 	point2line(
+									   double n1x, 		// limit
+									   double n1y,
+
+									   double n2x, 		// limit
+									   double n2y,
+
+									   double px,        // point considered
+									   double py
+	)
+	{
+		// line is defined with n1 and n2
+
+		float d = 0;
+
+		double[] p_b = new double[2];
+
+		// p - b
+		p_b[0] = px;// - b[0];
+		p_b[1] = py;// - b[1];
+
+		double[] n = new double[2];
+		double nLen = Math.sqrt(Math.pow(n2x-n1x,2)+Math.pow(n2y-n1y,2));
+		n[0] = (n2x-n1x)/nLen;
+		n[1] = (n2y-n1y)/nLen;
+
+		double proj = (p_b[0] - n2x) * (n1x-n2x) + (p_b[1] - n2y) * (n1y-n2y);
+		if(proj<0){
+			return Double.MAX_VALUE;
+		}
+
+		proj = (p_b[0] - n1x) * n[0] + (p_b[1] - n1y) * n[1];
+		if(proj<0){
+			return Double.MAX_VALUE;
+		}
+
+		//IJ.log("nLen: "+nLen+" -> "+n[0]+","+n[1]+" proj: "+proj);
+
+		p_b[0] = p_b[0] - n1x - proj * n[0];
+		p_b[1] = p_b[1] - n1y - proj * n[1];
+
+//		distance_from_line = vectorNorm(distance_2d);
+
+		return Math.sqrt(p_b[0]*p_b[0]+p_b[1]*p_b[1]);
+	}
+
 	private double[] runMS(
 								  double[] 	start,
 								  float[] 	inputProfile,
@@ -1009,7 +1055,29 @@ public class Feat {
 
 		Arrays.sort(ap);
 
-        int size = (int) Math.ceil( Math.sqrt((double)r*(double)r+(double)diam*(double)diam) );
+		// directions 3x2
+		double[][] n1 = new double[3][2];
+		double[][] n2 = new double[3][2];
+
+		n1[0][0] = rLower * (float) Math.cos(ap[0]);
+		n1[0][1] = rLower * (float) Math.sin(ap[0]);
+
+		n2[0][0] = r * (float) Math.cos(ap[0]);
+		n2[0][1] = r * (float) Math.sin(ap[0]);
+
+		n1[1][0] = rLower * (float) Math.cos(ap[1]);
+		n1[1][1] = rLower * (float) Math.sin(ap[1]);
+
+		n2[1][0] = r * (float) Math.cos(ap[1]);
+		n2[1][1] = r * (float) Math.sin(ap[1]);
+
+		n1[2][0] = rLower * (float) Math.cos(ap[2]);
+		n1[2][1] = rLower * (float) Math.sin(ap[2]);
+
+		n2[2][0] = r * (float) Math.cos(ap[2]);
+		n2[2][1] = r * (float) Math.sin(ap[2]);
+
+		int size = (int) Math.ceil( 2*Math.sqrt((double)r*(double)r+(double)diam*(double)diam) );
         ImageProcessor ip = new ByteProcessor(size, size);
 
         for (int x = 0; x < size; x++) {
@@ -1020,14 +1088,20 @@ public class Feat {
 
                 for (int pIdx = 0; pIdx < 3; pIdx++) {
 
-                    double nx = (float) Math.cos(ap[pIdx]);
-                    double ny = (float) Math.sin(ap[pIdx]);
+//                    double n1x = rLower * (float) Math.cos(ap[pIdx]);
+//                    double n1y = rLower * (float) Math.sin(ap[pIdx]);
+//
+//					double n2x = r * (float) Math.cos(ap[pIdx]);
+//					double n2y = r * (float) Math.sin(ap[pIdx]);
 
-                    double dst = point2dir(rLower*nx, rLower*ny, px, py);
+//					double nxOrt = -ny;
+//					double nyOrt =  nx;
 
-                    if (dst<=(double)diam) {
+                    double dst = point2line(n1[pIdx][0], n1[pIdx][1], n2[pIdx][0], n2[pIdx][1], px, py);
 
-                        if (dst<=(double)diam/2) {
+                    if (dst<(double)diam) {
+
+                        if (dst<(double)diam/2) {
 
                             if (pIdx==0) {
                                 ip.setf(x, y, +255);
@@ -1052,6 +1126,7 @@ public class Feat {
                                 ip.setf(x, y, +128);
                             }
                         }
+
                     }
 
                 }

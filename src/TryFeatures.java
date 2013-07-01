@@ -48,7 +48,7 @@ public class TryFeatures implements PlugInFilter, MouseListener {
 		f= new Feat(t, scale);
 
 		//new ImagePlus("offsets",f.plotOffsets()).show();
-		new ImagePlus("pattern", f.plotTemplate(new double[]{0, 0, 0})).show();
+		new ImagePlus("pattern", f.plotTemplate(new double[]{0, (1/2)*Math.PI, (1/2)*Math.PI})).show();
 
         inimg.show();
 
