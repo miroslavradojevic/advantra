@@ -65,4 +65,50 @@ public class Tools {
         return tif_train;
     }
 
+    public static void extractMoments2D(
+            float[][]   patchin,
+            double[]    center,
+            double[]    theta
+    )
+    {
+
+        // moments[0] = centroid(x)
+        // moments[1] = centroid(y)
+        // moments[2] = central_moment(x,x)
+        // moments[3] = central_moment(y,y)
+        // moments[4] = central_moment(x,y)
+
+        double M00  = 0;
+        double M10  = 0;
+        double M01  = 0;
+        double M11  = 0;
+        double M20  = 0;
+        double M02 	= 0;
+
+        // 1st order... - M10, M01,...  2nd order mu11, mu20, mu02 etc...
+        // image_coordinates has to be 2xN where rows 1..2 are coords
+        // image_values      has to be 1xN and contains image intensities
+
+        for (int i = 0; i < patchin.length; i++) {
+            for (int j = 0; j < patchin[0].length; j++) {
+                M00 += patchin[i][j];
+                M10 += patchin[i][j] * i;
+                M01 += patchin[i][j] * j;
+                M11 += patchin[i][j] * i * j;
+                M20 += patchin[i][j] * i * i;
+                M02 += patchin[i][j] * j * j;
+            }
+        }
+        // first centroids
+        center[0] = M10 / M00; // centroid(x), mi10
+        center[1] = M01 / M00; // centroid(y), mi01
+        // second central moments
+        double mu11 = M11/M00 - center[0]*center[1]; // central_moment(x,y)
+        double mu20 = M20/M00 - center[0]*center[0]; // central_moment(x,x)
+        double mu02 = M02/M00 - center[1]*center[1]; // central_moment(y,y)
+
+        theta[0] = 0.5 * Math.atan((2*mu11)/(mu20-mu02));
+
+    }
+
 }

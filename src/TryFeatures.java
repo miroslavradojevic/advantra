@@ -1,8 +1,7 @@
 import ij.IJ;
 import ij.ImagePlus;
-import ij.gui.GenericDialog;
-import ij.gui.ImageCanvas;
-import ij.gui.Plot;
+import ij.ImageStack;
+import ij.gui.*;
 import ij.plugin.PlugIn;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ByteProcessor;
@@ -13,6 +12,8 @@ import java.awt.*;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.io.*;
+import java.util.ArrayList;
+import java.util.Arrays;
 
 /**
  * Created with IntelliJ IDEA.
@@ -27,7 +28,7 @@ public class TryFeatures implements PlugInFilter, MouseListener {
     String      inimgPath;
     String      confFile;
 
-	Feat f;
+	ArrayList<Feat> f;
 
     public void run(ImageProcessor imageProcessor)
 	{
@@ -36,19 +37,25 @@ public class TryFeatures implements PlugInFilter, MouseListener {
         double  scale   = 2.0;
         double  D       = 10;
 
-        GenericDialog gd = new GenericDialog("Fit Features");
+/*        GenericDialog gd = new GenericDialog("Fit Features");
         gd.addMessage("feature parameters");
         gd.addNumericField("neuron diameter", t, 0, 5, "pix");
         gd.addNumericField("check range radius", scale, 1, 5, "x diameter");
         gd.showDialog();
         if (gd.wasCanceled()) return;
 		t 		=  	(int)gd.getNextNumber();
-        scale   =   gd.getNextNumber();
+        scale   =   gd.getNextNumber();*/
 
-		f= new Feat(t, scale);
+		f= new ArrayList<Feat>();
+        f.add(new Feat(3, 1.5));
+        f.add(new Feat(3, 2.0));
+        f.add(new Feat(3, 3.0));
+        f.add(new Feat(4, 1.5));
+        f.add(new Feat(4, 2.0));
+        f.add(new Feat(4, 3.0));
 
 		//new ImagePlus("offsets",f.plotOffsets()).show();
-		new ImagePlus("pattern", f.plotTemplate(new double[]{0, (1/2)*Math.PI, (1/2)*Math.PI})).show();
+		//new ImagePlus("pattern", f.plotTemplate(new double[]{0, (1f/2)*Math.PI, (2f/2)*Math.PI})).show();
 
         inimg.show();
 
@@ -77,136 +84,112 @@ public class TryFeatures implements PlugInFilter, MouseListener {
 
 		FloatProcessor inip = (FloatProcessor) inimg.getProcessor().duplicate(); // make it possible to cast here  (FloatProcessor)
 
-		//f.plotIntegResponse(atX, atY, inip);
+        Overlay msOverlay = new Overlay();
+        ImageStack isPlot;
+        ImageProcessor ipPlot;
 
-		long t1, t2;
-		t1 = System.currentTimeMillis();
-        ImageProcessor ipPlot = f.getAngles(atX, atY, inip, true);
-		t2 = System.currentTimeMillis();
+        ipPlot = f.get(0).getAngles(atX, atY, inip, true);
+        if (f.get(0).ap!=null) {
+            PointRoi p;
+            for (int q=0; q<3; q++) {
+                p = new PointRoi(
+                        atX+0.5*(f.get(0).r+f.get(0).rInner)*Math.cos(f.get(0).ap[q])+0.5,
+                        atY+0.5*(f.get(0).r+f.get(0).rInner)*Math.sin(f.get(0).ap[q])+0.5);
+                msOverlay.add(p);
+            }
+        }
 
-		profileImg.setProcessor(ipPlot);
+        isPlot = new ImageStack(ipPlot.getWidth(), ipPlot.getHeight());
+        isPlot.addSlice(ipPlot);
+
+        for (int fIdx = 1; fIdx<f.size(); fIdx++) {
+
+            ipPlot = f.get(fIdx).getAngles(atX, atY, inip, true);
+            if (f.get(fIdx).ap!=null) {
+                PointRoi p;
+                for (int q=0; q<3; q++) {
+                    p = new PointRoi(
+                            atX+0.5*(f.get(fIdx).r+f.get(fIdx).rInner)*Math.cos(f.get(fIdx).ap[q])+0.5,
+                            atY+0.5*(f.get(fIdx).r+f.get(fIdx).rInner)*Math.sin(f.get(fIdx).ap[q])+0.5);
+                    p.setStrokeColor(Color.BLUE);
+                    msOverlay.add(p);
+                }
+            }
+            isPlot.addSlice(ipPlot);
+
+        }
+
+        inimg.setOverlay(msOverlay);
+
+
+		profileImg.setStack(isPlot);
 		profileImg.updateAndDraw();
 		profileImg.show();
 
-		IJ.log("\nextracted angles in "+((float)(t2-t1))+" msec.");
+//		if (f.ap!=null) {
+//			IJ.log("final angles:");
+//			for (int g = 0; g<f.ap.length; g++) {
+//				IJ.log("angle"+g+" > "+(f.ap[g]*(360f/((float)Math.PI*2)))+" degrees");
+//			}
+//		}
 
-		if (f.ap!=null) {
-			IJ.log("final angles:");
-			for (int g = 0; g<f.ap.length; g++) {
-				IJ.log("angle"+g+" > "+(f.ap[g]*(360f/((float)Math.PI*2)))+" degrees");
-			}
-		}
+		//f.regionScores(atX, atY, inip, f.ap, true);  // true means that it will add locations to Overlay() if there are enough directions
 
-		t1 = System.currentTimeMillis();
-		f.regionScores(atX, atY, inip, f.ap);
-		t2 = System.currentTimeMillis();
-		IJ.log("extracted features in "+((float)(t2-t1))+" msec.");
+        //inimg.setOverlay(f.ov);
 
-		if (f.ap!=null) {
-			IJ.log("ap (sorted) angles:");
-			for (int g = 0; g<f.ap.length; g++) {
-				IJ.log("angle"+g+" > "+(f.ap[g]*(360f/((float)Math.PI*2)))+" degrees");
-			}
-		}
-
-        double aA0 = (f.nA0>0)? (f.A0/f.nA0) : Double.NaN;
-		IJ.log("A0 : "+f.A0+" ("+f.nA0+"), "+IJ.d2s(aA0, 1));
-
-		IJ.log("---");
-
-        double aA1 = (f.nA1>0)? (f.A1/f.nA1) : Double.NaN;
-        IJ.log("A1 : "+f.A1+" ("+f.nA1+"),"+IJ.d2s(aA1, 1));
-        double aA2 = (f.nA2>0)? (f.A2/f.nA2) : Double.NaN;
-		IJ.log("A2 : "+f.A2+" ("+f.nA2+"),"+IJ.d2s(aA2, 1));
-        double aA3 = (f.nA3>0)? (f.A3/f.nA3) : Double.NaN;
-		IJ.log("A3 : "+f.A3+" ("+f.nA3+"),"+IJ.d2s(aA3, 1));
-
-        IJ.log("---");
-
-        double aB1 = (f.nB1>0)? (f.B1/f.nB1) : Double.NaN;
-        IJ.log("B1 : "+f.B1+" ("+f.nB1+"),"+IJ.d2s((f.nB1>0)? (f.B1/f.nB1) : Double.NaN, 1));
-        double aB2 = (f.nB2>0)? (f.B2/f.nB2) : Double.NaN;
-		IJ.log("B2 : "+f.B2+" ("+f.nB2+"),"+IJ.d2s((f.nB2>0)? (f.B2/f.nB2) : Double.NaN, 1));
-        double aB3 = (f.nB3>0)? (f.B3/f.nB3) : Double.NaN;
-		IJ.log("B3 : "+f.B3+" ("+f.nB3+"),"+IJ.d2s((f.nB3>0)? (f.B3/f.nB3) : Double.NaN, 1));
+//		if (f.ap!=null) {
+//			IJ.log("ap (sorted) angles:");
+//			for (int g = 0; g<f.ap.length; g++) {
+//				IJ.log("angle"+g+" > "+(f.ap[g]*(360f/((float)Math.PI*2)))+" degrees");
+//			}
+//		}
 
 
 
-		IJ.log("---");
-        double ev0  = aA0-aB1;
-        double ev1  = aA0-aB2;
-        double ev2  = aA0-aB3;
-
-        double ev3  = aA1-aB1;
-        double ev4  = aA2-aB2;
-        double ev5  = aA3-aB3;
-
-//		double ev6  = aA2-aB1;
-//        double ev7  = aA3-aB3; //(aA3>aB3)? ((aA3-aB3)/aA3) : 0;
-//        double ev8  = aA3-aB2; //(aA3>aB2)? ((aA3-aB2)/aA3) : 0;
-
-        String printEvidences = ""+IJ.d2s(ev0, 3)+" , "+IJ.d2s(ev1, 3)+" , "+IJ.d2s(ev2, 3)+" , "+
-                IJ.d2s(ev3, 3)+" , "+IJ.d2s(ev4, 3)+" , "+
-                IJ.d2s(ev5, 3);
-//										+" , "+IJ.d2s(ev6, 1);
-//		+" , "+
-//                IJ.d2s(ev7, 1)+" , "+IJ.d2s(ev8, 1);
-
-        IJ.log(printEvidences);
-
-        // append line
+        // append line to output file (features to be used)
         try {
             PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(confFile, true)));
-            out.println(printEvidences);
+            out.println("nothing...");
             out.close();
         } catch (IOException e1) {
             //oh noes!
         }
 
-		boolean showFeatures = false;
-		if (showFeatures && f.ap!=null) {
+/*        if (f.ap!=null && f.ap.length>=3) {
 
-			double[] ang_x = new double[9];
-            double[] ang_y = new double[9];
+//            ImagePlus templateFit = new ImagePlus("template", f.plotTemplate(f.ap));//   //  // new double[]{0, 0.5*Math.PI, Math.PI}
+//			templateFit.show();
+//            IJ.selectWindow("inimg");
+//            IJ.run("Add Image...", "image=template x="+(atX-templateFit.getWidth()/2)+" y="+(atY-templateFit.getHeight()/2)+" opacity=50");
+//			templateFit.close();
 
-            for (int i=0; i<9; i++) {
-                ang_x[i] = i;
+            // calculate the moments for each patch and show
+            double[] c = new double[2];
+            double[] th = new double[1];
+            Overlay ovPtch = new Overlay();
+
+            for (int dir=0; dir<3; dir++) {
+
+                Tools.extractMoments2D(f.patches3[dir], c, th);
+                IJ.log("cen: "+Arrays.toString(c)+" theta: "+Arrays.toString(th));
+                PointRoi p = new PointRoi(c[0]+0.5, c[1]+0.5);
+                p.setStrokeColor(Color.RED);
+                p.setPosition(dir+1);
+                ovPtch.add(p);
+                Line l = new Line(c[0]+0.5, c[1]+0.5, c[0]+0.5+5*Math.sin(th[0]),  c[1]+0.5+5*(-1)*Math.cos(th[0]));
+                l.setStrokeColor(Color.YELLOW);
+                l.setPosition(dir+1);
+                ovPtch.add(l);
+
             }
 
-			ang_y[0]   = ev0;
-            ang_y[1]   = ev1;
-            ang_y[2]   = ev2;
-            ang_y[3]   = ev3;
-            ang_y[4]   = ev4;
-            ang_y[5]   = ev5;
-//            ang_y[6]   = ev6;
-//            ang_y[7]   = ev7;
-//            ang_y[8]   = ev8;
-
-			Plot p = new Plot("", "", "", ang_x, ang_y);
-			p.draw();
-			p.setColor(Color.RED);
-			p.addPoints(ang_x, ang_y, Plot.BOX);
-			p.show();
-
-		}
-
-        if (f.ap.length>=3) {
-
-            ImagePlus templateFit = new ImagePlus("template", f.exportTemplate(f.ap));
-			templateFit.show();
-            IJ.selectWindow("inimg");
-            IJ.run("Add Image...", "image=template x="+(atX-templateFit.getWidth()/2)+" y="+(atY-templateFit.getHeight()/2)+" opacity=50");
-			templateFit.close();
-
-            /*
             ImagePlus showC;
-            showC = new ImagePlus("feature.template", f.exportTemplate(angs));
+            showC = new ImagePlus("ptchs", f.showRegionPatches());
+            showC.setOverlay(ovPtch);
             showC.show();
             for (int q=0; q<5; q++) showC.getCanvas().zoomIn(0, 0);
-            */
 
-		}
+		}*/
 
 		IJ.selectWindow("inimg");
 

@@ -1,7 +1,10 @@
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
+import ij.gui.OvalRoi;
+import ij.gui.Overlay;
 import ij.gui.Plot;
+import ij.gui.PointRoi;
 import ij.process.ByteProcessor;
 import ij.process.ColorProcessor;
 import ij.process.FloatProcessor;
@@ -32,11 +35,10 @@ public class Feat {
 	public int          rInner;
 	public int          rLower;
 
-	int					resolDeg;// = 10;
+	int					resolDeg;
 	int					h;
 
-	ArrayList<ArrayList<int[]>> template;
-
+	//ArrayList<ArrayList<int[]>> template;
 	ArrayList<ArrayList<double[]>> offsetsReal;
 
 	float[] sumsPerOrt;
@@ -52,17 +54,20 @@ public class Feat {
     double[]    start;
 
     // mean-shift
-    int Niter   = 100;
+    int Niter   = 150;
     double eps  = 0.001;
     double minD = 0.5;
-    int M       = 1;
-    float Kpts  = 1.5f;
+    int M       = 2;
+    float Kpts  = 2.0f;
 
     // features used
-    double A0=0, A1=0, A2=0, A3=0, B1=0, B2=0, B3=0;
-    int nA0=0, nA1=0, nA2=0, nA3=0, nB1=0, nB2=0, nB3=0;
+//    double A0=0, A1=0, A2=0, A3=0, B1=0, B2=0, B3=0;
+//    int nA0=0, nA1=0, nA2=0, nA3=0, nB1=0, nB2=0, nB3=0;
 	double[] 	ap;
-	double[] feats;
+    float[][][] patches3;// 3 x Size x Size
+    float[][]   cents3; // 3 x 2 (cx, cy)
+    float[][]   dirct3; // 3 x 2 (vx, vy)
+    Overlay ov;
 
 	public Feat(
 	    int diam,
@@ -78,8 +83,8 @@ public class Feat {
 		resolDeg = (int) ( Math.round( ( 2*Math.asin(1f/(2 * scale))*(1f/4) / TwoPI) * 360 ) );
 		resolDeg = (resolDeg>=1)? resolDeg : 1;
 
-		rInner = diam/2;
-		rLower = 3;//(int) Math.round(r/2.0); // (1.0*scale) // 2*scale at max
+		rInner = diam;
+		rLower = diam/2;
 
 		double  angStep     = 2 * Math.asin((float)diam/(2*r));
 		int     angStepDeg  = (int) Math.round( ((angStep/(2*Math.PI))*360) );
@@ -93,7 +98,11 @@ public class Feat {
 		n = new float[2];
 		p = new int[2];
 		ap 	= new double[3];
-		feats = new double[9];
+
+        patches3 = new float[3][this.diam*2*2][(r-rInner+1)*2];
+        cents3 = new float[3][2];
+        dirct3 = new float[3][2];
+        ov = new Overlay();
 
 		// form the list of offsets
 		//offsets = new ArrayList<ArrayList<int[]>>();
@@ -134,7 +143,7 @@ public class Feat {
 
 		}
 
-		template = new ArrayList<ArrayList<int[]>>(7); // nrPeaks+1
+//		template = new ArrayList<ArrayList<int[]>>(7); // nrPeaks+1
 		//templateReal = new ArrayList<ArrayList<double[]>>(7);
 
 		sumsPerOrt  = new float[offsetsReal.size()];
@@ -148,7 +157,7 @@ public class Feat {
 
 	}
 
-    public ImageStack plotOffsets()
+    public ImageStack plotOffsets()   // output Overlay here
 	{
         ImageStack isOut = new ImageStack(d, d);
 
@@ -215,21 +224,23 @@ public class Feat {
         }
 
         if (cls.size()==1) {
-            anglesDirections = new double[1];
-            anglesDirections[0] = (cls.get(0)[0]+.0f) * (double)resolDeg;
-            anglesDirections[0] = (anglesDirections[0] * (TwoPI/360));
-            anglesDirections[0] = wrap_0_2PI(anglesDirections[0]);
+            anglesDirections = null;
+//            anglesDirections = new double[1];
+//            anglesDirections[0] = (cls.get(0)[0]+.0f) * (double)resolDeg;
+//            anglesDirections[0] = (anglesDirections[0] * (TwoPI/360));
+//            anglesDirections[0] = wrap_0_2PI(anglesDirections[0]);
         }
 
         if (cls.size()==2) {
-            anglesDirections = new double[2];
-            anglesDirections[0] = (cls.get(0)[0]+.0f) * (double)resolDeg;
-            anglesDirections[0] = (anglesDirections[0] * (TwoPI/360));
-            anglesDirections[0] = wrap_0_2PI(anglesDirections[0]);
-
-            anglesDirections[1] = (cls.get(1)[0]+.0f) * (double)resolDeg;
-            anglesDirections[1] = (anglesDirections[1] * (TwoPI/360));
-            anglesDirections[1] = wrap_0_2PI(anglesDirections[1]);
+            anglesDirections = null;
+//            anglesDirections = new double[2];
+//            anglesDirections[0] = (cls.get(0)[0]+.0f) * (double)resolDeg;
+//            anglesDirections[0] = (anglesDirections[0] * (TwoPI/360));
+//            anglesDirections[0] = wrap_0_2PI(anglesDirections[0]);
+//
+//            anglesDirections[1] = (cls.get(1)[0]+.0f) * (double)resolDeg;
+//            anglesDirections[1] = (anglesDirections[1] * (TwoPI/360));
+//            anglesDirections[1] = wrap_0_2PI(anglesDirections[1]);
         }
 
         if (cls.size()==3) {
@@ -286,11 +297,15 @@ public class Feat {
 			ap = null;
 		}
 		else {
-			for (int pIdx = 0; pIdx < anglesDirections.length; pIdx++)
-				ap[pIdx] = anglesDirections[pIdx];
-		}
 
-		Arrays.sort(ap);
+            if(ap==null) ap = new double[3];
+
+            for (int pIdx = 0; pIdx < anglesDirections.length; pIdx++) {
+				ap[pIdx] = anglesDirections[pIdx];
+            }
+
+            Arrays.sort(ap);
+		}
 
 		Plot p = null;
 
@@ -357,11 +372,10 @@ public class Feat {
 
 
             }
-			//p.show();
 
         }
 
-        if (p==null) {
+        if (p==null) { // print was false
             return null;
         }
         else {
@@ -404,272 +418,277 @@ public class Feat {
 		int             atX,
 		int             atY,
 		FloatProcessor  inip,
-		double[] 		angs
+		double[] 		angs,
+        boolean         returnLocations
 	)
 	{
-
-        A0 = A1 = A2 = A3 =     nA0 = nA1 = nA2 = nA3   = 0;
-        B1 = B2 = B3 =          nB1 = nB2 = nB3         = 0;
 
 		if (angs!=null && angs.length>=3) {   // return 0 otherwise
 
 			for (int pIdx = 0; pIdx < 3; pIdx++)
 				ap[pIdx] = angs[pIdx];
 
-			Arrays.sort(ap);
+            // directions 3x2
+            double[][] n1 = new double[3][2];
+            double[][] n2 = new double[3][2];
+            double[][] nVec     = new double[3][2];
+            double[][] nVecOrt  = new double[3][2];
 
-			// real version
-			for (double x = 0; x < d; x+=step) {
-				for (double y = 0; y < d; y+=step) {
+            for (int dir=0; dir<3; dir++) {
 
-					double d2 = (x-xc)*(x-xc)+(y-yc)*(y-yc);
+                n1[dir][0] = rLower * (float) Math.cos(ap[dir]);
+                n1[dir][1] = rLower * (-1) * (float) Math.sin(ap[dir]);
 
-					double px = x-xc;
-					double py = -(y-yc);
+                n2[dir][0] = r * (float) Math.cos(ap[dir]);
+                n2[dir][1] = r * (-1) * (float) Math.sin(ap[dir]);
 
-					if (d2 <= r*r && d2 >= rLower*rLower) {
+                nVec[dir][0] = Math.cos(ap[dir]);
+                nVec[dir][1] = Math.sin(ap[dir]);
 
-						boolean isON = false;
+                nVecOrt[dir][0] = -nVec[dir][1];
+                nVecOrt[dir][1] = nVec[dir][0];
 
-						for (int pIdx = 0; pIdx < 3; pIdx++) {
+            }
 
-							//double ang = angs[pIdx];
+            // extrapolate locations around and score
+            // use patches 3
 
-							double nx = (float) Math.cos(ap[pIdx]);
-							double ny = (float) Math.sin(ap[pIdx]);
+            if (returnLocations) {
+                ov.clear();
+                ov.add(new PointRoi(atX+0.5, atY+0.5));
+            }
 
-							double dst = point2dir(nx, ny, px, py);
+            for (int dir = 0; dir<3; dir++) {
+                double startX = atX + r*nVec[dir][0] - diam*nVecOrt[dir][0]+0.5;
+                double startY = atY + r*nVec[dir][1] - diam*nVecOrt[dir][1]+0.5;
+                for (int row = 0; row<patches3[dir].length; row++) {
+                    for (int col = 0; col<patches3[dir][0].length; col++) {
 
-                            if (dst<=(double)diam) {
+                        double locX = startX+row*0.5*nVecOrt[dir][0]-col*0.5*nVec[dir][0];
+                        double locY = startY+row*0.5*nVecOrt[dir][1]-col*0.5*nVec[dir][1];
 
-                                if (dst<=(double)diam/2) {
+                        if (returnLocations) {
+                            ov.add(new PointRoi(locX+0.5, locY+0.5));
+                        }
 
-                                    if (pIdx==0) {
-                                        A1 += Interpolator.interpolateAt(atX+px, atY+py, inip);
-                                        nA1++;
-                                    }
-                                    else if (pIdx==1) {
-                                        A2 += Interpolator.interpolateAt(atX+px, atY+py, inip);
-                                        nA2++;
-                                    }
-                                    else if (pIdx==2) {
-                                        A3 += Interpolator.interpolateAt(atX+px, atY+py, inip);
-                                        nA3++;
-                                    }
+                        patches3[dir][row][col] = Interpolator.interpolateAt(locX, locY, inip);
 
-                                }
-                                else {
+                    }
+                }
 
-                                    if (pIdx==0) {
-                                        B1 += Interpolator.interpolateAt(atX+px, atY+py, inip);
-                                        nB1++;
-                                    }
-                                    else if (pIdx==1) {
-                                        B2 += Interpolator.interpolateAt(atX+px, atY+py, inip);
-                                        nB2++;
-                                    }
-									else if (pIdx==2) {
-										B3 += Interpolator.interpolateAt(atX+px, atY+py, inip);
-										nB3++;
-									}
-
-                                }
+                // moments
 
 
-                            }
+                // scores for each patch, take the best one
 
-//							if (dst<=(double)diam/2) {
-//								isON = true;
-//								break;
-//							}
 
-						}
+            }
 
-//						if (!isON) {
+            // align patches3 (maybe)
+//            // correct the angles
+//            double dAngle = 0;
+//            for (int dir=0; dir<3; dir++) {
+//                nVec[dir][0] = nVec[dir][0]+dx;
+//                nVec[dir][1] = nVec[dir][1]+dy;
+//                nVecOrt[dir][0] = -nVec[dir][1];
+//                nVecOrt[dir][1] = nVec[dir][0];
+//            }
+//            // extract again with corrected directions
+//            for (int dir = 0; dir<3; dir++) {
+//                double startX = atX + r*nVec[dir][0] - diam*nVecOrt[dir][0]+0.5;
+//                double startY = atY + r*nVec[dir][1] - diam*nVecOrt[dir][1]+0.5;
+//                for (int row = 0; row<patches3[dir].length; row++) {
+//                    for (int col = 0; col<patches3[dir][0].length; col++) {
 //
-//							// check where it is
-//							double a = wrap_0_2PI(Math.atan2(py, px));
+//                        double locX = startX+row*0.5*nVecOrt[dir][0]-col*0.5*nVec[dir][0];
+//                        double locY = startY+row*0.5*nVecOrt[dir][1]-col*0.5*nVec[dir][1];
 //
-//							if (wrap_PI(a-ap[0])>0 && wrap_PI(a-ap[1])<=0 ) {  // 0-1
-//								B1 += Interpolator.interpolateAt(atX+px, atY+py, inip);
-//								nB1++;
-//							}
-//							else if (wrap_PI(a-ap[1])>0 && wrap_PI(a-ap[2])<=0 ) { // 1-2
-//								B2 += Interpolator.interpolateAt(atX+px, atY+py, inip);
-//								nB2++;
-//							}
-//							else {
-//								B3 += Interpolator.interpolateAt(atX+px, atY+py, inip);
-//								nB3++;
-//							}
+//                        if (returnLocations) {
+//                            ov.add(new PointRoi(locX+0.5, locY+0.5));
+//                        }
 //
-//						}
-
-					}
-					else if ( d2 <= (double)rInner*(double)rInner ) {
-
-						A0 += Interpolator.interpolateAt(atX+px, atY+py, inip);//inip.getf(atX+p[0], atY+p[1]);
-						nA0++;
-
-					}
-				}
-			}
+//                        patches3[dir][row][col] = Interpolator.interpolateAt(locX, locY, inip);
+//
+//                    }
+//                }
+//            }
 
 		}
-
-	}
-
-	public void extractFeatures(int atX, int atY, FloatProcessor  inip)
-	{
-
-		getAngles(atX, atY, inip, false);
-
-		regionScores(atX, atY, inip, ap); // forms ap, A0, A1, nA0...
-
-        double aA0 = (nA0>0)? (A0/nA0) : Double.NaN;
-        double aA1 = (nA1>0)? (A1/nA1) : Double.NaN;
-        double aA2 = (nA2>0)? (A2/nA2) : Double.NaN;
-        double aA3 = (nA3>0)? (A3/nA3) : Double.NaN;
-        double aB1 = (nB1>0)? (B1/nB1) : Double.NaN;
-        double aB2 = (nB2>0)? (B2/nB2) : Double.NaN;
-        double aB3 = (nB3>0)? (B3/nB3) : Double.NaN;
-
-        // change here!
-        feats[0] = aA0-aB1;
-        feats[1] = aA0-aB2;
-        feats[2] = aA0-aB3;
-        feats[3] = aA1-aB1;
-        feats[4] = aA1-aB3;
-        feats[5] = aA2-aB2;
-        feats[6] = aA2-aB1;
-        feats[7] = aA3-aB3;
-        feats[8] = aA3-aB2;
-
-	}
-
-    public double bifurcationess(
-        int     atX,
-        int     atY,
-        FloatProcessor  inip,
-        double D
-    )
-    {
-		getAngles(atX, atY, inip, false);
-
-        regionScores(atX, atY, inip, ap);
-
-        double avgA0   = (nA0>3)? (A0/nA0) : (Double.MIN_VALUE);
-		double avgA1   = (nA1>3)? (A1/nA1) : (Double.MIN_VALUE);
-        double avgA2   = (nA2>3)? (A2/nA2) : (Double.MIN_VALUE);
-        double avgA3   = (nA3>3)? (A3/nA3) : (Double.MIN_VALUE);
-        double avgB1   = (nB1>3)? (B1/nB1) : (Double.MAX_VALUE);
-        double avgB2   = (nB2>3)? (B2/nB2) : (Double.MAX_VALUE);
-        double avgB3   = (nB3>3)? (B3/nB3) : (Double.MAX_VALUE);
-
-		double L0 	= (3*avgA0-avgB1-avgB2-avgB3)/3;
-        L0 = (L0>0)? L0 : 0;
-
-		double L11 = (2*avgA1-avgB1-avgB3)/2;
-        L11 = (L11>0)? L11 : 0;
-		double L21 = (2*avgA2-avgB2-avgB1)/2;
-        L21 = (L21>0)? L21 : 0;
-        double L31 = (2*avgA3-avgB3-avgB1)/2;
-        L31 = (L31>0)? L31 : 0;
-
-		double U1 = (avgA1+avgA2-2*avgB1)/2;
-		U1 = (U1>0)? U1 : 0;
-		double U2 = (avgA2+avgA3-2*avgB2)/2;
-		U2 = (U2>0)? U2 : 0;
-		double U3 = (avgA3+avgA1-2*avgB3)/2;
-		U3 = (U3>0)? U3 : 0;
-
-            return 	(1-Math.exp(-L11/D)) *
-					(1-Math.exp(-L21/D)) *
-                    (1-Math.exp(-L31/D)) *
-					(1-Math.exp(-U1/D)) *
-					(1-Math.exp(-U2/D)) *
-					(1-Math.exp(-U3/D)) *
-                    (1-Math.exp(-L0/D));
-
-    }
-
-	public double bifurcationess1(
-	int     atX,
-	int     atY,
-	FloatProcessor  inip,
-	double  D,
-	double 	E
-	)
-	{
-		getAngles(atX, atY, inip, false);
-
-		regionScores(atX, atY, inip, ap);
-
-		double avgA0   = (nA0>3)? (A0/nA0) : (Double.MIN_VALUE);
-		double avgA1   = (nA1>3)? (A1/nA1) : (Double.MIN_VALUE);
-		double avgA2   = (nA2>3)? (A2/nA2) : (Double.MIN_VALUE);
-		double avgA3   = (nA3>3)? (A3/nA3) : (Double.MIN_VALUE);
-		double avgB1   = (nB1>3)? (B1/nB1) : (Double.MAX_VALUE);
-		double avgB2   = (nB2>3)? (B2/nB2) : (Double.MAX_VALUE);
-		double avgB3   = (nB3>3)? (B3/nB3) : (Double.MAX_VALUE);
-
-		double C1 	= avgA0-avgB1; C1 = (C1>0)? C1 : 0;
-		double C2 	= avgA0-avgB2; C2 = (C2>0)? C2 : 0;
-		double C3 	= avgA0-avgB3; C3 = (C3>0)? C3 : 0;
-
-		double G11 	= avgA1-avgB1; G11 = (G11>0)? G11 : 0;
-		double G12 	= avgA1-avgB3; G12 = (G12>0)? G12 : 0;
-
-		double G21 	= avgA2-avgB2; G21 = (G21>0)? G21 : 0;
-		double G22 	= avgA2-avgB1; G22 = (G22>0)? G22 : 0;
-
-		double G31 	= avgA3-avgB3; G31 = (G31>0)? G31 : 0;
-		double G32 	= avgA3-avgB2; G32 = (G32>0)? G32 : 0;
-
-		double E12	= avgA1-avgA2;
-		double E23	= avgA2-avgA3;
-		double E31	= avgA3-avgA1;
-
-		return 	(1-Math.exp(-C1/D)) *
-				(1-Math.exp(-C2/D)) *
-				(1-Math.exp(-C3/D)) *
-				(1-Math.exp(-G11/D)) *
-				(1-Math.exp(-G12/D)) *
-				(1-Math.exp(-G21/D)) *
-				(1-Math.exp(-G22/D)) *
-				(1-Math.exp(-G22/D)) *
-				(1-Math.exp(-G31/D)) *
-				(1-Math.exp(-G32/D)) *
-				Math.exp(-(E12*E12)/(2*E*E)) *
-				Math.exp(-(E23*E23)/(2*E*E)) *
-				Math.exp(-(E31*E31)/(2*E*E))
-				;
-
-	}
-
-    public ImageStack bifurcationess(
-            FloatProcessor  inip,
-            double          D
-    )
-    {
-        FloatProcessor score0 = new FloatProcessor(inip.getWidth(), inip.getHeight());
-
-        // fill the values in
-        for (int x = 0; x<inip.getWidth(); x++) {
-            for (int y = 0; y<inip.getHeight(); y++) {
-
-				double sc = bifurcationess(x, y, inip, D);
-
-				score0.setf(x, y, (float)sc);
-
+        else {
+            for (int dir = 0; dir<3; dir++) {
+                for (int row = 0; row<patches3[dir].length; row++) {
+                    for (int col = 0; col<patches3[dir][0].length; col++) {
+                        patches3[dir][row][col] = 0;
+                    }
+                }
             }
         }
 
-        ImageStack isOut = new ImageStack(inip.getWidth(), inip.getHeight());
-        isOut.addSlice(score0);
+	}
+
+    public ImageStack showRegionPatches() {
+
+        ImageStack isOut = new ImageStack(patches3[0].length, patches3[0][0].length);
+
+        for (int dir=0; dir<3; dir++) {
+            isOut.addSlice(new FloatProcessor(patches3[dir]));
+        }
+
         return isOut;
 
     }
+
+//	public void extractFeatures(int atX, int atY, FloatProcessor  inip)
+//	{
+//
+//		getAngles(atX, atY, inip, false);
+//
+//		regionScores(atX, atY, inip, ap); // forms ap, A0, A1, nA0...
+//
+//        double aA0 = (nA0>0)? (A0/nA0) : Double.NaN;
+//        double aA1 = (nA1>0)? (A1/nA1) : Double.NaN;
+//        double aA2 = (nA2>0)? (A2/nA2) : Double.NaN;
+//        double aA3 = (nA3>0)? (A3/nA3) : Double.NaN;
+//        double aB1 = (nB1>0)? (B1/nB1) : Double.NaN;
+//        double aB2 = (nB2>0)? (B2/nB2) : Double.NaN;
+//        double aB3 = (nB3>0)? (B3/nB3) : Double.NaN;
+//
+//        // change here!
+//        feats[0] = aA0-aB1;
+//        feats[1] = aA0-aB2;
+//        feats[2] = aA0-aB3;
+//        feats[3] = aA1-aB1;
+//        feats[4] = aA1-aB3;
+//        feats[5] = aA2-aB2;
+//        feats[6] = aA2-aB1;
+//        feats[7] = aA3-aB3;
+//        feats[8] = aA3-aB2;
+//
+//	}
+
+//    public double bifurcationess(
+//        int     atX,
+//        int     atY,
+//        FloatProcessor  inip,
+//        double D
+//    )
+//    {
+//		getAngles(atX, atY, inip, false);
+//
+//        regionScores(atX, atY, inip, ap);
+//
+//        double avgA0   = (nA0>3)? (A0/nA0) : (Double.MIN_VALUE);
+//		double avgA1   = (nA1>3)? (A1/nA1) : (Double.MIN_VALUE);
+//        double avgA2   = (nA2>3)? (A2/nA2) : (Double.MIN_VALUE);
+//        double avgA3   = (nA3>3)? (A3/nA3) : (Double.MIN_VALUE);
+//        double avgB1   = (nB1>3)? (B1/nB1) : (Double.MAX_VALUE);
+//        double avgB2   = (nB2>3)? (B2/nB2) : (Double.MAX_VALUE);
+//        double avgB3   = (nB3>3)? (B3/nB3) : (Double.MAX_VALUE);
+//
+//		double L0 	= (3*avgA0-avgB1-avgB2-avgB3)/3;
+//        L0 = (L0>0)? L0 : 0;
+//
+//		double L11 = (2*avgA1-avgB1-avgB3)/2;
+//        L11 = (L11>0)? L11 : 0;
+//		double L21 = (2*avgA2-avgB2-avgB1)/2;
+//        L21 = (L21>0)? L21 : 0;
+//        double L31 = (2*avgA3-avgB3-avgB1)/2;
+//        L31 = (L31>0)? L31 : 0;
+//
+//		double U1 = (avgA1+avgA2-2*avgB1)/2;
+//		U1 = (U1>0)? U1 : 0;
+//		double U2 = (avgA2+avgA3-2*avgB2)/2;
+//		U2 = (U2>0)? U2 : 0;
+//		double U3 = (avgA3+avgA1-2*avgB3)/2;
+//		U3 = (U3>0)? U3 : 0;
+//
+//            return 	(1-Math.exp(-L11/D)) *
+//					(1-Math.exp(-L21/D)) *
+//                    (1-Math.exp(-L31/D)) *
+//					(1-Math.exp(-U1/D)) *
+//					(1-Math.exp(-U2/D)) *
+//					(1-Math.exp(-U3/D)) *
+//                    (1-Math.exp(-L0/D));
+//
+//    }
+
+//	public double bifurcationess1(
+//	int     atX,
+//	int     atY,
+//	FloatProcessor  inip,
+//	double  D,
+//	double 	E
+//	)
+//	{
+//		getAngles(atX, atY, inip, false);
+//
+//		regionScores(atX, atY, inip, ap);
+//
+//		double avgA0   = (nA0>3)? (A0/nA0) : (Double.MIN_VALUE);
+//		double avgA1   = (nA1>3)? (A1/nA1) : (Double.MIN_VALUE);
+//		double avgA2   = (nA2>3)? (A2/nA2) : (Double.MIN_VALUE);
+//		double avgA3   = (nA3>3)? (A3/nA3) : (Double.MIN_VALUE);
+//		double avgB1   = (nB1>3)? (B1/nB1) : (Double.MAX_VALUE);
+//		double avgB2   = (nB2>3)? (B2/nB2) : (Double.MAX_VALUE);
+//		double avgB3   = (nB3>3)? (B3/nB3) : (Double.MAX_VALUE);
+//
+//		double C1 	= avgA0-avgB1; C1 = (C1>0)? C1 : 0;
+//		double C2 	= avgA0-avgB2; C2 = (C2>0)? C2 : 0;
+//		double C3 	= avgA0-avgB3; C3 = (C3>0)? C3 : 0;
+//
+//		double G11 	= avgA1-avgB1; G11 = (G11>0)? G11 : 0;
+//		double G12 	= avgA1-avgB3; G12 = (G12>0)? G12 : 0;
+//
+//		double G21 	= avgA2-avgB2; G21 = (G21>0)? G21 : 0;
+//		double G22 	= avgA2-avgB1; G22 = (G22>0)? G22 : 0;
+//
+//		double G31 	= avgA3-avgB3; G31 = (G31>0)? G31 : 0;
+//		double G32 	= avgA3-avgB2; G32 = (G32>0)? G32 : 0;
+//
+//		double E12	= avgA1-avgA2;
+//		double E23	= avgA2-avgA3;
+//		double E31	= avgA3-avgA1;
+//
+//		return 	(1-Math.exp(-C1/D)) *
+//				(1-Math.exp(-C2/D)) *
+//				(1-Math.exp(-C3/D)) *
+//				(1-Math.exp(-G11/D)) *
+//				(1-Math.exp(-G12/D)) *
+//				(1-Math.exp(-G21/D)) *
+//				(1-Math.exp(-G22/D)) *
+//				(1-Math.exp(-G22/D)) *
+//				(1-Math.exp(-G31/D)) *
+//				(1-Math.exp(-G32/D)) *
+//				Math.exp(-(E12*E12)/(2*E*E)) *
+//				Math.exp(-(E23*E23)/(2*E*E)) *
+//				Math.exp(-(E31*E31)/(2*E*E))
+//				;
+//
+//	}
+
+//    public ImageStack bifurcationess(
+//            FloatProcessor  inip,
+//            double          D
+//    )
+//    {
+//        FloatProcessor score0 = new FloatProcessor(inip.getWidth(), inip.getHeight());
+//
+//        // fill the values in
+//        for (int x = 0; x<inip.getWidth(); x++) {
+//            for (int y = 0; y<inip.getHeight(); y++) {
+//
+//				double sc = bifurcationess(x, y, inip, D);
+//
+//				score0.setf(x, y, (float)sc);
+//
+//            }
+//        }
+//
+//        ImageStack isOut = new ImageStack(inip.getWidth(), inip.getHeight());
+//        isOut.addSlice(score0);
+//        return isOut;
+//
+//    }
 
 	public ImageProcessor exportTemplate(
 	    double[] 	directionAngles
@@ -680,37 +699,6 @@ public class Feat {
 
 	}
 
-
-	private float 	point2dir(
-									  float[] n, 		// direction vector
-									  int[] 	p     	// point considered
-	)
-	{
-		// line is in vector from b in n direction
-
-		float d = 0;
-
-		float[] p_b = new float[2];
-
-		// p - b
-		p_b[0] = p[0];// - b[0];
-		p_b[1] = p[1];// - b[1];
-
-		float proj = p_b[0] * n[0] + p_b[1] * n[1];
-
-		if(proj<0){
-			// "behind" the orientation
-			return (float) Math.sqrt(p_b[0]*p_b[0]+p_b[1]*p_b[1]);
-		}
-
-		// || (p-b) - dot(p-b,n) * n ||
-		p_b[0] = p_b[0] - proj * n[0];
-		p_b[1] = p_b[1] - proj * n[1];
-
-//		distance_from_line = vectorNorm(distance_2d);
-
-		return (float) Math.sqrt(p_b[0]*p_b[0]+p_b[1]*p_b[1]);
-	}
 
 	private double 	point2dir(
 									  double nx, 		// direction vector
@@ -1050,8 +1038,9 @@ public class Feat {
 	)
 	{
 		// form the template elements
-		for (int pIdx = 0; pIdx < 3; pIdx++)
+		for (int pIdx = 0; pIdx < 3; pIdx++) {
 			ap[pIdx] = directionAngles[pIdx];
+        }
 
 		Arrays.sort(ap);
 
@@ -1060,22 +1049,22 @@ public class Feat {
 		double[][] n2 = new double[3][2];
 
 		n1[0][0] = rLower * (float) Math.cos(ap[0]);
-		n1[0][1] = rLower * (float) Math.sin(ap[0]);
+		n1[0][1] = rLower * (-1) * (float) Math.sin(ap[0]);
 
 		n2[0][0] = r * (float) Math.cos(ap[0]);
-		n2[0][1] = r * (float) Math.sin(ap[0]);
+		n2[0][1] = r * (-1) * (float) Math.sin(ap[0]);
 
 		n1[1][0] = rLower * (float) Math.cos(ap[1]);
-		n1[1][1] = rLower * (float) Math.sin(ap[1]);
+		n1[1][1] = rLower * (-1) * (float) Math.sin(ap[1]);
 
 		n2[1][0] = r * (float) Math.cos(ap[1]);
-		n2[1][1] = r * (float) Math.sin(ap[1]);
+		n2[1][1] = r * (-1) * (float) Math.sin(ap[1]);
 
 		n1[2][0] = rLower * (float) Math.cos(ap[2]);
-		n1[2][1] = rLower * (float) Math.sin(ap[2]);
+		n1[2][1] = rLower * (-1) * (float) Math.sin(ap[2]);
 
 		n2[2][0] = r * (float) Math.cos(ap[2]);
-		n2[2][1] = r * (float) Math.sin(ap[2]);
+		n2[2][1] = r * (-1) * (float) Math.sin(ap[2]);
 
 		int size = (int) Math.ceil( 2*Math.sqrt((double)r*(double)r+(double)diam*(double)diam) );
         ImageProcessor ip = new ByteProcessor(size, size);
@@ -1083,8 +1072,8 @@ public class Feat {
         for (int x = 0; x < size; x++) {
             for (int y = 0; y < size; y++) {
 
-                double px = x-size/2;
-                double py = -(y-size/2);
+                double px = x-size/2+0.5;
+                double py = -(y-size/2+0.5);
 
                 for (int pIdx = 0; pIdx < 3; pIdx++) {
 
