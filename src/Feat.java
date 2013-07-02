@@ -385,6 +385,94 @@ public class Feat {
 
 	}
 
+	public String extractFeatures(
+		int atX,
+		int atY,
+		FloatProcessor inip
+	)
+	{
+		String featString = "";
+
+		getAngles(atX, atY, inip, false);
+
+		if (ap!=null) {
+
+			for (int q=0; q<3; q++) {
+
+				double rd = 0.5*(r+rInner);
+				double nx = Math.cos(ap[q]);
+				double ny = Math.sin(ap[q]);
+
+				double px = atX+rd*nx;
+				double py = atY+rd*ny;
+
+				featString += ", "+IJ.d2s(px,2)+", "+IJ.d2s(py,2)+", "+Interpolator.interpolateAt(px, py, inip);
+
+				double px1 = atX+rd*nx+diam*(-ny);
+				double py1 = atY+rd*ny+diam*  nx ;
+
+				featString += ", "+Interpolator.interpolateAt(px1, py1, inip);
+
+				double px2 = atX+rd*nx-diam*(-ny);
+				double py2 = atY+rd*ny-diam*  nx ;
+
+				featString += ", "+Interpolator.interpolateAt(px2, py2, inip);
+
+			}
+		}
+
+		return featString;
+
+//		for (int fIdx = 1; fIdx<f.size(); fIdx++) {
+//
+//			ipPlot = f.get(fIdx).getAngles(atX, atY, inip, true);
+//
+//			if (f.get(fIdx).ap!=null) {
+//
+//				cnt++;
+//
+//				PointRoi p;
+//				for (int q=0; q<3; q++) {
+//
+//					double rd = 0.5*(f.get(fIdx).r+f.get(fIdx).rInner);
+//					double nx = Math.cos(f.get(fIdx).ap[q]);
+//					double ny = Math.sin(f.get(fIdx).ap[q]);
+//
+//					double px = atX+rd*nx;
+//					double py = atY+rd*ny;
+//
+//					featString += ", "+IJ.d2s(px,2)+", "+IJ.d2s(py,2)+", "+Interpolator.interpolateAt(px, py, inip);
+//
+//					p = new PointRoi(px+0.5, py+0.5);
+//					p.setStrokeColor(Color.BLUE);
+//					msOverlay.add(p);
+//
+//					double px1 = atX+rd*nx+border*(-ny);
+//					double py1 = atY+rd*ny+border*  nx ;
+//
+//					featString += ", "+Interpolator.interpolateAt(px1, py1, inip);
+//
+//					p = new PointRoi(px1+0.5, py1+0.5);
+//					p.setStrokeColor(Color.RED);
+//					msOverlay.add(p);
+//
+//					double px2 = atX+rd*nx-border*(-ny);
+//					double py2 = atY+rd*ny-border*  nx;
+//
+//					featString += ", "+Interpolator.interpolateAt(px2, py2, inip);
+//
+//					p = new PointRoi(px2+0.5,py2+0.5);
+//					p.setStrokeColor(Color.RED);
+//
+//					msOverlay.add(p);
+//				}
+//			}
+//			isPlot.addSlice(ipPlot);
+//
+//		}
+
+	}
+
     public void plotIntegResponse(
             int             atX,
             int             atY,

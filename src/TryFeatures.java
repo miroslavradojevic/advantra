@@ -26,9 +26,10 @@ public class TryFeatures implements PlugInFilter, MouseListener {
     ImagePlus   inimg;
 	ImagePlus 	profileImg;
     String      inimgPath;
-    String      confFile;
+    String      confFile = "feats.csv";
 
 	ArrayList<Feat> f;
+	double border = 4;
 
     public void run(ImageProcessor imageProcessor)
 	{
@@ -37,14 +38,16 @@ public class TryFeatures implements PlugInFilter, MouseListener {
         double  scale   = 2.0;
         double  D       = 10;
 
-/*        GenericDialog gd = new GenericDialog("Fit Features");
+		/*
+		GenericDialog gd = new GenericDialog("Fit Features");
         gd.addMessage("feature parameters");
         gd.addNumericField("neuron diameter", t, 0, 5, "pix");
         gd.addNumericField("check range radius", scale, 1, 5, "x diameter");
         gd.showDialog();
         if (gd.wasCanceled()) return;
 		t 		=  	(int)gd.getNextNumber();
-        scale   =   gd.getNextNumber();*/
+        scale   =   gd.getNextNumber();
+        */
 
 		f= new ArrayList<Feat>();
         f.add(new Feat(3, 1.5));
@@ -61,7 +64,7 @@ public class TryFeatures implements PlugInFilter, MouseListener {
 
         inimg.getCanvas().addMouseListener(this);
 
-        confFile = "current.conf";
+		// to empty the file
         PrintWriter writer = null;
         try {
             writer = new PrintWriter(confFile);
@@ -82,20 +85,56 @@ public class TryFeatures implements PlugInFilter, MouseListener {
         int atX = 	srcCanv.offScreenX(e.getX());
 		int atY = 	srcCanv.offScreenY(e.getY());
 
+		String featString = ""+IJ.d2s(atX, 0)+", "+IJ.d2s(atY, 0)+"\t";
+
 		FloatProcessor inip = (FloatProcessor) inimg.getProcessor().duplicate(); // make it possible to cast here  (FloatProcessor)
 
         Overlay msOverlay = new Overlay();
         ImageStack isPlot;
         ImageProcessor ipPlot;
 
+		int cnt = 0;
+
         ipPlot = f.get(0).getAngles(atX, atY, inip, true);
+
         if (f.get(0).ap!=null) {
+
+			cnt++;
+
             PointRoi p;
             for (int q=0; q<3; q++) {
-                p = new PointRoi(
-                        atX+0.5*(f.get(0).r+f.get(0).rInner)*Math.cos(f.get(0).ap[q])+0.5,
-                        atY+0.5*(f.get(0).r+f.get(0).rInner)*Math.sin(f.get(0).ap[q])+0.5);
+
+				double rd = 0.5*(f.get(0).r+f.get(0).rInner);
+				double nx = Math.cos(f.get(0).ap[q]);
+				double ny = Math.sin(f.get(0).ap[q]);
+
+				double px = atX+rd*nx;
+				double py = atY+rd*ny;
+
+				featString += ", "+IJ.d2s(px,2)+", "+IJ.d2s(py,2)+", "+Interpolator.interpolateAt(px, py, inip);
+
+                p = new PointRoi(px+0.5, py+0.5);
                 msOverlay.add(p);
+
+				double px1 = atX+rd*nx+border*(-ny);
+				double py1 = atY+rd*ny+border*  nx ;
+
+				featString += ", "+Interpolator.interpolateAt(px1, py1, inip);
+
+				p = new PointRoi(px1+0.5, py1+0.5);
+				p.setStrokeColor(Color.RED);
+				msOverlay.add(p);
+
+				double px2 = atX+rd*nx-border*(-ny);
+				double py2 = atY+rd*ny-border*  nx;
+
+				featString += ", "+Interpolator.interpolateAt(px2, py2, inip);
+
+				p = new PointRoi(px2+0.5, py2+0.5);
+				p.setStrokeColor(Color.RED);
+
+				msOverlay.add(p);
+
             }
         }
 
@@ -105,13 +144,44 @@ public class TryFeatures implements PlugInFilter, MouseListener {
         for (int fIdx = 1; fIdx<f.size(); fIdx++) {
 
             ipPlot = f.get(fIdx).getAngles(atX, atY, inip, true);
+
             if (f.get(fIdx).ap!=null) {
+
+				cnt++;
+
                 PointRoi p;
                 for (int q=0; q<3; q++) {
-                    p = new PointRoi(
-                            atX+0.5*(f.get(fIdx).r+f.get(fIdx).rInner)*Math.cos(f.get(fIdx).ap[q])+0.5,
-                            atY+0.5*(f.get(fIdx).r+f.get(fIdx).rInner)*Math.sin(f.get(fIdx).ap[q])+0.5);
+
+					double rd = 0.5*(f.get(fIdx).r+f.get(fIdx).rInner);
+					double nx = Math.cos(f.get(fIdx).ap[q]);
+					double ny = Math.sin(f.get(fIdx).ap[q]);
+
+					double px = atX+rd*nx;
+					double py = atY+rd*ny;
+
+					featString += ", "+IJ.d2s(px,2)+", "+IJ.d2s(py,2)+", "+Interpolator.interpolateAt(px, py, inip);
+
+                    p = new PointRoi(px+0.5, py+0.5);
                     p.setStrokeColor(Color.BLUE);
+					msOverlay.add(p);
+
+					double px1 = atX+rd*nx+border*(-ny);
+					double py1 = atY+rd*ny+border*  nx ;
+
+					featString += ", "+Interpolator.interpolateAt(px1, py1, inip);
+
+					p = new PointRoi(px1+0.5, py1+0.5);
+					p.setStrokeColor(Color.RED);
+					msOverlay.add(p);
+
+					double px2 = atX+rd*nx-border*(-ny);
+					double py2 = atY+rd*ny-border*  nx;
+
+					featString += ", "+Interpolator.interpolateAt(px2, py2, inip);
+
+					p = new PointRoi(px2+0.5,py2+0.5);
+					p.setStrokeColor(Color.RED);
+
                     msOverlay.add(p);
                 }
             }
@@ -119,12 +189,24 @@ public class TryFeatures implements PlugInFilter, MouseListener {
 
         }
 
-        inimg.setOverlay(msOverlay);
+		if (cnt>=2) { // at least 2 points to make any estimate
 
+			inimg.setOverlay(msOverlay);
+			// append line to output file (features to be used)
+			try {
+				PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(confFile, true)));
+				out.println(""+featString+"");
+				out.close();
+			} catch (IOException e1) {}
+
+		}
 
 		profileImg.setStack(isPlot);
 		profileImg.updateAndDraw();
 		profileImg.show();
+
+
+		IJ.selectWindow("inimg");
 
 //		if (f.ap!=null) {
 //			IJ.log("final angles:");
@@ -132,29 +214,14 @@ public class TryFeatures implements PlugInFilter, MouseListener {
 //				IJ.log("angle"+g+" > "+(f.ap[g]*(360f/((float)Math.PI*2)))+" degrees");
 //			}
 //		}
-
 		//f.regionScores(atX, atY, inip, f.ap, true);  // true means that it will add locations to Overlay() if there are enough directions
-
         //inimg.setOverlay(f.ov);
-
 //		if (f.ap!=null) {
 //			IJ.log("ap (sorted) angles:");
 //			for (int g = 0; g<f.ap.length; g++) {
 //				IJ.log("angle"+g+" > "+(f.ap[g]*(360f/((float)Math.PI*2)))+" degrees");
 //			}
 //		}
-
-
-
-        // append line to output file (features to be used)
-        try {
-            PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(confFile, true)));
-            out.println("nothing...");
-            out.close();
-        } catch (IOException e1) {
-            //oh noes!
-        }
-
 /*        if (f.ap!=null && f.ap.length>=3) {
 
 //            ImagePlus templateFit = new ImagePlus("template", f.plotTemplate(f.ap));//   //  // new double[]{0, 0.5*Math.PI, Math.PI}
@@ -190,8 +257,6 @@ public class TryFeatures implements PlugInFilter, MouseListener {
             for (int q=0; q<5; q++) showC.getCanvas().zoomIn(0, 0);
 
 		}*/
-
-		IJ.selectWindow("inimg");
 
     }
 
