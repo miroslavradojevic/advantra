@@ -54,19 +54,22 @@ public class Feat {
     double[]    start;
 
     // mean-shift
-    int Niter   = 150;
+    int Niter   = 100;
     double eps  = 0.001;
     double minD = 0.5;
     int M       = 2;
-    float Kpts  = 2.0f;
+    float Kpts  = 1.0f;
 
     // features used
 //    double A0=0, A1=0, A2=0, A3=0, B1=0, B2=0, B3=0;
 //    int nA0=0, nA1=0, nA2=0, nA3=0, nB1=0, nB2=0, nB3=0;
 	double[] 	ap;
+    double[]    sum;
+
     float[][][] patches3;// 3 x Size x Size
     float[][]   cents3; // 3 x 2 (cx, cy)
     float[][]   dirct3; // 3 x 2 (vx, vy)
+
     Overlay ov;
 
 	public Feat(
@@ -98,6 +101,7 @@ public class Feat {
 		n = new float[2];
 		p = new int[2];
 		ap 	= new double[3];
+        sum = new double[3];
 
         patches3 = new float[3][this.diam*2*2][(r-rInner+1)*2];
         cents3 = new float[3][2];
@@ -119,19 +123,20 @@ public class Feat {
 
 					double d2 = (x-xc)*(x-xc)+(y-yc)*(y-yc);
 
-					if (d2 <= r*r && Math.floor(d2) >= rLower*rLower) {
+					if (d2 <= (double)r*(double)r && Math.floor(d2) >= (double)rInner*(double)rInner) {
 
 						double px = x-xc;
 						double py = -(y-yc);
 
-						double nx = (float) Math.cos(aRad);
-						double ny = (float) Math.sin(aRad);
+						double nx = Math.cos(aRad);
+						double ny = Math.sin(aRad);
 
 						double dst = point2dir(nx, ny, px, py);
 
-						if (dst<=diam/2) { // belongs to pIdx ON peak and not filled
+						if (dst<=(double)diam/2) { // belongs to pIdx ON peak and not filled
 
 							offsetsAngleReal.add(new double[]{px, py});
+
 
 						}
 
@@ -139,12 +144,26 @@ public class Feat {
 				}
 			}
 
+
+
 			offsetsReal.add(offsetsAngleReal);
+
+
+
 
 		}
 
-//		template = new ArrayList<ArrayList<int[]>>(7); // nrPeaks+1
-		//templateReal = new ArrayList<ArrayList<double[]>>(7);
+//        IJ.log("start");
+//
+//        for (int i=0; i<3; i++) {
+//            for (int j = 0; j<offsetsReal.get(i).size(); j++) {
+//                IJ.log(i+", "+offsetsReal.get(i).get(j)[0]+", "+offsetsReal.get(i).get(j)[1]+"\n");
+//            }
+//
+//        }
+//
+//        IJ.log("done");
+
 
 		sumsPerOrt  = new float[offsetsReal.size()];
 
@@ -182,7 +201,7 @@ public class Feat {
 
     }
 
-	public  ImageProcessor getAngles(
+	public  ImageProcessor getAngles(  // outputs ap and sum
         int             atX,
         int             atY,
         FloatProcessor  inip,
@@ -198,9 +217,10 @@ public class Feat {
 			return null;
 		}
 
-        for (int v = 0; v<sumsPerOrt.length; v++) sumsPerOrt[v] = 0;     // reset
+        //for (int v = 0; v<sumsPerOrt.length; v++) sumsPerOrt[v] = 0;     // reset
 
 		for (int d = 0; d<offsetsReal.size(); d++) {
+            sumsPerOrt[d] = 0;
 			for (int l = 0; l<offsetsReal.get(d).size(); l++) {
 				sumsPerOrt[d] += Interpolator.interpolateAt(
 					atX+offsetsReal.get(d).get(l)[0],
@@ -208,6 +228,7 @@ public class Feat {
 					inip
 				);
 			}
+            sumsPerOrt[d] /= offsetsReal.get(d).size();
 		}
 
 		double[] finish;
@@ -216,52 +237,43 @@ public class Feat {
 
         Vector<double[]> cls = extractClusters(finish, minD, M);
 
-        double[] anglesDirections = null;
-        boolean[] checked = new boolean[cls.size()]; // all to false
-
-        if (cls.size()<=0) {
-            anglesDirections = null;
-        }
-
-        if (cls.size()==1) {
-            anglesDirections = null;
-//            anglesDirections = new double[1];
-//            anglesDirections[0] = (cls.get(0)[0]+.0f) * (double)resolDeg;
-//            anglesDirections[0] = (anglesDirections[0] * (TwoPI/360));
-//            anglesDirections[0] = wrap_0_2PI(anglesDirections[0]);
-        }
-
-        if (cls.size()==2) {
-            anglesDirections = null;
-//            anglesDirections = new double[2];
-//            anglesDirections[0] = (cls.get(0)[0]+.0f) * (double)resolDeg;
-//            anglesDirections[0] = (anglesDirections[0] * (TwoPI/360));
-//            anglesDirections[0] = wrap_0_2PI(anglesDirections[0]);
-//
-//            anglesDirections[1] = (cls.get(1)[0]+.0f) * (double)resolDeg;
-//            anglesDirections[1] = (anglesDirections[1] * (TwoPI/360));
-//            anglesDirections[1] = wrap_0_2PI(anglesDirections[1]);
+        if (cls.size()<=2) {
+            ap = null;
+            sum = null;
         }
 
         if (cls.size()==3) {
-            anglesDirections = new double[3];
-            anglesDirections[0] = (cls.get(0)[0]+.0f) * (double)resolDeg;
-            anglesDirections[0] = (anglesDirections[0] * (TwoPI/360));
-            anglesDirections[0] = wrap_0_2PI(anglesDirections[0]);
 
-            anglesDirections[1] = (cls.get(1)[0]+.0f) * (double)resolDeg;
-            anglesDirections[1] = (anglesDirections[1] * (TwoPI/360));
-            anglesDirections[1] = wrap_0_2PI(anglesDirections[1]);
+            if(ap==null) ap = new double[3];
+            if(sum==null) sum = new double[3];
 
-            anglesDirections[2] = (cls.get(2)[0]+.0f) * (double)resolDeg;
-            anglesDirections[2] = (anglesDirections[2] * (TwoPI/360));
-            anglesDirections[2] = wrap_0_2PI(anglesDirections[2]);
+            ap[0] = (cls.get(0)[0]+.0f) * (double)resolDeg;
+            ap[0] = (ap[0] * (TwoPI/360));
+            ap[0] = wrap_0_2PI(ap[0]);
+
+            sum[0] = interp1Darray(cls.get(0)[0], sumsPerOrt); // better value there
+
+            ap[1] = (cls.get(1)[0]+.0f) * (double)resolDeg;
+            ap[1] = (ap[1] * (TwoPI/360));
+            ap[1] = wrap_0_2PI(ap[1]);
+
+            sum[1] = interp1Darray(cls.get(1)[0], sumsPerOrt);
+
+            ap[2] = (cls.get(2)[0]+.0f) * (double)resolDeg;
+            ap[2] = (ap[2] * (TwoPI/360));
+            ap[2] = wrap_0_2PI(ap[2]);
+
+            sum[2] = interp1Darray(cls.get(2)[0], sumsPerOrt);
+
         }
 
-        if (cls.size()>=3) {
+        boolean[] checked = new boolean[cls.size()]; // all to false
+
+        if (cls.size()>3) {
 
             // extract 3 angles with most convergence points
-            anglesDirections = new double[3];
+            if(ap==null) ap = new double[3];
+            if(sum==null) sum = new double[3];
 
             // find top 3
             for (int k = 0; k<3; k++) {
@@ -285,25 +297,17 @@ public class Feat {
 
                 checked[currMaxIdx] = true;
                 // set the output value
-                anglesDirections[k] = (cls.get(currMaxIdx)[0]) * (double)resolDeg;
-                anglesDirections[k] = (anglesDirections[k] * (TwoPI/360));
-                anglesDirections[k] = wrap_0_2PI(anglesDirections[k]);
+                ap[k] = (cls.get(currMaxIdx)[0]) * (double)resolDeg;
+                ap[k] = (ap[k] * (TwoPI/360));
+                ap[k] = wrap_0_2PI(ap[k]);
+
+                sum[k] = interp1Darray(cls.get(currMaxIdx)[0], sumsPerOrt);
 
             }
 
         }
 
-		if (anglesDirections==null) {
-			ap = null;
-		}
-		else {
-
-            if(ap==null) ap = new double[3];
-
-            for (int pIdx = 0; pIdx < anglesDirections.length; pIdx++) {
-				ap[pIdx] = anglesDirections[pIdx];
-            }
-
+		if (ap!=null) {
             Arrays.sort(ap);
 		}
 
@@ -312,11 +316,14 @@ public class Feat {
         if (print) {
 
             // find peaks - initialize start points for ms iterations
+
             double[] plotStart = new double[start.length];
             double[] plotFinish = new double[finish.length];
 
             for (int i=0; i<plotStart.length; i++)
                 plotStart[i]=interp1Darray(start[i], sumsPerOrt);
+
+            IJ.log("plotting... "+cls.size()+ " clusters found ");
 
             for (int i=0; i<plotFinish.length; i++)
                 plotFinish[i]=interp1Darray(finish[i], sumsPerOrt);
@@ -360,7 +367,7 @@ public class Feat {
 
                 for (int k=0; k<cls.size(); k++) {
 
-                    if (checked[k]) {
+                    if (checked[k] || cls.size()==3) {
                         cluster[cnt] = cls.get(k)[0];
                         plotCluster[cnt] = interp1Darray(cls.get(k)[0], sumsPerOrt);
                         cnt++;
@@ -369,7 +376,6 @@ public class Feat {
                 }
                 p.setColor(Color.RED);
                 p.addPoints(cluster, plotCluster, Plot.BOX);
-
 
             }
 
@@ -385,17 +391,17 @@ public class Feat {
 
 	}
 
-	public String extractFeatures(
+	public double[] extractConvPointsAndIntensities(
 		int atX,
 		int atY,
 		FloatProcessor inip
 	)
 	{
-		String featString = "";
-
 		getAngles(atX, atY, inip, false);
 
 		if (ap!=null) {
+
+            double[] out = new double[15];
 
 			for (int q=0; q<3; q++) {
 
@@ -406,70 +412,28 @@ public class Feat {
 				double px = atX+rd*nx;
 				double py = atY+rd*ny;
 
-				featString += ", "+IJ.d2s(px,2)+", "+IJ.d2s(py,2)+", "+Interpolator.interpolateAt(px, py, inip);
+                out[5*q+0] = px;
+                out[5*q+1] = py;
+                out[5*q+2] = Interpolator.interpolateAt(px, py, inip);
 
 				double px1 = atX+rd*nx+diam*(-ny);
 				double py1 = atY+rd*ny+diam*  nx ;
 
-				featString += ", "+Interpolator.interpolateAt(px1, py1, inip);
+                out[5*q+3] = Interpolator.interpolateAt(px1, py1, inip);
 
 				double px2 = atX+rd*nx-diam*(-ny);
 				double py2 = atY+rd*ny-diam*  nx ;
 
-				featString += ", "+Interpolator.interpolateAt(px2, py2, inip);
+                out[5*q+4] = Interpolator.interpolateAt(px2, py2, inip);
 
 			}
+
+            return out;
+
 		}
-
-		return featString;
-
-//		for (int fIdx = 1; fIdx<f.size(); fIdx++) {
-//
-//			ipPlot = f.get(fIdx).getAngles(atX, atY, inip, true);
-//
-//			if (f.get(fIdx).ap!=null) {
-//
-//				cnt++;
-//
-//				PointRoi p;
-//				for (int q=0; q<3; q++) {
-//
-//					double rd = 0.5*(f.get(fIdx).r+f.get(fIdx).rInner);
-//					double nx = Math.cos(f.get(fIdx).ap[q]);
-//					double ny = Math.sin(f.get(fIdx).ap[q]);
-//
-//					double px = atX+rd*nx;
-//					double py = atY+rd*ny;
-//
-//					featString += ", "+IJ.d2s(px,2)+", "+IJ.d2s(py,2)+", "+Interpolator.interpolateAt(px, py, inip);
-//
-//					p = new PointRoi(px+0.5, py+0.5);
-//					p.setStrokeColor(Color.BLUE);
-//					msOverlay.add(p);
-//
-//					double px1 = atX+rd*nx+border*(-ny);
-//					double py1 = atY+rd*ny+border*  nx ;
-//
-//					featString += ", "+Interpolator.interpolateAt(px1, py1, inip);
-//
-//					p = new PointRoi(px1+0.5, py1+0.5);
-//					p.setStrokeColor(Color.RED);
-//					msOverlay.add(p);
-//
-//					double px2 = atX+rd*nx-border*(-ny);
-//					double py2 = atY+rd*ny-border*  nx;
-//
-//					featString += ", "+Interpolator.interpolateAt(px2, py2, inip);
-//
-//					p = new PointRoi(px2+0.5,py2+0.5);
-//					p.setStrokeColor(Color.RED);
-//
-//					msOverlay.add(p);
-//				}
-//			}
-//			isPlot.addSlice(ipPlot);
-//
-//		}
+        else {
+            return null;
+        }
 
 	}
 
@@ -626,31 +590,13 @@ public class Feat {
 
     }
 
-//	public void extractFeatures(int atX, int atY, FloatProcessor  inip)
+//	public void extractPeakIntegralSums(int atX, int atY, FloatProcessor  inip)
 //	{
 //
-//		getAngles(atX, atY, inip, false);
+//		getAngles(atX, atY, inip, false);   // gives out ap and integral sums at points of convergence
+//        if (ap!=null && sum!=null) {
 //
-//		regionScores(atX, atY, inip, ap); // forms ap, A0, A1, nA0...
-//
-//        double aA0 = (nA0>0)? (A0/nA0) : Double.NaN;
-//        double aA1 = (nA1>0)? (A1/nA1) : Double.NaN;
-//        double aA2 = (nA2>0)? (A2/nA2) : Double.NaN;
-//        double aA3 = (nA3>0)? (A3/nA3) : Double.NaN;
-//        double aB1 = (nB1>0)? (B1/nB1) : Double.NaN;
-//        double aB2 = (nB2>0)? (B2/nB2) : Double.NaN;
-//        double aB3 = (nB3>0)? (B3/nB3) : Double.NaN;
-//
-//        // change here!
-//        feats[0] = aA0-aB1;
-//        feats[1] = aA0-aB2;
-//        feats[2] = aA0-aB3;
-//        feats[3] = aA1-aB1;
-//        feats[4] = aA1-aB3;
-//        feats[5] = aA2-aB2;
-//        feats[6] = aA2-aB1;
-//        feats[7] = aA3-aB3;
-//        feats[8] = aA3-aB2;
+//        }
 //
 //	}
 
@@ -1068,7 +1014,7 @@ public class Feat {
 										float[] inarray
 	)
 	{
-
+//        IJ.log("x = "+x);
 		int wth = inarray.length;
 
 		// x is a real position of a pixel in an image
@@ -1080,10 +1026,12 @@ public class Feat {
 		int p12 = (int) Math.ceil(x);
 		// bilinear coeffs a,b
 		double a = ((p12 -p11)>0)?(x-p11)/(p12-p11) : 0.5;
+//        IJ.log("a = "+a);
 		// wrap cols of surrounding pts
 		p11 = (p11<-0.5)? p11+wth : ((p11>=wth-0.5)?(p11-wth) : p11);
 		p12 = (p12<-0.5)? p12+wth : ((p12>=wth-0.5)?(p12-wth) : p12);
 
+//        IJ.log("p11 = "+p11+" , p12 = "+p12);
 		double I11 = inarray[p11];
 		double I12 = inarray[p12];
 

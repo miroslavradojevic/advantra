@@ -86,6 +86,7 @@ public class TryFeatures implements PlugInFilter, MouseListener {
 		int atY = 	srcCanv.offScreenY(e.getY());
 
 		String featString = ""+IJ.d2s(atX, 0)+", "+IJ.d2s(atY, 0)+"\t";
+        String peakSumsString = "";
 
 		FloatProcessor inip = (FloatProcessor) inimg.getProcessor().duplicate(); // make it possible to cast here  (FloatProcessor)
 
@@ -96,6 +97,8 @@ public class TryFeatures implements PlugInFilter, MouseListener {
 		int cnt = 0;
 
         ipPlot = f.get(0).getAngles(atX, atY, inip, true);
+
+        if (f.get(0).sum!=null) peakSumsString += IJ.d2s(f.get(0).sum[0], 1)+",  "+IJ.d2s(f.get(0).sum[1], 1)+", "+IJ.d2s(f.get(0).sum[2], 1);
 
         if (f.get(0).ap!=null) {
 
@@ -145,6 +148,8 @@ public class TryFeatures implements PlugInFilter, MouseListener {
 
             ipPlot = f.get(fIdx).getAngles(atX, atY, inip, true);
 
+            if (f.get(fIdx).sum!=null) peakSumsString += ", "+IJ.d2s(f.get(fIdx).sum[0], 1)+",  "+IJ.d2s(f.get(fIdx).sum[1], 1)+", "+IJ.d2s(f.get(fIdx).sum[2], 1);
+
             if (f.get(fIdx).ap!=null) {
 
 				cnt++;
@@ -185,7 +190,7 @@ public class TryFeatures implements PlugInFilter, MouseListener {
                     msOverlay.add(p);
                 }
             }
-            isPlot.addSlice(ipPlot);
+            if (ipPlot!=null) isPlot.addSlice(ipPlot);
 
         }
 
@@ -198,6 +203,8 @@ public class TryFeatures implements PlugInFilter, MouseListener {
 				out.println(""+featString+"");
 				out.close();
 			} catch (IOException e1) {}
+
+            IJ.log("pks: "+peakSumsString);
 
 		}
 
