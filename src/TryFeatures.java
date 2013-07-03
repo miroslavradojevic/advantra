@@ -50,12 +50,12 @@ public class TryFeatures implements PlugInFilter, MouseListener {
         */
 
 		f= new ArrayList<Feat>();
-        f.add(new Feat(3, 1.5));
         f.add(new Feat(3, 2.0));
+        f.add(new Feat(3, 2.5));
         f.add(new Feat(3, 3.0));
-        f.add(new Feat(4, 1.5));
-        f.add(new Feat(4, 2.0));
-        f.add(new Feat(4, 3.0));
+        f.add(new Feat(3, 3.5));
+//        f.add(new Feat(4, 2.0));
+//        f.add(new Feat(4, 3.0));
 
 		//new ImagePlus("offsets",f.plotOffsets()).show();
 		//new ImagePlus("pattern", f.plotTemplate(new double[]{0, (1f/2)*Math.PI, (2f/2)*Math.PI})).show();
@@ -63,6 +63,10 @@ public class TryFeatures implements PlugInFilter, MouseListener {
         inimg.show();
 
         inimg.getCanvas().addMouseListener(this);
+
+        inimg.getCanvas().zoomIn(0,0);
+        inimg.getCanvas().zoomIn(0,0);
+        inimg.getCanvas().zoomIn(0,0);
 
 		// to empty the file
         PrintWriter writer = null;
@@ -75,6 +79,8 @@ public class TryFeatures implements PlugInFilter, MouseListener {
         writer.close();
 
 		profileImg = new ImagePlus();
+
+        IJ.setTool("hand");
 
     }
 
@@ -107,34 +113,29 @@ public class TryFeatures implements PlugInFilter, MouseListener {
             PointRoi p;
             for (int q=0; q<3; q++) {
 
-				double rd = 0.5*(f.get(0).r+f.get(0).rInner);
-				double nx = Math.cos(f.get(0).ap[q]);
-				double ny = Math.sin(f.get(0).ap[q]);
+//				double rd = 0.5*(f.get(0).r+f.get(0).rInner);
+//				double nx = Math.cos(f.get(0).ap[q]);
+//				double ny = Math.sin(f.get(0).ap[q]);
+//
+//				double px = atX+rd*nx;
+//				double py = atY+rd*ny;
 
-				double px = atX+rd*nx;
-				double py = atY+rd*ny;
+//				featString += ", "+IJ.d2s(px,2)+", "+IJ.d2s(py,2)+", "+Interpolator.interpolateAt(px, py, inip);
 
-				featString += ", "+IJ.d2s(px,2)+", "+IJ.d2s(py,2)+", "+Interpolator.interpolateAt(px, py, inip);
-
-                p = new PointRoi(px+0.5, py+0.5);
+                p = new PointRoi(f.get(0).lp[q][0]+0.5, f.get(0).lp[q][1]+0.5);
                 msOverlay.add(p);
 
-				double px1 = atX+rd*nx+border*(-ny);
-				double py1 = atY+rd*ny+border*  nx ;
-
-				featString += ", "+Interpolator.interpolateAt(px1, py1, inip);
-
-				p = new PointRoi(px1+0.5, py1+0.5);
-				p.setStrokeColor(Color.RED);
-				msOverlay.add(p);
-
-				double px2 = atX+rd*nx-border*(-ny);
-				double py2 = atY+rd*ny-border*  nx;
-
-				featString += ", "+Interpolator.interpolateAt(px2, py2, inip);
-
-				p = new PointRoi(px2+0.5, py2+0.5);
-				p.setStrokeColor(Color.RED);
+//				double px1 = atX+rd*nx+border*(-ny);
+//				double py1 = atY+rd*ny+border*  nx ;
+//				featString += ", "+Interpolator.interpolateAt(px1, py1, inip);
+//				p = new PointRoi(px1+0.5, py1+0.5);
+//				p.setStrokeColor(Color.RED);
+//				msOverlay.add(p);
+//				double px2 = atX+rd*nx-border*(-ny);
+//				double py2 = atY+rd*ny-border*  nx;
+//				featString += ", "+Interpolator.interpolateAt(px2, py2, inip);
+//				p = new PointRoi(px2+0.5, py2+0.5);
+//				p.setStrokeColor(Color.RED);
 
 				msOverlay.add(p);
 
@@ -157,35 +158,30 @@ public class TryFeatures implements PlugInFilter, MouseListener {
                 PointRoi p;
                 for (int q=0; q<3; q++) {
 
-					double rd = 0.5*(f.get(fIdx).r+f.get(fIdx).rInner);
-					double nx = Math.cos(f.get(fIdx).ap[q]);
-					double ny = Math.sin(f.get(fIdx).ap[q]);
+//					double rd = 0.5*(f.get(fIdx).r+f.get(fIdx).rInner);
+//					double nx = Math.cos(f.get(fIdx).ap[q]);
+//					double ny = Math.sin(f.get(fIdx).ap[q]);
+//
+//					double px = atX+rd*nx;
+//					double py = atY+rd*ny;
 
-					double px = atX+rd*nx;
-					double py = atY+rd*ny;
+//					featString += ", "+IJ.d2s(f.get(fIdx).lp[q][0],2)+", "+IJ.d2s(py,2)+", "+Interpolator.interpolateAt(px, py, inip);
 
-					featString += ", "+IJ.d2s(px,2)+", "+IJ.d2s(py,2)+", "+Interpolator.interpolateAt(px, py, inip);
-
-                    p = new PointRoi(px+0.5, py+0.5);
+                    p = new PointRoi(f.get(fIdx).lp[q][0]+0.5, f.get(fIdx).lp[q][1]+0.5);
                     p.setStrokeColor(Color.BLUE);
 					msOverlay.add(p);
 
-					double px1 = atX+rd*nx+border*(-ny);
-					double py1 = atY+rd*ny+border*  nx ;
-
-					featString += ", "+Interpolator.interpolateAt(px1, py1, inip);
-
-					p = new PointRoi(px1+0.5, py1+0.5);
-					p.setStrokeColor(Color.RED);
-					msOverlay.add(p);
-
-					double px2 = atX+rd*nx-border*(-ny);
-					double py2 = atY+rd*ny-border*  nx;
-
-					featString += ", "+Interpolator.interpolateAt(px2, py2, inip);
-
-					p = new PointRoi(px2+0.5,py2+0.5);
-					p.setStrokeColor(Color.RED);
+//					double px1 = atX+rd*nx+border*(-ny);
+//					double py1 = atY+rd*ny+border*  nx ;
+//					featString += ", "+Interpolator.interpolateAt(px1, py1, inip);
+//					p = new PointRoi(px1+0.5, py1+0.5);
+//					p.setStrokeColor(Color.RED);
+//					msOverlay.add(p);
+//					double px2 = atX+rd*nx-border*(-ny);
+//					double py2 = atY+rd*ny-border*  nx;
+//					featString += ", "+Interpolator.interpolateAt(px2, py2, inip);
+//					p = new PointRoi(px2+0.5,py2+0.5);
+//					p.setStrokeColor(Color.RED);
 
                     msOverlay.add(p);
                 }

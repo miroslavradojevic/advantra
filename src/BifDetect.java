@@ -2,12 +2,16 @@ import ij.IJ;
 import ij.ImagePlus;
 import ij.Prefs;
 import ij.gui.GenericDialog;
+import ij.gui.Overlay;
+import ij.gui.PointRoi;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 
+import java.awt.*;
 import java.io.File;
+import java.util.ArrayList;
 
 /**
  * Created with IntelliJ IDEA.
@@ -20,7 +24,11 @@ public class BifDetect implements PlugInFilter {
 	ImagePlus 	inimg;
 	String      inimgPath;
 	ImagePlus   inmask;
-	Feat f;
+    ArrayList<Feat> f;
+
+    // variables used for calculating the score
+    double[] sumCluster;
+    int[][] map;// = new int[3][];
 
 	public void run(ImageProcessor imageProcessor) {
 
@@ -30,10 +38,25 @@ public class BifDetect implements PlugInFilter {
 //			return;
 //		}
 
+        f= new ArrayList<Feat>();
+        f.add(new Feat(3, 1.0));
+        f.add(new Feat(3, 2.0));
+        f.add(new Feat(3, 3.0));
+        f.add(new Feat(3, 4.0));
+//        f.add(new Feat(4, 2.5));
+//        f.add(new Feat(4, 3.5));
+
+        // for score calculation
+        map = new int[3][f.size()];
+        for (int i=0; i<map.length; i++) {
+            for (int j=0; j<map[0].length; j++) {
+                map[i][j] = -1;
+            }
+        }
+        sumCluster = new double[3];
+
 		int     t       		= 4;
 		double  scale   		= 2.0;
-		double  D       		= 10;
-		double  E       		= 20;
 		String 	inmaskPath		= Tools.removeExtension(inimgPath)+".mask";
 		boolean useMask 		= true;
 
@@ -44,10 +67,6 @@ public class BifDetect implements PlugInFilter {
 		gd.addMessage("feature parameters");
 		gd.addNumericField("neuron diameter min", t, 0, 5, "pix");
 		gd.addNumericField("n'hood", scale, 1, 5, "x diameter");
-
-        gd.addMessage("detection parameters");
-		gd.addNumericField("D", D, 1, 5, "");
-		gd.addNumericField("E", E, 1, 5, "");
 
         gd.addMessage("detection parameters - configuration file");
 
@@ -62,14 +81,19 @@ public class BifDetect implements PlugInFilter {
 		Prefs.set("advantra.critpoint.neuron_diam", 	t);
 		scale   =   gd.getNextNumber();
 		Prefs.set("advantra.critpoint.scale", 	scale);
-		D   	=   gd.getNextNumber();
-		E   	=   gd.getNextNumber();
+//		D   	=   gd.getNextNumber();
+//		E   	=   gd.getNextNumber();
 		inmaskPath = gd.getNextString();
 		useMask = gd.getNextBoolean();
 
-		f= new Feat(t, scale);
+//		f= new Feat(t, scale);
 
 		inimg.show();
+        inimg.getCanvas().zoomIn(0,0);
+        inimg.getCanvas().zoomIn(0,0);
+        inimg.getCanvas().zoomIn(0,0);
+        inimg.getCanvas().zoomIn(0,0);
+
 
 		if (new File(inmaskPath).exists() && useMask) {
 			inmask = new ImagePlus(inmaskPath);
@@ -88,13 +112,41 @@ public class BifDetect implements PlugInFilter {
 
 		IJ.log("filtering...");
 		long t1 = System.currentTimeMillis();
-		new ImagePlus("detection,nd="+f.diam+","+"r="+f.r+",D="+D+",E="+E, filterWithMask(inmask.getProcessor(), (FloatProcessor) inimg.getProcessor(), D, E)).show();
-		long t2 = System.currentTimeMillis();
+		ImagePlus score = new ImagePlus("detection", filterWithMask(f, inmask.getProcessor(), (FloatProcessor) inimg.getProcessor()));
+        long t2 = System.currentTimeMillis();
+        score.show();
 		IJ.log("done. "+((t2-t1)/1000f)+" sec.");
+
+        IJ.log("detection");
+        t1 = System.currentTimeMillis();
+        MeanShift2D ms2d = new MeanShift2D((FloatProcessor) score.getProcessor(), 5);
+        ms2d.run(150, 0.0001);
+        t2 = System.currentTimeMillis();
+        IJ.log("done. "+((t2-t1)/1000f)+" sec.");
+
+        // show
+        Overlay ov = new Overlay();
+        for (int i = 0; i < ms2d.S.length; i++) {
+            PointRoi p = new PointRoi(ms2d.T[i][1]+0.5, ms2d.T[i][0]+0.5);
+            p.setStrokeColor(Color.RED);
+            ov.add(p);
+        }
+        inimg.setOverlay(ov);
+        score.setOverlay(ov);
+
+        // clustering
+        //int[][] clust = ms2d.extractClust(5);
+        double[][] clust1 = ms2d.extractConvPoints(1.0, 20);
+        ov = new Overlay();
+        for (int i = 0; i < clust1.length; i++) {
+            ov.add(new PointRoi(clust1[i][1]+0.5, clust1[i][0]+0.5));
+        }
+        inimg.setOverlay(ov);
 
 	}
 
-	public int setup(String s, ImagePlus imagePlus) {
+	public int setup(String s, ImagePlus imagePlus)
+    {
         if(imagePlus==null) {
 			IJ.showMessage("needs opened image"); return DONE;
 		}
@@ -104,7 +156,36 @@ public class BifDetect implements PlugInFilter {
 		return DOES_8G+DOES_32+NO_CHANGES;
 	}
 
-	public FloatProcessor filterWithMask(ImageProcessor msk, FloatProcessor input, double D, double E)
+    public int mapTracker(int[][] map, int i, int q)
+    {
+
+        int idx = -1;
+
+        if (q>=0 && q<map[0].length) {
+
+            idx = map[i][q];
+
+            while (q>=0) {
+
+                q--;
+
+                if (idx!=-1) {
+
+                    idx = map[idx][q];
+
+                }
+
+            }
+
+            return idx;
+
+        }
+        else
+            return idx;
+
+    }
+
+	public FloatProcessor filterWithMask(ArrayList<Feat> feats, ImageProcessor msk, FloatProcessor input)
 	{
 
 		FloatProcessor ipOut = new FloatProcessor(input.getWidth(), input.getHeight());
@@ -112,8 +193,55 @@ public class BifDetect implements PlugInFilter {
 		for (int x=0; x<input.getWidth(); x++) {
 			for (int y=0; y<input.getHeight(); y++) {
 				if (msk.getf(x, y)==255) {
-					double sc = f.bifurcationess1(x, y, input, D, E);
-					ipOut.setf(x, y, (float)sc );
+
+                    // geom. mean of the sum values from each cluster!!!
+                    double      sum = 0;
+                    int         cnt = 0;
+                    boolean     firstValid = false;
+
+                    for (int q=0; q<feats.size(); q++) {
+
+                        feats.get(q).getAngles(x, y, input, false);
+
+                        // feats.get(q).sum[0],  feats.get(q).lp[0][0,1]
+
+                        if (feats.get(q).sum!=null) { // there was something extracted
+
+                            if (!firstValid) {   // no need to match them
+
+                                sumCluster[0] = feats.get(q).sum[0];
+                                sumCluster[1] = feats.get(q).sum[1];
+                                sumCluster[2] = feats.get(q).sum[2];
+
+                                map[0][q] = 0;
+                                map[1][q] = 1;
+                                map[2][q] = 2;
+
+                                firstValid = true;
+                            }
+                            else { // match using Hungarian algorithm
+
+
+
+                            }
+
+                            sum += Math.log(feats.get(q).centralAvg(x, y, input));
+                            sum += Math.log(feats.get(q).sum[0]);
+                            sum += Math.log(feats.get(q).sum[1]);
+                            sum += Math.log(feats.get(q).sum[2]);
+                            cnt ++;
+
+                        }
+
+                    }
+
+                    sum = (cnt>0)? Math.exp(sum/cnt) : 0 ;
+
+                    ipOut.setf(x, y, (float) sum);
+
+                    // just profile entropy
+                    //ipOut.setf(x, y, feats.get(0).entropy);
+
 				}
 			}
 		}
