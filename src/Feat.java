@@ -61,15 +61,11 @@ public class Feat {
     int M       = 2;
     float Kpts  = 1.0f;
 
-    // features used
-//    double A0=0, A1=0, A2=0, A3=0, B1=0, B2=0, B3=0;
-//    int nA0=0, nA1=0, nA2=0, nA3=0, nB1=0, nB2=0, nB3=0;
 	double[] 	ap; // angles peaks
     double[][]  lp; // locations peaks
     double[]    sum; // actually averages
     float minSumsPerOrt;
     float sumSumsPerOrt;
-    float entropy;
 
     float[][][] patches3;// 3 x Size x Size
     float[][]   cents3; // 3 x 2 (cx, cy)
@@ -453,7 +449,6 @@ public class Feat {
             }
 
         }
-//        IJ.log("out: "+out);
 
         return (cnt>0)? (out/cnt) : 0;    // /minSumsPerOrt
 
@@ -658,116 +653,6 @@ public class Feat {
         return isOut;
 
     }
-
-//	public void extractPeakIntegralSums(int atX, int atY, FloatProcessor  inip)
-//	{
-//
-//		getAngles(atX, atY, inip, false);   // gives out ap and integral sums at points of convergence
-//        if (ap!=null && sum!=null) {
-//
-//        }
-//
-//	}
-
-//    public double bifurcationess(
-//        int     atX,
-//        int     atY,
-//        FloatProcessor  inip,
-//        double D
-//    )
-//    {
-//		getAngles(atX, atY, inip, false);
-//
-//        regionScores(atX, atY, inip, ap);
-//
-//        double avgA0   = (nA0>3)? (A0/nA0) : (Double.MIN_VALUE);
-//		double avgA1   = (nA1>3)? (A1/nA1) : (Double.MIN_VALUE);
-//        double avgA2   = (nA2>3)? (A2/nA2) : (Double.MIN_VALUE);
-//        double avgA3   = (nA3>3)? (A3/nA3) : (Double.MIN_VALUE);
-//        double avgB1   = (nB1>3)? (B1/nB1) : (Double.MAX_VALUE);
-//        double avgB2   = (nB2>3)? (B2/nB2) : (Double.MAX_VALUE);
-//        double avgB3   = (nB3>3)? (B3/nB3) : (Double.MAX_VALUE);
-//
-//		double L0 	= (3*avgA0-avgB1-avgB2-avgB3)/3;
-//        L0 = (L0>0)? L0 : 0;
-//
-//		double L11 = (2*avgA1-avgB1-avgB3)/2;
-//        L11 = (L11>0)? L11 : 0;
-//		double L21 = (2*avgA2-avgB2-avgB1)/2;
-//        L21 = (L21>0)? L21 : 0;
-//        double L31 = (2*avgA3-avgB3-avgB1)/2;
-//        L31 = (L31>0)? L31 : 0;
-//
-//		double U1 = (avgA1+avgA2-2*avgB1)/2;
-//		U1 = (U1>0)? U1 : 0;
-//		double U2 = (avgA2+avgA3-2*avgB2)/2;
-//		U2 = (U2>0)? U2 : 0;
-//		double U3 = (avgA3+avgA1-2*avgB3)/2;
-//		U3 = (U3>0)? U3 : 0;
-//
-//            return 	(1-Math.exp(-L11/D)) *
-//					(1-Math.exp(-L21/D)) *
-//                    (1-Math.exp(-L31/D)) *
-//					(1-Math.exp(-U1/D)) *
-//					(1-Math.exp(-U2/D)) *
-//					(1-Math.exp(-U3/D)) *
-//                    (1-Math.exp(-L0/D));
-//
-//    }
-
-//	public double bifurcationess1(
-//	int     atX,
-//	int     atY,
-//	FloatProcessor  inip,
-//	double  D,
-//	double 	E
-//	)
-//	{
-//		getAngles(atX, atY, inip, false);
-//
-//		regionScores(atX, atY, inip, ap);
-//
-//		double avgA0   = (nA0>3)? (A0/nA0) : (Double.MIN_VALUE);
-//		double avgA1   = (nA1>3)? (A1/nA1) : (Double.MIN_VALUE);
-//		double avgA2   = (nA2>3)? (A2/nA2) : (Double.MIN_VALUE);
-//		double avgA3   = (nA3>3)? (A3/nA3) : (Double.MIN_VALUE);
-//		double avgB1   = (nB1>3)? (B1/nB1) : (Double.MAX_VALUE);
-//		double avgB2   = (nB2>3)? (B2/nB2) : (Double.MAX_VALUE);
-//		double avgB3   = (nB3>3)? (B3/nB3) : (Double.MAX_VALUE);
-//
-//		double C1 	= avgA0-avgB1; C1 = (C1>0)? C1 : 0;
-//		double C2 	= avgA0-avgB2; C2 = (C2>0)? C2 : 0;
-//		double C3 	= avgA0-avgB3; C3 = (C3>0)? C3 : 0;
-//
-//		double G11 	= avgA1-avgB1; G11 = (G11>0)? G11 : 0;
-//		double G12 	= avgA1-avgB3; G12 = (G12>0)? G12 : 0;
-//
-//		double G21 	= avgA2-avgB2; G21 = (G21>0)? G21 : 0;
-//		double G22 	= avgA2-avgB1; G22 = (G22>0)? G22 : 0;
-//
-//		double G31 	= avgA3-avgB3; G31 = (G31>0)? G31 : 0;
-//		double G32 	= avgA3-avgB2; G32 = (G32>0)? G32 : 0;
-//
-//		double E12	= avgA1-avgA2;
-//		double E23	= avgA2-avgA3;
-//		double E31	= avgA3-avgA1;
-//
-//		return 	(1-Math.exp(-C1/D)) *
-//				(1-Math.exp(-C2/D)) *
-//				(1-Math.exp(-C3/D)) *
-//				(1-Math.exp(-G11/D)) *
-//				(1-Math.exp(-G12/D)) *
-//				(1-Math.exp(-G21/D)) *
-//				(1-Math.exp(-G22/D)) *
-//				(1-Math.exp(-G22/D)) *
-//				(1-Math.exp(-G31/D)) *
-//				(1-Math.exp(-G32/D)) *
-//				Math.exp(-(E12*E12)/(2*E*E)) *
-//				Math.exp(-(E23*E23)/(2*E*E)) *
-//				Math.exp(-(E31*E31)/(2*E*E))
-//				;
-//
-//	}
 
 //    public ImageStack bifurcationess(
 //            FloatProcessor  inip,

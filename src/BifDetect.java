@@ -197,7 +197,7 @@ public class BifDetect implements PlugInFilter {
                     // geom. mean of the sum values from each cluster!!!
                     double      sum = 0;
                     int         cnt = 0;
-                    boolean     firstValid = false;
+                    boolean     first = true;
 
                     for (int q=0; q<feats.size(); q++) {
 
@@ -207,19 +207,73 @@ public class BifDetect implements PlugInFilter {
 
                         if (feats.get(q).sum!=null) { // there was something extracted
 
-                            if (!firstValid) {   // no need to match them
+                            if (first) {   // no need to match them
+
+								map[0][q] = 0;
+								map[1][q] = 1;
+								map[2][q] = 2;
 
                                 sumCluster[0] = feats.get(q).sum[0];
                                 sumCluster[1] = feats.get(q).sum[1];
                                 sumCluster[2] = feats.get(q).sum[2];
 
-                                map[0][q] = 0;
-                                map[1][q] = 1;
-                                map[2][q] = 2;
+								first = false;
 
-                                firstValid = true;
                             }
                             else { // match using Hungarian algorithm
+
+								//int[] conn = Tools.match(feats.get(q-1).lp, feats.get(q).lp);
+
+								boolean[][] chkd = new boolean[3][3];
+								double[][] 	dst2 = new double[3][3];
+
+								for (int i=0; i<3; i++) {
+									for (int j=0; j<3; j++) {
+										dst2[i][j] = Math.pow(feats.get(q).lp[i][0]-feats.get(q).lp[j][0], 2) + Math.pow(feats.get(q).lp[i][1]-feats.get(q).lp[j][1], 2);
+									}
+								}
+
+								int[] matches = new int[3];
+
+								for (int check=0; check<3; check++) {
+
+									double dst2Min = Double.MAX_VALUE;
+									int imin = -1;
+									int jmin = -1;
+
+									for (int i=0; i<3; i++) {
+
+										for (int j=0; j<3; j++) {
+											if (!chkd[i][j] && dst2[i][j]<dst2Min) {
+												dst2Min = dst2[i][j];
+												imin = i;
+												jmin = j;
+											}
+										}
+
+										// row imin in chkd to true
+										for (int w=0; w<3; w++) chkd[imin][w] = true;
+										// col jmin in chkd to true
+										for (int w=0; w<3; w++) chkd[w][jmin] = true;
+
+										// imin-jmin pair
+										map[imin][q] = jmin;
+
+									}
+
+								}
+
+								// formed matches
+
+//								map[0][q] = 0;
+//								map[1][q] = 1;
+//								map[2][q] = 2;
+
+								// finish here ...
+
+								sumCluster[0] = feats.get(q).sum[0];
+								sumCluster[1] = feats.get(q).sum[1];
+								sumCluster[2] = feats.get(q).sum[2];
 
 
 
