@@ -1,19 +1,10 @@
-import ij.IJ;
-import ij.ImagePlus;
 import ij.ImageStack;
-import ij.gui.OvalRoi;
 import ij.gui.Overlay;
 import ij.gui.Plot;
 import ij.gui.PointRoi;
 import ij.process.ByteProcessor;
-import ij.process.ColorProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
-import org.jfree.chart.ChartFactory;
-import org.jfree.chart.JFreeChart;
-import org.jfree.chart.plot.PlotOrientation;
-import org.jfree.data.category.DefaultCategoryDataset;
-import org.jfree.ui.RefineryUtilities;
 
 import java.awt.*;
 import java.util.ArrayList;

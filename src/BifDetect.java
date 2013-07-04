@@ -2,6 +2,7 @@ import ij.IJ;
 import ij.ImagePlus;
 import ij.Prefs;
 import ij.gui.GenericDialog;
+import ij.gui.OvalRoi;
 import ij.gui.Overlay;
 import ij.gui.PointRoi;
 import ij.plugin.filter.PlugInFilter;
@@ -10,6 +11,8 @@ import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 
 import java.awt.*;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 import java.io.File;
 import java.util.ArrayList;
 
@@ -19,7 +22,7 @@ import java.util.ArrayList;
  * Date: 6/22/13
  * Time: 12:21 PM
  */
-public class BifDetect implements PlugInFilter {
+public class BifDetect implements PlugInFilter, MouseListener {
 
 	ImagePlus 	inimg;
 	String      inimgPath;
@@ -27,8 +30,8 @@ public class BifDetect implements PlugInFilter {
     ArrayList<Feat> f;
 
     // variables used for calculating the score
-    double[] sumCluster;
-    int[][] map;// = new int[3][];
+    double[]    sumCluster;
+    int[][]     map;
 
 	public void run(ImageProcessor imageProcessor) {
 
@@ -40,11 +43,12 @@ public class BifDetect implements PlugInFilter {
 
         f= new ArrayList<Feat>();
         f.add(new Feat(3, 1.0));
+        f.add(new Feat(3, 1.5));
         f.add(new Feat(3, 2.0));
+        f.add(new Feat(3, 2.5));
         f.add(new Feat(3, 3.0));
+        f.add(new Feat(3, 3.5));
         f.add(new Feat(3, 4.0));
-//        f.add(new Feat(4, 2.5));
-//        f.add(new Feat(4, 3.5));
 
         // for score calculation
         map = new int[3][f.size()];
@@ -67,10 +71,7 @@ public class BifDetect implements PlugInFilter {
 		gd.addMessage("feature parameters");
 		gd.addNumericField("neuron diameter min", t, 0, 5, "pix");
 		gd.addNumericField("n'hood", scale, 1, 5, "x diameter");
-
-        gd.addMessage("detection parameters - configuration file");
-
-        gd.addMessage("mask (avoid processing all)");
+        //gd.addMessage("mask (avoid processing all)");
 		gd.addStringField("mask path", inmaskPath, 50);
 		gd.addCheckbox("", useMask);
 
@@ -81,19 +82,16 @@ public class BifDetect implements PlugInFilter {
 		Prefs.set("advantra.critpoint.neuron_diam", 	t);
 		scale   =   gd.getNextNumber();
 		Prefs.set("advantra.critpoint.scale", 	scale);
-//		D   	=   gd.getNextNumber();
-//		E   	=   gd.getNextNumber();
 		inmaskPath = gd.getNextString();
 		useMask = gd.getNextBoolean();
 
-//		f= new Feat(t, scale);
-
 		inimg.show();
+        inimg.getCanvas().zoomIn(0, 0);
+        inimg.getCanvas().zoomIn(0, 0);
         inimg.getCanvas().zoomIn(0,0);
         inimg.getCanvas().zoomIn(0,0);
         inimg.getCanvas().zoomIn(0,0);
         inimg.getCanvas().zoomIn(0,0);
-
 
 		if (new File(inmaskPath).exists() && useMask) {
 			inmask = new ImagePlus(inmaskPath);
@@ -117,10 +115,10 @@ public class BifDetect implements PlugInFilter {
         score.show();
 		IJ.log("done. "+((t2-t1)/1000f)+" sec.");
 
-        IJ.log("detection");
+        IJ.log("MS detection");
         t1 = System.currentTimeMillis();
-        MeanShift2D ms2d = new MeanShift2D((FloatProcessor) score.getProcessor(), 5);
-        ms2d.run(150, 0.0001);
+        MeanShift2D ms2d = new MeanShift2D((FloatProcessor) score.getProcessor(), 6);
+        ms2d.run(200, 0.0001);
         t2 = System.currentTimeMillis();
         IJ.log("done. "+((t2-t1)/1000f)+" sec.");
 
@@ -131,17 +129,16 @@ public class BifDetect implements PlugInFilter {
             p.setStrokeColor(Color.RED);
             ov.add(p);
         }
-        inimg.setOverlay(ov);
-        score.setOverlay(ov);
 
-        // clustering
-        //int[][] clust = ms2d.extractClust(5);
-        double[][] clust1 = ms2d.extractConvPoints(1.0, 20);
-        ov = new Overlay();
+        IJ.log("Extract clusters...");
+        double[][] clust1 = ms2d.extractConvPoints(1.0, 5);
+        //ov = new Overlay();
         for (int i = 0; i < clust1.length; i++) {
-            ov.add(new PointRoi(clust1[i][1]+0.5, clust1[i][0]+0.5));
+            OvalRoi or = new OvalRoi(clust1[i][1]+0.5-3, clust1[i][0]+0.5-3, 7, 7);
+            ov.add(or);
         }
         inimg.setOverlay(ov);
+        IJ.log("done");
 
 	}
 
@@ -156,24 +153,26 @@ public class BifDetect implements PlugInFilter {
 		return DOES_8G+DOES_32+NO_CHANGES;
 	}
 
-    public int mapTracker(int[][] map, int i, int q)
+    public static int mapTracker(int[][] map, int i, int q)
     {
 
-        int idx = -1;
+        if (map[i][q]==-1) {
+            return -1;
+        }
 
         if (q>=0 && q<map[0].length) {
 
-            idx = map[i][q];
+            int idx = (map[i][q]!=-1)? map[i][q] : i ;
+            //IJ.log("at: "+q+"  match is : "+idx);
+            q--;
 
             while (q>=0) {
 
+                //idx = map[idx][q];
+                //IJ.log("check "+map[idx][q]);
+                idx = (map[idx][q]!=-1)? map[idx][q] : idx ;
+                //IJ.log("at: "+q+"  match is : "+idx);
                 q--;
-
-                if (idx!=-1) {
-
-                    idx = map[idx][q];
-
-                }
 
             }
 
@@ -181,7 +180,7 @@ public class BifDetect implements PlugInFilter {
 
         }
         else
-            return idx;
+            return -1;
 
     }
 
@@ -196,8 +195,10 @@ public class BifDetect implements PlugInFilter {
 
                     // geom. mean of the sum values from each cluster!!!
                     double      sum = 0;
-                    int         cnt = 0;
                     boolean     first = true;
+
+                    sumCluster[0] = sumCluster[1] = sumCluster[2] = 0;
+                    int cntCluster = 0;
 
                     for (int q=0; q<feats.size(); q++) {
 
@@ -209,6 +210,9 @@ public class BifDetect implements PlugInFilter {
 
                             if (first) {   // no need to match them
 
+                                /*
+                                    form the matching map
+                                 */
 								map[0][q] = 0;
 								map[1][q] = 1;
 								map[2][q] = 2;
@@ -217,12 +221,16 @@ public class BifDetect implements PlugInFilter {
                                 sumCluster[1] = feats.get(q).sum[1];
                                 sumCluster[2] = feats.get(q).sum[2];
 
+                                cntCluster++;
+
 								first = false;
 
                             }
                             else { // match using Hungarian algorithm
 
-								//int[] conn = Tools.match(feats.get(q-1).lp, feats.get(q).lp);
+                                /*
+                                    matching map
+                                 */
 
 								boolean[][] chkd = new boolean[3][3];
 								double[][] 	dst2 = new double[3][3];
@@ -251,50 +259,53 @@ public class BifDetect implements PlugInFilter {
 											}
 										}
 
-										// row imin in chkd to true
-										for (int w=0; w<3; w++) chkd[imin][w] = true;
-										// col jmin in chkd to true
-										for (int w=0; w<3; w++) chkd[w][jmin] = true;
-
-										// imin-jmin pair
-										map[imin][q] = jmin;
-
 									}
+
+                                    // row imin in chkd to true
+                                    for (int w=0; w<3; w++) chkd[imin][w] = true;
+                                    // col jmin in chkd to true
+                                    for (int w=0; w<3; w++) chkd[w][jmin] = true;
+
+                                    // imin-jmin pair
+                                    map[imin][q] = jmin;
 
 								}
 
-								// formed matches
+								sumCluster[mapTracker(map, 0, q)] += feats.get(q).sum[0];
+								sumCluster[mapTracker(map, 1, q)] += feats.get(q).sum[1];
+								sumCluster[mapTracker(map, 2, q)] += feats.get(q).sum[2];
 
-//								map[0][q] = 0;
-//								map[1][q] = 1;
-//								map[2][q] = 2;
-
-								// finish here ...
-
-								sumCluster[0] = feats.get(q).sum[0];
-								sumCluster[1] = feats.get(q).sum[1];
-								sumCluster[2] = feats.get(q).sum[2];
-
-
+                                cntCluster++;
 
                             }
 
-                            sum += Math.log(feats.get(q).centralAvg(x, y, input));
-                            sum += Math.log(feats.get(q).sum[0]);
-                            sum += Math.log(feats.get(q).sum[1]);
-                            sum += Math.log(feats.get(q).sum[2]);
-                            cnt ++;
+                        }
+                        else {
+
+                            map[0][q] = -1;  // so that the mapTracker knows to skip it
+                            map[1][q] = -1;
+                            map[2][q] = -1;
+
+                            //no sum adding here...
 
                         }
 
                     }
 
-                    sum = (cnt>0)? Math.exp(sum/cnt) : 0 ;
+                    if (cntCluster>2) {
 
-                    ipOut.setf(x, y, (float) sum);
+                        // geometric mean
+                        sum += Math.log(feats.get(0).centralAvg(x, y, input));
+                        sum += Math.log(sumCluster[0]/cntCluster);
+                        sum += Math.log(sumCluster[1]/cntCluster);
+                        sum += Math.log(sumCluster[2]/cntCluster);
+                        sum = Math.exp(sum/4);
+                        ipOut.setf(x, y, (float) sum);
 
-                    // just profile entropy
-                    //ipOut.setf(x, y, feats.get(0).entropy);
+                    }
+                    else {
+                        ipOut.setf(x, y, (float) 0);
+                    }
 
 				}
 			}
@@ -302,5 +313,23 @@ public class BifDetect implements PlugInFilter {
 		return ipOut;
 
 	}
+
+    public void mouseClicked(MouseEvent e) {
+
+
+
+    }
+
+    public void mousePressed(MouseEvent e) {
+    }
+
+    public void mouseReleased(MouseEvent e) {
+    }
+
+    public void mouseEntered(MouseEvent e) {
+    }
+
+    public void mouseExited(MouseEvent e) {
+    }
 
 }

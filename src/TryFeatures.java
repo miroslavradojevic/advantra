@@ -2,18 +2,14 @@ import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.*;
-import ij.plugin.PlugIn;
 import ij.plugin.filter.PlugInFilter;
-import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 
-import java.awt.*;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.io.*;
 import java.util.ArrayList;
-import java.util.Arrays;
 
 /**
  * Created with IntelliJ IDEA.
@@ -29,7 +25,6 @@ public class TryFeatures implements PlugInFilter, MouseListener {
     String      confFile = "feats.csv";
 
 	ArrayList<Feat> f;
-	double border = 4;
 
     public void run(ImageProcessor imageProcessor)
 	{
@@ -91,9 +86,6 @@ public class TryFeatures implements PlugInFilter, MouseListener {
         int atX = 	srcCanv.offScreenX(e.getX());
 		int atY = 	srcCanv.offScreenY(e.getY());
 
-		String featString = ""+IJ.d2s(atX, 0)+", "+IJ.d2s(atY, 0)+"\t";
-        String peakSumsString = "";
-
 		FloatProcessor inip = (FloatProcessor) inimg.getProcessor().duplicate(); // make it possible to cast here  (FloatProcessor)
 
         Overlay msOverlay = new Overlay();
@@ -104,40 +96,14 @@ public class TryFeatures implements PlugInFilter, MouseListener {
 
         ipPlot = f.get(0).getAngles(atX, atY, inip, true);
 
-        if (f.get(0).sum!=null) peakSumsString += IJ.d2s(f.get(0).sum[0], 1)+",  "+IJ.d2s(f.get(0).sum[1], 1)+", "+IJ.d2s(f.get(0).sum[2], 1);
-
         if (f.get(0).ap!=null) {
 
 			cnt++;
 
             PointRoi p;
             for (int q=0; q<3; q++) {
-
-//				double rd = 0.5*(f.get(0).r+f.get(0).rInner);
-//				double nx = Math.cos(f.get(0).ap[q]);
-//				double ny = Math.sin(f.get(0).ap[q]);
-//
-//				double px = atX+rd*nx;
-//				double py = atY+rd*ny;
-
-//				featString += ", "+IJ.d2s(px,2)+", "+IJ.d2s(py,2)+", "+Interpolator.interpolateAt(px, py, inip);
-
                 p = new PointRoi(f.get(0).lp[q][0]+0.5, f.get(0).lp[q][1]+0.5);
                 msOverlay.add(p);
-
-//				double px1 = atX+rd*nx+border*(-ny);
-//				double py1 = atY+rd*ny+border*  nx ;
-//				featString += ", "+Interpolator.interpolateAt(px1, py1, inip);
-//				p = new PointRoi(px1+0.5, py1+0.5);
-//				p.setStrokeColor(Color.RED);
-//				msOverlay.add(p);
-//				double px2 = atX+rd*nx-border*(-ny);
-//				double py2 = atY+rd*ny-border*  nx;
-//				featString += ", "+Interpolator.interpolateAt(px2, py2, inip);
-//				p = new PointRoi(px2+0.5, py2+0.5);
-//				p.setStrokeColor(Color.RED);
-
-				msOverlay.add(p);
 
             }
         }
@@ -149,65 +115,38 @@ public class TryFeatures implements PlugInFilter, MouseListener {
 
             ipPlot = f.get(fIdx).getAngles(atX, atY, inip, true);
 
-            if (f.get(fIdx).sum!=null) peakSumsString += ", "+IJ.d2s(f.get(fIdx).sum[0], 1)+",  "+IJ.d2s(f.get(fIdx).sum[1], 1)+", "+IJ.d2s(f.get(fIdx).sum[2], 1);
-
             if (f.get(fIdx).ap!=null) {
 
 				cnt++;
 
                 PointRoi p;
                 for (int q=0; q<3; q++) {
-
-//					double rd = 0.5*(f.get(fIdx).r+f.get(fIdx).rInner);
-//					double nx = Math.cos(f.get(fIdx).ap[q]);
-//					double ny = Math.sin(f.get(fIdx).ap[q]);
-//
-//					double px = atX+rd*nx;
-//					double py = atY+rd*ny;
-
-//					featString += ", "+IJ.d2s(f.get(fIdx).lp[q][0],2)+", "+IJ.d2s(py,2)+", "+Interpolator.interpolateAt(px, py, inip);
-
                     p = new PointRoi(f.get(fIdx).lp[q][0]+0.5, f.get(fIdx).lp[q][1]+0.5);
-                    p.setStrokeColor(Color.BLUE);
 					msOverlay.add(p);
-
-//					double px1 = atX+rd*nx+border*(-ny);
-//					double py1 = atY+rd*ny+border*  nx ;
-//					featString += ", "+Interpolator.interpolateAt(px1, py1, inip);
-//					p = new PointRoi(px1+0.5, py1+0.5);
-//					p.setStrokeColor(Color.RED);
-//					msOverlay.add(p);
-//					double px2 = atX+rd*nx-border*(-ny);
-//					double py2 = atY+rd*ny-border*  nx;
-//					featString += ", "+Interpolator.interpolateAt(px2, py2, inip);
-//					p = new PointRoi(px2+0.5,py2+0.5);
-//					p.setStrokeColor(Color.RED);
-
-                    msOverlay.add(p);
                 }
             }
             if (ipPlot!=null) isPlot.addSlice(ipPlot);
 
         }
 
-		if (cnt>=2) { // at least 2 points to make any estimate
+        inimg.setOverlay(msOverlay);
 
-			inimg.setOverlay(msOverlay);
+		if (cnt>=2 && false) { // at least 2 points to make any estimate
+
+
 			// append line to output file (features to be used)
 			try {
 				PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(confFile, true)));
-				out.println(""+featString+"");
+				out.println("");
 				out.close();
 			} catch (IOException e1) {}
 
-            IJ.log("pks: "+peakSumsString);
 
 		}
 
 		profileImg.setStack(isPlot);
 		profileImg.updateAndDraw();
 		profileImg.show();
-
 
 		IJ.selectWindow("inimg");
 

@@ -86,7 +86,8 @@ public class ExtractFeatures implements PlugInFilter {
 
 					int cnt = 0;
 					for (int fIdx = 0 ; fIdx < f.size(); fIdx++) {
-						double[] featureContainer = f.get(fIdx).extractFeatures(x, y, (FloatProcessor) inimg.getProcessor());
+						double[] featureContainer = new double[15];
+                        //f.get(fIdx).extractFeatures(x, y, (FloatProcessor) inimg.getProcessor());
 						if (f.get(fIdx).ap!=null) {
 							cnt++;
                             // add the features

@@ -9,11 +9,14 @@ import ij.gui.PointRoi;
 import ij.plugin.PlugIn;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
+
+/*
 import weka.classifiers.trees.RandomForest;
 import weka.core.Attribute;
 import weka.core.FastVector;
 import weka.core.Instance;
 import weka.core.Instances;
+*/
 
 import java.awt.*;
 import java.io.File;
@@ -246,18 +249,8 @@ public class BifDetectML implements PlugIn {
                     float[] takeScores = new float[nrFilters];
 
                     for (int l = 0; l < feats.size(); l++) {
-                        // calculate score
-                        feats.get(l).extractFeatures(atX, atY, (FloatProcessor) img.getProcessor());
 
-                        takeScores[l*9+0] = (float) feats.get(l).feats[0];
-                        takeScores[l*9+1] = (float) feats.get(l).feats[1];
-                        takeScores[l*9+2] = (float) feats.get(l).feats[2];
-                        takeScores[l*9+3] = (float) feats.get(l).feats[3];
-                        takeScores[l*9+4] = (float) feats.get(l).feats[4];
-                        takeScores[l*9+5] = (float) feats.get(l).feats[5];
-                        takeScores[l*9+6] = (float) feats.get(l).feats[6];
-                        takeScores[l*9+7] = (float) feats.get(l).feats[7];
-                        takeScores[l*9+8] = (float) feats.get(l).feats[8];
+                        // fill in takeScores
 
                     }
 
@@ -313,18 +306,8 @@ public class BifDetectML implements PlugIn {
                         float[] takeScores = new float[nrFilters];
 
                         for (int l = 0; l < feats.size(); l++) {
-                            // calculate score
-                            feats.get(l).extractFeatures(atX, atY, (FloatProcessor) img.getProcessor());
 
-                            takeScores[l*9+0] = (float) feats.get(l).feats[0];
-                            takeScores[l*9+1] = (float) feats.get(l).feats[1];
-                            takeScores[l*9+2] = (float) feats.get(l).feats[2];
-                            takeScores[l*9+3] = (float) feats.get(l).feats[3];
-                            takeScores[l*9+4] = (float) feats.get(l).feats[4];
-                            takeScores[l*9+5] = (float) feats.get(l).feats[5];
-                            takeScores[l*9+6] = (float) feats.get(l).feats[6];
-                            takeScores[l*9+7] = (float) feats.get(l).feats[7];
-                            takeScores[l*9+8] = (float) feats.get(l).feats[8];
+                            // fill in takeScores score
 
                         }
 
@@ -443,6 +426,7 @@ public class BifDetectML implements PlugIn {
         RF
          */
 
+/*
         System.out.print("training RF...");
         // form weka instances object
         int totalFeats = (featsP[0].length == featsN[0].length)? featsP[0].length : 0;
@@ -490,7 +474,6 @@ public class BifDetectML implements PlugIn {
         nrTrees = (int)       gd1.getNextNumber();
         nrFeatsToConsider = (int)       gd1.getNextNumber();
 
-        // train random forest
         RandomForest rf = new RandomForest();
         rf.setNumTrees(nrTrees);
         rf.setNumFeatures(nrFeatsToConsider);
@@ -504,6 +487,7 @@ public class BifDetectML implements PlugIn {
         }
 
         System.out.println("done.");
+        */
 
 
         /*
@@ -567,7 +551,12 @@ public class BifDetectML implements PlugIn {
                 System.out.println("\nclassifying " + curr_tst + " locations from " + img.getTitle() + " ... ");
 
                 float[][] full_profile = new float[curr_tst][];
+
+
+                /*
                 Instances tst = new Instances("Test", attList, curr_tst);
+*/
+
 
                 for (int k = 0; k < curr_tst; k++) {
 
@@ -578,21 +567,9 @@ public class BifDetectML implements PlugIn {
 					calculate score on selected - take care of the index
 					 */
 
-                    //IJ.log("extracting... "+atX+" , "+atY);
-
                     float[] takeScores = new float[nrFilters];
                     for (int l = 0; l < feats.size(); l++) {
-                        // calculate score
-                        feats.get(l).extractFeatures(atX, atY, (FloatProcessor) img.getProcessor());
-                        takeScores[l*9+0] = (float) feats.get(l).feats[0];
-                        takeScores[l*9+1] = (float) feats.get(l).feats[1];
-                        takeScores[l*9+2] = (float) feats.get(l).feats[2];
-                        takeScores[l*9+3] = (float) feats.get(l).feats[3];
-                        takeScores[l*9+4] = (float) feats.get(l).feats[4];
-                        takeScores[l*9+5] = (float) feats.get(l).feats[5];
-                        takeScores[l*9+6] = (float) feats.get(l).feats[6];
-                        takeScores[l*9+7] = (float) feats.get(l).feats[7];
-                        takeScores[l*9+8] = (float) feats.get(l).feats[8];
+                        // fill in takeScores
                     }
 
                     // taking values for RF
@@ -608,17 +585,27 @@ public class BifDetectML implements PlugIn {
                     for (int k2 = 0; k2 < nrFilters; k2++) {
                         val[k2] = full_profile[k1][k2];
                     }
+
+                /*
                     val[nrFilters] = trn.classAttribute().indexOfValue("no"); //negative class for all
+
+
                     tst.add(new Instance(1.0, val));
+                */
+
                 }
+
+                /*
                 tst.setClassIndex(tst.numAttributes()-1);
-                // formed tst
+*/
 
                 // classify each
                 try {
                     for (int ti = 0; ti < curr_tst; ti++){ // tst.numInstances()
 
+                       /*
                         double clsLabel = rf.classifyInstance(tst.instance(ti));
+
 
                         if(clsLabel==trn.classAttribute().indexOfValue("yes")){
 
@@ -638,6 +625,7 @@ public class BifDetectML implements PlugIn {
                             }
 
                         }
+                        */
                     }
                 } catch (Exception e) { }
 

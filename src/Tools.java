@@ -1,4 +1,3 @@
-import ij.IJ;
 import ij.ImagePlus;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
@@ -226,9 +225,5 @@ public class Tools {
         return kurt;
 
     }
-
-	public static int[] match(double[][] ptsRef, double[][] ptsToComp){
-
-	}
 
 }
