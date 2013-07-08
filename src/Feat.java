@@ -137,12 +137,7 @@ public class Feat {
 				}
 			}
 
-
-
 			offsetsReal.add(offsetsAngleReal);
-
-
-
 
 		}
 

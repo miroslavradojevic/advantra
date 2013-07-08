@@ -9,6 +9,7 @@ import ij.plugin.filter.PlugInFilter;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
+import profile.Tools;
 
 import java.awt.*;
 import java.awt.event.MouseEvent;
