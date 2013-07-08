@@ -1,3 +1,5 @@
+package profile;
+
 import ij.ImageStack;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;

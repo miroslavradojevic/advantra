@@ -6,6 +6,7 @@ import ij.process.ImageProcessor;
 
 import java.io.File;
 import java.io.FilenameFilter;
+import java.util.Vector;
 
 /**
  * Created with IntelliJ IDEA.
@@ -225,6 +226,174 @@ public class Tools {
         }
 
         return kurt;
+
+    }
+
+    public static double[] runMS(
+            double[] 	start,
+            float[] 	inputProfile,
+            int 		max_iter,
+            double 	    epsilon,
+            int 		h
+    ){
+
+        double[] T = new double[start.length];
+
+        for (int i = 0; i < T.length; i++) {
+            T[i] = start[i];
+        }
+
+        for (int i = 0; i < T.length; i++) {
+
+            int iter = 0;
+            double d;// = Double.MAX_VALUE;
+
+            do{
+
+                double new_pos = runOne(T[i], h, inputProfile);
+                d = Math.abs(new_pos - T[i]);
+                T[i] = new_pos;
+                iter++;
+            }
+            while(iter < max_iter && d > epsilon);
+
+        }
+
+        return T;
+
+    }
+
+    private static double 	runOne(
+            double  curr_pos,
+            int     h,
+            float[] inputProfile)
+    {
+        double 	    new_pos     = 0;
+        double 		sum 		= 0;
+
+        for (int x = -h; x <= h; x++) {
+            if (true) {// ((  curr_pos + x >=0) && ( curr_pos + x <= inputProfile.length-1) ){
+                if (true) {
+                    double value_read = interp1Darray((float)(curr_pos+x), inputProfile);
+                    new_pos 	+= value_read * x;
+                    sum 		+= value_read 	 ;
+                }
+            }
+        }
+        if(sum>0){
+            new_pos = new_pos/sum + curr_pos;
+//            new_pos[1] = new_pos[1]/sum + curr_pos[1];
+            // wrap it again, this time as a position
+            new_pos = (new_pos<-0.5)?(new_pos+inputProfile.length):((new_pos>=inputProfile.length-0.5)?(new_pos-inputProfile.length):new_pos);
+        }
+        else {
+            new_pos = curr_pos;
+        }
+
+        return new_pos;
+    }
+
+    public static double interp1Darray(
+            float 	x,
+            float[] inarray
+    )
+    {
+        int wth = inarray.length;
+
+        // x is a real position of a pixel in an image
+        // x = [-0.5, 	W-0.5)
+        // width is array width - indexes will be wrapped - first corresponds to the last one
+
+        // find four surrounding points
+        int p11 = (int) Math.floor(x);
+        int p12 = (int) Math.ceil(x);
+        // bilinear coeffs a,b
+        double a = ((p12 -p11)>0)?(x-p11)/(p12-p11) : 0.5;
+        // wrap cols of surrounding pts
+        p11 = (p11<-0.5)? p11+wth : ((p11>=wth-0.5)?(p11-wth) : p11);
+        p12 = (p12<-0.5)? p12+wth : ((p12>=wth-0.5)?(p12-wth) : p12);
+
+        double I11 = inarray[p11];
+        double I12 = inarray[p12];
+
+        return (1-a)*I11 + a*I12;
+    }
+
+    public static Vector<float[]> extractClusters(
+            double[] msConvergence,
+            double range,
+            int M
+    )
+    {
+
+        boolean[] 	seed_clustered 		= new boolean[msConvergence.length];
+        int[] 		seed_cluster_idx 	= new int[msConvergence.length];
+        Vector<Integer> cluster_sizes	= new Vector<Integer>();
+        int nr_clusters 				= 0;
+
+        for (int i = 0; i < msConvergence.length; i++) {
+            for (int j = 0; j < msConvergence.length; j++) {
+
+                if(!seed_clustered[j] && j!=i){
+
+                    if(Math.abs(msConvergence[i]-msConvergence[j])<range){
+
+                        if(seed_clustered[i]){
+                            // i was clustered
+                            seed_clustered[j] = true;
+                            seed_cluster_idx[j] = seed_cluster_idx[i];
+
+                            int tmp = cluster_sizes.get(seed_cluster_idx[i]);
+                            tmp++;
+                            cluster_sizes.setElementAt(tmp, seed_cluster_idx[i]);
+
+                        }
+                        else{
+                            // i was not clustered
+                            seed_clustered[i] = seed_clustered[j] = true;
+                            seed_cluster_idx[i] = seed_cluster_idx[j] = nr_clusters;
+                            cluster_sizes.add(2);
+                            nr_clusters++;
+                        }
+                    }
+                }
+            }
+
+            if(!seed_clustered[i]){
+                seed_clustered[i] = true;
+                seed_cluster_idx[i] = nr_clusters;
+                cluster_sizes.add(1);
+                nr_clusters++;
+            }
+
+        }
+
+        Vector<float[]> clust = new Vector<float[]>();
+        for (int k = 0; k < cluster_sizes.size(); k++) {
+            if (cluster_sizes.get(k)>=M) {
+
+                float sum = 0;
+                int cnt = 0;
+
+                for (int l=0; l<seed_cluster_idx.length; l++) {
+
+                    if (seed_cluster_idx[l]==k) {
+
+                        sum+=msConvergence[l];
+                        cnt++;
+
+                    }
+
+                }
+
+                if (cnt>0) {
+                    clust.add(new float[] {sum/cnt, cnt});
+                }
+
+            }
+        }
+
+        return clust;
 
     }
 

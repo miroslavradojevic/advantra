@@ -1,7 +1,5 @@
-import ij.ImagePlus;
-import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
-import ij.process.ImageProcessor;
+import profile.Interpolator;
 
 import java.util.ArrayList;
 
@@ -102,7 +100,7 @@ public class MeanShift2D {
                     if(( curr_pos[1] + y >=0) && (curr_pos[1] + y <=image_width-1)) {
                         if (x * x + y * y <= h_spatial2) {
                             //double value_read 		= w[x0 * image_width + y0];
-                            double value_read = Interpolator.interpolateAt(curr_pos[1]+y, curr_pos[0]+x, inip);//interpolateIntensity(curr_pos[0]+x, curr_pos[1]+y);
+                            double value_read = Interpolator.interpolateAt(curr_pos[1] + y, curr_pos[0] + x, inip);//interpolateIntensity(curr_pos[0]+x, curr_pos[1]+y);
                             // possible kernel
                             // / (1 + x * x) / (1 + y * y);
                             // / (1 + x * x) / (1 + y * y);

@@ -1,8 +1,5 @@
 package profile;
 
-import ij.IJ;
-import ij.ImagePlus;
-import ij.ImageStack;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
@@ -23,55 +20,77 @@ public class Profiler extends Thread {
 	public static double 	scale;
 	public static double 	outerRange;
 
-	public static double[] 	n1, n2;
-	public static double[] 	p;
 	public static int 		resolDeg;
 
 	public static ArrayList<ArrayList<double[]>> offsets;
 
-	public static FloatProcessor inip;
-	public static ByteProcessor maskip;
+	public static FloatProcessor    inip;
+	public static ByteProcessor     maskip;
 
-	public static float[][] profiles;
+	public static float[][]     profiles;
+    public static int[][]       locations;    // [x, y]
 
-	public static double samplingStep = 0.5;
-	public static float TwoPI = (float) (Math.PI*2);
+	public static double    samplingStep = 0.5;
+	public static float     TwoPI = (float) (Math.PI*2);
 
 	public Profiler (int n0, int n1) {
 		this.begN = n0;
 		this.endN = n1;
 	}
 
-	public static void load(ImageProcessor inip1, ByteProcessor maskip1, double neuronDiam1, double scale1) {
+    public static void loadTemplate(ImageProcessor inip1, ByteProcessor maskip1) {
+
+        /*
+        set inip
+         */
+        inip = new FloatProcessor(inip1.getWidth(), inip1.getHeight());
+        for (int i=0; i<inip1.getWidth()*inip1.getHeight(); i++) {
+            inip.setf(i, inip1.getf(i));
+        }
+
+        /*
+        set maskip
+         */
+        int cnt = 0;
+        maskip = new ByteProcessor(maskip1.getWidth(), maskip1.getHeight());
+        byte[] arr = (byte[]) maskip1.getPixels();
+        for (int i=0; i<arr.length; i++) {
+            if (arr[i]==(byte)255) {
+                maskip.set(i, 255);
+                cnt++;
+            }
+            else {
+                maskip.set(i, 0);
+            }
+        }
+
+        /*
+        set locations
+         */
+        locations = new int[cnt][2];
+        cnt = 0;
+        for (int i=0; i<arr.length; i++) {
+            if (arr[i]==(byte)255) {
+                locations[cnt][0] = i%maskip.getWidth();
+                locations[cnt][1] = i/maskip.getWidth();
+                cnt++;
+            }
+        }
+
+    }
+
+	public static void loadParams(double neuronDiam1, double scale1) {
 
 		neuronDiam = neuronDiam1;
 		scale = scale1;
 		outerRange = Math.sqrt(Math.pow(neuronDiam*scale+neuronDiam/2, 2) + Math.pow(neuronDiam/2, 2));
 
-		inip = new FloatProcessor(inip1.getWidth(), inip1.getHeight());
-		for (int i=0; i<inip1.getWidth()*inip1.getHeight(); i++) {
-			inip.setf(i, inip1.getf(i));
-		}
-
-		int cnt = 0;
-		maskip = new ByteProcessor(maskip1.getWidth(), maskip1.getHeight());
-		byte[] arr = (byte[]) maskip1.getPixels();
-		for (int i=0; i<arr.length; i++) {
-			if (arr[i]==(byte)255) {
-				maskip.set(i, 255);
-				cnt++;
-			}
-			else {
-				maskip.set(i, 0);
-			}
-		}
-
-//		IJ.log(""+cnt+" values found in mask");
-//		new ImagePlus("", maskip).show();
-
+        /*
+        set offsets
+         */
+        double[] 	n1, n2;
 		n1 = new double[2];
 		n2 = new double[2];
-		p  = new double[2];
 
 		resolDeg = (int) ( Math.round( ( 2*Math.asin(1f/(2 * scale))*(1f/4) / TwoPI) * 360 ) );
 		resolDeg = (resolDeg>=1)? resolDeg : 1;
@@ -106,7 +125,6 @@ public class Profiler extends Thread {
 
 					if (dst<=neuronDiam/2) {
 						offsetsAngle.add(new double[]{px, py});
-//						IJ.log(""+ px + " , " + py);
 					}
 
 				}
@@ -116,10 +134,10 @@ public class Profiler extends Thread {
 
 		}
 
-		// set profiles to zero
-		profiles = new float [cnt][offsets.size()];
-
-//        IJ.log("offset blocs: "+offsets.size()+" ");
+		/*
+		 set profiles
+		*/
+		profiles = new float [locations.length][offsets.size()];
 
 //        for (int i=0; i<1; i++) {
 //			IJ.log("start"+offsets.get(i).size());
@@ -130,7 +148,39 @@ public class Profiler extends Thread {
 
 	}
 
-	public void run()
+    public void run(){ // considers begN and endN
+
+        byte[] arr = (byte[]) maskip.getPixels();
+        int locIdxProfile = 0;
+
+        for (int locIdx=0; locIdx<arr.length; locIdx++) {
+            if (arr[locIdx]==(byte)255) {
+
+                int atX = locIdx%maskip.getWidth();
+                int atY = locIdx/maskip.getWidth();
+
+                for (int offsetIdx = begN; offsetIdx < endN; offsetIdx++) {
+
+                    profiles[locIdxProfile][offsetIdx] = 0;
+                    // calculate average for locIdx taking values from offsets(offsetIdx)
+                    for (int k=0; k<offsets.get(offsetIdx).size(); k++) {
+                        profiles[locIdxProfile][offsetIdx] += Interpolator.interpolateAt(
+                                atX+offsets.get(offsetIdx).get(k)[0],
+                                atY+offsets.get(offsetIdx).get(k)[1],
+                                inip
+                                );
+                    }
+
+                    profiles[locIdxProfile][offsetIdx] /= offsets.get(offsetIdx).size();
+
+                }
+
+                locIdxProfile++;   // increment if it was in the mask
+
+            }
+        }
+
+    }
 
 	private static double 	point2line(
 										double n1x, 		// limit
