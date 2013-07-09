@@ -4,11 +4,14 @@ import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.ImageCanvas;
+import ij.gui.Overlay;
 import ij.gui.Plot;
+import ij.gui.PointRoi;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ByteProcessor;
 import ij.process.ImageProcessor;
 
+import java.awt.*;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.io.*;
@@ -63,7 +66,7 @@ public class ProfilerDemo implements PlugInFilter, MouseListener {
 			inmask = new ImagePlus("inmask", new ByteProcessor(inimg.getWidth(), inimg.getHeight(), array));
 		}
 
-        CPU_NR = 5;
+        CPU_NR = 8;
 
 		Profiler.loadTemplate(inimg.getProcessor(), (ByteProcessor) inmask.getProcessor());
 
@@ -125,12 +128,19 @@ public class ProfilerDemo implements PlugInFilter, MouseListener {
         inimg.getCanvas().addMouseListener(this);
 
         vizProfileImage = new ImagePlus();
-        IJ.setTool("hand");
+
 
         inmask.show();
 		IJ.selectWindow("inimg");
 		IJ.run("Add Image...", "image=inmask x="+0+" y="+0+" opacity=20");
 		inmask.close();
+
+		IJ.selectWindow("inimg");
+		IJ.setTool("hand");
+		inimg.getCanvas().zoomIn(0, 0);
+		inimg.getCanvas().zoomIn(0, 0);
+		inimg.getCanvas().zoomIn(0, 0);
+		inimg.getCanvas().zoomIn(0, 0);
 
 	}
 
@@ -215,7 +225,34 @@ public class ProfilerDemo implements PlugInFilter, MouseListener {
                     }
 
                     Plot p = new Plot("", "orient.[deg]", profileNamePerLocation.get(i).get(g), angIdx, profilesPerLocation.get(i).get(g));
-                    p.setSize(600, 300);
+					p.setSize(600, 300);
+					p.draw();
+					if (Analyzer.peakIdx[i][g]!=null) {
+
+						float [] xAxis;
+						float [] yAxis;
+
+						yAxis = new float[3];
+
+						yAxis[0]  = (float) Tools.interp1Darray( Analyzer.peakIdx[i][g][0],  profilesPerLocation.get(i).get(g) );
+						yAxis[1]  = (float) Tools.interp1Darray( Analyzer.peakIdx[i][g][1],  profilesPerLocation.get(i).get(g) );
+						yAxis[2]  = (float) Tools.interp1Darray( Analyzer.peakIdx[i][g][2],  profilesPerLocation.get(i).get(g) );
+
+						xAxis = new float[3];
+						for (int i1=0; i1<3; i1++) xAxis[i1] = Analyzer.peakIdx[i][g][i1] * angResDegPerLocation.get(i).get(g);
+						p.setColor(Color.RED);
+						p.addPoints(xAxis, yAxis, Plot.BOX);
+
+						/*
+						overlay for the main image
+						 */
+
+
+						Overlay ov = new Overlay();
+						PointRoi p = new PointRoi();
+
+					}
+
                     vizProfileStack.addSlice("", p.getProcessor());
 
                     /*

@@ -17,7 +17,7 @@ public class Analyzer extends Thread  {
 
     public static ArrayList<ArrayList<float[]>> profiles; // input
     // outputs
-    public static float[][][] peakVal; //
+//    public static float[][][] peakVal; //
     public static float[][][] peakIdx; // array index
 
     public static int       maxIter = 150;
@@ -51,7 +51,7 @@ public class Analyzer extends Thread  {
             profiles.add(temp);
         }
 
-        peakVal = new float[profiles.size()][profiles.get(0).size()][]; // keeps three peak values
+//        peakVal = new float[profiles.size()][profiles.get(0).size()][]; // keeps three peak values
         peakIdx = new float[profiles.size()][profiles.get(0).size()][]; // keeps three corresp indexes
 
     }
@@ -84,20 +84,20 @@ public class Analyzer extends Thread  {
 
                 // store the values
                 if (cls.size()<=2) {
-                    peakVal[locIdx][profileIdx] = null;
+//                    peakVal[locIdx][profileIdx] = null;
                     peakIdx[locIdx][profileIdx] = null;
 
                 }
                 else if (cls.size()==3) {
-                    peakVal[locIdx][profileIdx] = new float[3];
-                    peakVal[locIdx][profileIdx][0]  = cls.get(0)[0];
-                    peakVal[locIdx][profileIdx][1]  = cls.get(1)[0];
-                    peakVal[locIdx][profileIdx][2]  = cls.get(2)[0];
-
                     peakIdx[locIdx][profileIdx] = new float[3];
-                    peakIdx[locIdx][profileIdx][0]  = (float) Tools.interp1Darray(peakVal[locIdx][profileIdx][0], profiles.get(locIdx).get(profileIdx));
-                    peakIdx[locIdx][profileIdx][1]  = (float) Tools.interp1Darray(peakVal[locIdx][profileIdx][1], profiles.get(locIdx).get(profileIdx));
-                    peakIdx[locIdx][profileIdx][2]  = (float) Tools.interp1Darray(peakVal[locIdx][profileIdx][2], profiles.get(locIdx).get(profileIdx));
+                    peakIdx[locIdx][profileIdx][0]  = cls.get(0)[0];
+                    peakIdx[locIdx][profileIdx][1]  = cls.get(1)[0];
+                    peakIdx[locIdx][profileIdx][2]  = cls.get(2)[0];
+
+//                    peakVal[locIdx][profileIdx] = new float[3];
+//                    peakVal[locIdx][profileIdx][0]  = (float) Tools.interp1Darray(peakIdx[locIdx][profileIdx][0], profiles.get(locIdx).get(profileIdx));
+//                    peakVal[locIdx][profileIdx][1]  = (float) Tools.interp1Darray(peakIdx[locIdx][profileIdx][1], profiles.get(locIdx).get(profileIdx));
+//                    peakVal[locIdx][profileIdx][2]  = (float) Tools.interp1Darray(peakIdx[locIdx][profileIdx][2], profiles.get(locIdx).get(profileIdx));
 
                 }
                 else { // >3
@@ -105,7 +105,7 @@ public class Analyzer extends Thread  {
                     boolean[] checked = new boolean[cls.size()]; // all to false
                     // extract 3 angles with most convergence points
 
-                    peakVal[locIdx][profileIdx] = new float[3];
+//                    peakVal[locIdx][profileIdx] = new float[3];
                     peakIdx[locIdx][profileIdx] = new float[3];
 
                     // find top 3
@@ -131,7 +131,7 @@ public class Analyzer extends Thread  {
                         checked[currMaxIdx] = true;
                         // set the output value
                         peakIdx[locIdx][profileIdx][k] = cls.get(currMaxIdx)[0];
-                        peakVal[locIdx][profileIdx][k] = (float) Tools.interp1Darray(peakIdx[locIdx][profileIdx][k], profiles.get(locIdx).get(profileIdx));
+//                        peakVal[locIdx][profileIdx][k] = (float) Tools.interp1Darray(peakIdx[locIdx][profileIdx][k], profiles.get(locIdx).get(profileIdx));
 
                     }
 
