@@ -20,9 +20,12 @@ public class Analyzer extends Thread  {
 //    public static float[][][] peakVal; //
     public static float[][][] peakIdx; // array index
 
-    public static int       maxIter = 150;
+    // this is functionally not necessary - just to visualize how it converged
+    public static ArrayList<ArrayList<float[]>> convIdx;
+
+    public static int       maxIter = 200;
     public static double    epsilon = 0.0001;
-    public static int       h = 4;
+    public static int       h = 3;
     public static double    minD = 0.5;
     public static int       M = 1;
 

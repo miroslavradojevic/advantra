@@ -237,7 +237,7 @@ public class Tools {
             int 		h
     ){
 
-        double[] T = new double[start.length];
+        double[] T = new double[start.length]; // slows down things...
 
         for (int i = 0; i < T.length; i++) {
             T[i] = start[i];
@@ -395,6 +395,128 @@ public class Tools {
 
         return clust;
 
+    }
+
+    /**
+     * background median estimation ( Wirth's algorithm )
+     * Title: Algorithms + data structures = programs
+     * Publisher: Englewood Cliffs: Prentice-Hall, 1976
+     * Physical description: 366 p.
+     * Series: Prentice-Hall Series in Automatic Computation
+     */
+    public static double median_Wirth(float[] a)
+    {
+        int n = a.length;
+        int i, j, l, m, k;
+        double x;
+        if (n % 2 == 0) k = (n/2)-1;
+        else k = (n/2);
+        l=0 ; m=n-1 ;
+        while (l < m)
+        {
+            x=a[k] ;
+            i = l ;
+            j = m ;
+            do
+            {
+                while (a[i] < x) i++ ;
+                while (x < a[j]) j-- ;
+                if (i <= j) {
+                    float temp = a[i];
+                    a[i] = a[j];
+                    a[j] = temp;
+                    i++ ; j-- ;
+                }
+            } while (i <= j) ;
+            if (j < k) l = i ;
+            if (k < i) m = j ;
+        }
+        return a[k] ;
+    }
+
+    public static float[] hdome(float[] I, float h)
+    {
+
+        // sequential implementation (Morphological Grayscale Reconstruction in Image Analysis: Applications and Efficient Algorithms. Vincent 1993.)
+        float[] J       = new float[I.length];
+        float[] Jprev   = new float[I.length];
+
+        // create marker image
+        for (int w=0; w<I.length; w++)
+            J[w]        = I[w] - h;
+
+        float diff;
+
+        do {
+
+            for (int i1=0; i1<J.length; i1++)
+                Jprev[i1] = J[i1];
+
+            // calculate next J
+            // raster order
+            for (int i1=0; i1<J.length; i1++)
+                J[i1] = (i1>0)? Math.min(Math.max(J[i1-1], J[i1]), I[i1]) : Math.min(J[i1], I[i1]) ;
+            // anti-raster
+            for (int i1=J.length-1; i1>=0; i1--)
+                J[i1] = (i1<J.length-1)? Math.min(Math.max(J[i1+1], J[i1]), I[i1]) : Math.min(J[i1], I[i1]) ;
+
+            // calculate diff
+            diff = 0;
+            for (int i1=0; i1<J.length; i1++) {
+                diff += Math.abs(J[i1]-Jprev[i1]);
+            }
+
+        }
+        while (diff>1);
+
+        // subtract the reconstruction
+        for (int i1=0; i1<I.length; i1++) {
+            J[i1] = I[i1] - J[i1];
+        }
+
+        return J;
+    }
+    public static float[] hdome_Circular(float[] I, float h)
+    {
+
+        // sequential implementation (Morphological Grayscale Reconstruction in Image Analysis: Applications and Efficient Algorithms. Vincent 1993.)
+        float[] J       = new float[I.length];
+        float[] Jprev   = new float[I.length];
+
+        // create marker image
+        for (int w=0; w<I.length; w++)
+            J[w]        = I[w] - h;
+
+        float diff;
+
+        do {
+
+            for (int i1=0; i1<J.length; i1++)
+                Jprev[i1] = J[i1];
+
+            // calculate next J
+            // raster order
+            for (int i1=0; i1<J.length; i1++)
+                J[i1] = (i1>0)? Math.min(Math.max(J[i1-1], J[i1]), I[i1]) : Math.min(Math.max(J[J.length-1], J[i1]), I[i1]) ;
+            // anti-raster
+            for (int i1=J.length-1; i1>=0; i1--)
+                J[i1] = (i1<J.length-1)? Math.min(Math.max(J[i1+1], J[i1]), I[i1]) : Math.min(Math.max(J[0], J[i1]), I[i1]) ;
+
+            // calculate diff
+            diff = 0;
+            for (int i1=0; i1<J.length; i1++) {
+                diff += Math.abs(J[i1]-Jprev[i1]);
+            }
+
+        }
+        while (diff>1);
+
+        // subtract the reconstruction
+        for (int i1=0; i1<I.length; i1++) {
+            J[i1] = I[i1] - J[i1];
+        }
+
+        return J;
     }
 
 }

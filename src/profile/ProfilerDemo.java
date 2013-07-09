@@ -3,10 +3,7 @@ package profile;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
-import ij.gui.ImageCanvas;
-import ij.gui.Overlay;
-import ij.gui.Plot;
-import ij.gui.PointRoi;
+import ij.gui.*;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ByteProcessor;
 import ij.process.ImageProcessor;
@@ -39,6 +36,9 @@ public class ProfilerDemo implements PlugInFilter, MouseListener {
     ArrayList<ArrayList<Integer>>   angResDegPerLocation;
     ArrayList<ArrayList<String>>    profileNamePerLocation;
 
+    ArrayList<Double> neuronDPerLocation;
+    ArrayList<Double> scalePerLocation;
+
     int CPU_NR;
 
 	public int setup(String s, ImagePlus imagePlus) {
@@ -66,7 +66,7 @@ public class ProfilerDemo implements PlugInFilter, MouseListener {
 			inmask = new ImagePlus("inmask", new ByteProcessor(inimg.getWidth(), inimg.getHeight(), array));
 		}
 
-        CPU_NR = 8;
+        CPU_NR = 5;
 
 		Profiler.loadTemplate(inimg.getProcessor(), (ByteProcessor) inmask.getProcessor());
 
@@ -75,9 +75,15 @@ public class ProfilerDemo implements PlugInFilter, MouseListener {
         angResDegPerLocation    = new ArrayList<ArrayList<Integer>>(totalLocations);
         profileNamePerLocation  = new ArrayList<ArrayList<String>>(totalLocations);
 
+        neuronDPerLocation = new ArrayList<Double>();
+        scalePerLocation = new ArrayList<Double>();
+
         //loop parameters
         for (double neuronDiam = 3; neuronDiam<=3; neuronDiam++) {
-            for (double scale=2; scale<=3; scale+=1) {
+            for (double scale=1.5; scale<=2; scale+=.5) {
+
+                neuronDPerLocation.add(neuronDiam);
+                scalePerLocation.add(scale);
 
                 Profiler.loadParams(neuronDiam, scale);
                 IJ.log("calculating profiles... neuronDiam="+neuronDiam+", scale="+scale);
@@ -211,9 +217,39 @@ public class ProfilerDemo implements PlugInFilter, MouseListener {
 
                 int nrProfiles = profilesPerLocation.get(i).size();
 
-                for (int g=0; g<nrProfiles; g++) {
+                /*
+				overlay for the main image
+			    */
+                Overlay ov = new Overlay();
+                PointRoi pt = new PointRoi(atX+.5, atY+.5);
+                ov.add(pt);
+
+                for (int g=0; g<nrProfiles; g++) {  // g will loop profiles
 
                     int currProfileLen = profilesPerLocation.get(i).get(g).length;
+
+                    // allocate profile mean
+                    float[] profileMean = new float[currProfileLen];
+                    // allocate profile median
+                    float[] profileMed = new float[currProfileLen];
+
+                    // calculate mean
+                    profileMean[0] = 0;
+                    if (currProfileLen>0) {
+                        for (int i1 =0; i1<currProfileLen; i1++) profileMean[0] += profilesPerLocation.get(i).get(g)[i1];
+                        profileMean[0] /= currProfileLen;
+                    }
+                    for (int i1=1; i1<currProfileLen; i1++) {
+                        profileMean[i1] = profileMean[0];
+                    }
+                    // calculate median
+                    //make a copy
+                    float[] inProfile = new float[currProfileLen];
+                    for (int i1=0; i1<currProfileLen; i1++) inProfile[i1] = profilesPerLocation.get(i).get(g)[i1];
+                    profileMed[0] = (float) Tools.median_Wirth(inProfile);
+                    for (int i1=1; i1<currProfileLen; i1++) {
+                        profileMed[i1] = profileMed[0];
+                    }
 
                     /*
                     plot ij
@@ -224,9 +260,19 @@ public class ProfilerDemo implements PlugInFilter, MouseListener {
                         angIdx[q] = q * angResDegPerLocation.get(i).get(g);
                     }
 
+
+                    /*
+                    plot def.
+                     */
                     Plot p = new Plot("", "orient.[deg]", profileNamePerLocation.get(i).get(g), angIdx, profilesPerLocation.get(i).get(g));
 					p.setSize(600, 300);
 					p.draw();
+                    p.setColor(Color.BLUE);
+                    p.addPoints(angIdx, profileMean, Plot.LINE);
+                    p.setColor(Color.GREEN);
+                    p.addPoints(angIdx, profileMed, Plot.LINE);
+
+                    // plot dtections if there were any
 					if (Analyzer.peakIdx[i][g]!=null) {
 
 						float [] xAxis;
@@ -243,16 +289,35 @@ public class ProfilerDemo implements PlugInFilter, MouseListener {
 						p.setColor(Color.RED);
 						p.addPoints(xAxis, yAxis, Plot.BOX);
 
-						/*
-						overlay for the main image
-						 */
+                        // modify xAxis angles into euclidean points
+                        double[][] msPeaks = new double[3][2];
+                        double rd = neuronDPerLocation.get(g)*scalePerLocation.get(g);
 
+//                        IJ.log("added one round "+rd+" at scale "+scalePerLocation.get(g));
 
-						Overlay ov = new Overlay();
-						PointRoi p = new PointRoi();
+                        for (int i1=0; i1<3; i1++) {
 
-					}
+                            msPeaks[i1][0] = atX+rd*Math.cos(xAxis[i1]*(2*Math.PI/360))+.5;
+                            msPeaks[i1][1] = atY-rd*Math.sin(xAxis[i1]*(2*Math.PI/360))+.5;
+                            ov.add(new PointRoi(msPeaks[i1][0], msPeaks[i1][1]));
+                            ov.add(new OvalRoi(atX-rd+.5, atY-rd+.5, 2*rd, 2*rd));
+//                            IJ.log("added : "+msPeaks[i1][0]+ "," +msPeaks[i1][1]);
+                        }
 
+                    }
+//                    IJ.log(ov.size()+"points");
+                    inimg.setOverlay(ov);
+
+                    vizProfileStack.addSlice("", p.getProcessor());
+
+                    // here add experimental H-dome profile right below just for this location
+                    float H = 5;
+                    float[] hdomeProfile = Tools.hdome_Circular(profilesPerLocation.get(i).get(g), H);
+                    p = new Plot("", "", "H-dome,H="+H, angIdx, hdomeProfile); // profilesPerLocation.get(i).get(g)
+                    p.setSize(600, 300);
+                    p.setColor(Color.CYAN);// need to make it colour to align with previous in the same stack
+                    //p.addPoints(angIdx, , Plot.LINE);
+                    p.draw();
                     vizProfileStack.addSlice("", p.getProcessor());
 
                     /*
