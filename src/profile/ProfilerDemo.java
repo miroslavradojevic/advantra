@@ -66,7 +66,7 @@ public class ProfilerDemo implements PlugInFilter, MouseListener {
 			inmask = new ImagePlus("inmask", new ByteProcessor(inimg.getWidth(), inimg.getHeight(), array));
 		}
 
-        CPU_NR = 5;
+        CPU_NR = 8;
 
 		Profiler.loadTemplate(inimg.getProcessor(), (ByteProcessor) inmask.getProcessor());
 
@@ -135,10 +135,9 @@ public class ProfilerDemo implements PlugInFilter, MouseListener {
 
         vizProfileImage = new ImagePlus();
 
-
         inmask.show();
 		IJ.selectWindow("inimg");
-		IJ.run("Add Image...", "image=inmask x="+0+" y="+0+" opacity=20");
+		IJ.run("Add Image...", "image=inmask x="+0+" y="+0+" opacity=30");
 		inmask.close();
 
 		IJ.selectWindow("inimg");
@@ -210,7 +209,7 @@ public class ProfilerDemo implements PlugInFilter, MouseListener {
         writer.print("");
         writer.close();
 
-        for (int i=0; i<Profiler.locations.length; i++) {
+        for (int i=0; i<Profiler.locations.length; i++) {  // i will loop locations
             if (Profiler.locations[i][0]==atX && Profiler.locations[i][1]==atY) {
 
                 // pick all the profiles from the list for that location
@@ -260,7 +259,6 @@ public class ProfilerDemo implements PlugInFilter, MouseListener {
                         angIdx[q] = q * angResDegPerLocation.get(i).get(g);
                     }
 
-
                     /*
                     plot def.
                      */
@@ -286,6 +284,9 @@ public class ProfilerDemo implements PlugInFilter, MouseListener {
 
 						xAxis = new float[3];
 						for (int i1=0; i1<3; i1++) xAxis[i1] = Analyzer.peakIdx[i][g][i1] * angResDegPerLocation.get(i).get(g);
+
+
+
 						p.setColor(Color.RED);
 						p.addPoints(xAxis, yAxis, Plot.BOX);
 
@@ -296,16 +297,14 @@ public class ProfilerDemo implements PlugInFilter, MouseListener {
 //                        IJ.log("added one round "+rd+" at scale "+scalePerLocation.get(g));
 
                         for (int i1=0; i1<3; i1++) {
-
                             msPeaks[i1][0] = atX+rd*Math.cos(xAxis[i1]*(2*Math.PI/360))+.5;
                             msPeaks[i1][1] = atY-rd*Math.sin(xAxis[i1]*(2*Math.PI/360))+.5;
                             ov.add(new PointRoi(msPeaks[i1][0], msPeaks[i1][1]));
                             ov.add(new OvalRoi(atX-rd+.5, atY-rd+.5, 2*rd, 2*rd));
-//                            IJ.log("added : "+msPeaks[i1][0]+ "," +msPeaks[i1][1]);
                         }
 
                     }
-//                    IJ.log(ov.size()+"points");
+
                     inimg.setOverlay(ov);
 
                     vizProfileStack.addSlice("", p.getProcessor());

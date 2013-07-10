@@ -229,7 +229,43 @@ public class Tools {
 
     }
 
-    public static double[] runMS(
+	public static double[] runMS(
+            double[] 	start,
+            float[] 	inputProfile,
+            int 		max_iter,
+            double 	    epsilon,
+            int 		h,
+			double[] 	T // same length as start
+    )
+	{
+
+        //double[] T = new double[start.length]; // slows down things...
+
+        for (int i = 0; i < T.length; i++) {
+            T[i] = start[i];
+        }
+
+        for (int i = 0; i < T.length; i++) {
+
+            int iter = 0;
+            double d;
+
+            do{
+
+                double new_pos = runOne(T[i], h, inputProfile);
+                d = Math.abs(new_pos - T[i]);
+                T[i] = new_pos;
+                iter++;
+            }
+            while(iter < max_iter && d > epsilon);
+
+        }
+
+        return T;
+
+    }
+
+	public static double[] runMS(
             double[] 	start,
             float[] 	inputProfile,
             int 		max_iter,
