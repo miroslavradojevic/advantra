@@ -9,6 +9,7 @@ import ij.plugin.filter.PlugInFilter;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
+import profile.MeanShift2D;
 import profile.Tools;
 
 import java.awt.*;
@@ -116,7 +117,7 @@ public class BifDetect implements PlugInFilter, MouseListener {
         score.show();
 		IJ.log("done. "+((t2-t1)/1000f)+" sec.");
 
-        IJ.log("MS detection");
+/*        IJ.log("MS detection");
         t1 = System.currentTimeMillis();
         MeanShift2D ms2d = new MeanShift2D((FloatProcessor) score.getProcessor(), 6);
         ms2d.run(200, 0.0001);
@@ -139,7 +140,7 @@ public class BifDetect implements PlugInFilter, MouseListener {
             ov.add(or);
         }
         inimg.setOverlay(ov);
-        IJ.log("done");
+        IJ.log("done");*/
 
 	}
 

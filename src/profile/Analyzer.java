@@ -30,7 +30,7 @@ public class Analyzer extends Thread  {
     // this is functionally not necessary - just to visualize how it converged (it's calculated anyway)
     public static ArrayList<ArrayList<float[]>> convIdx;
 
-    public static int       maxIter = 200;
+    public static int       maxIter = 100;
     public static double    epsilon = 0.0001;
     public static int       h = 3;
     public static double    minD = 0.5;
@@ -65,9 +65,23 @@ public class Analyzer extends Thread  {
 
         peakIdx = new float[profiles.size()][profiles.get(0).size()][]; // keeps three corresp indexes of profile values
 
-		convIdx = new ArrayList<ArrayList<float[]>>();
+		convIdx = new ArrayList<ArrayList<float[]>>(); // this is where msFinish will be stored
 
+        for (int i=0; i<profiles1.size(); i++) {
+            ArrayList<float[]> temp = new ArrayList<float[]>(profiles1.get(i).size());
+            for (int j=0; j<profiles1.get(i).size(); j++) {
 
+                float[] toAdd = new float[100];
+
+//                for (int k=0; k<toAdd.length; k++ ) {
+//                    toAdd[k] = profiles1.get(i).get(j)[k];
+//                }
+
+                temp.add(toAdd);
+
+            }
+            convIdx.add(temp);
+        }
 
     }
 
@@ -94,6 +108,10 @@ public class Analyzer extends Thread  {
 								msFinish);
 
 				// loop to store it in convIdx
+
+                for (int i1=0; i1<100; i1++) {
+                    convIdx.get(locIdx).get(profileIdx)[i1] = (float) msFinish[i1];
+                }
 
                 Vector<float[]> cls = Tools.extractClusters(msFinish, minD, M);
 

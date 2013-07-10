@@ -512,7 +512,8 @@ public class Tools {
 
         return J;
     }
-    public static float[] hdome_Circular(float[] I, float h)
+
+    public static float[] hdome_Circular(float[] I, float h, float hmin)
     {
 
         // sequential implementation (Morphological Grayscale Reconstruction in Image Analysis: Applications and Efficient Algorithms. Vincent 1993.)
@@ -552,7 +553,28 @@ public class Tools {
             J[i1] = I[i1] - J[i1];
         }
 
+        for (int i1=0; i1<I.length; i1++) {
+            J[i1] = (J[i1]>hmin)? 1 : 0;
+        }
+
         return J;
+    }
+
+    public static float wrap_180(float ang) // -180 + 180 wrapping
+    {
+
+        float out = ang;
+
+        while (out<-180) {
+            out += 360;
+        }
+
+        while (out>=180) {
+            out -= 360;
+        }
+
+        return out;
+
     }
 
 }

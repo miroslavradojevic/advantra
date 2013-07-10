@@ -1,3 +1,5 @@
+package profile;
+
 import ij.process.FloatProcessor;
 import profile.Interpolator;
 
@@ -14,13 +16,13 @@ import java.util.ArrayList;
  *  doi: 10.1109/34.400568
  */
 
-public class MeanShift2D {
+public class MeanShift2D extends Thread {
 
-    int 		image_width;
-    int 		image_height;
+    public static int 		image_width;
+    public static int 		image_height;
 
-    double[][]	S;					// finite set, data, sample
-    double[][]	T;					// cluster centers
+    public static double[][]	S;					// finite set, data, sample
+    public static double[][]	T;					// cluster centers
 
     double[] 	w; 					// weights (image intensities)
 
