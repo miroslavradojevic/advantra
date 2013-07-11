@@ -550,12 +550,12 @@ public class Tools {
 
         // subtract the reconstruction
         for (int i1=0; i1<I.length; i1++) {
-            J[i1] = I[i1] - J[i1];
+            J[i1] = (I[i1] - J[i1]>hmin)? 1 : 0 ;
         }
 
-        for (int i1=0; i1<I.length; i1++) {
-            J[i1] = (J[i1]>hmin)? 1 : 0;
-        }
+//        for (int i1=0; i1<I.length; i1++) {
+//            J[i1] = (J[i1]>hmin)? 1 : 0;
+//        }
 
         return J;
     }

@@ -14,7 +14,6 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.io.*;
 import java.util.ArrayList;
-import java.util.Arrays;
 
 /**
  * Created with IntelliJ IDEA.
@@ -22,7 +21,7 @@ import java.util.Arrays;
  * Date: 7/7/13
  * Time: 8:13 PM
  */
-public class ProfilerDemo implements PlugInFilter, MouseListener {
+public class JunctionDet implements PlugInFilter, MouseListener {
 
 	ImagePlus 	inimg;
 	String 		inimgPath;
@@ -34,19 +33,23 @@ public class ProfilerDemo implements PlugInFilter, MouseListener {
     ImagePlus       vizProfileImage;
     ImageStack      vizProfileStack;
 
-    // to store profiles, list of values per location
-    ArrayList<ArrayList<float[]>>   profilesPerLocation;
-    ArrayList<ArrayList<Integer>>   angResDegPerLocation;
-    ArrayList<ArrayList<String>>    profileNamePerLocation;
+    ArrayList<ArrayList<float[]>>   profiles;
+    ArrayList<ArrayList<Integer>>   angularRes;
+    ArrayList<ArrayList<String>>    profilesName;
 
-    ArrayList<Double>               neuronDPerLocation;
-    ArrayList<Double>               scalePerLocation;
+	ArrayList<ArrayList<float[]>>   hdomes;
 
-    ArrayList<ArrayList<float[]>>   anglesDegPerLocation;   // 3 angles
-    ArrayList<ArrayList<float[]>>   scoresPerLocation;      // each angle one score
+    ArrayList<Double>               neuronD; // per cfg
+    ArrayList<Double>               scale;   // per cfg
 
-    ArrayList<ArrayList<Double>>   backgrPerLocation;       // necessary for scoring scheme - only for the location - change and use for scoring
-    ArrayList<ArrayList<Double>>   centralAvgPerLocation;
+	// ms output
+    ArrayList<ArrayList<float[]>>   angles;   	// 3 angles  (necessary for matching)
+    ArrayList<ArrayList<float[]>>   idxs;   	// 3 profile indexes
+    ArrayList<ArrayList<float[]>>   peaks;      // each angle one peak score
+
+    ArrayList<Float>   				bacgr;    // per loc
+
+    ArrayList<ArrayList<Float>>   	centrAvg;
 
     int CPU_NR;
 
@@ -80,28 +83,35 @@ public class ProfilerDemo implements PlugInFilter, MouseListener {
          */
         scoreimg = new FloatProcessor(inimg.getWidth(), inimg.getHeight());
 
-        CPU_NR = 4;
+        CPU_NR = 5;  // GD
 
 		Profiler.loadTemplate(inimg.getProcessor(), (ByteProcessor) inmask.getProcessor());
 
         int totalLocations = Profiler.locations.length;
-        profilesPerLocation     = new ArrayList<ArrayList<float[]>>(totalLocations);
-        angResDegPerLocation    = new ArrayList<ArrayList<Integer>>(totalLocations);
-        profileNamePerLocation  = new ArrayList<ArrayList<String>>(totalLocations);
 
-        neuronDPerLocation = new ArrayList<Double>(); // this is actually per configuration
-        scalePerLocation = new ArrayList<Double>();
+        profiles     	= new ArrayList<ArrayList<float[]>>(totalLocations);
+		angularRes    	= new ArrayList<ArrayList<Integer>>(totalLocations);
+        profilesName  	= new ArrayList<ArrayList<String>>(totalLocations);
 
-        //loop parameters
+        neuronD = new ArrayList<Double>(); // this is actually per configuration
+        scale 	= new ArrayList<Double>();
+
+        //loop parameters: neuronDiam, scale from GD
+
+		IJ.log("calculating profiles... ");
+		long t1 = System.currentTimeMillis();
+
+		int totalConfs = 0;
         for (double neuronDiam = 3; neuronDiam<=3; neuronDiam++) {
-            for (double scale=1.5; scale<=2.5; scale+=.5) {
+            for (double sc=1.5; sc<=2.5; sc+=.5) {
 
-                neuronDPerLocation.add(neuronDiam);
-                scalePerLocation.add(scale);
+				totalConfs++;
 
-                Profiler.loadParams(neuronDiam, scale);
-                IJ.log("calculating profiles... neuronDiam="+neuronDiam+", scale="+scale);
-                long t1 = System.currentTimeMillis();
+                neuronD.add(neuronDiam);
+                scale.add(sc);
+
+                Profiler.loadParams(neuronDiam, sc);
+
                 int totalProfiles = Profiler.offsets.size();
                 Profiler ms_jobs[] = new Profiler[CPU_NR];
                 for (int i = 0; i < ms_jobs.length; i++) {
@@ -115,19 +125,43 @@ public class ProfilerDemo implements PlugInFilter, MouseListener {
                         e.printStackTrace();
                     }
                 }
-                long t2 = System.currentTimeMillis();
-                IJ.log("done extracting profiles "+((t2-t1)/1000f)+" sec.");
 
                 updateList();
 
             }
         }
 
-        // ms, use profilesPerLocation
-        IJ.log("calculating local peaks... ");
+		long t2 = System.currentTimeMillis();
+		IJ.log("done "+((t2-t1)/1000f)+" sec.");
+
+		IJ.log("calculating H-domes... ");
+		t1 = System.currentTimeMillis();
+
+		float H = 5, Hmin = 3; // GD
+		hdomes = new ArrayList<ArrayList<float[]>>(totalLocations);
+		for (int locIdx= 0; locIdx<totalLocations; locIdx++) {
+
+			ArrayList<float[]> hdomesPerConf = new ArrayList<float[]>(totalConfs);
+
+			for (int cfgIdx=0; cfgIdx<totalConfs; cfgIdx++) {
+				/*
+				calculate configuration and add it
+				 */
+				hdomesPerConf.add(Tools.hdome_Circular(profiles.get(locIdx).get(cfgIdx), H, Hmin));
+			}
+
+			hdomes.add(hdomesPerConf);
+
+		}
+
+		t2 = System.currentTimeMillis();
+		IJ.log("done "+((t2-t1)/1000f)+" sec.");
+
+        // ms, use profiles
+        IJ.log("calculating peaks... ");
         long t1 = System.currentTimeMillis();
 
-        Analyzer.loadProfiles(profilesPerLocation);
+        Analyzer.loadProfiles(profiles);
         Analyzer ms_jobs[] = new Analyzer[CPU_NR];
         for (int i = 0; i < ms_jobs.length; i++) {
             ms_jobs[i] = new Analyzer(i*totalLocations/CPU_NR,  (i+1)*totalLocations/CPU_NR);
@@ -146,26 +180,23 @@ public class ProfilerDemo implements PlugInFilter, MouseListener {
 
         IJ.log("finding matches and corresponding scores for each location...");
 
-        int totLocs = profilesPerLocation.size();
+        angles    	= new ArrayList<ArrayList<float[]>>(totalLocations);
+        idxs    	= new ArrayList<ArrayList<float[]>>(totalLocations);
+        peaks       = new ArrayList<ArrayList<float[]>>(totalLocations);
+		centrAvg   	= new ArrayList<ArrayList<Float>>(totalLocations);
+		bacgr       = new ArrayList<Float>(totalLocations);
 
-        anglesDegPerLocation    = new ArrayList<ArrayList<float[]>>(totLocs);
-        scoresPerLocation       = new ArrayList<ArrayList<float[]>>(totLocs);
-        backgrPerLocation       = new ArrayList<ArrayList<Double>>(totLocs);
-        centralAvgPerLocation   = new ArrayList<ArrayList<Double>>(totLocs);
+        for (int locIdx=0; locIdx<totalLocations; locIdx++) {
 
-        for (int locIdx=0; locIdx<totLocs; locIdx++) {
-
-            int totCfgs = profilesPerLocation.get(locIdx).size();
-
-            ArrayList<float[]>  anglesDegPerCfg = new ArrayList<float[]>(totCfgs);
-            ArrayList<float[]>  scoresPerCfg = new ArrayList<float[]>(totCfgs);
-            ArrayList<Double>   backgrPerCfg = new ArrayList<Double>(totCfgs);
-            ArrayList<Double>   centralAvgPerCfg = new ArrayList<Double>(totCfgs);
+            ArrayList<float[]>  anglesPerCfg = new ArrayList<float[]>(totalConfs);
+            ArrayList<float[]>  idxsPerCfg = new ArrayList<float[]>(totalConfs);
+            ArrayList<float[]>  peaksPerCfg = new ArrayList<float[]>(totalConfs);
+            ArrayList<Float>   centralAvgPerCfg = new ArrayList<Float>(totalConfs);
 
             boolean isFirst = true;
             float[] refAnglesDeg    = new float[3];
 
-            for (int cfgIdx=0; cfgIdx<totCfgs; cfgIdx++) {
+            for (int cfgIdx=0; cfgIdx<totalConfs; cfgIdx++) {
 
                 /*
                  find central bloc score for this location
@@ -173,7 +204,8 @@ public class ProfilerDemo implements PlugInFilter, MouseListener {
 
                 int atX = Profiler.locations[locIdx][0];
                 int atY = Profiler.locations[locIdx][1];
-                centralAvgPerCfg.add(centralAvg(atX, atY, neuronDPerLocation.get(cfgIdx), (FloatProcessor) inimg.getProcessor()));
+
+                centralAvgPerCfg.add(centralAvg(atX, atY, neuronD.get(cfgIdx), (FloatProcessor) inimg.getProcessor()));
 
                 // get indexes form Analyzer for this conf & loc
                 if (Analyzer.peakIdx[locIdx][cfgIdx]!=null) {
@@ -183,19 +215,24 @@ public class ProfilerDemo implements PlugInFilter, MouseListener {
                      */
 
                     float[] anglesDeg       = new float[3];
-                    float[] scores          = new float[3];
+                    float[] indexes       	= new float[3];
+                    float[] peaks          	= new float[3];
 
                     if (isFirst) {
 
                         // is first time, align as it is
-                        refAnglesDeg[0] = anglesDeg[0] = Analyzer.peakIdx[locIdx][cfgIdx][0] * angResDegPerLocation.get(locIdx).get(cfgIdx);
-                        refAnglesDeg[1] = anglesDeg[1] = Analyzer.peakIdx[locIdx][cfgIdx][1] * angResDegPerLocation.get(locIdx).get(cfgIdx);
-                        refAnglesDeg[2] = anglesDeg[2] = Analyzer.peakIdx[locIdx][cfgIdx][2] * angResDegPerLocation.get(locIdx).get(cfgIdx);
+						indexes[0] = Analyzer.peakIdx[locIdx][cfgIdx][0];
+						indexes[1] = Analyzer.peakIdx[locIdx][cfgIdx][1];
+						indexes[2] = Analyzer.peakIdx[locIdx][cfgIdx][2];
+
+                        refAnglesDeg[0] = anglesDeg[0] = indexes[0] * angularRes.get(locIdx).get(cfgIdx);
+                        refAnglesDeg[1] = anglesDeg[1] = indexes[1] * angularRes.get(locIdx).get(cfgIdx);
+                        refAnglesDeg[2] = anglesDeg[2] = indexes[2] * angularRes.get(locIdx).get(cfgIdx);
 
                         // this is raw average, needs to be normalized
-                        scores[0] = (float) Tools.interp1Darray(Analyzer.peakIdx[locIdx][cfgIdx][0], profilesPerLocation.get(locIdx).get(cfgIdx));
-                        scores[1] = (float) Tools.interp1Darray(Analyzer.peakIdx[locIdx][cfgIdx][1], profilesPerLocation.get(locIdx).get(cfgIdx));
-                        scores[2] = (float) Tools.interp1Darray(Analyzer.peakIdx[locIdx][cfgIdx][2], profilesPerLocation.get(locIdx).get(cfgIdx));
+						peaks[0] = (float) Tools.interp1Darray(indexes[0], profiles.get(locIdx).get(cfgIdx));
+						peaks[1] = (float) Tools.interp1Darray(indexes[1], profiles.get(locIdx).get(cfgIdx));
+						peaks[2] = (float) Tools.interp1Darray(indexes[2], profiles.get(locIdx).get(cfgIdx));
 
                         isFirst = false;
 
@@ -203,6 +240,9 @@ public class ProfilerDemo implements PlugInFilter, MouseListener {
                     else {
                         // not the first time, check angular matches
                         // read them and store wrt first
+
+
+
                         anglesDeg[0] = Analyzer.peakIdx[locIdx][cfgIdx][0] * angResDegPerLocation.get(locIdx).get(cfgIdx);
                         anglesDeg[1] = Analyzer.peakIdx[locIdx][cfgIdx][1] * angResDegPerLocation.get(locIdx).get(cfgIdx);
                         anglesDeg[2] = Analyzer.peakIdx[locIdx][cfgIdx][2] * angResDegPerLocation.get(locIdx).get(cfgIdx);
@@ -306,6 +346,10 @@ public class ProfilerDemo implements PlugInFilter, MouseListener {
 
         IJ.log("done!");
 
+		/*
+		extract backgraound for each location
+		 */
+
         // loop once again and extract scores
         for (int locIdx=0; locIdx<totLocs; locIdx++) {
 
@@ -378,7 +422,7 @@ public class ProfilerDemo implements PlugInFilter, MouseListener {
 
 	}
 
-    private void updateList() // uses Profiler
+    private void updateList() // uses Profiler to update  profiles, profilesName, angularRes
     {
         // store it in the list for each loc
         for (int loopLocations=0; loopLocations<Profiler.locations.length; loopLocations++) {
@@ -395,33 +439,35 @@ public class ProfilerDemo implements PlugInFilter, MouseListener {
             // intToAdd from Profiler.resolDeg
             int intToAdd = Profiler.resolDeg;
 
-            if (profilesPerLocation.size()<Profiler.locations.length) {
+            if (profiles.size()<Profiler.locations.length) {
 
                 ArrayList<float[]> A = new ArrayList<float[]>();
                 A.add(profileToAdd);
-                profilesPerLocation.add(A);
+                profiles.add(A);
 
                 ArrayList<String> B = new ArrayList<String>();
                 B.add(stringToAdd);
-                profileNamePerLocation.add(B);
+                profilesName.add(B);
 
                 ArrayList<Integer> C = new ArrayList<Integer>();
                 C.add(intToAdd);
-                angResDegPerLocation.add(C);
+				angularRes.add(C);
 
             }
             else {
-                profilesPerLocation.get(loopLocations).add(profileToAdd);
-                profileNamePerLocation.get(loopLocations).add(stringToAdd);
-                angResDegPerLocation.get(loopLocations).add(intToAdd);
-            }
+
+				profiles.get(loopLocations).add(profileToAdd);
+				profilesName.get(loopLocations).add(stringToAdd);
+				angularRes.get(loopLocations).add(intToAdd);
+
+			}
 
         }
     }
 
-    public double centralAvg(int atX, int atY, double diam, FloatProcessor inip)
+    public float centralAvg(int atX, int atY, double diam, FloatProcessor inip)
     {
-        double out = 0;
+        float out = 0;
         int cnt = 0;
         int margin = (int) Math.ceil(diam/2);
 

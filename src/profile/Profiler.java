@@ -22,7 +22,7 @@ public class Profiler extends Thread {
 
 	public static int 		resolDeg;
 
-	public static ArrayList<ArrayList<double[]>> offsets;
+	public static ArrayList<ArrayList<double[]>> offsets; // each offset will be parallelled
 
 	public static FloatProcessor    inip;
 	public static ByteProcessor     maskip;
@@ -98,6 +98,10 @@ public class Profiler extends Thread {
 		double r1 = neuronDiam*scale-neuronDiam/2;
 		double r2 = neuronDiam*scale+neuronDiam/2;// neuronDiam length
 
+		/*
+		create offsets
+		 */
+
 		offsets = new ArrayList<ArrayList<double[]>>();
 
 		for (int aDeg = 0; aDeg<360; aDeg+=resolDeg) {
@@ -135,9 +139,10 @@ public class Profiler extends Thread {
 		}
 
 		/*
-		 set profiles
+		 allocate profiles
 		*/
 		profiles = new float [locations.length][offsets.size()];
+
 
 //        for (int i=0; i<1; i++) {
 //			IJ.log("start"+offsets.get(i).size());
