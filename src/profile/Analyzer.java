@@ -15,9 +15,6 @@ public class Analyzer extends Thread  {
 
     private int begN, endN;
 
-	double[] start 		= new double[100];
-	double[] msFinish 	= new double[100];
-
 	/*
 		shared variables are static
 	 */
@@ -29,6 +26,10 @@ public class Analyzer extends Thread  {
 
     // this is functionally not necessary - just to visualize how it converged (it's calculated anyway)
     public static ArrayList<ArrayList<float[]>> convIdx;
+
+    public static int       nrPoints = 100;
+    double[]  start 		= new double[nrPoints];
+    double[]  msFinish 	= new double[nrPoints];
 
     public static int       maxIter = 100;
     public static double    epsilon = 0.0001;
@@ -96,8 +97,8 @@ public class Analyzer extends Thread  {
                 // access the profile
                 int profileLength = profiles.get(locIdx).get(profileIdx).length;
 
-				for (int k=0; k<100; k++) { // profileLength
-                    start[k] = ((float) k / 100) * profileLength;
+				for (int k=0; k<nrPoints; k++) { // profileLength
+                    start[k] = ((float) k / nrPoints) * profileLength;
                 }
 
 				Tools.runMS(  	start,

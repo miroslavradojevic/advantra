@@ -577,4 +577,9 @@ public class Tools {
 
     }
 
+    public static double min3(double a, double b, double c)
+    {
+        return Math.min(a, Math.min(b, c));
+    }
+
 }

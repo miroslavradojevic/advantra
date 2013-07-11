@@ -1,6 +1,8 @@
 package profile;
 
+import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
+import ij.process.ImageProcessor;
 import profile.Interpolator;
 
 import java.util.ArrayList;
@@ -16,50 +18,96 @@ import java.util.ArrayList;
  *  doi: 10.1109/34.400568
  */
 
-public class MeanShift2D extends Thread {
+public class MS2D extends Thread {
+
+    private int begN, endN;
 
     public static int 		image_width;
     public static int 		image_height;
+    public static int 		toProcess;
 
-    public static double[][]	S;					// finite set, data, sample
-    public static double[][]	T;					// cluster centers
 
-    double[] 	w; 					// weights (image intensities)
+    public static double[][]	S;					// x,y
+    public static double[][]	T;					// after convergence
 
-    int 		h_spatial;
-    int 		h_spatial2; 		// squared values
+    public static int 		h_spatial = 4;
+    public static int 		h_spatial2 = 4*4; 		    // squared
 
-    FloatProcessor inip;
+    public static FloatProcessor    inip;
+    public static ByteProcessor     maskip;
 
     static double Tdist 	= 0.001;
+    public static int       max_iter    = 150;
+    public static double    epsilon     = 0.0001;
 
-    public MeanShift2D(FloatProcessor imgp, int h_spatial){ // add an option for ByteProcessor
+    public MS2D (int n0, int n1) {
+        this.begN = n0;
+        this.endN = n1;
+    }
 
-        image_height 	= imgp.getHeight();
-        image_width 	= imgp.getWidth();
+    public static void loadTemplate(ImageProcessor inip1, ByteProcessor maskip1, int h1, int max_iter1, double epsilon1)
+    {
 
-        float[] image_values = (float[])imgp.getPixels();
+        /*
+        set inip
+         */
+        inip = new FloatProcessor(inip1.getWidth(), inip1.getHeight());
+        for (int i=0; i<inip1.getWidth()*inip1.getHeight(); i++) {
+            inip.setf(i, inip1.getf(i));
+        }
 
-//        w				= new double[image_height*image_width];
-//        for (int i = 0; i < image_height*image_width; i++) {
-//            w[i] 		= (double)(image_values[i] & 0xff);
-//        }
-
-        inip = new FloatProcessor(image_width, image_height, image_values);
-
-        int count = 0;
-        S				= new double[image_height*image_width][2];
-        T				= new double[image_height*image_width][2];
-        for (int i = 0; i < image_height; i++) {
-            for (int j = 0; j < image_width; j++) {
-                S[count][0] = (double)i;
-                S[count][1] = (double)j;
-                count++;
+        /*
+        set maskip
+         */
+        int cnt = 0;
+        maskip = new ByteProcessor(maskip1.getWidth(), maskip1.getHeight());
+        byte[] arr = (byte[]) maskip1.getPixels();
+        for (int i=0; i<arr.length; i++) {
+            if (arr[i]==(byte)255) {
+                maskip.set(i, 255);
+                cnt++;
+            }
+            else {
+                maskip.set(i, 0);
             }
         }
 
-        this.h_spatial 		= h_spatial;
+        toProcess = cnt;
+
+        image_height 	= inip.getHeight();
+        image_width 	= inip.getWidth();
+
+        /*
+        set locations
+         */
+        S = new double[cnt][2];
+        T = new double[cnt][2];
+
+        cnt = 0;
+        for (int i=0; i<arr.length; i++) {
+            if (arr[i]==(byte)255) {
+                S[cnt][1] = i%maskip.getWidth();// column
+                S[cnt][0] = i/maskip.getWidth();// row
+                cnt++;
+            }
+        }
+
+//        int count = 0;
+//        S				= new double[image_height*image_width][2];
+//        T				= new double[image_height*image_width][2];
+//        for (int i = 0; i < image_height; i++) {
+//            for (int j = 0; j < image_width; j++) {
+//                S[count][0] = (double)i;
+//                S[count][1] = (double)j;
+//                count++;
+//            }
+//        }
+
+        h_spatial 		    = h1;
         h_spatial2 			= h_spatial*h_spatial;
+
+        max_iter = max_iter1;
+        epsilon = epsilon1;
 
     }
 
@@ -141,16 +189,18 @@ public class MeanShift2D extends Thread {
         return new_pos;
     }
 
-    public double[][] 	run(int max_iter, double epsilon){
+    public void 	    run(){
 
-        T				= new double[image_height*image_width][2];
-        for (int i = 0; i < T.length; i++) {
+        // will work out range of values from T
+
+        //T				= new double[S.length][2];
+        for (int i = begN; i < endN; i++) {
             T[i][0] = S[i][0];	T[i][1] = S[i][1];
         }
 
-        for (int i = 0; i < image_height*image_width; i++) {
+        for (int i = begN; i < endN; i++) {
             int iter = 0;
-            double d = Double.MAX_VALUE;
+            double d;// = Double.MAX_VALUE;
             do{
                 double[] new_pos = runOneIterAtPos(T[i]);
                 d = d2(new_pos, T[i]);
@@ -161,10 +211,10 @@ public class MeanShift2D extends Thread {
             while(iter < max_iter && d > epsilon*epsilon);
         }
 
-        return T;
+        //return T;
     }
 
-    public double[][] extractConvPoints(double range, int M){
+    public static double[][] extractConvPoints(double range, int M){
 
         // 'range' describes neighborhood range size,
         // 'M' number of samples within the cluster
@@ -220,7 +270,7 @@ public class MeanShift2D extends Thread {
             }
         }
 
-        return conv_pts; // nr_pointsx2
+        return conv_pts;
 
     }
 
@@ -282,12 +332,6 @@ public class MeanShift2D extends Thread {
 
     }
 
-    public void printRoundedT(){
-        for (int i = 0; i < T.length; i++) {
-            System.out.format("%d, %d \n", (int)Math.round(T[i][0]), (int)Math.round(T[i][1]));
-        }
-    }
-
     private double d2(double[] a, double[] b){
         return Math.pow(a[0]-b[0], 2)+Math.pow(a[1]-b[1], 2);
     }
@@ -296,7 +340,7 @@ public class MeanShift2D extends Thread {
         return a[0]==b[0] && a[1]==b[1];
     }
 
-    private double dist(double[] a, double[] b){
+    private static double dist(double[] a, double[] b){
         return Math.sqrt(Math.pow((a[0]-b[0]), 2)+Math.pow((a[1]-b[1]), 2));
     }
 
