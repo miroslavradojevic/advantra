@@ -462,7 +462,7 @@ public class JunctionDet implements PlugInFilter, MouseListener {
         double dist = 1.0;  // GD
         int M = 50;
 
-        double[][] Tnew = MS2D.extractConvPoints(dist, M);
+        double[][] Tnew = MS2D.T;//extractConvPoints(dist, M);
 
         IJ.log(Tnew.length+" points extracted");
 

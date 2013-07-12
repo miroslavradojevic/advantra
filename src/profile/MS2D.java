@@ -111,36 +111,6 @@ public class MS2D extends Thread {
 
     }
 
-//    public void set(ByteProcessor imgp, int h_spatial) {
-//
-//        image_height 	= imgp.getHeight();
-//        image_width 	= imgp.getWidth();
-//
-//        byte[] image_values = (byte[])imgp.getPixels();
-//
-//        w				= new double[image_height*image_width];
-//        for (int i = 0; i < image_height*image_width; i++) {
-//            w[i] 		= (double)(image_values[i] & 0xff);
-//        }
-//
-//        inip = new FloatProcessor(image_width, image_height, w);
-//
-//        int count = 0;
-//        S				= new double[image_height*image_width][2];
-//        T				= new double[image_height*image_width][2];
-//        for (int i = 0; i < image_height; i++) {
-//            for (int j = 0; j < image_width; j++) {
-//                S[count][0] = (double)i;
-//                S[count][1] = (double)j;
-//                count++;
-//            }
-//        }
-//
-//        this.h_spatial 		= h_spatial;
-//        h_spatial2 			= h_spatial*h_spatial;
-//
-//    }
-
     private double[] 	runOneIterAtPos(double[] curr_pos){
         double[] 	new_pos		= new double[2];
         double 		sum 		= 0;
@@ -214,63 +184,96 @@ public class MS2D extends Thread {
         //return T;
     }
 
-    public static double[][] extractConvPoints(double range, int M){
+    public static ArrayList<ArrayList<double[]>> extractClusters(double minDist, int M){
 
         // 'range' describes neighborhood range size,
         // 'M' number of samples within the cluster
 
-        // T will be checked and extracted clusters stored in it, starting from the
-        // element with first index
+        //boolean[] 	clustered 		= new boolean[T.length]; // initialized with false
+		int[]		clusterIdx		= new int[T.length];
+		for (int i1=0; i1<T.length; i1++) clusterIdx[i1] = -1;
 
-        boolean[] 	clustered 		= new boolean[T.length]; // initialized with false
-        int[] 		cluster_size 	= new int[T.length];
+		ArrayList<ArrayList<double[]>> clusters = new ArrayList<ArrayList<double[]>>(T.length); // allocate T.length
+
         int nr_clusters = 0;
-        int nr_clusters_nigher_than_M = 0;
 
         for (int i = 0; i < T.length; i++) {
 
-            if(!clustered[i]){
+//            if(clusterIdx[i]==-1){
 
-                clustered[i] = true;
-                cluster_size[nr_clusters]++;
-                T[nr_clusters][0] = T[i][0];
-                T[nr_clusters][1] = T[i][1];
+				// it was not clustered: check if it belongs to some formed cluster
+				// or make a new one if not
 
-                for (int j = i+1; j < T.length; j++) {
+				boolean assignedToClstr = false;
+				for (int a1=0; a1<clusters.size(); a1++) {
 
-                    if(!clustered[j] && dist(T[i], T[j])<=range){
+					for (int b1=0; b1<clusters.get(a1).size(); b1++) {
 
-                        clustered[j] = true;
-                        cluster_size[nr_clusters]++;
+						if (d2(T[i], clusters.get(a1).get(b1))<=minDist*minDist) {
 
-                    }
+							clusters.get(a1).add(T[i]);
+							clusterIdx[i] = a1;
+							assignedToClstr = true;
+							break;
 
-                }
+						}
 
-                if(cluster_size[nr_clusters]>M){
-                    nr_clusters_nigher_than_M++;
-                }
+					}
 
-                nr_clusters++;
+					if (assignedToClstr) break;
 
-            }
+				}
+
+				if (!assignedToClstr) {
+
+					//initialize one cluster
+					ArrayList<double[]> newClstr = new ArrayList<double[]>();
+					newClstr.add(T[i]);
+					clusterIdx[i] = clusters.size();
+					clusters.add(newClstr);
+
+				}
+
+//				clusterIdx[i] = nr_clusters;
+                //cluster_size[nr_clusters]++;
+//                T[nr_clusters][0] = T[i][0];
+//                T[nr_clusters][1] = T[i][1];
+
+//                for (int j = i+1; j < T.length; j++) {
+//
+//                    if(clusterIdx[j]==-1 && d2(T[i], T[j])<=minDist*minDist){
+//
+//						clusterIdx[j] = nr_clusters;
+////                        cluster_size[nr_clusters]++;
+//
+//                    }
+//
+//                }
+
+//                if(cluster_size[nr_clusters]>M){
+//                    nr_clusters_nigher_than_M++;
+//                }
+
+//                nr_clusters++;
+
+//            }
 
         }
 
-        // take them out
-        double[][] conv_pts = null;
-        int cnt = 0;
-        conv_pts = new double[nr_clusters_nigher_than_M][2];
+//        // take them out
+//        double[][] conv_pts = null;
+//        int cnt = 0;
+//        conv_pts = new double[nr_clusters_nigher_than_M][2];
+//
+//        for (int i = 0; i < nr_clusters; i++) {
+//            if(cluster_size[i]>M){
+//
+//                conv_pts[cnt][0] = T[i][0]; conv_pts[cnt][1] = T[i][1];
+//                cnt++;
+//            }
+//        }
 
-        for (int i = 0; i < nr_clusters; i++) {
-            if(cluster_size[i]>M){
-
-                conv_pts[cnt][0] = T[i][0]; conv_pts[cnt][1] = T[i][1];
-                cnt++;
-            }
-        }
-
-        return conv_pts;
+        return clusters;
 
     }
 
@@ -332,16 +335,12 @@ public class MS2D extends Thread {
 
     }
 
-    private double d2(double[] a, double[] b){
-        return Math.pow(a[0]-b[0], 2)+Math.pow(a[1]-b[1], 2);
+    private static double d2(double[] a, double[] b){
+        return (a[0]-b[0])*(a[0]-b[0])+(a[1]-b[1])*(a[1]-b[1]);
     }
 
     private boolean equal(int[] a, int[] b){
         return a[0]==b[0] && a[1]==b[1];
-    }
-
-    private static double dist(double[] a, double[] b){
-        return Math.sqrt(Math.pow((a[0]-b[0]), 2)+Math.pow((a[1]-b[1]), 2));
     }
 
 }
