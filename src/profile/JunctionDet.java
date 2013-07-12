@@ -3,6 +3,7 @@ package profile;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
+import ij.Prefs;
 import ij.gui.*;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ByteProcessor;
@@ -23,13 +24,10 @@ import java.util.ArrayList;
  */
 public class JunctionDet implements PlugInFilter, MouseListener {
 
-	ImagePlus 	inimg;
-	String 		inimgPath;
-	ImagePlus   inmask;
-
+	ImagePlus 	    inimg;
     FloatProcessor  scoreimg;
 
-    // visualization
+    // visualization  (for selected locations)
     ImagePlus       vizProfileImage;
     ImageStack      vizProfileStack;
 
@@ -37,57 +35,144 @@ public class JunctionDet implements PlugInFilter, MouseListener {
     ArrayList<ArrayList<Integer>>   angularRes;
     ArrayList<ArrayList<String>>    profilesName;
 
-	ArrayList<ArrayList<float[]>>   hdomes;
+	//ArrayList<ArrayList<float[]>>   hdomes;
 
-    ArrayList<Double>               neuronD; // per cfg
-    ArrayList<Double>               scale;   // per cfg
+    ArrayList<Double>               neuronD;    // per cfg
+    ArrayList<Double>               scale;      // per cfg
 
 	// ms output
     ArrayList<ArrayList<float[]>>   angles;   	// 3 angles  (necessary for matching)
     ArrayList<ArrayList<float[]>>   idxs;   	// 3 profile indexes
     ArrayList<ArrayList<float[]>>   peaks;      // each angle one peak score
 
-    ArrayList<Float>   				bacgr;    // per loc
+    ArrayList<Float>   				bacgr;      // per loc
 
     ArrayList<ArrayList<Float>>   	centrAvg;
 
-    int CPU_NR;
+    /*
+    parameters
+     */
+    double neuronDiamMin, neuronDiamMax, scaleMin, scaleMax, D, eps, dMin;
+    int H, M, MaxIter, CPU_NR;
 
 	public int setup(String s, ImagePlus imagePlus) {
 
-		if(imagePlus==null) {
-			IJ.showMessage("needs image opened"); return DONE; }
+		if(imagePlus==null) return DONE;
 		inimg = Tools.convertToFloatImage(imagePlus);
 		inimg.setTitle("inimg");
-		inimgPath = imagePlus.getOriginalFileInfo().directory+imagePlus.getOriginalFileInfo().fileName;
 		return DOES_8G+DOES_32+NO_CHANGES;
 
 	}
 
 	public void run(ImageProcessor imageProcessor) {
 
-		String inmaskPath = Tools.removeExtension(inimgPath)+".mask";
+        int totalJobs; // used in paralelization
+        long t1, t2;
 
-		if (new File(inmaskPath).exists()) {
-			inmask = new ImagePlus(inmaskPath);
-			inmask.setTitle("inmask");
-		}
-		else {
-			byte[] array = new byte[inimg.getWidth() * inimg.getHeight()];
-			for (int a = 0; a < array.length; a++) array[a] = (byte) 255;
-			inmask = new ImagePlus("inmask", new ByteProcessor(inimg.getWidth(), inimg.getHeight(), array));
-		}
+        /*
+        generic dialog
+        */
+        neuronDiamMin       =  Prefs.get("advantra.critpoint.neuronDiamMin", 3);
+        neuronDiamMax       =  Prefs.get("advantra.critpoint.neuronDiamMax", 3);
+        scaleMin            =  Prefs.get("advantra.critpoint.scaleMin", 1.5);
+        scaleMax            =  Prefs.get("advantra.critpoint.scaleMax", 2.5);
+        D                   =  Prefs.get("advantra.critpoint.D", 10);
+
+        H       = (int) Prefs.get("advantra.critpoint.ms2d.H", 4);
+        MaxIter = (int) Prefs.get("advantra.critpoint.ms2d.MaxIter", 200);
+        eps     =       Prefs.get("advantra.critpoint.ms2d.eps", 0.0001);
+        dMin       =       Prefs.get("advantra.critpoint.ms2d.d", 0.5);
+        M       = (int) Prefs.get("advantra.critpoint.ms2d.M", 5);
+
+
+        CPU_NR              = (int) Prefs.get("advantra.critpoint.CPU_NR", 4);
+
+        GenericDialog gd = new GenericDialog("JUNCTION DET.");
+        gd.addNumericField("neuronD ",  neuronDiamMin, 0, 10, " MIN");
+        gd.addNumericField("neuronD ",  neuronDiamMax, 0, 10, " MAX");
+        gd.addNumericField("scale",     scaleMin, 1, 10, "MIN");
+        gd.addNumericField("scale",     scaleMax, 1, 10, "MAX");
+        gd.addNumericField("D",         D, 1, 10, "score param.");
+        gd.addMessage("--- LOCAL PEAKS (MS on 2D image) ---");
+        gd.addNumericField("H ",        H,      0, 10, "spatial neighbourhood");
+        gd.addNumericField("Max Iter",  MaxIter,0, 10, "max #iterations");
+        gd.addNumericField("Eps",       eps,    6, 10, "convergence threshold");
+        gd.addMessage("---");
+        gd.addNumericField("d",         dMin,      1, 10, "min intra-cluster distance");
+        gd.addNumericField("M",         M,      0, 10, "min # points in cluster");
+        gd.addMessage("---");
+        gd.addNumericField("CPU_NR ",   CPU_NR, 0, 10, "");
+
+        gd.showDialog();
+        if (gd.wasCanceled()) return;
+
+        neuronDiamMin       =  gd.getNextNumber();
+        Prefs.set("advantra.critpoint.neuronDiamMin", 	neuronDiamMin);
+        neuronDiamMax       =  gd.getNextNumber();
+        Prefs.set("advantra.critpoint.neuronDiamMax",   neuronDiamMax);
+        scaleMin            =  gd.getNextNumber();
+        Prefs.set("advantra.critpoint.scaleMin", 	    scaleMin);
+        scaleMax            =  gd.getNextNumber();
+        Prefs.set("advantra.critpoint.scaleMax",        scaleMax);
+        D                   =  gd.getNextNumber();
+        Prefs.set("advantra.critpoint.D",               D);
+        H       =  (int) gd.getNextNumber();
+        Prefs.set("advantra.critpoint.ms2d.H", 	H);
+        MaxIter =  (int) gd.getNextNumber();
+        Prefs.set("advantra.critpoint.ms2d.MaxIter", MaxIter);
+        eps     =  gd.getNextNumber();
+        Prefs.set("advantra.critpoint.ms2d.eps", eps);
+        dMin       =  gd.getNextNumber();
+        Prefs.set("advantra.critpoint.ms2d.d", dMin);
+        M       =  (int) gd.getNextNumber();
+        Prefs.set("advantra.critpoint.ms2d.M", M);
+        CPU_NR              =  (int) gd.getNextNumber();
+        Prefs.set("advantra.critpoint.CPU_NR", 	        CPU_NR);
+
+        /*
+        calculate the mask  (MaskerDemo example), should result in
+        ByteProcessor inmask  == Masker.maskip
+        */
+        IJ.log("extracting background...");
+        t1 = System.currentTimeMillis();
+        int neighbourhoodR = (int) Math.ceil(4*neuronDiamMax);
+        Masker.loadTemplate(inimg.getProcessor(), neighbourhoodR, (float) D);
+        totalJobs = Masker.image_height*Masker.image_width;
+        IJ.log("total jobs: "+totalJobs);
+        Masker masker_jobs[] = new Masker[CPU_NR];
+        for (int i = 0; i < masker_jobs.length; i++) {
+            masker_jobs[i] = new Masker(i*totalJobs/CPU_NR,  (i+1)*totalJobs/CPU_NR);
+            IJ.log("starting jobs :" + i*totalJobs/CPU_NR+ " - "+ ((i+1)*totalJobs/CPU_NR));
+            masker_jobs[i].start();
+        }
+        for (int i = 0; i < masker_jobs.length; i++) {
+            try {
+                masker_jobs[i].join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        t2 = System.currentTimeMillis();
+        IJ.log("done "+((t2-t1)/1000f)+" sec.");
+
+        inimg.show();
+        ImagePlus maskViz = new ImagePlus("inmask", Masker.maskip);
+
+        // overlay mask
+        maskViz.show();
+        IJ.selectWindow("inimg");
+        IJ.run("Add Image...", "image=inmask x="+0+" y="+0+" opacity=30");
+        maskViz.close();
 
         /*
         score image initialize
          */
         scoreimg = new FloatProcessor(inimg.getWidth(), inimg.getHeight());
-
-        CPU_NR = 5;  // GD
-
-		Profiler.loadTemplate(inimg.getProcessor(), (ByteProcessor) inmask.getProcessor());
-
+		Profiler.loadTemplate(inimg.getProcessor(), Masker.maskip);
+        // can see the locations now
         int totalLocations = Profiler.locations.length;
+
+        IJ.log("total "+totalLocations+" locations given by mask ("+(100*(float)totalLocations/(inimg.getWidth()*inimg.getHeight()))+" percent kept)");
 
         profiles     	= new ArrayList<ArrayList<float[]>>(totalLocations);
 		angularRes    	= new ArrayList<ArrayList<Integer>>(totalLocations);
@@ -96,17 +181,12 @@ public class JunctionDet implements PlugInFilter, MouseListener {
         neuronD = new ArrayList<Double>(); // this is actually per configuration
         scale 	= new ArrayList<Double>();
 
-        //loop parameters: neuronDiam, scale from GD
-
-        double neuronDiamMin = 3;
-        double neuronDiamMax = 3;
-
 		IJ.log("calculating profiles... ");
-		long t1 = System.currentTimeMillis();
+		t1 = System.currentTimeMillis();
 
 		int totalConfs = 0;
         for (double neuronDiam = neuronDiamMin; neuronDiam<=neuronDiamMax; neuronDiam++) {
-            for (double sc=1.5; sc<=2.5; sc+=1.0) {
+            for (double sc=scaleMin; sc<=scaleMax; sc+=0.5) {
 
 				totalConfs++;
 
@@ -115,15 +195,17 @@ public class JunctionDet implements PlugInFilter, MouseListener {
 
                 Profiler.loadParams(neuronDiam, sc);
 
-                int totalProfiles = Profiler.offsets.size();
-                Profiler ms_jobs[] = new Profiler[CPU_NR];
-                for (int i = 0; i < ms_jobs.length; i++) {
-                    ms_jobs[i] = new Profiler(i*totalProfiles/CPU_NR,  (i+1)*totalProfiles/CPU_NR);
-                    ms_jobs[i].start();
+                totalJobs = Profiler.offsets.size();
+                IJ.log("total jobs: "+totalJobs);
+                Profiler profiler_jobs[] = new Profiler[CPU_NR];
+                for (int i = 0; i < profiler_jobs.length; i++) {
+                    IJ.log("CPU: "+ i +" covers jobs "+(i*totalJobs/CPU_NR)+" - "+((i+1)*totalJobs/CPU_NR));
+                    profiler_jobs[i] = new Profiler(i*totalJobs/CPU_NR,  (i+1)*totalJobs/CPU_NR);
+                    profiler_jobs[i].start();
                 }
-                for (int i = 0; i < ms_jobs.length; i++) {
+                for (int i = 0; i < profiler_jobs.length; i++) {
                     try {
-                        ms_jobs[i].join();
+                        profiler_jobs[i].join();
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
@@ -133,46 +215,24 @@ public class JunctionDet implements PlugInFilter, MouseListener {
 
             }
         }
-
-		long t2 = System.currentTimeMillis();
-		IJ.log("done "+((t2-t1)/1000f)+" sec.");
-
-		IJ.log("calculating H-domes... ");
-		t1 = System.currentTimeMillis();
-
-		float H = 5, Hmin = 3; // GD
-		hdomes = new ArrayList<ArrayList<float[]>>(totalLocations);
-		for (int locIdx= 0; locIdx<totalLocations; locIdx++) {
-
-			ArrayList<float[]> hdomesPerConf = new ArrayList<float[]>(totalConfs);
-
-			for (int cfgIdx=0; cfgIdx<totalConfs; cfgIdx++) {
-				/*
-				calculate configuration and add it
-				 */
-				hdomesPerConf.add(Tools.hdome_Circular(profiles.get(locIdx).get(cfgIdx), H, Hmin));
-			}
-
-			hdomes.add(hdomesPerConf);
-
-		}
-
 		t2 = System.currentTimeMillis();
 		IJ.log("done "+((t2-t1)/1000f)+" sec.");
 
-        // ms, use profiles
         IJ.log("calculating peaks... ");
         t1 = System.currentTimeMillis();
 
         Analyzer.loadProfiles(profiles);
-        Analyzer ms_jobs[] = new Analyzer[CPU_NR];
-        for (int i = 0; i < ms_jobs.length; i++) {
-            ms_jobs[i] = new Analyzer(i*totalLocations/CPU_NR,  (i+1)*totalLocations/CPU_NR);
-            ms_jobs[i].start();
+        totalJobs = Analyzer.profiles.size();
+        IJ.log("total analyzer jobs: "+totalJobs);
+        Analyzer analyzer_jobs[] = new Analyzer[CPU_NR];
+        for (int i = 0; i < analyzer_jobs.length; i++) {
+            IJ.log("cpu"+i+" : "+(i*totalJobs/CPU_NR)+" - "+((i+1)*totalJobs/CPU_NR));
+            analyzer_jobs[i] = new Analyzer(i*totalJobs/CPU_NR,  (i+1)*totalJobs/CPU_NR);
+            analyzer_jobs[i].start();
         }
-        for (int i = 0; i < ms_jobs.length; i++) {
+        for (int i = 0; i < analyzer_jobs.length; i++) {
             try {
-                ms_jobs[i].join();
+                analyzer_jobs[i].join();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -340,38 +400,11 @@ public class JunctionDet implements PlugInFilter, MouseListener {
 
             centrAvg.add(centralAvgPerCfg);
 
-            /*
-            calculate backgr at his loc. - local median
-             */
-
-            int patchR = 2*(int) Math.ceil(neuronDiamMax);
-
-            float[] neigh = new float[(2*patchR+1)*(2*patchR+1)];
-
-            float currBkgr = 0;
-
-            if (atX>patchR && atY>patchR && atX<inimg.getWidth()-patchR && atY<inimg.getHeight()-patchR) {
-
-                // fill the array in
-                int idx = 0;
-                for (int locX = atX-patchR; locX<=atX+patchR; locX++) {
-                    for (int locY = atY-patchR; locY<=atY+patchR; locY++) {
-                        neigh[idx] = inimg.getProcessor().getf(locX, locY);
-                        idx++;
-                    }
-                }
-
-                // take the median as a bkg estimate
-                currBkgr = (float) Tools.median_Wirth(neigh);
-            }
-
-            bacgr.add(currBkgr);
+            bacgr.add(Masker.back.getf(atX, atY)); // take the value from Masker
 
         }
 
         IJ.log("done, extracting the scores...");
-
-        double D = 10; // GD  element
 
         // loop once again and extract scores
 
@@ -408,20 +441,17 @@ public class JunctionDet implements PlugInFilter, MouseListener {
 
             }
 
-//            if (cntCfgs>0) {
-//                A1 /= cntCfgs;
-//                A2 /= cntCfgs;
-//                A3 /= cntCfgs;
-//            }
+            if (cntCfgs>0) {
+                A1 /= cntCfgs;
+                A2 /= cntCfgs;
+                A3 /= cntCfgs;
+            }
 
             double score = 0;
 
             if (A0>0 && A1>0 && A2>0 && A3>0) {
 
-
-
                 score = A0 * Tools.min3(A1, A2, A3);// ( A1 + A2 + A3 );
-
 //                score += Math.log(A0);
 //                score += Math.log(A1);
 //                score += Math.log(A2);
@@ -433,62 +463,81 @@ public class JunctionDet implements PlugInFilter, MouseListener {
 
         }
 
-        /*
-        detectio of local max
-         */
 
-        int h = 10;     // GD
-        int maxIter = 250;
-        double eps = 0.00001;
+        new ImagePlus("score", scoreimg).show();
 
-        MS2D.loadTemplate(scoreimg, (ByteProcessor) inmask.getProcessor(), h, maxIter, eps);
-        int totalProfiles = MS2D.toProcess;
+        IJ.log("detecting local peaks in score...");
+        t1= System.currentTimeMillis();
+
+        MS2D.loadTemplate(scoreimg, Masker.maskip, H, MaxIter, eps);
+        totalJobs = MS2D.toProcess;
         MS2D ms_jobs1[] = new MS2D[CPU_NR];
-        for (int i = 0; i < ms_jobs.length; i++) {
-            ms_jobs1[i] = new MS2D(i*totalProfiles/CPU_NR,  (i+1)*totalProfiles/CPU_NR);
+        for (int i = 0; i < ms_jobs1.length; i++) {
+            ms_jobs1[i] = new MS2D(i*totalJobs/CPU_NR,  (i+1)*totalJobs/CPU_NR);
             ms_jobs1[i].start();
         }
-        for (int i = 0; i < ms_jobs.length; i++) {
+        for (int i = 0; i < ms_jobs1.length; i++) {
             try {
                 ms_jobs1[i].join();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
         }
+        t2 = System.currentTimeMillis();
+        IJ.log("done extracting peaks in score "+((t2-t1)/1000f)+" sec.");
 
-        IJ.log("done!");
 
-        // clustering
-        double dist = 1.0;  // GD
-        int M = 50;
+        IJ.log("clustering...");
+        t1=System.currentTimeMillis();
+        ArrayList<ArrayList<double[]>> clusters = MS2D.extractClusters(dMin);
+        t2=System.currentTimeMillis();
+        IJ.log("done, "+clusters.size()+" clusters " + ((t2 - t1) / 1000f) + " s.");
 
-        double[][] Tnew = MS2D.T;//extractConvPoints(dist, M);
-
-        IJ.log(Tnew.length+" points extracted");
+        IJ.log("cluster centroids...");
+        t1=System.currentTimeMillis();
+        ArrayList<double[]> centroids = MS2D.extractClusterCentroids(clusters, M);
+        t2=System.currentTimeMillis();
+        IJ.log("done " + ((t2 - t1) / 1000f) + " sec.");
 
         Overlay ov = new Overlay();
-        for (int i1=0; i1<Tnew.length; i1++) {
-            PointRoi pt = new PointRoi(Tnew[i1][1]+0.5, Tnew[i1][0]+0.5);
-            pt.setStrokeColor(Color.PINK);
-            ov.add(pt);
+        for (int i1=0; i1<centroids.size(); i1++) {
+
+            //IJ.log("centroid "+i1+" : size -> "+centroids.get(i1)[2]);
+
+            double atX = centroids.get(i1)[0];
+            double atY = centroids.get(i1)[1];
+
+            //double rds = Math.sqrt(centroids.get(i1)[2]/Math.PI);
+            double rds = 3;//centroids.get(i1)[3]/0.01f;
+
+            OvalRoi oval = new OvalRoi(atX+0.5-rds, atY+0.5-rds, 2*rds, 2*rds);
+            oval.setStrokeColor(Color.RED);
+            ov.add(oval);
+
         }
 
-        inimg.show();
+//        for (int i1=0; i1<Tnew.length; i1++) {
+//            PointRoi pt = new PointRoi(Tnew[i1][1]+0.5, Tnew[i1][0]+0.5);
+//            pt.setStrokeColor(Color.PINK);
+//            ov.add(pt);
+//        }
+
         inimg.setOverlay(ov);
         inimg.getCanvas().addMouseListener(this); // prepare for mouse interaction
 
         vizProfileImage = new ImagePlus();
 
-        // overlay mask
-        inmask.show();
-        IJ.selectWindow("inimg");
-        IJ.run("Add Image...", "image=inmask x="+0+" y="+0+" opacity=20");
-        inmask.close();
+//        // overlay mask
+//        ImagePlus inmaskImg = new ImagePlus("inmask", Masker.maskip);
+//        inmaskImg.show();
+//        IJ.selectWindow("inimg");
+//        IJ.run("Add Image...", "image=inmask x="+0+" y="+0+" opacity=20");
+//        inmaskImg.close();
 
-        // overlay score
-        ImagePlus scoreImg = new ImagePlus("score", scoreimg);
-        scoreImg.show();
-        scoreImg.setOverlay(ov);
+//        // overlay score
+//        ImagePlus scoreImg = new ImagePlus("score", scoreimg);
+//        scoreImg.show();
+//        scoreImg.setOverlay(ov);
 //        IJ.selectWindow("inimg");
 //        IJ.run("Add Image...", "image=score x="+0+" y="+0+" opacity=70");
 //        scoreImg.close();
@@ -498,8 +547,6 @@ public class JunctionDet implements PlugInFilter, MouseListener {
         IJ.setTool("hand");
         inimg.getCanvas().zoomIn(0, 0);
         inimg.getCanvas().zoomIn(0, 0);
-//        inimg.getCanvas().zoomIn(0, 0);
-//        inimg.getCanvas().zoomIn(0, 0);
 
 
 	}
@@ -672,6 +719,7 @@ public class JunctionDet implements PlugInFilter, MouseListener {
 
                     }
 
+/*                    // plot hdomes
                     float[] plotHdomeX = new float[hdomes.get(i).get(g).length];
                     float[] plotHdomeY = new float[plotHdomeX.length];
 
@@ -681,14 +729,9 @@ public class JunctionDet implements PlugInFilter, MouseListener {
                     for (int i1=0; i1<plotHdomeY.length; i1++)
                         plotHdomeY[i1] = (hdomes.get(i).get(g)[i1]>0)? 0.9f*profMax : 1.1f*profMin ;
 
-//                    for (int i1=1; i1<plotHdomeY.length; i1++)
-//                        plotHdomeY[i1] = (hdomeProfile[(int) Math.round(indexesHdome[i1])]>0)?  plotHdomeY[0] : Float.NaN;
-                      //          ((float) Tools.interp1Darray(indexesHdome[i1], hdomeProfile)>0)?
-//                                        (float) Tools.interp1Darray(indexesHdome[i1], profilesPerLocation.get(i).get(g));
-
                     p.setColor(Color.GREEN);
                     p.addPoints(plotHdomeX, plotHdomeY, Plot.LINE);
-                    p.draw();
+                    p.draw();*/
 
                     // backgr
                     float[] currBckgr = new float[currProfileLen];
@@ -809,7 +852,7 @@ public class JunctionDet implements PlugInFilter, MouseListener {
                 log IJ
                 */
 
-                double D = 10;
+                //double D = 10;
 
                 System.out.println("\n---\nX: "+atX+" , Y: "+atY+"");
 
@@ -818,7 +861,7 @@ public class JunctionDet implements PlugInFilter, MouseListener {
                 double bg = bacgr.get(i);
                 double df = (pk-bg>0) ? pk-bg : 0 ;
 
-                System.out.println(" peak: "+pk+" ("+bg+") "+IJ.d2s(1-Math.exp(-df/D), 2)+" | ");
+                System.out.println(" peak: "+pk+" ("+bg+") A0="+IJ.d2s(1-Math.exp(-df/D), 2)+" | ");
 
                 for (int clstIdx=0; clstIdx<3; clstIdx++) {
                     System.out.println("\n*** CLUSTER "+clstIdx+" ***");

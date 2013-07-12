@@ -184,14 +184,14 @@ public class MS2D extends Thread {
         //return T;
     }
 
-    public static ArrayList<ArrayList<double[]>> extractClusters(double minDist, int M){
+    public static ArrayList<ArrayList<double[]>> extractClusters(double minDist){
 
         // 'range' describes neighborhood range size,
         // 'M' number of samples within the cluster
 
         //boolean[] 	clustered 		= new boolean[T.length]; // initialized with false
-		int[]		clusterIdx		= new int[T.length];
-		for (int i1=0; i1<T.length; i1++) clusterIdx[i1] = -1;
+//		int[]		clusterIdx		= new int[T.length];
+//		for (int i1=0; i1<T.length; i1++) clusterIdx[i1] = -1;
 
 		ArrayList<ArrayList<double[]>> clusters = new ArrayList<ArrayList<double[]>>(T.length); // allocate T.length
 
@@ -212,7 +212,7 @@ public class MS2D extends Thread {
 						if (d2(T[i], clusters.get(a1).get(b1))<=minDist*minDist) {
 
 							clusters.get(a1).add(T[i]);
-							clusterIdx[i] = a1;
+//							clusterIdx[i] = a1;
 							assignedToClstr = true;
 							break;
 
@@ -229,7 +229,7 @@ public class MS2D extends Thread {
 					//initialize one cluster
 					ArrayList<double[]> newClstr = new ArrayList<double[]>();
 					newClstr.add(T[i]);
-					clusterIdx[i] = clusters.size();
+//					clusterIdx[i] = clusters.size();
 					clusters.add(newClstr);
 
 				}
@@ -277,61 +277,38 @@ public class MS2D extends Thread {
 
     }
 
-    public int[][] extractClust(int M){
+    public static ArrayList<double[]> extractClusterCentroids(ArrayList<ArrayList<double[]>> clusters, int M){
 
-        // create list
-        ArrayList<int[]> T_;
-        T_			= new ArrayList<int[]>();
+        ArrayList<double[]> selection = new ArrayList<double[]>();
 
-        // initialize the list with T values
-        for (int i = 0; i < T.length; i++) {
-            T_.add(new int[]{ (int)Math.round(T[i][0]) , (int)Math.round(T[i][1]) });
-        }
+        // row, col, nr_points, peak value
+        for (int clusterIdx=0; clusterIdx<clusters.size(); clusterIdx++) {
+
+            if (clusters.get(clusterIdx).size()>M) {
+
+                // find centroid
+                double xc = 0;
+                double yc = 0;
+                double nr = clusters.get(clusterIdx).size();
 
 
-        // final list - after cropping those with small number of elements
-        ArrayList<int[]>	out_list;
-        out_list	= new ArrayList<int[]>();
-
-        while(!T_.isEmpty()){
-
-            // take the first element
-            int[] 	check_element 		= T_.get(0);
-            int		check_element_count	= 1;
-            T_.remove(0);
-
-            int i = 0;
-            while(i<T_.size()){
-                int[] take_element = T_.get(i);
-
-                if(equal(take_element, check_element)){
-                    T_.remove(i);
-                    check_element_count++;
+                for (int i1=0; i1<clusters.get(clusterIdx).size(); i1++) {
+                    xc += clusters.get(clusterIdx).get(i1)[1];
+                    yc += clusters.get(clusterIdx).get(i1)[0];
                 }
-                else{
-                    i++;
-                }
+
+                xc/=nr;
+                yc/=nr;
+
+                double pk = inip.getf((int) Math.round(xc), (int) Math.round(yc));
+
+                selection.add(new double[]{xc, yc, nr, pk});
 
             }
 
-            if(check_element_count>M){
-                out_list.add(new int[]{ check_element[0], check_element[1], check_element_count });
-            }
-
-        }
-        // out_list contains the selection of the coordinates, each corersponding to a direction
-
-        int[][] out = new int[out_list.size()][3];
-        for (int i = 0; i < out_list.size(); i++) {
-            int[] take_dir_spherical = out_list.get(i);
-
-            out[i][0] = take_dir_spherical[0];
-            out[i][1] = take_dir_spherical[1];
-            out[i][2] = take_dir_spherical[2];
-
         }
 
-        return out;
+        return selection;
 
     }
 
