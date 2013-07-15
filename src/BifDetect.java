@@ -9,7 +9,6 @@ import ij.plugin.filter.PlugInFilter;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
-import profile.MeanShift2D;
 import profile.Tools;
 
 import java.awt.*;

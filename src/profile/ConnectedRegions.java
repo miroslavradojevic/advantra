@@ -1,10 +1,14 @@
 package profile;
 
+import java.awt.*;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
 
 import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.GenericDialog;
+import ij.gui.Overlay;
 import ij.io.FileSaver;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
@@ -74,10 +78,29 @@ public class ConnectedRegions  implements PlugInFilter {
 		long t2 = System.currentTimeMillis();
 
 		int nr_regions = conn_reg.getNrConnectedRegions();
+
 		IJ.log(nr_regions+" connected regions extracted.\n" +
 					   "elapsed: "+((t2-t1)/1000f)+ " seconds.");
 
-		conn_reg.showLabels().show();
+        ArrayList<ArrayList<int[]>> regs = conn_reg.getConnectedRegions();
+
+		ImagePlus imageLabels = conn_reg.showLabels();
+        imageLabels.show();
+
+        Overlay ov = new Overlay();
+
+        for (int i=0; i<regs.size(); i++) {
+            IJ.log("region "+i+" :\t"+regs.get(i).size()+" elements");
+
+            if (regs.get(i).size()>1) {
+                float[] ellipseParams = Tools.extractEllipse(regs.get(i));
+                IJ.log(""+ Arrays.toString(ellipseParams));
+                ov.add(Tools.drawEllipse(ellipseParams[1], ellipseParams[0], 2*ellipseParams[3], 2*ellipseParams[2], ellipseParams[4], Color.RED, 1, 50));
+            }
+
+        }
+
+        imageLabels.setOverlay(ov);
 
 	}
 
@@ -87,8 +110,5 @@ public class ConnectedRegions  implements PlugInFilter {
 		return DOES_8G+NO_CHANGES; //+DOES_RGB+
 
 	}
-
-
-
 
 }

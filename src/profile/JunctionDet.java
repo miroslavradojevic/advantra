@@ -15,6 +15,7 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.io.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 /**
  * Created with IntelliJ IDEA.
@@ -25,7 +26,7 @@ import java.util.ArrayList;
 public class JunctionDet implements PlugInFilter, MouseListener {
 
 	ImagePlus 	    inimg;
-    ByteProcessor  scoreimg;
+    ByteProcessor   scoreimg;
 
     // visualization  (for selected locations)
     ImagePlus       vizProfileImage;
@@ -37,8 +38,9 @@ public class JunctionDet implements PlugInFilter, MouseListener {
 
 	//ArrayList<ArrayList<float[]>>   hdomes;
 
-    ArrayList<Double>               neuronD;    // per cfg
-    ArrayList<Double>               scale;      // per cfg
+    int                             totalCfgs;
+//    double                          neuronD;
+    double[]                        scales;     // per cfg
 
 	// ms output
     ArrayList<ArrayList<float[]>>   angles;   	// 3 angles  (necessary for matching)
@@ -46,10 +48,16 @@ public class JunctionDet implements PlugInFilter, MouseListener {
     ArrayList<ArrayList<float[]>>   peaks;      // each angle one peak score
 
     ArrayList<Float>   				bacgr;      // per loc
-
-    ArrayList<ArrayList<Float>>   	centrAvg;
+    ArrayList<Float>   	            centrAvg;   // per loc
 
 	Overlay detections;
+
+    // values used to form the configuration
+    // mean-shift will be supplying with these
+    double[][][]    P;
+    double[][]      G;
+    double[]        A;
+    double[]        R; // will hold radiuses for each configuration
 
     /*
     parameters
@@ -72,12 +80,17 @@ public class JunctionDet implements PlugInFilter, MouseListener {
         long t1, t2;
 
 		// fix scales
-		double[] scales = new double[3];
+		scales = new double[3];
 		scales[0] = 1.5;
 		scales[1] = 2.0;
 		scales[2] = 2.5;
 
+        totalCfgs = scales.length;
 
+        P = new double[3][scales.length][2]; // point coordinates per cluster per point 2d
+        G = new double[3][scales.length]; // values of the peaks per cluster per point
+        A = new double[3+1]; // sums voset per cluster plus central
+        R = new double[scales.length];
         /*
         generic dialog
         */
@@ -86,7 +99,6 @@ public class JunctionDet implements PlugInFilter, MouseListener {
         //scaleMin            =  Prefs.get("advantra.critpoint.scaleMin", 1.5);
         //scaleMax            =  Prefs.get("advantra.critpoint.scaleMax", 2.5);
         D                   =  Prefs.get("advantra.critpoint.D", 10);
-
         H       = (int) Prefs.get("advantra.critpoint.ms2d.H", 4);
         MaxIter = (int) Prefs.get("advantra.critpoint.ms2d.MaxIter", 200);
         eps     =       Prefs.get("advantra.critpoint.ms2d.eps", 0.0001);
@@ -112,7 +124,7 @@ public class JunctionDet implements PlugInFilter, MouseListener {
         gd.addNumericField("M",         M,      0, 10, "min # points in cluster");
         */
 
-		gd.addMessage("---");
+		//gd.addMessage("---");
         gd.addNumericField("CPU_NR ",   CPU_NR, 0, 10, "");
 
         gd.showDialog();
@@ -141,7 +153,6 @@ public class JunctionDet implements PlugInFilter, MouseListener {
         M       =  (int) gd.getNextNumber();
         Prefs.set("advantra.critpoint.ms2d.M", M);
         */
-
 
 		CPU_NR              =  (int) gd.getNextNumber();
         Prefs.set("advantra.critpoint.CPU_NR", 	        CPU_NR);
@@ -181,7 +192,6 @@ public class JunctionDet implements PlugInFilter, MouseListener {
         maskViz.close();
 		*/
 
-
         /*
         score image initialize
          */
@@ -196,33 +206,35 @@ public class JunctionDet implements PlugInFilter, MouseListener {
 		angularRes    	= new ArrayList<ArrayList<Integer>>(totalLocations);
         profilesName  	= new ArrayList<ArrayList<String>>(totalLocations);
 
-        neuronD = new ArrayList<Double>(); // this is actually per configuration
-        scale 	= new ArrayList<Double>();
+//        neuronD = new ArrayList<Double>(); // this is actually per configuration
+//        scale 	= new ArrayList<Double>();
 
 		IJ.log("calculating profiles... ");
 		t1 = System.currentTimeMillis();
 
-		int totalConfs = 0;
+		//int totalConfs = 0;
         //for (double neuronDiam = neuronDiamMax; neuronDiam<=neuronDiamMax; neuronDiam++) {
 
-			double neuronDiam = neuronDiamMax;
+//	        double neuronDiam = neuronDiamMax;
 
-            for (int scaleIdx=0; scaleIdx<scales.length; scaleIdx++) {
+            for (int scaleIdx=0; scaleIdx<totalCfgs; scaleIdx++) {
 
-				double sc = scales[scaleIdx];
-				totalConfs++;
+//				double sc = scales[scaleIdx];
+//                neuronD.add(neuronDiam);
+//                scale.add(sc);
+                R[scaleIdx] = neuronDiamMax*scales[scaleIdx];
+                Profiler.loadParams(neuronDiamMax, scales[scaleIdx]);
+                //totalConfs++;
 
-                neuronD.add(neuronDiam);
-                scale.add(sc);
-
-                Profiler.loadParams(neuronDiam, sc);
 
                 totalJobs = Profiler.offsets.size();
                 Profiler profiler_jobs[] = new Profiler[CPU_NR];
+
                 for (int i = 0; i < profiler_jobs.length; i++) {
                     profiler_jobs[i] = new Profiler(i*totalJobs/CPU_NR,  (i+1)*totalJobs/CPU_NR);
                     profiler_jobs[i].start();
                 }
+
                 for (int i = 0; i < profiler_jobs.length; i++) {
                     try {
                         profiler_jobs[i].join();
@@ -264,7 +276,7 @@ public class JunctionDet implements PlugInFilter, MouseListener {
         angles    	= new ArrayList<ArrayList<float[]>>(totalLocations);
         idxs    	= new ArrayList<ArrayList<float[]>>(totalLocations);
         peaks       = new ArrayList<ArrayList<float[]>>(totalLocations);
-		centrAvg   	= new ArrayList<ArrayList<Float>>(totalLocations);
+		centrAvg   	= new ArrayList<Float>(totalLocations);
 		bacgr       = new ArrayList<Float>(totalLocations);
 
         for (int locIdx=0; locIdx<totalLocations; locIdx++) {
@@ -272,21 +284,20 @@ public class JunctionDet implements PlugInFilter, MouseListener {
             int atX = Profiler.locations[locIdx][0];
             int atY = Profiler.locations[locIdx][1];
 
-            ArrayList<float[]>  anglesPerCfg = new ArrayList<float[]>(totalConfs);
-            ArrayList<float[]>  idxsPerCfg = new ArrayList<float[]>(totalConfs);
-            ArrayList<float[]>  peaksPerCfg = new ArrayList<float[]>(totalConfs);
-            ArrayList<Float>   centralAvgPerCfg = new ArrayList<Float>(totalConfs);
+            ArrayList<float[]>  anglesPerCfg = new ArrayList<float[]>(totalCfgs);
+            ArrayList<float[]>  idxsPerCfg = new ArrayList<float[]>(totalCfgs);
+            ArrayList<float[]>  peaksPerCfg = new ArrayList<float[]>(totalCfgs);
 
             boolean isFirst = true;
             float[] refAnglesDeg    = new float[3];
 
-            for (int cfgIdx=0; cfgIdx<totalConfs; cfgIdx++) {
+            for (int cfgIdx=0; cfgIdx<totalCfgs; cfgIdx++) {
 
                 /*
                  find central bloc score for this location
                   */
 
-                centralAvgPerCfg.add(centralAvg(atX, atY, neuronD.get(cfgIdx), (FloatProcessor) inimg.getProcessor()));
+//                centralAvgPerCfg.add();
 
                 // get indexes form Analyzer for this conf & loc
                 if (Analyzer.peakIdx[locIdx][cfgIdx]!=null) {
@@ -416,8 +427,7 @@ public class JunctionDet implements PlugInFilter, MouseListener {
             peaks.add(peaksPerCfg);
             idxs.add(idxsPerCfg);
 
-            centrAvg.add(centralAvgPerCfg);
-
+            centrAvg.add(centralAvg(atX, atY, neuronDiamMax, (FloatProcessor) inimg.getProcessor()));
             bacgr.add(Masker.back.getf(atX, atY)); // take the value from Masker
 
         }
@@ -437,6 +447,71 @@ public class JunctionDet implements PlugInFilter, MouseListener {
 
         ImagePlus scoreImagePlus = new ImagePlus("score", scoreimg);
 		scoreImagePlus.show();
+
+        /*
+        part from connected components to visualize scores output on the original
+         */
+
+        /*
+        *
+        *
+        *
+        *
+        *
+
+
+
+
+        long t1 = System.currentTimeMillis();
+		Find_Connected_Regions conn_reg = new Find_Connected_Regions(img, true);
+		conn_reg.run("");
+		long t2 = System.currentTimeMillis();
+
+		int nr_regions = conn_reg.getNrConnectedRegions();
+
+		IJ.log(nr_regions+" connected regions extracted.\n" +
+					   "elapsed: "+((t2-t1)/1000f)+ " seconds.");
+
+        ArrayList<ArrayList<int[]>> regs = conn_reg.getConnectedRegions();
+
+		ImagePlus imageLabels = conn_reg.showLabels();
+        imageLabels.show();
+
+        Overlay ov = new Overlay();
+
+        for (int i=0; i<regs.size(); i++) {
+            IJ.log("region "+i+" :\t"+regs.get(i).size()+" elements");
+
+            if (regs.get(i).size()>1) {
+                float[] ellipseParams = Tools.extractEllipse(regs.get(i));
+                IJ.log(""+ Arrays.toString(ellipseParams));
+                ov.add(Tools.drawEllipse(ellipseParams[1], ellipseParams[0], 2*ellipseParams[3], 2*ellipseParams[2], ellipseParams[4], Color.RED, 1, 50));
+            }
+
+        }
+
+        imageLabels.setOverlay(ov);
+
+
+
+
+
+
+        *
+        *
+        * */
+
+
+
+
+
+
+
+
+
+
+
+
 		//IJ.run(scoreImagePlus, "Smooth", "");
 
 /*		IJ.log("detecting local peaks in score...");
@@ -503,8 +578,10 @@ public class JunctionDet implements PlugInFilter, MouseListener {
 //            ov.add(pt);
 //        }
 
+
+
 		inimg.setOverlay(detections);
-        scoreImagePlus.setOverlay(detections);
+        //scoreImagePlus.setOverlay(detections);
 
 		inimg.getCanvas().addMouseListener(this); // prepare for mouse interaction
 
@@ -528,139 +605,139 @@ public class JunctionDet implements PlugInFilter, MouseListener {
         IJ.selectWindow("inimg");
         IJ.setTool("hand");
         inimg.getCanvas().zoomIn(0, 0);
-//        inimg.getCanvas().zoomIn(0, 0);
 
 	}
 
-	public double extractScore(int locIdx, boolean printVals) {
+	private double extractScore(int locIdx, boolean printVals) {
 
-		double A0 = centrAvg.get(locIdx).get(0) - bacgr.get(locIdx);
-		if (printVals) IJ.log("A0 = "+A0);
-		A0 = (A0>0)? 1 : 0;//A0
-		if (printVals) IJ.log("A0 = "+A0);
-		//A0 = 1-Math.exp(-A0/D);
+        // reset arrys to zero each time
+        Arrays.fill(A, 0);
+        for (int q=0; q<G.length; q++) {
+            Arrays.fill(G[q], 0);
+        }
+        for (int q=0; q<P.length; q++) {
+            for (int q1=0; q1<P[0].length; q1++) {
+                Arrays.fill(P[q][q1], 0);
+            }
+        }
 
-		double A1 = 0;// per cluster
-		double A2 = 0;
-		double A3 = 0;
-
-		double A1P1x = 0;
-		double A1P1y = 0;
-		double A2P1x = 0;
-		double A2P1y = 0;
-		double A3P1x = 0;
-		double A3P1y = 0;
-
-		double A1P2x = 0;
-		double A1P2y = 0;
-		double A2P2x = 0;
-		double A2P2y = 0;
-		double A3P2x = 0;
-		double A3P2y = 0;
-
-		double A1P3x = 0;
-		double A1P3y = 0;
-		double A2P3x = 0;
-		double A2P3y = 0;
-		double A3P3x = 0;
-		double A3P3y = 0;
+        A[0] = centrAvg.get(locIdx) - bacgr.get(locIdx);
+        A[0] = (A[0]>D)? 1 : 0;
+		if (printVals) IJ.log("A0 ("+centrAvg.get(locIdx)+") = "+A[0]); //A0 = 1-Math.exp(-A0/D);
 
 		int cntCfgs = 0;
 
-		for (int cfgIdx=0; cfgIdx<3; cfgIdx++) {
+		for (int cfgIdx=0; cfgIdx<totalCfgs; cfgIdx++) {
 
 			if (angles.get(locIdx).get(cfgIdx)!=null) { // if ms gave 3 values
 
 				// there are 3 values - check validity for each configuration
 
-				if (cfgIdx==2 && !isProfileValid(idxs.get(locIdx).get(cfgIdx), profiles.get(locIdx).get(cfgIdx), bacgr.get(locIdx)+1)) {
-					if (printVals) IJ.log("profile was not valid!");
+				if (cfgIdx==2 && !isProfileValid(idxs.get(locIdx).get(cfgIdx), profiles.get(locIdx).get(cfgIdx), bacgr.get(locIdx)+1)) { // +1 in case background was zero
+					if (printVals) IJ.log("profile was not valid for junction!");
 					break;
 				}
 
-				if (cfgIdx==0) {
-					double rd = neuronD.get(0)*scale.get(0);
-					A1P1x = rd*Math.cos(angles.get(locIdx).get(0)[0]*(2*Math.PI/360f));
-					A1P1y = -rd*Math.sin(angles.get(locIdx).get(0)[0]*(2*Math.PI/360f));
-					A2P1x = rd*Math.cos(angles.get(locIdx).get(0)[1]*(2*Math.PI/360f));
-					A2P1y = -rd*Math.sin(angles.get(locIdx).get(0)[1]*(2*Math.PI/360f));
-					A3P1x = rd*Math.cos(angles.get(locIdx).get(0)[2]*(2*Math.PI/360f));
-					A3P1y = -rd*Math.sin(angles.get(locIdx).get(0)[2]*(2*Math.PI/360f));
+				//if (cfgIdx==0) {
 
-					double A1t = peaks.get(locIdx).get(0)[0]- bacgr.get(locIdx);
-					if (printVals) IJ.log("\ndiff: "+peaks.get(locIdx).get(0)[0]+", "+bacgr.get(locIdx)+" , "+A1t);
-					A1t = (A1t>D)? 1 : 0 ; // 1-Math.exp(-A1t/D)
-					if (printVals) IJ.log("A1t: "+A1t);
-					A1 +=  A1t;
+                    for (int clusterIdx = 0; clusterIdx<3; clusterIdx++) {
 
-					double A2t = peaks.get(locIdx).get(0)[1] - bacgr.get(locIdx);
-					if (printVals) IJ.log("\ndiff: "+peaks.get(locIdx).get(0)[1]+", "+bacgr.get(locIdx)+" , "+A2t);
-					A2t = (A2t>D)? 1 : 0 ; // 1-Math.exp(-A2t/D)
-					if (printVals) IJ.log("A2t: "+A2t);
-					A2 += A2t;
+                        P[clusterIdx][cfgIdx][0] =  R[cfgIdx] * Math.cos(angles.get(locIdx).get(cfgIdx)[clusterIdx]*(2*Math.PI/360f));
+                        P[clusterIdx][cfgIdx][1] = -R[cfgIdx] * Math.sin(angles.get(locIdx).get(cfgIdx)[clusterIdx]*(2*Math.PI/360f));
 
-					double A3t = peaks.get(locIdx).get(0)[2] - bacgr.get(locIdx);
-					if (printVals) IJ.log("\ndiff: "+peaks.get(locIdx).get(0)[2]+", "+bacgr.get(locIdx)+" , "+A3t);
-					A3t = (A3t>D)? 1 : 0; // 1-Math.exp(-A3t/D)
-					if (printVals) IJ.log("A3t: "+A3t);
-					A3 += A3t;
-				}
+                        double temp = peaks.get(locIdx).get(cfgIdx)[clusterIdx]- bacgr.get(locIdx);
+                        temp = (temp>D)? 1 : 0 ; // 1-Math.exp(-A1t/D)
+                        if (printVals) IJ.log("\ncluster "+clusterIdx+" pk: "+peaks.get(locIdx).get(cfgIdx)[clusterIdx]+", bgr: "+bacgr.get(locIdx)+" , "+temp);
+                        A[clusterIdx+1] +=  temp; // because first index was for central value
 
-				if (cfgIdx==1) {
-					double rd = neuronD.get(1)*scale.get(1);
-					A1P2x = rd*Math.cos(angles.get(locIdx).get(1)[0]*(2*Math.PI/360f));
-					A1P2y = -rd*Math.sin(angles.get(locIdx).get(1)[0]*(2*Math.PI/360f));
-					A2P2x = rd*Math.cos(angles.get(locIdx).get(1)[1]*(2*Math.PI/360f));
-					A2P2y = -rd*Math.sin(angles.get(locIdx).get(1)[1]*(2*Math.PI/360f));
-					A3P2x = rd*Math.cos(angles.get(locIdx).get(1)[2]*(2*Math.PI/360f));
-					A3P2y = -rd*Math.sin(angles.get(locIdx).get(1)[2]*(2*Math.PI/360f));
+                    }
 
-					double A1t = peaks.get(locIdx).get(1)[0]- bacgr.get(locIdx);
-					if (printVals) IJ.log("\ndiff: "+peaks.get(locIdx).get(1)[0]+", "+bacgr.get(locIdx)+" , "+A1t);
-					A1t = (A1t>D)? 1 : 0 ; // 1-Math.exp(-A1t/D)
-					if (printVals) IJ.log("A1t: "+A1t);
-					A1 +=  A1t;
+//					A1P1x = rd*Math.cos(angles.get(locIdx).get(0)[0]*(2*Math.PI/360f));
+//					A1P1y = -rd*Math.sin(angles.get(locIdx).get(0)[0]*(2*Math.PI/360f));
 
-					double A2t = peaks.get(locIdx).get(1)[1] - bacgr.get(locIdx);
-					if (printVals) IJ.log("\ndiff: "+peaks.get(locIdx).get(1)[1]+", "+bacgr.get(locIdx)+" , "+A2t);
-					A2t = (A2t>D)? 1 : 0 ; // 1-Math.exp(-A2t/D)
-					if (printVals) IJ.log("A2t: "+A2t);
-					A2 += A2t;
+//                    P[1][cfgIdx][0] =  R[cfgIdx] * Math.cos(angles.get(locIdx).get(cfgIdx)[1]*(2*Math.PI/360f));
+//                    P[1][cfgIdx][1] = -R[cfgIdx] * Math.sin(angles.get(locIdx).get(cfgIdx)[1]*(2*Math.PI/360f));
 
-					double A3t = peaks.get(locIdx).get(1)[2] - bacgr.get(locIdx);
-					if (printVals) IJ.log("\ndiff: "+peaks.get(locIdx).get(1)[2]+", "+bacgr.get(locIdx)+" , "+A3t);
-					A3t = (A3t>D)? 1 : 0; // 1-Math.exp(-A3t/D)
-					if (printVals) IJ.log("A3t: "+A3t);
-					A3 += A3t;
-				}
+//					A2P1x = rd*Math.cos(angles.get(locIdx).get(0)[1]*(2*Math.PI/360f));
+//					A2P1y = -rd*Math.sin(angles.get(locIdx).get(0)[1]*(2*Math.PI/360f));
 
-				if (cfgIdx==2) {
-					double rd = neuronD.get(2)*scale.get(2);
-					A1P3x = rd*Math.cos(angles.get(locIdx).get(2)[0]*(2*Math.PI/360f));
-					A1P3y = -rd*Math.sin(angles.get(locIdx).get(2)[0]*(2*Math.PI/360f));
-					A2P3x = rd*Math.cos(angles.get(locIdx).get(2)[1]*(2*Math.PI/360f));
-					A2P3y = -rd*Math.sin(angles.get(locIdx).get(2)[1]*(2*Math.PI/360f));
-					A3P3x = rd*Math.cos(angles.get(locIdx).get(2)[2]*(2*Math.PI/360f));
-					A3P3y = -rd*Math.sin(angles.get(locIdx).get(2)[2]*(2*Math.PI/360f));
+//                    A3P1x = rd*Math.cos(angles.get(locIdx).get(0)[2]*(2*Math.PI/360f));
+//					A3P1y = -rd*Math.sin(angles.get(locIdx).get(0)[2]*(2*Math.PI/360f));
 
-					double A1t = peaks.get(locIdx).get(2)[0]- bacgr.get(locIdx);
-					if (printVals) IJ.log("\ndiff: "+peaks.get(locIdx).get(2)[0]+", "+bacgr.get(locIdx)+" , "+A1t);
-					A1t = (A1t>D)? 1 : 0 ; // 1-Math.exp(-A1t/D)
-					if (printVals) IJ.log("A1t: "+A1t);
-					A1 +=  A1t;
+//					double A1t = peaks.get(locIdx).get(0)[0]- bacgr.get(locIdx);
+//					if (printVals) IJ.log("\ndiff: "+peaks.get(locIdx).get(0)[0]+", "+bacgr.get(locIdx)+" , "+A1t);
+//					A1t = (A1t>D)? 1 : 0 ; // 1-Math.exp(-A1t/D)
+//					if (printVals) IJ.log("A1t: "+A1t);
+//					A1 +=  A1t;
+//
+//					double A2t = peaks.get(locIdx).get(0)[1] - bacgr.get(locIdx);
+//					if (printVals) IJ.log("\ndiff: "+peaks.get(locIdx).get(0)[1]+", "+bacgr.get(locIdx)+" , "+A2t);
+//					A2t = (A2t>D)? 1 : 0 ; // 1-Math.exp(-A2t/D)
+//					if (printVals) IJ.log("A2t: "+A2t);
+//					A2 += A2t;
+//
+//					double A3t = peaks.get(locIdx).get(0)[2] - bacgr.get(locIdx);
+//					if (printVals) IJ.log("\ndiff: "+peaks.get(locIdx).get(0)[2]+", "+bacgr.get(locIdx)+" , "+A3t);
+//					A3t = (A3t>D)? 1 : 0; // 1-Math.exp(-A3t/D)
+//					if (printVals) IJ.log("A3t: "+A3t);
+//					A3 += A3t;
+				//}
 
-					double A2t = peaks.get(locIdx).get(2)[1] - bacgr.get(locIdx);
-					if (printVals) IJ.log("\ndiff: "+peaks.get(locIdx).get(2)[1]+", "+bacgr.get(locIdx)+" , "+A1t);
-					A2t = (A2t>D)? 1 : 0 ; // 1-Math.exp(-A2t/D)
-					if (printVals) IJ.log("A2t: "+A2t);
-					A2 += A2t;
-
-					double A3t = peaks.get(locIdx).get(2)[2] - bacgr.get(locIdx);
-					if (printVals) IJ.log("\ndiff: "+peaks.get(locIdx).get(2)[2]+", "+bacgr.get(locIdx)+" , "+A1t);
-					A3t = (A3t>D)? 1 : 0; // 1-Math.exp(-A3t/D)
-					if (printVals) IJ.log("A3t: "+A3t);
-					A3 += A3t;
-				}
+//				if (cfgIdx==1) {
+//					double rd = neuronD.get(1)*scale.get(1);
+//					A1P2x = rd*Math.cos(angles.get(locIdx).get(1)[0]*(2*Math.PI/360f));
+//					A1P2y = -rd*Math.sin(angles.get(locIdx).get(1)[0]*(2*Math.PI/360f));
+//					A2P2x = rd*Math.cos(angles.get(locIdx).get(1)[1]*(2*Math.PI/360f));
+//					A2P2y = -rd*Math.sin(angles.get(locIdx).get(1)[1]*(2*Math.PI/360f));
+//					A3P2x = rd*Math.cos(angles.get(locIdx).get(1)[2]*(2*Math.PI/360f));
+//					A3P2y = -rd*Math.sin(angles.get(locIdx).get(1)[2]*(2*Math.PI/360f));
+//
+//					double A1t = peaks.get(locIdx).get(1)[0]- bacgr.get(locIdx);
+//					if (printVals) IJ.log("\ndiff: "+peaks.get(locIdx).get(1)[0]+", "+bacgr.get(locIdx)+" , "+A1t);
+//					A1t = (A1t>D)? 1 : 0 ; // 1-Math.exp(-A1t/D)
+//					if (printVals) IJ.log("A1t: "+A1t);
+//					A1 +=  A1t;
+//
+//					double A2t = peaks.get(locIdx).get(1)[1] - bacgr.get(locIdx);
+//					if (printVals) IJ.log("\ndiff: "+peaks.get(locIdx).get(1)[1]+", "+bacgr.get(locIdx)+" , "+A2t);
+//					A2t = (A2t>D)? 1 : 0 ; // 1-Math.exp(-A2t/D)
+//					if (printVals) IJ.log("A2t: "+A2t);
+//					A2 += A2t;
+//
+//					double A3t = peaks.get(locIdx).get(1)[2] - bacgr.get(locIdx);
+//					if (printVals) IJ.log("\ndiff: "+peaks.get(locIdx).get(1)[2]+", "+bacgr.get(locIdx)+" , "+A3t);
+//					A3t = (A3t>D)? 1 : 0; // 1-Math.exp(-A3t/D)
+//					if (printVals) IJ.log("A3t: "+A3t);
+//					A3 += A3t;
+//				}
+//
+//				if (cfgIdx==2) {
+//					double rd = neuronD.get(2)*scale.get(2);
+//					A1P3x = rd*Math.cos(angles.get(locIdx).get(2)[0]*(2*Math.PI/360f));
+//					A1P3y = -rd*Math.sin(angles.get(locIdx).get(2)[0]*(2*Math.PI/360f));
+//					A2P3x = rd*Math.cos(angles.get(locIdx).get(2)[1]*(2*Math.PI/360f));
+//					A2P3y = -rd*Math.sin(angles.get(locIdx).get(2)[1]*(2*Math.PI/360f));
+//					A3P3x = rd*Math.cos(angles.get(locIdx).get(2)[2]*(2*Math.PI/360f));
+//					A3P3y = -rd*Math.sin(angles.get(locIdx).get(2)[2]*(2*Math.PI/360f));
+//
+//					double A1t = peaks.get(locIdx).get(2)[0]- bacgr.get(locIdx);
+//					if (printVals) IJ.log("\ndiff: "+peaks.get(locIdx).get(2)[0]+", "+bacgr.get(locIdx)+" , "+A1t);
+//					A1t = (A1t>D)? 1 : 0 ; // 1-Math.exp(-A1t/D)
+//					if (printVals) IJ.log("A1t: "+A1t);
+//					A1 +=  A1t;
+//
+//					double A2t = peaks.get(locIdx).get(2)[1] - bacgr.get(locIdx);
+//					if (printVals) IJ.log("\ndiff: "+peaks.get(locIdx).get(2)[1]+", "+bacgr.get(locIdx)+" , "+A1t);
+//					A2t = (A2t>D)? 1 : 0 ; // 1-Math.exp(-A2t/D)
+//					if (printVals) IJ.log("A2t: "+A2t);
+//					A2 += A2t;
+//
+//					double A3t = peaks.get(locIdx).get(2)[2] - bacgr.get(locIdx);
+//					if (printVals) IJ.log("\ndiff: "+peaks.get(locIdx).get(2)[2]+", "+bacgr.get(locIdx)+" , "+A1t);
+//					A3t = (A3t>D)? 1 : 0; // 1-Math.exp(-A3t/D)
+//					if (printVals) IJ.log("A3t: "+A3t);
+//					A3 += A3t;
+//				}
 
 				cntCfgs++;
 
@@ -673,54 +750,75 @@ public class JunctionDet implements PlugInFilter, MouseListener {
 
 		double score = 0;
 
+        // check  directionality
 		if (cntCfgs==3) {
 
-			//A1 /= cntCfgs;
-			double A1v1x, A1v1y, iA1v1, A1v2x, A1v2y, iA1v2;
-			A1v1x = A1P2x-A1P1x;
-			A1v1y = A1P2y-A1P1y;
-			A1v2x = A1P3x-A1P2x;
-			A1v2y = A1P3y-A1P2y;
-			iA1v2 = Math.sqrt(A1v2x*A1v2x+A1v2y*A1v2y);
-			iA1v1 = Math.sqrt(A1v1x*A1v1x+A1v1y*A1v1y);
-			double cosA1 = ( (A1v1x*A1v2x+A1v1y*A1v2y) / (iA1v1 * iA1v2) );
-			double align1 = ( (cosA1+1) / 2 );
-			if (printVals) IJ.log("A1:" + A1 + " , how aligned? " + align1+" angle: "+ (Math.acos(cosA1)*(180f/Math.PI)) );
+            boolean alined = true;
+
+            for (int clusterIdx=0; clusterIdx<3; clusterIdx++) {
+
+                for (int cfgIdx=1; cfgIdx<totalCfgs; cfgIdx++) {//first one cannot refer to anything before itself
+
+                    if (!isDirectional(P[clusterIdx][cfgIdx], P[clusterIdx][cfgIdx-1], R[cfgIdx], R[cfgIdx-1])) {
+
+                        alined = false;
+                        if (printVals) IJ.log("not alined in cluster "+clusterIdx);
+                        break; // and get out with score 0
+
+                    }
+
+                }
+
+            }
+
+//			double A1v1x, A1v1y, iA1v1, A1v2x, A1v2y, iA1v2;
+//			A1v1x = A1P2x-A1P1x;
+//			A1v1y = A1P2y-A1P1y;
+//			A1v2x = A1P3x-A1P2x;
+//			A1v2y = A1P3y-A1P2y;
+//			iA1v2 = Math.sqrt(A1v2x*A1v2x+A1v2y*A1v2y);
+//			iA1v1 = Math.sqrt(A1v1x*A1v1x+A1v1y*A1v1y);
+//			double cosA1 = ( (A1v1x*A1v2x+A1v1y*A1v2y) / (iA1v1 * iA1v2) );
+//			double align1 = ( (cosA1+1) / 2 );
+//			if (printVals) IJ.log("A1:" + A1 + " , how aligned? " + align1+" angle: "+ (Math.acos(cosA1)*(180f/Math.PI)) );
 				/*
 
 				 */
 
-			//A2 /= cntCfgs;
-			double A2v1x, A2v1y, iA2v1, A2v2x, A2v2y, iA2v2;
-			A2v1x = A2P2x-A2P1x;
-			A2v1y = A2P2y-A2P1y;
-			A2v2x = A2P3x-A2P2x;
-			A2v2y = A2P3y-A2P2y;
-			iA2v2 = Math.sqrt(A2v2x*A2v2x+A2v2y*A2v2y);
-			iA2v1 = Math.sqrt(A2v1x*A2v1x+A2v1y*A2v1y);
-			double cosA2 = ((A2v1x*A2v2x+A2v1y*A2v2y) / (iA2v1 * iA2v2));
-			double align2 = ( (cosA2+1) / 2 );
-			if (printVals) IJ.log("A2:" + A2 + " , how aligned? " + align2+" angle: "+ (Math.acos(cosA2)*(180f/Math.PI)));
+//			double A2v1x, A2v1y, iA2v1, A2v2x, A2v2y, iA2v2;
+//			A2v1x = A2P2x-A2P1x;
+//			A2v1y = A2P2y-A2P1y;
+//			A2v2x = A2P3x-A2P2x;
+//			A2v2y = A2P3y-A2P2y;
+//			iA2v2 = Math.sqrt(A2v2x*A2v2x+A2v2y*A2v2y);
+//			iA2v1 = Math.sqrt(A2v1x*A2v1x+A2v1y*A2v1y);
+//			double cosA2 = ((A2v1x*A2v2x+A2v1y*A2v2y) / (iA2v1 * iA2v2));
+//			double align2 = ( (cosA2+1) / 2 );
+//			if (printVals) IJ.log("A2:" + A2 + " , how aligned? " + align2+" angle: "+ (Math.acos(cosA2)*(180f/Math.PI)));
 				/*
 
 				 */
 
-			//A3 /= cntCfgs;
-			double A3v1x, A3v1y, iA3v1, A3v2x, A3v2y, iA3v2;
-			A3v1x = A3P2x-A3P1x;
-			A3v1y = A3P2y-A3P1y;
-			A3v2x = A3P3x-A3P2x;
-			A3v2y = A3P3y-A3P2y;
-			iA3v2 = Math.sqrt(A3v2x*A3v2x+A3v2y*A3v2y);
-			iA3v1 = Math.sqrt(A3v1x*A3v1x+A3v1y*A3v1y);
-			double cosA3 = ((A3v1x*A3v2x+A3v1y*A3v2y) / (iA3v1 * iA3v2));
-			double align3 = ( (cosA3+1) / 2 );
-			if (printVals) IJ.log("A3:" + A3 + " , how aligned? " + align3+" angle: "+ (Math.acos(cosA3)*(180f/Math.PI)));
+//			double A3v1x, A3v1y, iA3v1, A3v2x, A3v2y, iA3v2;
+//			A3v1x = A3P2x-A3P1x;
+//			A3v1y = A3P2y-A3P1y;
+//			A3v2x = A3P3x-A3P2x;
+//			A3v2y = A3P3y-A3P2y;
+//			iA3v2 = Math.sqrt(A3v2x*A3v2x+A3v2y*A3v2y);
+//			iA3v1 = Math.sqrt(A3v1x*A3v1x+A3v1y*A3v1y);
+//			double cosA3 = ((A3v1x*A3v2x+A3v1y*A3v2y) / (iA3v1 * iA3v2));
+//			double align3 = ( (cosA3+1) / 2 );
+//			if (printVals) IJ.log("A3:" + A3 + " , how aligned? " + align3+" angle: "+ (Math.acos(cosA3)*(180f/Math.PI)));
 
 			//score = A0 * A1 * align1 * A2 * align2 * A3 * align3;//
 			//score = A0 * Tools.min3(A1 * align1, A2 * align2, A3 * align3);
-			score = ((A0 + A1 + A2 + A3)==10)? 255: 0;
-			if (printVals) IJ.log("SCORE = "+score);
+
+            if (alined) {
+
+                score = (A[0]==1 && A[1]>=2 && A[2]>=2 && A[3]>=2)? 255: 0;
+                if (printVals) IJ.log("VOTING SCORE = "+score);
+
+            }
 
 		}
 		else {
@@ -740,6 +838,20 @@ public class JunctionDet implements PlugInFilter, MouseListener {
 
 
 	}
+
+    private boolean isDirectional(double[] pNew, double[] pPrev, double rNew, double rPrev)
+    {
+
+        return ((pNew[0]*pPrev[0] + pNew[1]*pPrev[1]) / (rNew*rPrev))>rPrev/rNew;
+
+    }
+
+    private boolean isDirectional(double[] pNew, double[] pPrev)  // slower version
+    {
+        double pNewNorm     = Math.sqrt(pNew[0]*pNew[0]+pNew[1]*pNew[1]);
+        double pPrevNorm    = Math.sqrt(pPrev[0]*pPrev[0]+pPrev[1]*pPrev[1]);
+        return (pNew[0]*pPrev[0] + pNew[1]*pPrev[1]) / (pNewNorm*pPrevNorm) > pPrevNorm/pNewNorm;
+    }
 
     private void updateList() // uses Profiler to update  profiles, profilesName, angularRes
     {
@@ -1006,7 +1118,7 @@ public class JunctionDet implements PlugInFilter, MouseListener {
 
                         // modify xAxis angles into euclidean points
                         double[][] msPeaks = new double[3][2];
-                        double rd = neuronD.get(g)*scale.get(g); // plot radius
+                        double rd = neuronDiamMax*scales[g]; // plot radius
 
 //                        float[] xAxis = new float[3];
 //                        for (int i1=0; i1<3; i1++) xAxis[i1] = Analyzer.peakIdx[i][g][i1] * angularRes.get(i).get(g); // this is precalculated now
@@ -1089,14 +1201,12 @@ public class JunctionDet implements PlugInFilter, MouseListener {
                 log IJ
                 */
 
-                //double D = 10;
-
                 System.out.println("\n---\nX: "+atX+" , Y: "+atY+"");
 
 				extractScore(i, true);
 
                 System.out.println("\n*** CENTER  ***");
-                double pk = centrAvg.get(i).get(0);
+                double pk = centrAvg.get(i);
                 double bg = bacgr.get(i);
                 double df = (pk-bg>0) ? pk-bg : 0 ;
 

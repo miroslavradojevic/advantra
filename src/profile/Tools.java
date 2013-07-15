@@ -1,11 +1,16 @@
 package profile;
 
+import ij.IJ;
 import ij.ImagePlus;
+import ij.gui.PolygonRoi;
+import ij.gui.Roi;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 
+import java.awt.*;
 import java.io.File;
 import java.io.FilenameFilter;
+import java.util.ArrayList;
 import java.util.Vector;
 
 /**
@@ -112,6 +117,43 @@ public class Tools {
 
         theta[0] = 0.5 * Math.atan((2*mu11)/(mu20-mu02));
 
+    }
+
+    public static float[] extractEllipse(ArrayList<int[]> locs) // row, col, majorAxis, minorAxis, angle
+    {
+        float[] ellipseParams = new float[5];
+
+        double M00  = locs.size();
+        double M10  = 0;
+        double M01  = 0;
+        double M11  = 0;
+        double M20  = 0;
+        double M02 	= 0;
+
+        for (int i=0; i<locs.size(); i++) {
+
+            M10 += locs.get(i)[0];
+            M01 += locs.get(i)[1];
+            M11 += locs.get(i)[1] * locs.get(i)[0];
+            M20 += locs.get(i)[0] * locs.get(i)[0];
+            M02 += locs.get(i)[1] * locs.get(i)[1];
+
+        }
+
+        ellipseParams[0] = (float) (M10 / M00);
+        ellipseParams[1] = (float) (M01 / M00);
+
+        float mu11 = (float) (M11 / M00) - ellipseParams[0]*ellipseParams[1];
+        float mu20 = (float) (M20 / M00) - ellipseParams[0]*ellipseParams[0];
+        float mu02 = (float) (M02 / M00) - ellipseParams[1]*ellipseParams[1];
+
+        ellipseParams[2] = (float) (0.5*(mu20+mu02) + 0.5*Math.sqrt(4*mu11*mu11+(mu20-mu02)*(mu20-mu02)));
+        ellipseParams[2] = (float) (1 * Math.sqrt(Math.abs(ellipseParams[2])));
+        ellipseParams[3] = (float) (0.5*(mu20+mu02) - 0.5*Math.sqrt(4*mu11*mu11+(mu20-mu02)*(mu20-mu02)));
+        ellipseParams[3] = (float) (1 * Math.sqrt(Math.abs(ellipseParams[3])));
+        ellipseParams[4] = (float) ( (0.5*Math.atan((2 * mu11) / (mu20 - mu02)) + Math.PI/2 )*(180/Math.PI));
+
+        return ellipseParams;
     }
 
     public static double entropy(double[] inarray, boolean normalize)
@@ -580,6 +622,28 @@ public class Tools {
     public static double min3(double a, double b, double c)
     {
         return Math.min(a, Math.min(b, c));
+    }
+
+    public static PolygonRoi drawEllipse(float x, float y, float a, float b, float angle, Color clr, float lineWidth, int nrPoints)
+    {
+
+        float[] xEll = new float[nrPoints];
+        float[] yEll = new float[nrPoints];
+        double step = (2*Math.PI)/nrPoints;
+        double beta = -angle*(Math.PI/180);
+
+        for (int i=0; i<nrPoints; i++) {
+            double alpha = i*step;
+            xEll[i] = (float) (x + a * Math.cos(alpha) * Math.cos(beta) - b * Math.sin(alpha) * Math.sin(beta));
+            yEll[i] = (float) (y + a * Math.cos(alpha) * Math.sin(beta) + b * Math.sin(alpha) * Math.cos(beta));
+        }
+
+        PolygonRoi p = new PolygonRoi(xEll, yEll, nrPoints, Roi.POLYGON);
+        p.setStrokeWidth(lineWidth);
+        p.setStrokeColor(clr);
+
+        return p;
+
     }
 
 }

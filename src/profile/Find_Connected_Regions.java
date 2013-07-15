@@ -862,10 +862,24 @@ public class Find_Connected_Regions  { //implements PlugIn
 	}
 
 	public int getNrConnectedRegions(){
-		IJ.log("results 0 has"+results.get(0).locations.size()+" locations! "+results.get(0).locations.get(0)[0]+" , "+results.get(0).locations.get(0)[1]);
 		// return clusters here
 		return results.size();
 	}
+
+    public ArrayList<ArrayList<int[]>> getConnectedRegions()
+    {
+        ArrayList<ArrayList<int[]>> regs = new ArrayList<ArrayList<int[]>>(results.size());
+
+        for (int i=0; i<results.size(); i++) {
+            ArrayList<int[]> locs = new ArrayList<int[]>(results.get(i).locations.size());
+            for (int j=0; j<results.get(i).locations.size(); j++) {
+                locs.add(new int[]{results.get(i).locations.get(j)[0], results.get(i).locations.get(j)[1]});
+            }
+            regs.add(locs);
+        }
+
+        return regs;
+    }
 
 	public ImagePlus showLabels(){
 
