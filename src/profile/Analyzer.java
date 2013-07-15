@@ -33,9 +33,9 @@ public class Analyzer extends Thread  {
 
     public static int       maxIter = 100;
     public static double    epsilon = 0.0001;
-    public static int       h = 3;
+    public static int       h = 4;
     public static double    minD = 0.5;
-    public static int       M = 1;
+    public static int       M = 2;
 
     public Analyzer (int n0, int n1) {
         this.begN = n0;
