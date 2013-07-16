@@ -9,6 +9,7 @@ import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.GenericDialog;
 import ij.gui.Overlay;
+import ij.gui.PointRoi;
 import ij.io.FileSaver;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
@@ -90,16 +91,27 @@ public class ConnectedRegions  implements PlugInFilter {
         Overlay ov = new Overlay();
 
         for (int i=0; i<regs.size(); i++) {
+
             IJ.log("region "+i+" :\t"+regs.get(i).size()+" elements");
 
             if (regs.get(i).size()>1) {
                 float[] ellipseParams = Tools.extractEllipse(regs.get(i));
                 IJ.log(""+ Arrays.toString(ellipseParams));
+                PointRoi pt = new PointRoi(ellipseParams[1], ellipseParams[0]);
+//                pt.setName(""+ellipseParams[4]);
+                pt.setHideLabels(false);
+                ov.add(pt);
                 ov.add(Tools.drawEllipse(ellipseParams[1], ellipseParams[0], 2*ellipseParams[3], 2*ellipseParams[2], ellipseParams[4], Color.RED, 1, 50));
+
             }
 
         }
 
+        for (int i=180; i<270; i+=20) {
+                ov.add(Tools.drawEllipse(imageLabels.getWidth()/2+0.5f, imageLabels.getHeight()/2+0.5f, 10, 20, i, Color.RED, 1, 50));
+        }
+
+//        ov.drawLabels(true);
         imageLabels.setOverlay(ov);
 
 	}

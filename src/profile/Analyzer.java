@@ -31,7 +31,7 @@ public class Analyzer extends Thread  {
     double[]  start 		= new double[nrPoints];
     double[]  msFinish 		= new double[nrPoints];
 
-    public static int       maxIter = 150;
+    public static int       maxIter = 200;
     public static double    epsilon = 0.0001;
     public static int       h = 4;
     public static double    minD = 0.5;

@@ -153,7 +153,15 @@ public class Tools {
 			ellipseParams[2] = (float) (1 * Math.sqrt(Math.abs(ellipseParams[2])));
 			ellipseParams[3] = (float) (0.5*(mu20+mu02) - 0.5*Math.sqrt(4*mu11*mu11+(mu20-mu02)*(mu20-mu02)));
 			ellipseParams[3] = (float) (1 * Math.sqrt(Math.abs(ellipseParams[3])));
-			ellipseParams[4] = (float) ( (0.5*Math.atan((2 * mu11) / (mu20 - mu02)) + Math.PI/2 )*(180/Math.PI));
+            //IJ.log("mu11 "+mu11+" , mu20 "+mu20+" m02 "+mu02+ " atan ("+(  (2 * mu11) / (mu20 - mu02)  ));
+			if (Math.abs(mu02-mu20)<0.00001) {
+                ellipseParams[4] = 0;
+
+            }
+            else {
+                IJ.log("atan gave: "+(0.5*Math.atan((2 * mu11) / (mu20 - mu02)) )*(180/Math.PI));
+                ellipseParams[4] = (float) ( (0.5*Math.atan((2 * mu11) / (mu20 - mu02)) )*(180/Math.PI));
+            }
 
 		}
 		else {

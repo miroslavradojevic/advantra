@@ -111,10 +111,7 @@ public class JunctionDet implements PlugInFilter, MouseListener {
         CPU_NR              = (int) Prefs.get("advantra.critpoint.CPU_NR", 4);
 
         GenericDialog gd = new GenericDialog("JUNCTION DET.");
-        //gd.addNumericField("neuronD ",  neuronDiamMin, 0, 10, " MIN");
         gd.addNumericField("neuronD ",  neuronDiamMax, 0, 10, " MAX");
-        //gd.addNumericField("scale",     scaleMin, 1, 10, "MIN");
-        //gd.addNumericField("scale",     scaleMax, 1, 10, "MAX");
         gd.addNumericField("D",         D, 1, 10, "score param.");
 
 		/*gd.addMessage("--- LOCAL PEAKS (MS on 2D image) ---");
@@ -126,43 +123,21 @@ public class JunctionDet implements PlugInFilter, MouseListener {
         gd.addNumericField("M",         M,      0, 10, "min # points in cluster");
         */
 
-		//gd.addMessage("---");
         gd.addNumericField("CPU_NR ",   CPU_NR, 0, 10, "");
 
         gd.showDialog();
         if (gd.wasCanceled()) return;
 
-//        neuronDiamMin       =  gd.getNextNumber();
-//        Prefs.set("advantra.critpoint.neuronDiamMin", 	neuronDiamMin);
         neuronDiamMax       =  gd.getNextNumber();
         Prefs.set("advantra.critpoint.neuronDiamMax",   neuronDiamMax);
-//        scaleMin            =  gd.getNextNumber();
-//        Prefs.set("advantra.critpoint.scaleMin", 	    scaleMin);
-//        scaleMax            =  gd.getNextNumber();
-//        Prefs.set("advantra.critpoint.scaleMax",        scaleMax);
         D                   =  gd.getNextNumber();
         Prefs.set("advantra.critpoint.D",               D);
-
-		/*
-		H       =  (int) gd.getNextNumber();
-        Prefs.set("advantra.critpoint.ms2d.H", 	H);
-		MaxIter =  (int) gd.getNextNumber();
-        Prefs.set("advantra.critpoint.ms2d.MaxIter", MaxIter);
-        eps     =  gd.getNextNumber();
-        Prefs.set("advantra.critpoint.ms2d.eps", eps);
-        dMin       =  gd.getNextNumber();
-        Prefs.set("advantra.critpoint.ms2d.d", dMin);
-        M       =  (int) gd.getNextNumber();
-        Prefs.set("advantra.critpoint.ms2d.M", M);
-        */
-
 		CPU_NR              =  (int) gd.getNextNumber();
         Prefs.set("advantra.critpoint.CPU_NR", 	        CPU_NR);
 
         /*
-        calculate the mask  (MaskerDemo example), should result in
-        ByteProcessor inmask  == Masker.maskip
-        */
+        ***********************************************************
+         */
         IJ.log("extracting background...");
         t1 = System.currentTimeMillis();
         int neighbourhoodR = (int) Math.ceil(4*neuronDiamMax);
@@ -206,8 +181,10 @@ public class JunctionDet implements PlugInFilter, MouseListener {
 		angularRes    	= new ArrayList<ArrayList<Integer>>(totalLocations);
         profilesName  	= new ArrayList<ArrayList<String>>(totalLocations);
 
-//        neuronD = new ArrayList<Double>(); // this is actually per configuration
-//        scale 	= new ArrayList<Double>();
+
+        /*
+        ***********************************************************
+         */
 
 		IJ.log("calculating profiles... ");
 		t1 = System.currentTimeMillis();
@@ -215,17 +192,10 @@ public class JunctionDet implements PlugInFilter, MouseListener {
 		//int totalConfs = 0;
         //for (double neuronDiam = neuronDiamMax; neuronDiam<=neuronDiamMax; neuronDiam++) {
 
-//	        double neuronDiam = neuronDiamMax;
-
             for (int scaleIdx=0; scaleIdx<totalCfgs; scaleIdx++) {
 
-//				double sc = scales[scaleIdx];
-//                neuronD.add(neuronDiam);
-//                scale.add(sc);
                 R[scaleIdx] = neuronDiamMax*scales[scaleIdx];
                 Profiler.loadParams(neuronDiamMax, scales[scaleIdx]);
-                //totalConfs++;
-
 
                 totalJobs = Profiler.offsets.size();
                 Profiler profiler_jobs[] = new Profiler[CPU_NR];
@@ -246,9 +216,13 @@ public class JunctionDet implements PlugInFilter, MouseListener {
                 updateList();
 
             }
-        //}
+
 		t2 = System.currentTimeMillis();
 		IJ.log("done "+((t2-t1)/1000f)+" sec.");
+
+        /*
+        ***********************************************************
+         */
 
         IJ.log("calculating peaks... ");
         t1 = System.currentTimeMillis();
@@ -270,6 +244,10 @@ public class JunctionDet implements PlugInFilter, MouseListener {
 
         t2 = System.currentTimeMillis();
         IJ.log("done extracting peaks "+((t2-t1)/1000f)+" sec.");
+
+        /*
+        ***********************************************************
+         */
 
         IJ.log("clustering corresponding peaks...");
 
@@ -465,15 +443,10 @@ public class JunctionDet implements PlugInFilter, MouseListener {
 		detections = new Overlay();
 
         for (int i=0; i<regs.size(); i++) {
-
-			IJ.log("region "+i+" :\t"+regs.get(i).size()+" elements");
-
             if (regs.get(i).size()>1) {
                 float[] ellipseParams = Tools.extractEllipse(regs.get(i));
-                IJ.log(""+ Arrays.toString(ellipseParams));
-                detections.add(Tools.drawEllipse(ellipseParams[1]+0.5f, ellipseParams[0]+0.5f, 2*ellipseParams[3], 2*ellipseParams[2], ellipseParams[4], Color.RED, 1, 50));
+                detections.add(Tools.drawEllipse(ellipseParams[1]+0.5f, ellipseParams[0]+0.5f, 5*ellipseParams[3], 5*ellipseParams[2], ellipseParams[4], Color.RED, 1, 50));
             }
-
         }
 
 		for (int i1=0; i1<scoreimg.getWidth(); i1++) {
@@ -547,7 +520,6 @@ public class JunctionDet implements PlugInFilter, MouseListener {
 					break;
 				}
 
-
                     for (int clusterIdx = 0; clusterIdx<3; clusterIdx++) {
 
                         P[clusterIdx][cfgIdx][0] =  R[cfgIdx] * Math.cos(angles.get(locIdx).get(cfgIdx)[clusterIdx]*(Math.PI/180));
@@ -604,7 +576,7 @@ public class JunctionDet implements PlugInFilter, MouseListener {
 
             if (alined) {
 
-                score = (A[0]==1 && (A[1] + A[2] + A[3])>=8)? 255: 0;
+                score = (A[0]==1 && (A[1] + A[2] + A[3])>=9)? 255: 0;
                 if (printVals) IJ.log("VOTING SCORE = "+score);
 
             }
@@ -796,6 +768,8 @@ public class JunctionDet implements PlugInFilter, MouseListener {
         for (int i=0; i<Profiler.locations.length; i++) {  // i will loop locations
             if (Profiler.locations[i][0]==atX && Profiler.locations[i][1]==atY) {
 
+                extractScore(i, true); // with IJ.log
+
                 /*
 				overlay for the main image
 			    */
@@ -811,14 +785,7 @@ public class JunctionDet implements PlugInFilter, MouseListener {
                     plot ij  template
                      */
                     float[] angIdx = new float[currProfileLen];
-
-                    for (int q=0; q<currProfileLen; q++) {
-                        angIdx[q] = q * angularRes.get(i).get(g);
-                    }
-
-                    /*
-                    plot def.
-                     */
+                    for (int q=0; q<currProfileLen; q++) angIdx[q] = q * angularRes.get(i).get(g);
 
                     // profile
                     Plot p = new Plot("", "orient.[deg]", profilesName.get(i).get(g), angIdx, profiles.get(i).get(g));
@@ -869,12 +836,7 @@ public class JunctionDet implements PlugInFilter, MouseListener {
                             p.addPoints(new float[]{pX}, new float[]{pY}, Plot.BOX);
                             p.draw();
 
-                        // modify xAxis angles into euclidean points
-                        double[][] msPeaks = new double[3][2];
                         double rd = neuronDiamMax*scales[g]; // plot radius
-
-//                        float[] xAxis = new float[3];
-//                        for (int i1=0; i1<3; i1++) xAxis[i1] = Analyzer.peakIdx[i][g][i1] * angularRes.get(i).get(g); // this is precalculated now
 
                         float pointX, pointY;
                         PointRoi point;
@@ -907,7 +869,6 @@ public class JunctionDet implements PlugInFilter, MouseListener {
                     }
 
                     inimg.setOverlay(ov);
-
                     vizProfileStack.addSlice("", p.getProcessor());
 
                     /*
@@ -947,42 +908,6 @@ public class JunctionDet implements PlugInFilter, MouseListener {
                         out.close();
 
                     } catch (IOException e1) {}
-
-                }
-
-                /*
-                log IJ
-                */
-
-                System.out.println("\n---\nX: "+atX+" , Y: "+atY+"");
-
-				extractScore(i, true);
-
-                System.out.println("\n*** CENTER  ***");
-                double pk = centrAvg.get(i);
-                double bg = bacgr.get(i);
-                double df = (pk-bg>0) ? pk-bg : 0 ;
-
-                System.out.println(" peak: "+pk+" ("+bg+") A0="+IJ.d2s(1-Math.exp(-df/D), 2)+" | ");
-
-                for (int clstIdx=0; clstIdx<3; clstIdx++) {
-                    System.out.println("\n*** CLUSTER "+clstIdx+" ***");
-
-                    System.out.print(" peaks: ");
-                    for (int cfgIdx=0; cfgIdx<3; cfgIdx++) {
-                        if (peaks.get(i).get(cfgIdx)!=null) {
-                            double pk1 = peaks.get(i).get(cfgIdx)[clstIdx];
-                            double bg1 = bacgr.get(i);
-                            double df1 = (pk1-bg1>0) ? pk1-bg1 : 0 ;
-                            System.out.print(pk1+"("+bg1+") -> "+IJ.d2s(1-Math.exp(-df1/D), 2)+" | ");
-                        }
-                    }
-
-                    System.out.print(" angles: ");
-                    for (int cfgIdx=0; cfgIdx<3; cfgIdx++) {
-                        if (angles.get(i).get(cfgIdx)!=null)
-                            System.out.print(angles.get(i).get(cfgIdx)[clstIdx] + " |  ");
-                    }
 
                 }
 

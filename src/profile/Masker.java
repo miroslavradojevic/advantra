@@ -89,17 +89,18 @@ public class Masker extends Thread {
                 boolean isForeground =
                         //currVal-currBkgr>th ||
 
-                        inip.getf(atX-1, atY-1)>currBkgr+th ||
-                        inip.getf(atX-1, atY+0)>currBkgr+th ||
-                        inip.getf(atX-1, atY+1)>currBkgr+th ||
-
-                                inip.getf(atX+0, atY-1)>currBkgr+th ||
-                                inip.getf(atX+0, atY+0)>currBkgr+th ||
-                                inip.getf(atX+0, atY+1)>currBkgr+th ||
-
-                                inip.getf(atX+1, atY-1)>currBkgr+th ||
-                                inip.getf(atX+1, atY+0)>currBkgr+th ||
-                                inip.getf(atX+1, atY+1)>currBkgr+th
+//                        inip.getf(atX-1, atY-1)>currBkgr+th ||
+//                        inip.getf(atX-1, atY+0)>currBkgr+th ||
+//                        inip.getf(atX-1, atY+1)>currBkgr+th ||
+//
+//                                inip.getf(atX+0, atY-1)>currBkgr+th ||
+                                inip.getf(atX+0, atY+0)>currBkgr+th
+//                                ||
+//                                inip.getf(atX+0, atY+1)>currBkgr+th ||
+//
+//                                inip.getf(atX+1, atY-1)>currBkgr+th ||
+//                                inip.getf(atX+1, atY+0)>currBkgr+th ||
+//                                inip.getf(atX+1, atY+1)>currBkgr+th
                         ;
 
                 if (isForeground) {
