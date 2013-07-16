@@ -143,15 +143,26 @@ public class Tools {
         ellipseParams[0] = (float) (M10 / M00);
         ellipseParams[1] = (float) (M01 / M00);
 
-        float mu11 = (float) (M11 / M00) - ellipseParams[0]*ellipseParams[1];
-        float mu20 = (float) (M20 / M00) - ellipseParams[0]*ellipseParams[0];
-        float mu02 = (float) (M02 / M00) - ellipseParams[1]*ellipseParams[1];
+		if(M00>2) {
 
-        ellipseParams[2] = (float) (0.5*(mu20+mu02) + 0.5*Math.sqrt(4*mu11*mu11+(mu20-mu02)*(mu20-mu02)));
-        ellipseParams[2] = (float) (1 * Math.sqrt(Math.abs(ellipseParams[2])));
-        ellipseParams[3] = (float) (0.5*(mu20+mu02) - 0.5*Math.sqrt(4*mu11*mu11+(mu20-mu02)*(mu20-mu02)));
-        ellipseParams[3] = (float) (1 * Math.sqrt(Math.abs(ellipseParams[3])));
-        ellipseParams[4] = (float) ( (0.5*Math.atan((2 * mu11) / (mu20 - mu02)) + Math.PI/2 )*(180/Math.PI));
+			float mu11 = (float) (M11 / M00) - ellipseParams[0]*ellipseParams[1];
+			float mu20 = (float) (M20 / M00) - ellipseParams[0]*ellipseParams[0];
+			float mu02 = (float) (M02 / M00) - ellipseParams[1]*ellipseParams[1];
+
+			ellipseParams[2] = (float) (0.5*(mu20+mu02) + 0.5*Math.sqrt(4*mu11*mu11+(mu20-mu02)*(mu20-mu02)));
+			ellipseParams[2] = (float) (1 * Math.sqrt(Math.abs(ellipseParams[2])));
+			ellipseParams[3] = (float) (0.5*(mu20+mu02) - 0.5*Math.sqrt(4*mu11*mu11+(mu20-mu02)*(mu20-mu02)));
+			ellipseParams[3] = (float) (1 * Math.sqrt(Math.abs(ellipseParams[3])));
+			ellipseParams[4] = (float) ( (0.5*Math.atan((2 * mu11) / (mu20 - mu02)) + Math.PI/2 )*(180/Math.PI));
+
+		}
+		else {
+
+			ellipseParams[2] = 1;
+			ellipseParams[3] = 1;
+			ellipseParams[4] = 0;
+
+		}
 
         return ellipseParams;
     }
