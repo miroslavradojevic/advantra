@@ -159,9 +159,13 @@ public class Tools {
 
             }
             else {
-                IJ.log("atan gave: "+(0.5*Math.atan((2 * mu11) / (mu20 - mu02)) )*(180/Math.PI));
-                ellipseParams[4] = (float) ( (0.5*Math.atan((2 * mu11) / (mu20 - mu02)) )*(180/Math.PI));
-            }
+				ellipseParams[4] =
+						ellipseParams[4] = (float) ( (0.5*Math.atan((2 * mu11) / (mu20 - mu02)) )*(180/Math.PI));
+				IJ.log("atan gave: "+ellipseParams[4]);
+				//ellipseParams[4] = (ellipseParams[4]>0)? ellipseParams[4] : 0 ;
+				//ellipseParams[4] = wrap_0_180(ellipseParams[4]);
+
+			}
 
 		}
 		else {
@@ -637,6 +641,21 @@ public class Tools {
         return out;
 
     }
+
+	public static float wrap_0_180(float ang)
+	{
+		float out = ang;
+
+		while (out<0) {
+			out += 180;
+		}
+
+		while (out>=180) {
+			out -= 180;
+		}
+
+		return out;
+	}
 
     public static double min3(double a, double b, double c)
     {
