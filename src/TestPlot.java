@@ -14,16 +14,18 @@ public class TestPlot implements PlugIn {
 
     public void run(String s) {
 
-		IJ.log("test...");
-		Arrays.toString(start);
-		IJ.log(Arrays.toString(finish));
+		IJ.log("start before: "+Arrays.toString(start));
+		IJ.log("finish before: "+Arrays.toString(finish));
+
+
+        start[0] = 1;
 
 		fn(start, finish);
-		IJ.log(Arrays.toString(finish));
-		fn(finish, finish);
-		IJ.log(Arrays.toString(finish));
-		fn(finish, finish);
-		IJ.log(Arrays.toString(finish));
+
+        IJ.log("start after: "+Arrays.toString(start));
+        IJ.log("finish after: "+Arrays.toString(finish));
+
+        System.out.println("value: "+Double.MIN_VALUE);
 
 //        double[] x = new double[]{1, 2, 3, 4, 5};
 //        double[] y1 = new double[]{4, 6, 9, 2, 5};
@@ -51,8 +53,9 @@ public class TestPlot implements PlugIn {
     }
 
 	public static void fn (double[] start, double[] finish) {
-		for (int i=0; i<start.length; i++) {
-			finish[i] = start[i] + 1;
+		start[0]++;
+        for (int i=0; i<start.length; i++) {
+			finish[i] = start[i] + 4;
 		}
 	}
 

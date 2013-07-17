@@ -95,8 +95,9 @@ public class Profiler extends Thread {
 		resolDeg = (int) ( Math.round( ( 2*Math.asin(1f/(2 * scale))*(1f/4) / TwoPI) * 360 ) );
 		resolDeg = (resolDeg>=1)? resolDeg : 1;
 
-		double r1 = neuronDiam*scale-neuronDiam/2;
-		double r2 = neuronDiam*scale+neuronDiam/2;// neuronDiam length
+        // define length of the rectangular profile, width is neuronDiam
+		double r1 = neuronDiam*scale-neuronDiam/2;// allowed length to be neuronDiam
+		double r2 = neuronDiam*scale+neuronDiam/2;
 
 		/*
 		create offsets

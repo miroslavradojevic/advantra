@@ -437,28 +437,64 @@ public class JunctionDet implements PlugInFilter, MouseListener {
 
         ArrayList<ArrayList<int[]>> regs = conn_reg.getConnectedRegions();
 
-//		ImagePlus imageLabels = conn_reg.showLabels();
-//        imageLabels.show();
+		ImagePlus imageLabels = conn_reg.showLabels();
+        imageLabels.show();
 
 		detections = new Overlay();
 
         for (int i=0; i<regs.size(); i++) {
             if (regs.get(i).size()>1) {
                 float[] ellipseParams = Tools.extractEllipse(regs.get(i));
-                detections.add(Tools.drawEllipse(ellipseParams[1]+0.5f, ellipseParams[0]+0.5f, 5*ellipseParams[3], 5*ellipseParams[2], ellipseParams[4], Color.RED, 1, 50));
+
+                /*
+                PointRoi pt = new PointRoi(ellipseParams[1]+.5, ellipseParams[0]+.5);
+                pt.setStrokeColor(Color.BLUE);
+                detections.add(pt);
+                */
+
+
+                float A =   (float)Math.sqrt(ellipseParams[3]);
+                float B =   (float)Math.sqrt(ellipseParams[2]);
+
+                if (!(B>Tools.VERY_SMALL_POSITIVE)) {
+
+                    // set B to 1 and A such that it covers the area
+                    B = 1;
+                    A = (float) (regs.get(i).size() / Math.PI);
+
+                }
+                else {
+
+                    float k =   A/B;
+                    B = (float) Math.sqrt(regs.get(i).size()/(k*Math.PI));
+                    A = k*B;
+
+                }
+
+//                IJ.log("A: "+A+" , B: "+B+"");
+//                if(regs.get(i).get(0)[1]==584 && regs.get(i).get(0)[0]==254) {
+//                    IJ.log("debug");
+//                    IJ.log("x="+regs.get(i).get(0)[1]+", y="+regs.get(i).get(0)[0]+", A="+A+", B="+B+", angle="+ellipseParams[4]);
+//                }
+
+                float scalePlot = 2;
+                detections.add(Tools.drawEllipse(ellipseParams[1]+0.5f, ellipseParams[0]+0.5f, scalePlot*A, scalePlot*B, ellipseParams[4], Color.YELLOW, 2, 50));
+
             }
         }
 
-		for (int i1=0; i1<scoreimg.getWidth(); i1++) {
-			for (int i2=0; i2<scoreimg.getHeight(); i2++) {
-				if (scoreimg.get(i1, i2)==255) {
-					PointRoi pt = new PointRoi(i1+0.5, i2+0.5);
-					detections.add(pt);
-				}
+        // detected spots  from the score
+//		for (int i1=0; i1<scoreimg.getWidth(); i1++) {
+//			for (int i2=0; i2<scoreimg.getHeight(); i2++) {
+//				if (scoreimg.get(i1, i2)==255) {
+//					PointRoi pt = new PointRoi(i1+0.5, i2+0.5);
+//					detections.add(pt);
+//				}
+//
+//			}
+//		}
 
-			}
-		}
-		inimg.setOverlay(detections);
+        inimg.setOverlay(detections);
         //scoreImagePlus.setOverlay(detections);
 
 		inimg.getCanvas().addMouseListener(this); // prepare for mouse interaction
@@ -576,7 +612,7 @@ public class JunctionDet implements PlugInFilter, MouseListener {
 
             if (alined) {
 
-                score = (A[0]==1 && (A[1] + A[2] + A[3])>=9)? 255: 0;
+                score = (A[0]==1 && (A[1] + A[2] + A[3])>=8)? 255: 0;
                 if (printVals) IJ.log("VOTING SCORE = "+score);
 
             }
@@ -777,18 +813,28 @@ public class JunctionDet implements PlugInFilter, MouseListener {
                 PointRoi pt = new PointRoi(atX+.5, atY+.5);
                 ov.add(pt);
 
-                for (int g=0; g<totalCfgs; g++) {  // g will loop profiles
+                for (int g=0; g<totalCfgs; g++) {  // g will loop configurations
 
                     int currProfileLen = profiles.get(i).get(g).length;
 
                     /*
                     plot ij  template
                      */
-                    float[] angIdx = new float[currProfileLen];
-                    for (int q=0; q<currProfileLen; q++) angIdx[q] = q * angularRes.get(i).get(g);
+
+                    int plotPts = 500;
+
+                    float[] plotX = new float[plotPts];
+                    for (int q=0; q<plotPts; q++) plotX[q] = q*((float)currProfileLen/plotPts);// * angularRes.get(i).get(g);
+
+                    // interpolate profile to be plotted
+                    float[] plotY = new float[plotPts];
+                    for (int q=0; q<plotPts; q++) plotY[q] = (float) (Tools.interp1Darray(plotX[q], profiles.get(i).get(g)));
+
+                    // turn plotX to real angles for real plotting
+                    for (int q=0; q<plotPts; q++) plotX[q] *= angularRes.get(i).get(g);
 
                     // profile
-                    Plot p = new Plot("", "orient.[deg]", profilesName.get(i).get(g), angIdx, profiles.get(i).get(g));
+                    Plot p = new Plot("", "orient.[deg]", profilesName.get(i).get(g), plotX, plotY);
 					p.setSize(600, 300);
 					p.draw();
 
@@ -805,16 +851,16 @@ public class JunctionDet implements PlugInFilter, MouseListener {
                     p.addPoints(plotConvX, plotConvY, Plot.X);
 
                     // backgr
-                    float[] currBckgr = new float[currProfileLen];
-                    for (int i1=0; i1<currProfileLen; i1++) currBckgr[i1] = bacgr.get(i);
+                    float[] currBckgr = new float[plotPts];
+                    for (int i1=0; i1<plotPts; i1++) currBckgr[i1] = bacgr.get(i);
                     p.setColor(Color.BLUE);
-                    p.addPoints(angIdx, currBckgr, Plot.LINE);
+                    p.addPoints(plotX, currBckgr, Plot.LINE);
 
                     // plot detections if there were any
 					if (idxs.get(i).get(g)!=null) {
 
                          /*
-                         i - location, g - configuration
+                            i - location, g - configuration
                           */
 
                             float pX, pY;
@@ -872,25 +918,25 @@ public class JunctionDet implements PlugInFilter, MouseListener {
                     vizProfileStack.addSlice("", p.getProcessor());
 
                     /*
-                    export R
+                    export R format
                      */
 
                     String printProfile = "";
                     String printAngle = "";
-                    String xName = "ang_"+profiles.get(i).get(g);
+                    String xName = "ang_"+profilesName.get(i).get(g);
                     String yName = profilesName.get(i).get(g);
 
                     printProfile    += yName+" <- c(";
                     printAngle      += xName+" <- c(";
 
-                    for (int i1=0; i1<currProfileLen; i1++) {
+                    for (int i1=0; i1<plotPts; i1++) {
 
-                        printProfile+=profiles.get(i).get(g)[i1]+"";
-                        printAngle+=angIdx[i1]+"";
+                        printProfile+=plotY[i1] +"";// profiles.get(i).get(g)
+                        printAngle  +=plotX[i1] +"";
 
-                        if(i1<profiles.get(i).get(g).length-1) {
-                            printProfile+=", ";
-                            printAngle+=", ";
+                        if(i1<plotPts-1) {
+                            printProfile    +=", ";
+                            printAngle      +=", ";
                         }
                     }
 

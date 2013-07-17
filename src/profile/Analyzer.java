@@ -33,7 +33,7 @@ public class Analyzer extends Thread  {
 
     public static int       maxIter = 200;
     public static double    epsilon = 0.0001;
-    public static int       h = 4;
+    public static int       h = 3;
     public static double    minD = 0.5;
     public static int       M = 1;
 
@@ -118,8 +118,16 @@ public class Analyzer extends Thread  {
 
                 // store the values
                 if (cls.size()<=2) {
-//                    peakVal[locIdx][profileIdx] = null;
-                    peakIdx[locIdx][profileIdx] = null;
+                    //peakIdx[locIdx][profileIdx] = null;
+
+                    // if it became null --- pointless to calculate further because they won't be in score
+                    // to speed up calculation
+                    // set the rest of the profiles to null
+                    for (int a1=profileIdx; a1<profiles.get(locIdx).size(); a1++) {
+                        peakIdx[locIdx][profileIdx] = null;
+                    }
+
+                    break; // break the loop for the rest of configurations
 
                 }
                 else if (cls.size()==3) {

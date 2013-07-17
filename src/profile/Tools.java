@@ -21,6 +21,8 @@ import java.util.Vector;
  */
 public class Tools {
 
+    static double VERY_SMALL_POSITIVE = 0.000001;
+
 	public static ImagePlus convertToFloatImage(
 		ImagePlus inim
 	)
@@ -149,29 +151,47 @@ public class Tools {
 			float mu20 = (float) (M20 / M00) - ellipseParams[0]*ellipseParams[0];
 			float mu02 = (float) (M02 / M00) - ellipseParams[1]*ellipseParams[1];
 
-			ellipseParams[2] = (float) (0.5*(mu20+mu02) + 0.5*Math.sqrt(4*mu11*mu11+(mu20-mu02)*(mu20-mu02)));
-			ellipseParams[2] = (float) (1 * Math.sqrt(Math.abs(ellipseParams[2])));
-			ellipseParams[3] = (float) (0.5*(mu20+mu02) - 0.5*Math.sqrt(4*mu11*mu11+(mu20-mu02)*(mu20-mu02)));
-			ellipseParams[3] = (float) (1 * Math.sqrt(Math.abs(ellipseParams[3])));
-            //IJ.log("mu11 "+mu11+" , mu20 "+mu20+" m02 "+mu02+ " atan ("+(  (2 * mu11) / (mu20 - mu02)  ));
-			if (Math.abs(mu02-mu20)<0.00001) {
-                ellipseParams[4] = 0;
+            IJ.log("EIGEN: mu20:"+mu20+",mu11:"+mu11+",mu02:"+mu02);
+
+
+            ArrayList<float[]> out = eigen(mu20, mu11, mu11, mu02);
+
+            IJ.log("OUT");
+            for (int i=0; i<out.size(); i++) {
+                for (int j=0; j<out.get(i).length; j++) {
+                    IJ.log(""+out.get(i)[j]+" , ");
+                }
+            }
+
+            if (out.size()>1) {
+
+                // ellipseParams[2] is smaller one, ellipse[4] is it's angle
+                if ( Math.abs(out.get(0)[0]) >= Math.abs(out.get(1)[0]) ) {
+                    ellipseParams[2] = Math.abs(out.get(1)[0]);
+                    ellipseParams[3] = Math.abs(out.get(0)[0]);
+                    IJ.log("from vec: 2_ "+out.get(1)[2]+" , 1_ "+out.get(1)[1]);
+                    ellipseParams[4] = (float) (Math.atan2(out.get(1)[2], out.get(1)[1]) * (180/Math.PI));
+                }
+                else {
+                    ellipseParams[2] = Math.abs(out.get(0)[0]);
+                    ellipseParams[3] = Math.abs(out.get(1)[0]);
+                    IJ.log("from vec: 2_ "+out.get(0)[2]+" , 1_ "+out.get(0)[1]);
+                    ellipseParams[4] = (float) (Math.atan2(out.get(0)[2], out.get(0)[1]) * (180/Math.PI));
+                }
 
             }
             else {
-				ellipseParams[4] =
-						ellipseParams[4] = (float) ( (0.5*Math.atan((2 * mu11) / (mu20 - mu02)) )*(180/Math.PI));
-				IJ.log("atan gave: "+ellipseParams[4]);
-				//ellipseParams[4] = (ellipseParams[4]>0)? ellipseParams[4] : 0 ;
-				//ellipseParams[4] = wrap_0_180(ellipseParams[4]);
-
-			}
+                ellipseParams[2] = ellipseParams[3] = Math.abs(out.get(0)[0]);
+                IJ.log("from vec (both are equal): 2_ "+out.get(0)[2]+" , 1_ "+out.get(0)[1]);
+                ellipseParams[4] = (float) (Math.atan2(out.get(0)[2], out.get(0)[1]) * (180/Math.PI));
+            }
 
 		}
 		else {
-
+            // there was just two of them
 			ellipseParams[2] = 1;
 			ellipseParams[3] = 1;
+            IJ.log("just two angle was 0 ");
 			ellipseParams[4] = 0;
 
 		}
@@ -681,6 +701,104 @@ public class Tools {
         p.setStrokeColor(clr);
 
         return p;
+
+    }
+
+    public static ArrayList<float[]> eigen(float a11, float a12, float a21, float a22)
+    {
+
+        float a = 1;
+        float b = -a11-a22;
+        float c = a11*a22 - a12*a21;
+
+        double discriminant = b*b-4*a*c;
+
+        ArrayList<float[]> out = new ArrayList<float[]>();
+
+        if (discriminant>VERY_SMALL_POSITIVE) {
+
+            float norml, v1_lmb1, v2_lmb1, v1_lmb2, v2_lmb2;
+
+            // 2 distinct real roots
+            float lambda1 = (float) ((-b + Math.sqrt(discriminant)) / (2*a));
+            float lambda2 = (float) ((-b - Math.sqrt(discriminant)) / (2*a));
+
+            if (a12<VERY_SMALL_POSITIVE && a12 >-VERY_SMALL_POSITIVE) {
+
+                //a12~0
+                v1_lmb1 = 0;
+                v2_lmb1 = 1;
+
+                v1_lmb2 = -1;
+                v2_lmb2 = 0;
+
+            }
+            else {
+
+                v1_lmb1 = 1;
+                v2_lmb1 = (float) ((lambda1-a11)/a12);
+                // normalize them
+                norml = (float) Math.sqrt(1+v2_lmb1*v2_lmb1);
+                v1_lmb1 = v1_lmb1 / norml;
+                v2_lmb1 = v2_lmb1 / norml;
+
+                // lambda2 vectors
+                v1_lmb2 = 1;
+                v2_lmb2 = (float) ((lambda2-a11)/a12);
+                // normalize them
+                norml = (float) Math.sqrt(1+v2_lmb2*v2_lmb2);
+                v1_lmb2 = v1_lmb2 / norml;
+                v2_lmb2 = v2_lmb2 / norml;
+
+            }
+
+            out.add(new float[]{lambda1, v1_lmb1, v2_lmb1});
+            out.add(new float[]{lambda2, v1_lmb2, v2_lmb2});
+
+        }
+        else if (discriminant<-VERY_SMALL_POSITIVE) {
+            // complex roots
+            out.add(new float[]{0, 0, 0});
+
+        }
+        else {
+            // one real root
+
+            float norml, v1_lmb1, v2_lmb1, v1_lmb2, v2_lmb2;
+
+            float lambda1 = (float) ((-b) / (2*a));
+
+            if (a12<VERY_SMALL_POSITIVE && a12 >-VERY_SMALL_POSITIVE) {
+
+                //a12~0
+                v1_lmb1 = 0;
+                v2_lmb1 = 1;
+
+                v1_lmb2 = -1;
+                v2_lmb2 = 0;
+
+            }
+            else {
+
+                // lambda1 vectors
+                v1_lmb1 = 1;
+                v2_lmb1 = (float) ((lambda1-a11)/a12);
+                // normalize them
+                norml = (float) Math.sqrt(1+v2_lmb1*v2_lmb1);
+                v1_lmb1 = v1_lmb1 / norml;
+                v2_lmb1 = v2_lmb1 / norml;
+
+
+
+            }
+
+
+
+            out.add(new float[]{lambda1, v1_lmb1, v2_lmb1});
+
+        }
+
+        return out;
 
     }
 
