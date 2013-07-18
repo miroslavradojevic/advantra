@@ -439,14 +439,14 @@ public class NeuronTrace {
 					first = false;
 				}
 
-				int branch_color = branches_types.get(i);//i%8;
+				int branch_color = 6;//branches_types.get(i);//i%8;
 				
-				if(branch_color!=looped_back && branch_color!=ms_null && branch_color!=map_zero){
+				if(branch_color!=looped_back && branch_color!=ms_null && branch_color!=map_zero){//&& branches.get(i).count>1
 					swc_file.writelnSWC(String.format("%5d %2d %6.2f %6.2f %6.2f %6.2f %5d", 
 							line, 
 							branch_color,
-							branches.get(i).centerlines[j][1],
-							branches.get(i).centerlines[j][0],
+							branches.get(i).centerlines[j][1]+10,
+							branches.get(i).centerlines[j][0]+10,
 							branches.get(i).centerlines[j][2],
 							branches.get(i).radiuses[j],
 							prev_line));

@@ -3,6 +3,7 @@ package advantra.tools;
 import java.awt.Color;
 import java.util.Vector;
 
+import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.Plot;
 import ij.io.FileSaver;
@@ -272,48 +273,130 @@ public class MeanShift3DSphere extends Thread {
 //		for (int k = 0; k < cluster_sizes.size(); k++) {
 //			System.out.print("c["+k+"] = "+cluster_sizes.get(k)+" el. ");
 //		}
-		
+
 		int nr_clusters_higher_than_M = 0;
 		// so that it is known how much to allocate
 		for (int i = 0; i < cluster_sizes.size(); i++) {
 			if(cluster_sizes.get(i)>M){
+				//System.out.println(i+"th out of "+cluster_sizes.size()+" has "+cluster_sizes.get(i)+" elements!");
 				nr_clusters_higher_than_M++;
 			}
 		}
-		
+
+		//System.out.println("how many: " +nr_clusters_higher_than_M);
+
 		if(nr_clusters_higher_than_M<=0){
 			T_clust 			= null;
 			cluster_seed 		= null;
 			return;
 		}
-		
-		T_clust 		= new double[nr_clusters_higher_than_M][2];
-		cluster_seed 	= new double[nr_clusters_higher_than_M][3];
-		
-		int cnt = 0;
-		for (int i = 0; i < cluster_sizes.size(); i++) {
-			if(cluster_sizes.get(i)>M){
-				
-				// i marks the cluster index
-				// take the first one with this cluster index because they are fairly close
-				int take_one = -1;
-				for (int k = 0; k < seed_cluster_idx.length; k++) {
-					if(seed_cluster_idx[k]==i){
-						take_one = k;
+
+
+		if(nr_clusters_higher_than_M>=1 && nr_clusters_higher_than_M<=3 ) {
+
+			T_clust 		= new double[nr_clusters_higher_than_M][2];
+			cluster_seed 	= new double[nr_clusters_higher_than_M][3];
+
+			int cnt = 0;
+			for (int i = 0; i < cluster_sizes.size(); i++) {
+				if(cluster_sizes.get(i)>M){
+
+					// i marks the cluster index
+					// take the first one with this cluster index because they are fairly close
+					int take_one = -1;
+					for (int k = 0; k < seed_cluster_idx.length; k++) {
+						if(seed_cluster_idx[k]==i){
+							take_one = k;
+						}
 					}
+
+					T_clust[cnt][0] = T[take_one][0]; // not necessary to keep T_clust
+					T_clust[cnt][1] = T[take_one][1];
+
+					Transf.sph2cart(1.0*sphere_space.getR(), T_clust[cnt][0], T_clust[cnt][1], cluster_seed[cnt]);
+
+					cluster_seed[cnt][0] += sphere_space.getCenterX();
+					cluster_seed[cnt][1] += sphere_space.getCenterY();
+					cluster_seed[cnt][2] += sphere_space.getCenterZ();
+					cnt++;
 				}
-				
-				T_clust[cnt][0] = T[take_one][0]; // not necessary to keep T_clust
-				T_clust[cnt][1] = T[take_one][1];
-				
-				Transf.sph2cart(1.0*sphere_space.getR(), T_clust[cnt][0], T_clust[cnt][1], cluster_seed[cnt]);
-				
-				cluster_seed[cnt][0] += sphere_space.getCenterX();
-				cluster_seed[cnt][1] += sphere_space.getCenterY();
-				cluster_seed[cnt][2] += sphere_space.getCenterZ();
-				cnt++;
 			}
+
 		}
+
+		if (nr_clusters_higher_than_M>3) {
+
+			// pick top 3
+			boolean[] checked = new boolean[cluster_sizes.size()];
+			int[] selectedIdxs = new int[]{-1, -1, -1};
+
+			for (int sel=0; sel<3; sel++) {
+
+				int maxSize = Integer.MIN_VALUE;
+				//int idxMax = -1;
+				for (int i=0; i<cluster_sizes.size(); i++) {
+
+					if (!checked[i]) {
+
+						if (cluster_sizes.get(i)>maxSize) {
+
+							maxSize = cluster_sizes.get(i);
+							selectedIdxs[sel] = i;
+
+						}
+
+					}
+
+				}
+
+				checked[selectedIdxs[sel]] = true;
+
+				//System.out.println("rank "+sel+" has "+maxSize+" elements! at index "+selectedIdxs[sel]);
+
+			}
+
+
+
+			T_clust 		= new double[3][2];
+			cluster_seed 	= new double[3][3];
+
+
+//			for (int i1=0; i1<3; i1++) {
+			int cnt = 0;
+				for (int i = 0; i < cluster_sizes.size(); i++) {
+
+					if (i==selectedIdxs[cnt]) {
+
+						int take_one = -1;
+						for (int k = 0; k < seed_cluster_idx.length; k++) {
+							if(seed_cluster_idx[k]==i){
+								take_one = k;
+							}
+						}
+
+						T_clust[cnt][0] = T[take_one][0]; // not necessary to keep T_clust
+						T_clust[cnt][1] = T[take_one][1];
+
+						Transf.sph2cart(1.0*sphere_space.getR(), T_clust[cnt][0], T_clust[cnt][1], cluster_seed[cnt]);
+
+						cluster_seed[cnt][0] += sphere_space.getCenterX();
+						cluster_seed[cnt][1] += sphere_space.getCenterY();
+						cluster_seed[cnt][2] += sphere_space.getCenterZ();
+
+						cnt++;
+
+						if (cnt>=3) break;
+
+					}
+
+				}
+
+//			}
+
+
+		}
+
+
 	}
 	
 	private static double 		d2(double[] a, double[] b){
