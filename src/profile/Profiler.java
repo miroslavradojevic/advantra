@@ -1,9 +1,15 @@
 package profile;
 
+import ij.IJ;
+import ij.ImagePlus;
+import ij.ImageStack;
+import ij.gui.Overlay;
+import ij.gui.PointRoi;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 
+import java.awt.*;
 import java.util.ArrayList;
 
 /**
@@ -18,16 +24,17 @@ public class Profiler extends Thread {
 
 	public static double 	neuronDiam;
 	public static double 	scale;
-	public static double 	outerRange;
+	public static int 		outerRange;
 
 	public static int 		resolDeg;
 
-	public static ArrayList<ArrayList<double[]>> offsets; // each offset will be parallelled
+	public static ArrayList<ArrayList<double[]>> offsets; 	// each offset location score calculation will be parallelled
+	public static ArrayList<ArrayList<Double>> weights; 	// weight for each offset - to emphasize body direction
 
 	public static FloatProcessor    inip;
 	public static ByteProcessor     maskip;
 
-	public static float[][]     profiles;
+	public static float[][]     profiles;     // array of profiles
     public static int[][]       locations;    // [x, y]
 
 	public static double    samplingStep = 0.5;
@@ -79,37 +86,61 @@ public class Profiler extends Thread {
 
     }
 
-	public static void loadParams(double neuronDiam1, double scale1) {
+	public static void loadParams(double neuronDiam1, double scale1, boolean showSampling) {
 
 		neuronDiam = neuronDiam1;
 		scale = scale1;
-		outerRange = Math.sqrt(Math.pow(neuronDiam*scale+neuronDiam/2, 2) + Math.pow(neuronDiam/2, 2));
+		outerRange = (int)Math.round(Math.sqrt(Math.pow(neuronDiam*scale+neuronDiam, 2) + Math.pow(neuronDiam, 2)));
 
         /*
         set offsets
          */
-        double[] 	n1, n2;
+        double[] 	n1, n2, n0;
 		n1 = new double[2];
 		n2 = new double[2];
+		n0 = new double[2];
 
-		resolDeg = (int) ( Math.round( ( 2*Math.asin(1f/(2 * scale))*(1f/4) / TwoPI) * 360 ) );
+		resolDeg = (int) ( Math.round( ( 2*Math.atan(1f / (2 * scale)) * (1f/8) / TwoPI) * 360 ) );
 		resolDeg = (resolDeg>=1)? resolDeg : 1;
 
-        // define length of the rectangular profile, width is neuronDiam
-		double r1 = neuronDiam*scale-neuronDiam/2;// allowed length to be neuronDiam
-		double r2 = neuronDiam*scale+neuronDiam/2;
+        // define width & length of the rectangular profile, width = 2*neuronDiam, height = 2*neuronDiam
+		double r1 = neuronDiam * scale-neuronDiam;
+		double r2 = neuronDiam * scale+neuronDiam;
+		double r0 = neuronDiam * scale;
 
 		/*
-		create offsets
+		create offsets, weights
 		 */
-
 		offsets = new ArrayList<ArrayList<double[]>>();
+		weights = new ArrayList<ArrayList<Double>>();
+
+		// +/-limR, +/-limT (used to limit index)
+		int limR = (int) Math.ceil(neuronDiam/samplingStep);
+		int limT = (int) Math.ceil(neuronDiam/samplingStep);
+
+		/* 	these will be used to visualize the sampling and the shape of the profiles
+			if showSampling was set to true
+		*/
+		Overlay ov  = new Overlay();
+		ImageStack stackSampling = new ImageStack();
+		ImageStack stackProfile  = new ImageStack();
+		FloatProcessor stackProfileSlice = new FloatProcessor(2*limR+1, 2*limT+1);
+		PointRoi pt;
+
+		if (showSampling) {
+			stackSampling 	= new ImageStack(2*outerRange+1, 2*outerRange+1);
+			stackProfile 	= new ImageStack(2*limT+1, 2*limR+1);
+			pt = new PointRoi(outerRange+0.5, outerRange+0.5);
+			ov.add(pt);
+		}
 
 		for (int aDeg = 0; aDeg<360; aDeg+=resolDeg) {
 
 			float aRad = ((float)aDeg/360)*TwoPI;
 
-			ArrayList<double[]> offsetsAngle = new ArrayList<double[]>();
+			double sumWgt = 0;
+			ArrayList<double[]> offsetsAngleLoc = new ArrayList<double[]>();
+			ArrayList<Double> 	offsetsAngleWgt = new ArrayList<Double>();
 
 			n1[0] = r1 * (float) Math.cos(aRad);
 			n1[1] = r1 * (-1) * (float) Math.sin(aRad);
@@ -117,33 +148,84 @@ public class Profiler extends Thread {
 			n2[0] = r2 * (float) Math.cos(aRad);
 			n2[1] = r2 * (-1) * (float) Math.sin(aRad);
 
-//			IJ.log(""+ n1[0] + " , " + n1[1]);
-//			IJ.log(""+ n2[0] + " , " + n2[1]);
+			n0[0] = r0 * (float) Math.cos(aRad);
+			n0[1] = r0 * (-1) * (float) Math.sin(aRad);
 
-			for (double x = -outerRange; x <= outerRange; x+=samplingStep) {
-				for (double y = -outerRange; y <= outerRange; y+=samplingStep) {
+			double dx = samplingStep*Math.sin(aRad);
+			double dy = samplingStep*Math.cos(aRad);
 
-					double px =  x;//x-size/2+0.5;
-					double py = -y;//-(y-size/2+0.5);
+//				pt = new PointRoi(outerRange+n1[0]+0.5, outerRange+n1[1]+0.5);
+//				pt.setPosition(stackSampling.getSize()+1);
+//				pt.setStrokeColor(Color.RED);
+//				ov.add(pt);
+//
+//				pt = new PointRoi(outerRange+n2[0]+0.5, outerRange+n2[1]+0.5);
+//				pt.setPosition(stackSampling.getSize()+1);
+//				pt.setStrokeColor(Color.RED);
+//				ov.add(pt);
+
+			if (showSampling) {
+				stackProfileSlice = new FloatProcessor(2*limR+1, 2*limT+1);
+			}
+
+
+			for (int i=-limR; i<=limR; i++) {
+
+				for (int j=-limT; j<=limT; j++) {
+
+					double px = n0[0] + i * dx + j * (-dy);
+					double py = n0[1] + i * dy + j * dx;
 
 					double dst = point2line(n1[0], n1[1], n2[0], n2[1], px, py);
+					offsetsAngleLoc.add(new double[]{px, py});
+					double weight = Math.exp(-(dst*dst)/(2*(neuronDiam/2)*(neuronDiam/2)));
+					offsetsAngleWgt.add(weight);
+					sumWgt += weight;
 
-					if (dst<=neuronDiam/2) {
-						offsetsAngle.add(new double[]{px, py});
+					if (showSampling) {
+
+						pt = new PointRoi(outerRange+px+0.5, outerRange+py+0.5);
+						pt.setPosition(stackSampling.getSize()+1);
+						pt.setStrokeColor(Color.ORANGE);
+						ov.add(pt);
+
+						stackProfileSlice.setf(i+limR, j+limT, (float) weight);
+
 					}
 
 				}
 			}
 
-			offsets.add(offsetsAngle);
+			if (showSampling) {
+				stackSampling.addSlice(new ByteProcessor(2 * outerRange + 1, 2 * outerRange + 1));
+				stackProfile.addSlice(stackProfileSlice);
+			}
+
+			// normalize
+			for (int k=0; k<offsetsAngleWgt.size(); k++) {
+				double newVal = offsetsAngleWgt.get(k) / sumWgt;
+				offsetsAngleWgt.set(k, newVal);
+			}
+
+			offsets.add(offsetsAngleLoc);
+			weights.add(offsetsAngleWgt);
+		}
+
+		if (showSampling) {
+
+			ImagePlus sampling = new ImagePlus("sampling_scheme", stackSampling);
+			sampling.setOverlay(ov);
+			sampling.show();
+
+			ImagePlus prof = new ImagePlus("filter_profiles", stackProfile);
+			prof.show();
 
 		}
 
 		/*
-		 allocate profiles
+		 allocate profiles container
 		*/
 		profiles = new float [locations.length][offsets.size()];
-
 
 //        for (int i=0; i<1; i++) {
 //			IJ.log("start"+offsets.get(i).size());
@@ -152,6 +234,30 @@ public class Profiler extends Thread {
 //            }
 //        }
 
+	}
+
+	public static float[] extractProfile(int atX, int atY) { // profile at one location
+
+		float[] profileOut = new float[offsets.size()];
+
+		// calculate profile
+		for (int offsetIdx = 0; offsetIdx < offsets.size(); offsetIdx++) {
+
+			profileOut[offsetIdx] = 0;
+
+			// calculate weighted response
+			for (int k=0; k<offsets.get(offsetIdx).size(); k++) {
+				profileOut[offsetIdx] += Interpolator.interpolateAt(atX+offsets.get(offsetIdx).get(k)[0],
+																	atY+offsets.get(offsetIdx).get(k)[1],
+																	inip
+				) * weights.get(offsetIdx).get(k);
+			}
+
+			//profileOut[offsetIdx] /= offsets.get(offsetIdx).size();
+
+		}
+
+		return profileOut;
 	}
 
     public void run(){ // considers begN and endN
@@ -171,13 +277,13 @@ public class Profiler extends Thread {
                     // calculate average for locIdx taking values from offsets(offsetIdx)
                     for (int k=0; k<offsets.get(offsetIdx).size(); k++) {
                         profiles[locIdxProfile][offsetIdx] += Interpolator.interpolateAt(
-                                atX+offsets.get(offsetIdx).get(k)[0],
-                                atY+offsets.get(offsetIdx).get(k)[1],
-                                inip
-                                );
+                                					atX+offsets.get(offsetIdx).get(k)[0],
+                                					atY+offsets.get(offsetIdx).get(k)[1],
+                                					inip
+                        ) * weights.get(offsetIdx).get(k);
                     }
 
-                    profiles[locIdxProfile][offsetIdx] /= offsets.get(offsetIdx).size();
+                    //profiles[locIdxProfile][offsetIdx] /= offsets.get(offsetIdx).size();
 
                 }
 
@@ -214,15 +320,15 @@ public class Profiler extends Thread {
 		n[0] = (n2x-n1x)/nLen;
 		n[1] = (n2y-n1y)/nLen;
 
-		double proj = (p_b[0] - n2x) * (n1x-n2x) + (p_b[1] - n2y) * (n1y-n2y);
+		double proj = (p_b[0] - n2x) * (n1x-n2x) + (p_b[1] - n2y) * (n1y-n2y); // dot prod
 
-		if(proj<0){
-			return Double.MAX_VALUE;
+		if(Math.abs(proj)<Double.MIN_VALUE){
+			return Math.sqrt( Math.pow(p_b[0] - n2x, 2) + Math.pow(p_b[1] - n2y, 2) ); //Double.MAX_VALUE;
 		}
 
 		proj = (p_b[0] - n1x) * n[0] + (p_b[1] - n1y) * n[1];
-		if(proj<0){
-			return Double.MAX_VALUE;
+		if(Math.abs(proj)<Double.MIN_VALUE){
+			return Math.sqrt( Math.pow(p_b[0]-n1x, 2) + Math.pow(p_b[1] - n1y, 2)); //Double.MAX_VALUE;
 		}
 
 		//IJ.log("nLen: "+nLen+" -> "+n[0]+","+n[1]+" proj: "+proj);
@@ -234,6 +340,5 @@ public class Profiler extends Thread {
 
 		return Math.sqrt(p_b[0]*p_b[0]+p_b[1]*p_b[1]);
 	}
-
 
 }

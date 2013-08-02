@@ -36,8 +36,6 @@ public class JunctionDet implements PlugInFilter, MouseListener {
     ArrayList<ArrayList<Integer>>   angularRes;
     ArrayList<ArrayList<String>>    profilesName;
 
-	//ArrayList<ArrayList<float[]>>   hdomes;
-
     int                             totalCfgs;
 //    double                          neuronD;
     double[]                        scales;     // per cfg
@@ -195,7 +193,7 @@ public class JunctionDet implements PlugInFilter, MouseListener {
             for (int scaleIdx=0; scaleIdx<totalCfgs; scaleIdx++) {
 
                 R[scaleIdx] = neuronDiamMax*scales[scaleIdx];
-                Profiler.loadParams(neuronDiamMax, scales[scaleIdx]);
+                Profiler.loadParams(neuronDiamMax, scales[scaleIdx], true);
 
                 totalJobs = Profiler.offsets.size();
                 Profiler profiler_jobs[] = new Profiler[CPU_NR];

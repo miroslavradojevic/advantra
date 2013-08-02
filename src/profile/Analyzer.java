@@ -72,7 +72,7 @@ public class Analyzer extends Thread  {
             ArrayList<float[]> temp = new ArrayList<float[]>(profiles1.get(i).size());
             for (int j=0; j<profiles1.get(i).size(); j++) {
 
-                float[] toAdd = new float[100];
+                float[] toAdd = new float[nrPoints];
 
 //                for (int k=0; k<toAdd.length; k++ ) {
 //                    toAdd[k] = profiles1.get(i).get(j)[k];
@@ -110,7 +110,7 @@ public class Analyzer extends Thread  {
 
 				// loop to store it in convIdx
 
-                for (int i1=0; i1<100; i1++) {
+                for (int i1=0; i1<nrPoints; i1++) {
                     convIdx.get(locIdx).get(profileIdx)[i1] = (float) msFinish[i1];
                 }
 
