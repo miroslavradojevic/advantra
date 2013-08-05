@@ -2,9 +2,7 @@ package profile;
 
 import ij.IJ;
 import ij.ImagePlus;
-import ij.gui.ImageCanvas;
-import ij.gui.Plot;
-import ij.gui.PlotWindow;
+import ij.gui.*;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ByteProcessor;
 import ij.process.ImageProcessor;
@@ -37,6 +35,8 @@ public class DynamicProfileInspector implements PlugInFilter, ActionListener,
 	private double	D = 3;
 	private double	s = 1.5;
 	private float[] exProf = null;
+
+    private Overlay ov = new Overlay();
 
 	public int setup(String s, ImagePlus imp)
 	{
@@ -92,7 +92,7 @@ public class DynamicProfileInspector implements PlugInFilter, ActionListener,
 		ByteProcessor mask = new ByteProcessor(dim[0], dim[1]);
 		for (int i=0; i<dim[0]*dim[1]; i++) mask.set(i, (byte)255);
 		Profiler.loadTemplate(imp.getProcessor(), mask);
-		Profiler.loadParams(D, s, true);   // true to see how profiles are created (for figures mainly)
+		Profiler.loadParams(D, s, false);   // true to see how profiles are created (for figures mainly)
 
 		IJ.setTool("hand");
 
@@ -208,6 +208,7 @@ public class DynamicProfileInspector implements PlugInFilter, ActionListener,
 		if (e.getKeyCode() == KeyEvent.VK_Q) {
 			moveFlag = !moveFlag;
 			changeEnabledLabel();
+            if (moveFlag) {ov.clear(); canvas.getImage().setOverlay(ov);}
 		}
 
 		if (e.getKeyCode() == KeyEvent.VK_U) {
@@ -288,53 +289,165 @@ public class DynamicProfileInspector implements PlugInFilter, ActionListener,
 
 		exProf = Profiler.extractProfile(offscreenX, offscreenY);
 
-		if (exProf != null) {
+        Analyzer.extractPeakIdxs(exProf); // does mean-shift
 
-			Analyzer.extractPeakIdxs(exProf);
+        // Fill in X axis (frame number)
+        float[] x = new float[exProf.length];
+        for (int i = 1; i <= x.length; i++)
+            x[i - 1] = (i-1)*Profiler.resolDeg;
+
+        // Prepare plot window
+        Plot chart = new Plot("Profile,x = "
+                + offscreenX + ", y = " + offscreenY,
+                "Frame number", "Intensity", x, exProf);
+        float[] mm = Tools.getMinMax(exProf);
+        //chart.setLimits(0, 360, mm[0]-1, mm[1]+1);
+        chart.setSize(900, 450);
+
+        if (pw == null) {
+            pw = chart.show();
+            pw.addWindowListener(this);
+        } else
+            pw.setTitle("Profile, x = " + offscreenX + ", y = " + offscreenY);
+
+        // Add the points for prettier plots
+        chart.addPoints(x, exProf, PlotWindow.CIRCLE);
+
+        // Add MS convergence points
+        float[] xMS = new float[Analyzer.nrPoints];
+        float[] yMS = new float[Analyzer.nrPoints];
+        float[] yLW;
+        for (int i=0; i<Analyzer.nrPoints; i++) {
+            xMS[i] = Analyzer.convIdx.get(0).get(0)[i] * Profiler.resolDeg;
+            yMS[i] = (float) Tools.interp1Darray(Analyzer.convIdx.get(0).get(0)[i], exProf);
+        }
+        chart.draw();
+        chart.setColor(Color.GREEN);
+        chart.addPoints(xMS, yMS, Plot.X);
+
+        //Add MS plot
+        if (Analyzer.peakIdx[0][0]!=null) { // >=3 peaks
+            chart.draw();
+            chart.setColor(Color.RED);
+            chart.setLineWidth(5);
+            xMS = new float[3];
+            yMS = new float[3];
+            yLW = new float[3];
+            for (int i=0; i<3; i++) {
+                xMS[i] = Analyzer.peakIdx[0][0][i] * Profiler.resolDeg;
+                yMS[i] = (float) Tools.interp1Darray(Analyzer.peakIdx[0][0][i], exProf);
+                yLW[i] = Tools.findNextStationaryValue(Analyzer.peakIdx[0][0][i], exProf);
+                chart.drawLine(xMS[i], yLW[i], xMS[i], yMS[i]);
+            }
+            //chart.addPoints(xMS, yMS, Plot.BOX);
+
+        }
+
+        pw.drawPlot(chart);
+
+			if (!moveFlag) {  // manual click
+
+                ov.clear();
+                ov.add(new PointRoi(offscreenX+.5, offscreenY+.5));
+
+                float[][]   peakAng = new float[3][3];     // indexes: cluster, radius
+                float[][][] peakPos = new float[3][3][2];  // indexes: cluster, radius, 2d loc
+                float[][]   peakH   = new float[3][3];     // indexes: cluster, radius
+                float[][]   peakL   = new float[3][3];     // indexes: cluster, radius
+
+                float[]     currAngles = new float[3];
+                float[]     prevAngles = new float[3];
+                float[]     currIdxs   = new float[3];
+
+                float pointX, pointY;
+                double rd;
+                /*
+                    reference (not necessary to use currAngles, prevAngles)
+                 */
+                if (Analyzer.peakIdx[0][0]!=null) {
+
+                    for (int i=0; i<3; i++) {   // loop clusters
+                        peakAng[i][0] = Analyzer.peakIdx[0][0][i] * Profiler.resolDeg * ((float)Math.PI/180f);
+                        rd = Profiler.neuronDiam*Profiler.scale;
+                        peakPos[i][0][0] = (float) (offscreenX+rd*Math.cos(peakAng[i][0]));
+                        peakPos[i][0][1] = (float) (offscreenY-rd*Math.sin(peakAng[i][0]));
+                        peakH[i][0]      = (float) Tools.interp1Darray(Analyzer.peakIdx[0][0][i], exProf);
+                        peakL[i][0]      =         Tools.findNextStationaryValue(Analyzer.peakIdx[0][0][i], exProf);
+                    }
+                    //ov.add(new PointRoi(peakPos[i][0][0]+.5, peakPos[i][0][1]+.5));
+                    //ov.add(new OvalRoi(offscreenX-rd+.5, offscreenY-rd+.5, 2*rd, 2*rd));
+
+                    /*
+                        continue with scales
+                      */
+                    Profiler.loadParams(D, s+0.5, false);
+                    exProf = Profiler.extractProfile(offscreenX, offscreenY);
+				    Analyzer.extractPeakIdxs(exProf);
+
+                    if (Analyzer.peakIdx[0][0]!=null) {
+
+                        // store in comparison variables
+                        for (int i=0; i<3; i++) {
+                            prevAngles[i] = peakAng[i][0]; // previous are stored in peakAng[cluster][radius] previous radius index is 0
+                            currAngles[i] = Analyzer.peakIdx[0][0][i] * Profiler.resolDeg * ((float)Math.PI/180f);
+                            currIdxs[i] = Analyzer.peakIdx[0][0][i];
+                        }
+
+                        // match clusters
+                        int[] mapping = Tools.hungarian33(prevAngles, currAngles);
+                        Tools.swap3(currAngles, mapping);
+                        Tools.swap3(currIdxs,   mapping);
+
+                        for (int i=0; i<3; i++) {               // loops clusters
+                            peakAng[i][1] = currAngles[i];      // * Profiler.resolDeg * ((float)Math.PI/180f);
+                            rd = Profiler.neuronDiam*Profiler.scale;
+                            peakPos[i][1][0] = (float) (offscreenX+rd*Math.cos(currAngles[i]));
+                            peakPos[i][1][1] = (float) (offscreenY-rd*Math.sin(currAngles[i]));
+                            peakH[i][1]      = (float) Tools.interp1Darray(currIdxs[i], exProf);
+                            peakL[i][1]      =         Tools.findNextStationaryValue(currIdxs[i], exProf);
+                        }
+                        //ov.add(new PointRoi(peakPos[i][1][0]+.5, peakPos[i][1][1]+.5));
+                        //ov.add(new OvalRoi(offscreenX-rd+.5, offscreenY-rd+.5, 2*rd, 2*rd));
+
+                        /*
+                         continue with scales
+                          */
+                        Profiler.loadParams(D, s+0.5+0.5, false);
+                        exProf = Profiler.extractProfile(offscreenX, offscreenY);
+                        Analyzer.extractPeakIdxs(exProf);
+
+                        if (Analyzer.peakIdx[0][0]!=null) {
+
+                            for (int i=0; i<3; i++) {              // loops clusters
+                                peakAng[i][2] = Analyzer.peakIdx[0][0][i] * Profiler.resolDeg * ((float)Math.PI/180f);
+                                rd = Profiler.neuronDiam*Profiler.scale;
+                                peakPos[i][2][0] = (float) (offscreenX+rd*Math.cos(peakAng[i][2]));
+                                peakPos[i][2][1] = (float) (offscreenY-rd*Math.sin(peakAng[i][2]));
+
+                                //ov.add(new PointRoi(peakPos[i][2][0]+.5, peakPos[i][2][1]+.5));
+                                //ov.add(new OvalRoi(offscreenX-rd+.5, offscreenY-rd+.5, 2*rd, 2*rd));
+                            }
+
+                            // if you reached here that means that all ms radiuses converged to at least 3 values
+                            // and they are all listed per cluster
+                            // extract features
+                            IJ.log("C");
 
 
-			// Fill in X axis (frame number)
-			float[] x = new float[exProf.length];
-			for (int i = 1; i <= x.length; i++)
-				x[i - 1] = (i-1)*Profiler.resolDeg;
+                        }
 
-			// Prepare plot window
-			Plot chart = new Plot("Profile,x = "
-										  + offscreenX + ", y = " + offscreenY,
-										 "Frame number", "Intensity", x, exProf);
-			if (pw == null) {
-				pw = chart.show();
-				pw.addWindowListener(this);
-			} else
-				pw.setTitle("Profile, x = " + offscreenX + ", y = " + offscreenY);
+                    }
 
-			// Add the points for prettier plots
-			chart.addPoints(x, exProf, PlotWindow.CIRCLE);
-			pw.drawPlot(chart);
+                }
 
-			if (Analyzer.peakIdx[0][0]!=null) {
-				// Fill in X axis convergence
-				float[] xMS = new float[3];
+                // reset back
+                Profiler.loadParams(D, s, false);
+                canvas.getImage().setOverlay(ov);
+
+                // matching clusters, recompose the matrices
+
 
 			}
-
-
-			if (!moveFlag) {
-
-				// add new plot and current profile
-
-				// take the rest of the profiles
-				Profiler.loadParams(D, s+0.5, false);
-				exProf = Profiler.extractProfile(offscreenX, offscreenY);
-				if (exProf != null) {
-					Analyzer.extractPeakIdxs(exProf);
-				}
-
-				IJ.log("found peaks ");
-
-			}
-
-		}
 
 	}
 

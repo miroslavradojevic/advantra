@@ -833,6 +833,141 @@ public class Tools {
 
 	}
 
+    public static float[] getMinMax(float[] a)
+    {
+
+        float[] minMax = new float[2];
+        minMax[0] = Float.MAX_VALUE;
+        minMax[1] = Float.MIN_VALUE;
+        for (int i = 0; i < a.length; i++) {
+            if (a[i]<minMax[0]) minMax[0] = a[i];
+            if (a[i]>minMax[1]) minMax[1] = a[i];
+        }
+        return minMax;
+
+    }
+
+    public static float findNextStationaryValue(float pos, float[] profile)
+    {
+        // 2 threads, each initializes when the next one is lower
+        int l = Tools.wrap( (int) Math.floor(pos), profile.length);
+        int r = Tools.wrap( (int) Math.ceil(pos), profile.length);
+
+        // align
+        float diff;
+        diff = profile[l]-profile[Tools.wrap(l+1, profile.length)];
+        while (diff>=0) {
+            l--;
+            l = Tools.wrap(l, profile.length);
+            diff = profile[l]-profile[Tools.wrap(l+1, profile.length)];
+        }
+        diff = profile[r]-profile[Tools.wrap(r-1, profile.length)];
+        while (diff>=0) {
+            r++;
+            r = Tools.wrap(r, profile.length);
+            diff = profile[r] - profile[Tools.wrap(r-1, profile.length)];
+        }
+
+        // step ahead
+        l--;
+        l = Tools.wrap(l, profile.length);
+        r++;
+        r = Tools.wrap(r, profile.length);
+
+        diff = profile[l]-profile[Tools.wrap(l+1, profile.length)];
+        while (diff<0) {
+            l--;
+            l = Tools.wrap(l, profile.length);
+            diff = profile[l]-profile[Tools.wrap(l+1, profile.length)];
+        }
+        diff = profile[r]-profile[Tools.wrap(r-1, profile.length)];
+        while (diff<0) {
+            r++;
+            r = Tools.wrap(r, profile.length);
+            diff = profile[r]-profile[Tools.wrap(r-1, profile.length)];
+        }
+
+        return (profile[l]>profile[r])? profile[l] : profile[r] ;
+
+    }
+
+    public static int wrap(int idx, int len)
+    {
+        return idx = (idx<0)? idx+len : (idx>=len)? idx-len : idx ;
+    }
+
+    public static int[] hungarian33(float[] refAng, float[] currAng)
+    {
+        //int[][] mapping = new int[3][3];
+
+        // match using Hungarian algorithm
+        boolean[][] chkd = new boolean[3][3];
+        double[][] 	dst2 = new double[3][3];
+
+        for (int i=0; i<3; i++) {
+            for (int j=0; j<3; j++) {
+                dst2[i][j] = Math.abs(Tools.wrap_180(currAng[i] - refAng[j]));
+            }
+        }
+
+        int[] mapping = new int[3];
+
+        for (int check=0; check<3; check++) {
+
+            double dst2Min = Double.MAX_VALUE;
+            int imin = -1;
+            int jmin = -1;
+
+            for (int i=0; i<3; i++) {
+
+                for (int j=0; j<3; j++) {
+                    if (!chkd[i][j] && dst2[i][j]<dst2Min) {
+                        dst2Min = dst2[i][j];
+                        imin = i;
+                        jmin = j;
+                    }
+                }
+
+            }
+
+            // row imin in chkd to true
+            for (int w=0; w<3; w++) chkd[imin][w] = true;
+            // col jmin in chkd to true
+            for (int w=0; w<3; w++) chkd[w][jmin] = true;
+
+            mapping[imin]=jmin;
+
+        }
+
+        return mapping;
+
+    }
+
+    public static void swap3(float[] vals, int[] mapping)
+    {
+
+        float[] temp   = new float[3]; // ugly solution to swap 3
+        //float[] indexesTemp     = new float[3]; // ugly solution to swap 3
+        //float[] peaksTemp       = new float[3];
+
+        for (int t=0; t<3; t++) {
+            temp[mapping[t]] = vals[t];
+//            indexesTemp[mapping[t]] = indexes[t];
+//            peaksTemp[mapping[t]]   = peaks[t];
+        }
+
+//                        IJ.log("...");
+//                        IJ.log(Arrays.toString(anglesDegTemp));
+//                        IJ.log("...");
+
+        for (int t=0; t<3; t++) {
+            vals[t]      = temp[t];
+//            anglesDeg[t]    = anglesDegTemp[t];
+//            peaks[t]        = peaksTemp[t];
+        }
+
+    }
+
 	private static boolean nextComb(int[] cmbs, int n, int k)
 	{
 

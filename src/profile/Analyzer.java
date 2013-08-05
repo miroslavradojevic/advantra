@@ -31,11 +31,11 @@ public class Analyzer extends Thread  {
     double[]  start 		= new double[nrPoints];
     double[]  msFinish 		= new double[nrPoints];
 
-    public static int       maxIter = 200;
+    public static int       maxIter = 150;
     public static double    epsilon = 0.0001;
-    public static int       h = 3;   // in
+    public static int       h = 2;              // in indexes
     public static double    minD = 0.5;
-    public static int       M = 1;
+    public static int       M = 2;
 
     public Analyzer (int n0, int n1) {
         this.begN = n0;
@@ -219,6 +219,8 @@ public class Analyzer extends Thread  {
 			for (int k=0; k<nrPoints; k++) {
 				start11[k] = ((float) k / nrPoints) * profileLength;
 			}
+
+        //IJ.log(""+nrPoints+" points covering "+profileLength+" values");
 
 			Tools.runMS(start11,
 						profiles.get(0).get(0),
