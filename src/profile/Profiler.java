@@ -88,9 +88,9 @@ public class Profiler extends Thread {
 
 	public static void loadParams(double neuronDiam1, double scale1, boolean showSampling) {
 
-		neuronDiam = neuronDiam1;
-		scale = scale1;
-		outerRange = (int)Math.round(Math.sqrt(Math.pow(neuronDiam*scale+neuronDiam, 2) + Math.pow(neuronDiam, 2)));
+		neuronDiam 	= neuronDiam1;
+		scale 		= scale1;
+		outerRange 	= (int)Math.round(Math.sqrt(Math.pow(neuronDiam*scale+neuronDiam, 2) + Math.pow(neuronDiam, 2)));
 
         /*
         set offsets
@@ -116,7 +116,7 @@ public class Profiler extends Thread {
 
 		// +/-limR, +/-limT (used to limit index)
 		int limR = (int) Math.ceil(neuronDiam/samplingStep);
-		int limT = (int) Math.ceil(neuronDiam/samplingStep);
+		int limT = (int) Math.ceil(0.5*neuronDiam/samplingStep);
 
 		/* 	these will be used to visualize the sampling and the shape of the profiles
 			if showSampling was set to true
@@ -124,7 +124,7 @@ public class Profiler extends Thread {
 		Overlay ov  = new Overlay();
 		ImageStack stackSampling = new ImageStack();
 		ImageStack stackProfile  = new ImageStack();
-		FloatProcessor stackProfileSlice = new FloatProcessor(2*limR+1, 2*limT+1);
+		FloatProcessor stackProfileSlice = new FloatProcessor(2*limT+1, 2*limR+1);
 		PointRoi pt;
 
 		if (showSampling) {
@@ -154,27 +154,16 @@ public class Profiler extends Thread {
 			double dx = samplingStep*Math.sin(aRad);
 			double dy = samplingStep*Math.cos(aRad);
 
-//				pt = new PointRoi(outerRange+n1[0]+0.5, outerRange+n1[1]+0.5);
-//				pt.setPosition(stackSampling.getSize()+1);
-//				pt.setStrokeColor(Color.RED);
-//				ov.add(pt);
-//
-//				pt = new PointRoi(outerRange+n2[0]+0.5, outerRange+n2[1]+0.5);
-//				pt.setPosition(stackSampling.getSize()+1);
-//				pt.setStrokeColor(Color.RED);
-//				ov.add(pt);
-
 			if (showSampling) {
-				stackProfileSlice = new FloatProcessor(2*limR+1, 2*limT+1);
+				stackProfileSlice = new FloatProcessor(2*limT+1, 2*limR+1);
 			}
-
 
 			for (int i=-limR; i<=limR; i++) {
 
 				for (int j=-limT; j<=limT; j++) {
 
-					double px = n0[0] + i * dx + j * (-dy);
-					double py = n0[1] + i * dy + j * dx;
+					double px = n0[0] + j * dx + i * (-dy);
+					double py = n0[1] + j * dy + i * dx;
 
 					double dst = point2line(n1[0], n1[1], n2[0], n2[1], px, py);
 					offsetsAngleLoc.add(new double[]{px, py});
@@ -189,7 +178,7 @@ public class Profiler extends Thread {
 						pt.setStrokeColor(Color.ORANGE);
 						ov.add(pt);
 
-						stackProfileSlice.setf(i+limR, j+limT, (float) weight);
+						stackProfileSlice.setf(j+limT, i+limR, (float) weight);
 
 					}
 
@@ -226,13 +215,6 @@ public class Profiler extends Thread {
 		 allocate profiles container
 		*/
 		profiles = new float [locations.length][offsets.size()];
-
-//        for (int i=0; i<1; i++) {
-//			IJ.log("start"+offsets.get(i).size());
-//            for (int j = 0; j<offsets.get(i).size(); j++) {
-//                IJ.log(i+", "+offsets.get(i).get(j)[0]+", "+offsets.get(i).get(j)[1]+"\n");
-//            }
-//        }
 
 	}
 

@@ -1,3 +1,5 @@
+package profile;
+
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
@@ -5,27 +7,34 @@ import ij.gui.Plot;
 import ij.plugin.PlugIn;
 
 import java.awt.*;
+import java.util.ArrayList;
 import java.util.Arrays;
 
 public class TestPlot implements PlugIn {
 
-	double[] start = new double[10];
-	double[] finish = new double[10];
+//	double[] start = new double[10];
+//	double[] finish = new double[10];
 
     public void run(String s) {
 
-		IJ.log("start before: "+Arrays.toString(start));
-		IJ.log("finish before: "+Arrays.toString(finish));
+		int N = 4;
+		int k = 2;
+
+		ArrayList<int[]> a = Tools.comb(N, k);
+
+		IJ.log("done, "+a.size()+" combinations");
+
+		for (int i =0; i< a.size(); i++) {
+			IJ.log("comb. " + i + " :" + Arrays.toString(a.get(i)) );
+		}
 
 
-        start[0] = 1;
+//        start[0] = 1;
 
-		fn(start, finish);
+//		fn(start, finish);
 
-        IJ.log("start after: "+Arrays.toString(start));
-        IJ.log("finish after: "+Arrays.toString(finish));
-
-        System.out.println("value: "+Double.MIN_VALUE);
+//        IJ.log("start after: "+Arrays.toString(start));
+//        IJ.log("finish after: "+Arrays.toString(finish));
 
 //        double[] x = new double[]{1, 2, 3, 4, 5};
 //        double[] y1 = new double[]{4, 6, 9, 2, 5};

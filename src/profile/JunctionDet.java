@@ -193,7 +193,7 @@ public class JunctionDet implements PlugInFilter, MouseListener {
             for (int scaleIdx=0; scaleIdx<totalCfgs; scaleIdx++) {
 
                 R[scaleIdx] = neuronDiamMax*scales[scaleIdx];
-                Profiler.loadParams(neuronDiamMax, scales[scaleIdx], true);
+                Profiler.loadParams(neuronDiamMax, scales[scaleIdx], false);
 
                 totalJobs = Profiler.offsets.size();
                 Profiler profiler_jobs[] = new Profiler[CPU_NR];

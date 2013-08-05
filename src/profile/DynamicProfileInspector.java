@@ -92,7 +92,7 @@ public class DynamicProfileInspector implements PlugInFilter, ActionListener,
 		ByteProcessor mask = new ByteProcessor(dim[0], dim[1]);
 		for (int i=0; i<dim[0]*dim[1]; i++) mask.set(i, (byte)255);
 		Profiler.loadTemplate(imp.getProcessor(), mask);
-		Profiler.loadParams(D, s, false);   // true to see how profiles are created (for figures mainly)
+		Profiler.loadParams(D, s, true);   // true to see how profiles are created (for figures mainly)
 
 		IJ.setTool("hand");
 
@@ -290,6 +290,9 @@ public class DynamicProfileInspector implements PlugInFilter, ActionListener,
 
 		if (exProf != null) {
 
+			Analyzer.extractPeakIdxs(exProf);
+
+
 			// Fill in X axis (frame number)
 			float[] x = new float[exProf.length];
 			for (int i = 1; i <= x.length; i++)
@@ -301,13 +304,35 @@ public class DynamicProfileInspector implements PlugInFilter, ActionListener,
 										 "Frame number", "Intensity", x, exProf);
 			if (pw == null) {
 				pw = chart.show();
-				//pw.addWindowListener(this);
+				pw.addWindowListener(this);
 			} else
 				pw.setTitle("Profile, x = " + offscreenX + ", y = " + offscreenY);
 
 			// Add the points for prettier plots
 			chart.addPoints(x, exProf, PlotWindow.CIRCLE);
 			pw.drawPlot(chart);
+
+			if (Analyzer.peakIdx[0][0]!=null) {
+				// Fill in X axis convergence
+				float[] xMS = new float[3];
+
+			}
+
+
+			if (!moveFlag) {
+
+				// add new plot and current profile
+
+				// take the rest of the profiles
+				Profiler.loadParams(D, s+0.5, false);
+				exProf = Profiler.extractProfile(offscreenX, offscreenY);
+				if (exProf != null) {
+					Analyzer.extractPeakIdxs(exProf);
+				}
+
+				IJ.log("found peaks ");
+
+			}
 
 		}
 

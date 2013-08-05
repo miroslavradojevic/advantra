@@ -11,6 +11,7 @@ import java.awt.*;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Vector;
 
 /**
@@ -508,7 +509,7 @@ public class Tools {
                 }
 
                 if (cnt>0) {
-                    clust.add(new float[] {sum/cnt, cnt});
+                    clust.add(new float[] {sum/cnt, cnt}); // centroid, number of points
                 }
 
             }
@@ -517,6 +518,8 @@ public class Tools {
         return clust;
 
     }
+
+
 
     /**
      * background median estimation ( Wirth's algorithm )
@@ -801,5 +804,54 @@ public class Tools {
         return out;
 
     }
+
+	public static ArrayList<int[]> comb(int n, int k)
+	{
+
+		ArrayList<int[]> out = new ArrayList<int[]>();
+		int[] cmbs = new int[k];
+
+		// initial combination
+		for (int i=0; i<k; i++) {
+			cmbs[i] = i;
+		}
+
+		// add initial combination
+		int[] cmbToAdd;
+
+		cmbToAdd = new int[k];
+		for (int i=0; i<k; i++) cmbToAdd[i] = cmbs[i];
+		out.add(cmbToAdd);
+
+		while (nextComb(cmbs, n, k)) {
+			cmbToAdd = new int[k];
+			for (int i=0; i<k; i++) cmbToAdd[i] = cmbs[i];
+			out.add(cmbToAdd);
+		}
+
+		return out;
+
+	}
+
+	private static boolean nextComb(int[] cmbs, int n, int k)
+	{
+
+		int i = k-1;
+		++cmbs[i];
+		while (i>0 && cmbs[i] >= n-k+1+i) {
+			--i;
+			++cmbs[i];
+		}
+
+		if(cmbs[0]>n-k) {
+			return false;
+		}
+
+		for (i=i+1; i<k; i++) {
+			cmbs[i] = cmbs[i-1] + 1;
+		}
+
+		return true;
+	}
 
 }
