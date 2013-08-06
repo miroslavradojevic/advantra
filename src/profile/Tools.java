@@ -847,7 +847,7 @@ public class Tools {
 
     }
 
-    public static float findNextStationaryValue(float pos, float[] profile)
+    public static float findNextStationaryValue(float pos, float[] profile) // , float sidePos1, float sidePos2,
     {
         // 2 threads, each initializes when the next one is lower
         int l = Tools.wrap( (int) Math.floor(pos), profile.length);
@@ -988,5 +988,10 @@ public class Tools {
 
 		return true;
 	}
+
+    public static float triangleArea(float xA, float yA, float xB, float yB, float xC, float yC)
+    {
+        return (float) (0.5*Math.abs((xA-xC)*(yB-yA)-(xA-xB)*(yC-yA)));
+    }
 
 }

@@ -12,6 +12,8 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
+import java.util.Arrays;
+import java.util.Random;
 
 /**
  * Created with IntelliJ IDEA.
@@ -33,10 +35,16 @@ public class DynamicProfileInspector implements PlugInFilter, ActionListener,
 	private JTextField s_JInput;
 	private boolean moveFlag = true;
 	private double	D = 3;
-	private double	s = 1.5;
+	private double	s = 1.0;
 	private float[] exProf = null;
 
     private Overlay ov = new Overlay();
+    private float[] colinP = new float[50];
+    private float[] colinN = new float[50];
+    private float[] iJumpP = new float[50];
+    private float[] iJumpN = new float[50];
+    private int cntP = 0, cntN = 0;
+    private PlotWindow fw;
 
 	public int setup(String s, ImagePlus imp)
 	{
@@ -93,6 +101,13 @@ public class DynamicProfileInspector implements PlugInFilter, ActionListener,
 		for (int i=0; i<dim[0]*dim[1]; i++) mask.set(i, (byte)255);
 		Profiler.loadTemplate(imp.getProcessor(), mask);
 		Profiler.loadParams(D, s, true);   // true to see how profiles are created (for figures mainly)
+
+        Arrays.fill(colinN, Float.NaN);
+        Arrays.fill(colinP, Float.NaN);
+        Arrays.fill(iJumpN, Float.NaN);
+        Arrays.fill(iJumpP, Float.NaN);
+        cntP = 0;
+        cntN = 0;
 
 		IJ.setTool("hand");
 
@@ -208,7 +223,16 @@ public class DynamicProfileInspector implements PlugInFilter, ActionListener,
 		if (e.getKeyCode() == KeyEvent.VK_Q) {
 			moveFlag = !moveFlag;
 			changeEnabledLabel();
-            if (moveFlag) {ov.clear(); canvas.getImage().setOverlay(ov);}
+            if (moveFlag) {
+                ov.clear();
+                canvas.getImage().setOverlay(ov);
+                Arrays.fill(colinN, Float.NaN);
+                Arrays.fill(colinP, Float.NaN);
+                Arrays.fill(iJumpN, Float.NaN);
+                Arrays.fill(iJumpP, Float.NaN);
+                cntP = 0;
+                cntN = 0;
+            }
 		}
 
 		if (e.getKeyCode() == KeyEvent.VK_U) {
@@ -300,7 +324,7 @@ public class DynamicProfileInspector implements PlugInFilter, ActionListener,
         Plot chart = new Plot("Profile,x = "
                 + offscreenX + ", y = " + offscreenY,
                 "Frame number", "Intensity", x, exProf);
-        float[] mm = Tools.getMinMax(exProf);
+        //float[] mm = Tools.getMinMax(exProf);
         //chart.setLimits(0, 360, mm[0]-1, mm[1]+1);
         chart.setSize(900, 450);
 
@@ -364,6 +388,8 @@ public class DynamicProfileInspector implements PlugInFilter, ActionListener,
                 /*
                     reference (not necessary to use currAngles, prevAngles)
                  */
+
+                boolean validConfiguration = false;
                 if (Analyzer.peakIdx[0][0]!=null) {
 					rd = Profiler.neuronDiam*Profiler.scale;
                     for (int i=0; i<3; i++) {   // loop clusters
@@ -422,48 +448,35 @@ public class DynamicProfileInspector implements PlugInFilter, ActionListener,
                         Analyzer.extractPeakIdxs(exProf);
 
                         if (Analyzer.peakIdx[0][0]!=null) {
+
+                            // store in comparison variables
+                            for (int i=0; i<3; i++) {
+                                prevAngles[i] = peakAng[i][1]; // previous are stored in peakAng[cluster][radius] previous radius index is 1
+                                currAngles[i] = Analyzer.peakIdx[0][0][i] * Profiler.resolDeg * ((float)Math.PI/180f);
+                                currIdxs[i] = Analyzer.peakIdx[0][0][i];
+                            }
+
+                            // match clusters
+                            mapping = Tools.hungarian33(prevAngles, currAngles);
+                            Tools.swap3(currAngles, mapping);
+                            Tools.swap3(currIdxs,   mapping);
+
 							rd = Profiler.neuronDiam*Profiler.scale;
                             for (int i=0; i<3; i++) {              // loops clusters
-                                peakAng[i][2] = Analyzer.peakIdx[0][0][i] * Profiler.resolDeg * ((float)Math.PI/180f);
-
-                                peakPos[i][2][0] = (float) (offscreenX+rd*Math.cos(peakAng[i][2]));
-                                peakPos[i][2][1] = (float) (offscreenY-rd*Math.sin(peakAng[i][2]));
+                                peakAng[i][2] = currAngles[i];   //Analyzer.peakIdx[0][0][i] * Profiler.resolDeg * ((float)Math.PI/180f);
+                                peakPos[i][2][0] = (float) (offscreenX+rd*Math.cos(currAngles[i]));
+                                peakPos[i][2][1] = (float) (offscreenY-rd*Math.sin(currAngles[i]));
+                                peakH[i][2]      = (float) Tools.interp1Darray(currIdxs[i], exProf);
+                                peakL[i][2]      =         Tools.findNextStationaryValue(currIdxs[i], exProf);
 
 								PointRoi p = new PointRoi(peakPos[i][2][0]+.5, peakPos[i][2][1]+.5);
 								p.setStrokeColor(getColor(i));
 								ov.add(p);
                             }
-							ov.add(new OvalRoi(offscreenX-rd+.5, offscreenY-rd+.5, 2*rd, 2*rd));
 
-                            // if you reached here that means that all ms radiuses converged to at least 3 values
-                            // and they are all listed per cluster
+                            ov.add(new OvalRoi(offscreenX-rd+.5, offscreenY-rd+.5, 2*rd, 2*rd));
 
-                            // extract features
-							float colin = Float.MIN_VALUE, iJump = Float.MAX_VALUE;
-
-							for (int clst=0; clst<3; clst++) {
-								// avg iJump
-//								if ()
-							}
-
-							GenericDialog gd = new GenericDialog("POSITIVE?");
-							gd.enableYesNoCancel();
-							gd.showDialog();
-							if (gd.wasCanceled()) return;
-							if (gd.wasOKed()) {
-								//IJ.log("YES");
-								colinP[cnt++] = colin;
-							}
-							else {
-								//IJ.log("NO");
-								colinN[cnt++] = colin;
-							}
-
-							Plot featPlot = new Plot("", "", "");
-							featPlot.addPoints();
-							featPlot.draw();
-							featPlot.addPoints();
-							featPlot.draw();
+                            validConfiguration = true;
 
                         }
 
@@ -475,12 +488,134 @@ public class DynamicProfileInspector implements PlugInFilter, ActionListener,
                 Profiler.loadParams(D, s, false);
                 canvas.getImage().setOverlay(ov);
 
-                // matching clusters, recompose the matrices
+                // if you reached here that means that all ms radiuses converged to at least 3 values
+                if (cntP<colinP.length-3 && cntN<colinN.length && validConfiguration){
 
+//                    float minColin = Float.MAX_VALUE;
+//                    float miniJump = Float.MAX_VALUE;
+//                    float currColin, curriJump;
+//
+//                    for (int clst=0; clst<3; clst++) {
+//                        currColin = colin(center, peakPos[clst]);
+//                        if (currColin<minColin) minColin = currColin;
+//                        curriJump = ijump(peakH[clst], peakL[clst]);
+//                        if (curriJump<miniJump) miniJump = curriJump;
+//                    }
 
-			}
+                    float[] center = new float[]{offscreenX, offscreenY};
+                    GenericDialog gd = new GenericDialog("POSITIVE?");
+                    gd.enableYesNoCancel();
+                    gd.showDialog();
+                    if (gd.wasCanceled()) return;
+                    if (gd.wasOKed()) {
+
+                        for (int clst=0; clst<3; clst++) {
+                            colinP[cntP] = colin(center, peakPos[clst]);
+                            iJumpP[cntP] = ijump(peakH[clst], peakL[clst]);
+                            cntP++;
+                            //if (currColin<minColin) minColin = currColin;
+                            //curriJump = ijump(peakH[clst], peakL[clst]);
+                            //if (curriJump<miniJump) miniJump = curriJump;
+                        }
+
+                    }
+                    else {
+
+                        for (int clst=0; clst<3; clst++) {
+                            colinN[cntN] = colin(center, peakPos[clst]);
+                            iJumpN[cntN] = ijump(peakH[clst], peakL[clst]);
+                            cntN++;
+                        }
+
+                    }
+
+                    IJ.log("pos");
+                    IJ.log("xaxis: "+Arrays.toString(colinP));
+                    IJ.log("yaxis: "+Arrays.toString(iJumpP));
+                    IJ.log("neg");
+                    IJ.log("xaxis: "+Arrays.toString(colinN));
+                    IJ.log("yaxis: "+Arrays.toString(iJumpN));
+
+                    Plot featPlot = new Plot("features", "colin", "iJump");
+                    float[] xMinMaxP = Tools.getMinMax(colinP);
+                    float[] xMinMaxN = Tools.getMinMax(colinN);
+                    float[] yMinMaxP = Tools.getMinMax(iJumpP);
+                    float[] yMinMaxN = Tools.getMinMax(iJumpN);
+
+                    float xmin = Math.min(xMinMaxP[0], xMinMaxN[0]);
+                    float xmax = Math.max(xMinMaxP[1], xMinMaxN[1]);
+                    float ymin = Math.min(yMinMaxP[0], yMinMaxN[0]);
+                    float ymax = Math.max(yMinMaxP[1], yMinMaxN[1]);
+
+                    featPlot.setSize(800, 800);
+                    featPlot.setLimits(xmin, xmax, ymin, ymax);
+                    featPlot.setColor(Color.RED);
+                    featPlot.addPoints(colinP, iJumpP, Plot.BOX);
+                    featPlot.draw();
+                    featPlot.setColor(Color.BLUE);
+                    featPlot.addPoints(colinN, iJumpN, Plot.CROSS);
+                    featPlot.draw();
+                    //featPlot.show();
+
+                    if (fw == null) {
+                        fw = featPlot.show();
+                        //fw.addWindowListener(this);
+                    } else
+                        fw.setTitle("features");
+
+                    fw.drawPlot(featPlot);
+
+                }
+
+            }
 
 	}
+
+    private  float colin(float[] center, float[][] pos) {
+
+
+/*        // max area of the chosen triangle  3 out of 4 combinations, pos has to have length 3
+        float maxTriangleArea = Float.MIN_VALUE;
+        float currTriangleArea;
+
+        // 0 : 0 1
+        currTriangleArea = Tools.triangleArea(center[0], center[1], pos[0][0], pos[0][1], pos[1][0], pos[1][1]); // 0, 1
+        if (currTriangleArea>maxTriangleArea) maxTriangleArea = currTriangleArea;
+        // 0 : 0 2
+        currTriangleArea = Tools.triangleArea(center[0], center[1], pos[0][0], pos[0][1], pos[2][0], pos[2][1]); // 0, 2
+        if (currTriangleArea>maxTriangleArea) maxTriangleArea = currTriangleArea;
+        // 0 : 1 2
+        currTriangleArea = Tools.triangleArea(center[0], center[1], pos[1][0], pos[1][1], pos[2][0], pos[2][1]); // 1, 2
+        if (currTriangleArea>maxTriangleArea) maxTriangleArea = currTriangleArea;
+        //   : 0 1 2
+        currTriangleArea = Tools.triangleArea(pos[0][0], pos[0][1], pos[1][0], pos[1][1], pos[2][0], pos[2][1]); // 0, 1, 2
+        if (currTriangleArea>maxTriangleArea) maxTriangleArea = currTriangleArea;
+        return maxTriangleArea;*/
+
+        // new version
+        float x10 = pos[0][0] - center[0];
+        float y10 = pos[0][1] - center[1];
+
+        float x31 = pos[2][0] - pos[0][0];
+        float y31 = pos[2][1] - pos[0][1];
+
+        float x21 = pos[1][0] - pos[0][0];
+        float y21 = pos[1][1] - pos[1][1];
+
+        float x32 = pos[2][0] - pos[1][0];
+        float y32 = pos[2][1] - pos[1][1];
+
+        return (float) (0.5*(1+(x21*x32+y21*y32)/(Math.sqrt(x21*x21+y21*y21)*Math.sqrt(x32*x32+y32*y32)))*0.5*(1+(x10*x31+y10*y31)/(Math.sqrt(x10*x10+y10*y10)*Math.sqrt(x31*x31+y31*y31))));
+
+    }
+
+    private  float ijump(float[] peakH, float[] peakL) {
+        float out = 0;
+        for (int i=0; i<peakH.length; i++) {
+            out += (peakH[i]>peakL[i])? peakH[i]-peakL[i] : 0 ;
+        }
+        return out/peakH.length;
+    }
 
 	private static Color getColor(int i)
 	{
