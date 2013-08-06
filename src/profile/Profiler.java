@@ -167,7 +167,7 @@ public class Profiler extends Thread {
 
 					double dst = point2line(n1[0], n1[1], n2[0], n2[1], px, py);
 					offsetsAngleLoc.add(new double[]{px, py});
-					double weight = Math.exp(-(dst*dst)/(2*(neuronDiam/2)*(neuronDiam/2)));
+					double weight = Math.exp(-0.5*(dst*dst)/(2*(neuronDiam/2)*(neuronDiam/2)));
 					offsetsAngleWgt.add(weight);
 					sumWgt += weight;
 

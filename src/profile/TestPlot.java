@@ -3,6 +3,7 @@ package profile;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
+import ij.gui.GenericDialog;
 import ij.gui.Plot;
 import ij.gui.PlotWindow;
 import ij.plugin.PlugIn;
@@ -18,31 +19,45 @@ public class TestPlot implements PlugIn {
 
     public void run(String s) {
 
-        int a = 21;
+		GenericDialog gd = new GenericDialog("POSITIVE?");
+		gd.enableYesNoCancel();
+		gd.showDialog();
+		if (gd.wasCanceled()) return;
+		if (gd.wasOKed()) {
+			IJ.log("YES");
+		}
+		else {
+			IJ.log("NO");
+		}
+
+/*        int a = 21;
         IJ.log("before wrap: "+a);
         a = Tools.wrap(a, 20);
         IJ.log("after wrap: "+a);
 
 
-        float[] x = new float[]{Float.NaN, Float.NaN, Float.NaN, 1};
-        float[] y = new float[]{Float.NaN, Float.NaN, Float.NaN, 1};
+        float[] x = new float[]{Float.NaN, Float.NaN, Float.NaN, 1, 2, 3};
+        float[] y = new float[]{Float.NaN, Float.NaN, Float.NaN, 1, 2, 3};
 
         Plot p = new Plot("", "", "", x, y);
-        PlotWindow pw = p.show();
+
+        PlotWindow pw = p.show();*/
+
 
 /*
 
-		int N = 10;
+		int N = 4;
 		int k = 3;
 
-		ArrayList<int[]> a = Tools.comb(N, k);
+		ArrayList<int[]> c = Tools.comb(N, k);
 
-		IJ.log("done, "+a.size()+" combinations");
+		IJ.log("done, "+c.size()+" combinations");
 
-		for (int i =0; i< a.size(); i++) {
-			IJ.log("comb. " + i + " :" + Arrays.toString(a.get(i)) );
+		for (int i =0; i< c.size(); i++) {
+			IJ.log("comb. " + i + " :" + Arrays.toString(c.get(i)) );
 		}
 */
+
 
 
 //        start[0] = 1;

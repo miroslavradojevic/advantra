@@ -92,7 +92,7 @@ public class DynamicProfileInspector implements PlugInFilter, ActionListener,
 		ByteProcessor mask = new ByteProcessor(dim[0], dim[1]);
 		for (int i=0; i<dim[0]*dim[1]; i++) mask.set(i, (byte)255);
 		Profiler.loadTemplate(imp.getProcessor(), mask);
-		Profiler.loadParams(D, s, false);   // true to see how profiles are created (for figures mainly)
+		Profiler.loadParams(D, s, true);   // true to see how profiles are created (for figures mainly)
 
 		IJ.setTool("hand");
 
@@ -365,17 +365,19 @@ public class DynamicProfileInspector implements PlugInFilter, ActionListener,
                     reference (not necessary to use currAngles, prevAngles)
                  */
                 if (Analyzer.peakIdx[0][0]!=null) {
-
+					rd = Profiler.neuronDiam*Profiler.scale;
                     for (int i=0; i<3; i++) {   // loop clusters
                         peakAng[i][0] = Analyzer.peakIdx[0][0][i] * Profiler.resolDeg * ((float)Math.PI/180f);
-                        rd = Profiler.neuronDiam*Profiler.scale;
                         peakPos[i][0][0] = (float) (offscreenX+rd*Math.cos(peakAng[i][0]));
                         peakPos[i][0][1] = (float) (offscreenY-rd*Math.sin(peakAng[i][0]));
                         peakH[i][0]      = (float) Tools.interp1Darray(Analyzer.peakIdx[0][0][i], exProf);
                         peakL[i][0]      =         Tools.findNextStationaryValue(Analyzer.peakIdx[0][0][i], exProf);
-                    }
-                    //ov.add(new PointRoi(peakPos[i][0][0]+.5, peakPos[i][0][1]+.5));
-                    //ov.add(new OvalRoi(offscreenX-rd+.5, offscreenY-rd+.5, 2*rd, 2*rd));
+
+						PointRoi p = new PointRoi(peakPos[i][0][0]+.5, peakPos[i][0][1]+.5);
+						p.setStrokeColor(getColor(i));
+						ov.add(p);
+					}
+                    ov.add(new OvalRoi(offscreenX-rd+.5, offscreenY-rd+.5, 2*rd, 2*rd));
 
                     /*
                         continue with scales
@@ -398,16 +400,19 @@ public class DynamicProfileInspector implements PlugInFilter, ActionListener,
                         Tools.swap3(currAngles, mapping);
                         Tools.swap3(currIdxs,   mapping);
 
+						rd = Profiler.neuronDiam*Profiler.scale;
                         for (int i=0; i<3; i++) {               // loops clusters
                             peakAng[i][1] = currAngles[i];      // * Profiler.resolDeg * ((float)Math.PI/180f);
-                            rd = Profiler.neuronDiam*Profiler.scale;
                             peakPos[i][1][0] = (float) (offscreenX+rd*Math.cos(currAngles[i]));
                             peakPos[i][1][1] = (float) (offscreenY-rd*Math.sin(currAngles[i]));
                             peakH[i][1]      = (float) Tools.interp1Darray(currIdxs[i], exProf);
                             peakL[i][1]      =         Tools.findNextStationaryValue(currIdxs[i], exProf);
+
+							PointRoi p = new PointRoi(peakPos[i][1][0]+.5, peakPos[i][1][1]+.5);
+							p.setStrokeColor(getColor(i));
+							ov.add(p);
                         }
-                        //ov.add(new PointRoi(peakPos[i][1][0]+.5, peakPos[i][1][1]+.5));
-                        //ov.add(new OvalRoi(offscreenX-rd+.5, offscreenY-rd+.5, 2*rd, 2*rd));
+                        ov.add(new OvalRoi(offscreenX-rd+.5, offscreenY-rd+.5, 2*rd, 2*rd));
 
                         /*
                          continue with scales
@@ -417,22 +422,48 @@ public class DynamicProfileInspector implements PlugInFilter, ActionListener,
                         Analyzer.extractPeakIdxs(exProf);
 
                         if (Analyzer.peakIdx[0][0]!=null) {
-
+							rd = Profiler.neuronDiam*Profiler.scale;
                             for (int i=0; i<3; i++) {              // loops clusters
                                 peakAng[i][2] = Analyzer.peakIdx[0][0][i] * Profiler.resolDeg * ((float)Math.PI/180f);
-                                rd = Profiler.neuronDiam*Profiler.scale;
+
                                 peakPos[i][2][0] = (float) (offscreenX+rd*Math.cos(peakAng[i][2]));
                                 peakPos[i][2][1] = (float) (offscreenY-rd*Math.sin(peakAng[i][2]));
 
-                                //ov.add(new PointRoi(peakPos[i][2][0]+.5, peakPos[i][2][1]+.5));
-                                //ov.add(new OvalRoi(offscreenX-rd+.5, offscreenY-rd+.5, 2*rd, 2*rd));
+								PointRoi p = new PointRoi(peakPos[i][2][0]+.5, peakPos[i][2][1]+.5);
+								p.setStrokeColor(getColor(i));
+								ov.add(p);
                             }
+							ov.add(new OvalRoi(offscreenX-rd+.5, offscreenY-rd+.5, 2*rd, 2*rd));
 
                             // if you reached here that means that all ms radiuses converged to at least 3 values
                             // and they are all listed per cluster
-                            // extract features
-                            IJ.log("C");
 
+                            // extract features
+							float colin = Float.MIN_VALUE, iJump = Float.MAX_VALUE;
+
+							for (int clst=0; clst<3; clst++) {
+								// avg iJump
+//								if ()
+							}
+
+							GenericDialog gd = new GenericDialog("POSITIVE?");
+							gd.enableYesNoCancel();
+							gd.showDialog();
+							if (gd.wasCanceled()) return;
+							if (gd.wasOKed()) {
+								//IJ.log("YES");
+								colinP[cnt++] = colin;
+							}
+							else {
+								//IJ.log("NO");
+								colinN[cnt++] = colin;
+							}
+
+							Plot featPlot = new Plot("", "", "");
+							featPlot.addPoints();
+							featPlot.draw();
+							featPlot.addPoints();
+							featPlot.draw();
 
                         }
 
@@ -449,6 +480,19 @@ public class DynamicProfileInspector implements PlugInFilter, ActionListener,
 
 			}
 
+	}
+
+	private static Color getColor(int i)
+	{
+		if (i<=0) {
+			return Color.RED;
+		}
+		else if (i==1) {
+			return Color.GREEN;
+		}
+		else {
+			return Color.BLUE;
+		}
 	}
 
 	public void mouseMoved(MouseEvent e)
