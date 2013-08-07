@@ -519,7 +519,63 @@ public class Tools {
 
     }
 
+	public static ArrayList<float[]> extractClusters1(
+		float[] 	msConv,
+		double	    d,
+		int			M
+	)
+	{
+		ArrayList<ArrayList<Float>> ClustLocs 	= new ArrayList<ArrayList<Float>>(10);
+		ArrayList<float[]> 			ClustMinMax = new ArrayList<float[]>(10);
 
+		ArrayList<Float> addLoc = new ArrayList<Float>();
+		addLoc.add(msConv[0]);
+		ClustLocs.add(addLoc);
+		ClustMinMax.add(new float[]{msConv[0], msConv[0]});
+
+		for (int i=1; i<msConv.length; i++) {
+
+			for (int j= 0; j<ClustLocs.size(); j++) {
+
+				if (msConv[i]<=ClustMinMax.get(j)[1]+d && msConv[i]>=ClustMinMax.get(j)[0]-d) {
+
+					ClustLocs.get(j).add(msConv[i]);
+					if (msConv[i]>ClustMinMax.get(j)[1]) {
+						ClustMinMax.get(j)[1] = msConv[i];
+					}
+
+					if (msConv[i]<ClustMinMax.get(j)[0])  {
+						ClustMinMax.get(j)[0] = msConv[i];
+					}
+
+				}
+				else {
+
+					ArrayList<Float> addLoc1 = new ArrayList<Float>();
+					addLoc1.add(msConv[i]);
+					ClustLocs.add(addLoc1);
+					ClustMinMax.add(new float[]{msConv[i], msConv[i]});
+
+				}
+
+			}
+
+		}
+
+		// extract final clusters
+		ArrayList<float[]>			out 		= new ArrayList<float[]>(ClustLocs.size());
+		for (int i=0; i<ClustLocs.size(); i++) {
+
+			float sum = 0;
+			int nrPts = ClustLocs.get(i).size();
+			for (int j = 0; j<nrPts; j++)  sum += ClustLocs.get(i).get(j);
+			out.add(new float[]{sum/nrPts, nrPts});
+
+		}
+
+		return out;
+
+	}
 
     /**
      * background median estimation ( Wirth's algorithm )
@@ -847,7 +903,7 @@ public class Tools {
 
     }
 
-    public static float findNextStationaryValue(float pos, float[] profile) // , float sidePos1, float sidePos2,
+    public static float findNextStationaryValue(float pos, int[] roundedPeaks, float[] profile) // , float sidePos1, float sidePos2,
     {
         // 2 threads, each initializes when the next one is lower
         int l = Tools.wrap( (int) Math.floor(pos), profile.length);
@@ -876,18 +932,27 @@ public class Tools {
 
         diff = profile[l]-profile[Tools.wrap(l+1, profile.length)];
         while (diff<0) {
-            l--;
+
+			// check
+			for (int g=0; g<roundedPeaks.length; g++) if (l==roundedPeaks[g]) return profile[Math.round(pos)];  // in case it reaches other 2 peaks
+
+			l--;
             l = Tools.wrap(l, profile.length);
             diff = profile[l]-profile[Tools.wrap(l+1, profile.length)];
         }
-        diff = profile[r]-profile[Tools.wrap(r-1, profile.length)];
+
+		diff = profile[r]-profile[Tools.wrap(r-1, profile.length)];
         while (diff<0) {
-            r++;
+
+			// check
+			for (int g=0; g<roundedPeaks.length; g++) if (r==roundedPeaks[g]) return profile[Math.round(pos)];  // in case it reaches other 2 peaks
+
+			r++;
             r = Tools.wrap(r, profile.length);
             diff = profile[r]-profile[Tools.wrap(r-1, profile.length)];
         }
 
-        return (profile[l]>profile[r])? profile[l] : profile[r] ;
+        return (profile[l]>profile[r])? profile[l] : profile[r] ; // take the one that is closer to the profile[pos]
 
     }
 
@@ -895,6 +960,9 @@ public class Tools {
     {
         return idx = (idx<0)? idx+len : (idx>=len)? idx-len : idx ;
     }
+
+
+	// add 1d array wrapper for real indexes
 
     public static int[] hungarian33(float[] refAng, float[] currAng)
     {

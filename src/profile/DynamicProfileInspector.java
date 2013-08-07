@@ -321,9 +321,7 @@ public class DynamicProfileInspector implements PlugInFilter, ActionListener,
             x[i - 1] = (i-1)*Profiler.resolDeg;
 
         // Prepare plot window
-        Plot chart = new Plot("Profile,x = "
-                + offscreenX + ", y = " + offscreenY,
-                "Frame number", "Intensity", x, exProf);
+        Plot chart = new Plot("", "Frame number", "Intensity", x, exProf);
         //float[] mm = Tools.getMinMax(exProf);
         //chart.setLimits(0, 360, mm[0]-1, mm[1]+1);
         chart.setSize(900, 450);
@@ -357,10 +355,15 @@ public class DynamicProfileInspector implements PlugInFilter, ActionListener,
             xMS = new float[3];
             yMS = new float[3];
             yLW = new float[3];
+			int[] roundedPeaks = new int[]{
+												  Math.round(Analyzer.peakIdx[0][0][0]),
+												  Math.round(Analyzer.peakIdx[0][0][1]),
+												  Math.round(Analyzer.peakIdx[0][0][2])
+			};
             for (int i=0; i<3; i++) {
                 xMS[i] = Analyzer.peakIdx[0][0][i] * Profiler.resolDeg;
                 yMS[i] = (float) Tools.interp1Darray(Analyzer.peakIdx[0][0][i], exProf);
-                yLW[i] = Tools.findNextStationaryValue(Analyzer.peakIdx[0][0][i], exProf);
+                yLW[i] = Tools.findNextStationaryValue(Analyzer.peakIdx[0][0][i], roundedPeaks, exProf);
                 chart.drawLine(xMS[i], yLW[i], xMS[i], yMS[i]);
             }
             //chart.addPoints(xMS, yMS, Plot.BOX);
@@ -368,6 +371,9 @@ public class DynamicProfileInspector implements PlugInFilter, ActionListener,
         }
 
         pw.drawPlot(chart);
+		pw.setTitle("Profile, x = " + offscreenX + ", y = " + offscreenY + " : ");
+
+
 
 			if (!moveFlag) {  // manual click
 
@@ -391,13 +397,20 @@ public class DynamicProfileInspector implements PlugInFilter, ActionListener,
 
                 boolean validConfiguration = false;
                 if (Analyzer.peakIdx[0][0]!=null) {
+
+					int[] roundedPeaks = new int[]{
+														  Math.round(Analyzer.peakIdx[0][0][0]),
+														  Math.round(Analyzer.peakIdx[0][0][1]),
+														  Math.round(Analyzer.peakIdx[0][0][2])
+					};
+
 					rd = Profiler.neuronDiam*Profiler.scale;
                     for (int i=0; i<3; i++) {   // loop clusters
                         peakAng[i][0] = Analyzer.peakIdx[0][0][i] * Profiler.resolDeg * ((float)Math.PI/180f);
                         peakPos[i][0][0] = (float) (offscreenX+rd*Math.cos(peakAng[i][0]));
                         peakPos[i][0][1] = (float) (offscreenY-rd*Math.sin(peakAng[i][0]));
                         peakH[i][0]      = (float) Tools.interp1Darray(Analyzer.peakIdx[0][0][i], exProf);
-                        peakL[i][0]      =         Tools.findNextStationaryValue(Analyzer.peakIdx[0][0][i], exProf);
+                        peakL[i][0]      =         Tools.findNextStationaryValue(Analyzer.peakIdx[0][0][i], roundedPeaks, exProf);
 
 						PointRoi p = new PointRoi(peakPos[i][0][0]+.5, peakPos[i][0][1]+.5);
 						p.setStrokeColor(getColor(i));
@@ -413,6 +426,12 @@ public class DynamicProfileInspector implements PlugInFilter, ActionListener,
 				    Analyzer.extractPeakIdxs(exProf);
 
                     if (Analyzer.peakIdx[0][0]!=null) {
+
+						roundedPeaks = new int[]{
+															  Math.round(Analyzer.peakIdx[0][0][0]),
+															  Math.round(Analyzer.peakIdx[0][0][1]),
+															  Math.round(Analyzer.peakIdx[0][0][2])
+						};
 
                         // store in comparison variables
                         for (int i=0; i<3; i++) {
@@ -432,7 +451,7 @@ public class DynamicProfileInspector implements PlugInFilter, ActionListener,
                             peakPos[i][1][0] = (float) (offscreenX+rd*Math.cos(currAngles[i]));
                             peakPos[i][1][1] = (float) (offscreenY-rd*Math.sin(currAngles[i]));
                             peakH[i][1]      = (float) Tools.interp1Darray(currIdxs[i], exProf);
-                            peakL[i][1]      =         Tools.findNextStationaryValue(currIdxs[i], exProf);
+                            peakL[i][1]      =         Tools.findNextStationaryValue(currIdxs[i], roundedPeaks, exProf);
 
 							PointRoi p = new PointRoi(peakPos[i][1][0]+.5, peakPos[i][1][1]+.5);
 							p.setStrokeColor(getColor(i));
@@ -448,6 +467,12 @@ public class DynamicProfileInspector implements PlugInFilter, ActionListener,
                         Analyzer.extractPeakIdxs(exProf);
 
                         if (Analyzer.peakIdx[0][0]!=null) {
+
+							roundedPeaks = new int[]{
+															Math.round(Analyzer.peakIdx[0][0][0]),
+															Math.round(Analyzer.peakIdx[0][0][1]),
+															Math.round(Analyzer.peakIdx[0][0][2])
+							};
 
                             // store in comparison variables
                             for (int i=0; i<3; i++) {
@@ -467,7 +492,7 @@ public class DynamicProfileInspector implements PlugInFilter, ActionListener,
                                 peakPos[i][2][0] = (float) (offscreenX+rd*Math.cos(currAngles[i]));
                                 peakPos[i][2][1] = (float) (offscreenY-rd*Math.sin(currAngles[i]));
                                 peakH[i][2]      = (float) Tools.interp1Darray(currIdxs[i], exProf);
-                                peakL[i][2]      =         Tools.findNextStationaryValue(currIdxs[i], exProf);
+                                peakL[i][2]      =         Tools.findNextStationaryValue(currIdxs[i], roundedPeaks, exProf);
 
 								PointRoi p = new PointRoi(peakPos[i][2][0]+.5, peakPos[i][2][1]+.5);
 								p.setStrokeColor(getColor(i));
