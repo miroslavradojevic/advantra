@@ -152,17 +152,17 @@ public class Tools {
 			float mu20 = (float) (M20 / M00) - ellipseParams[0]*ellipseParams[0];
 			float mu02 = (float) (M02 / M00) - ellipseParams[1]*ellipseParams[1];
 
-            IJ.log("EIGEN: mu20:"+mu20+",mu11:"+mu11+",mu02:"+mu02);
+            //IJ.log("EIGEN: mu20:"+mu20+",mu11:"+mu11+",mu02:"+mu02);
 
 
             ArrayList<float[]> out = eigen(mu20, mu11, mu11, mu02);
 
-            IJ.log("OUT");
-            for (int i=0; i<out.size(); i++) {
-                for (int j=0; j<out.get(i).length; j++) {
-                    IJ.log(""+out.get(i)[j]+" , ");
-                }
-            }
+            //IJ.log("OUT");
+            //for (int i=0; i<out.size(); i++) {
+            //    for (int j=0; j<out.get(i).length; j++) {
+            //        IJ.log(""+out.get(i)[j]+" , ");
+            //    }
+            //}
 
             if (out.size()>1) {
 
@@ -170,20 +170,20 @@ public class Tools {
                 if ( Math.abs(out.get(0)[0]) >= Math.abs(out.get(1)[0]) ) {
                     ellipseParams[2] = Math.abs(out.get(1)[0]);
                     ellipseParams[3] = Math.abs(out.get(0)[0]);
-                    IJ.log("from vec: 2_ "+out.get(1)[2]+" , 1_ "+out.get(1)[1]);
+                    //IJ.log("from vec: 2_ "+out.get(1)[2]+" , 1_ "+out.get(1)[1]);
                     ellipseParams[4] = (float) (Math.atan2(out.get(1)[2], out.get(1)[1]) * (180/Math.PI));
                 }
                 else {
                     ellipseParams[2] = Math.abs(out.get(0)[0]);
                     ellipseParams[3] = Math.abs(out.get(1)[0]);
-                    IJ.log("from vec: 2_ "+out.get(0)[2]+" , 1_ "+out.get(0)[1]);
+                    //IJ.log("from vec: 2_ "+out.get(0)[2]+" , 1_ "+out.get(0)[1]);
                     ellipseParams[4] = (float) (Math.atan2(out.get(0)[2], out.get(0)[1]) * (180/Math.PI));
                 }
 
             }
             else {
                 ellipseParams[2] = ellipseParams[3] = Math.abs(out.get(0)[0]);
-                IJ.log("from vec (both are equal): 2_ "+out.get(0)[2]+" , 1_ "+out.get(0)[1]);
+                //IJ.log("from vec (both are equal): 2_ "+out.get(0)[2]+" , 1_ "+out.get(0)[1]);
                 ellipseParams[4] = (float) (Math.atan2(out.get(0)[2], out.get(0)[1]) * (180/Math.PI));
             }
 
@@ -192,7 +192,7 @@ public class Tools {
             // there was just two of them
 			ellipseParams[2] = 1;
 			ellipseParams[3] = 1;
-            IJ.log("just two angle was 0 ");
+            //IJ.log("just two angle was 0 ");
 			ellipseParams[4] = 0;
 
 		}
@@ -448,6 +448,8 @@ public class Tools {
     )
     {
 
+        Arrays.sort(msConvergence);
+
         boolean[] 	seed_clustered 		= new boolean[msConvergence.length];
         int[] 		seed_cluster_idx 	= new int[msConvergence.length];
         Vector<Integer> cluster_sizes	= new Vector<Integer>();
@@ -519,61 +521,95 @@ public class Tools {
 
     }
 
-	public static ArrayList<float[]> extractClusters1(
-		float[] 	msConv,
+	public static Vector<float[]> extractClusters1(
+		double[] 	msConv,
 		double	    d,
 		int			M
 	)
 	{
-		ArrayList<ArrayList<Float>> ClustLocs 	= new ArrayList<ArrayList<Float>>(10);
-		ArrayList<float[]> 			ClustMinMax = new ArrayList<float[]>(10);
 
-		ArrayList<Float> addLoc = new ArrayList<Float>();
-		addLoc.add(msConv[0]);
-		ClustLocs.add(addLoc);
-		ClustMinMax.add(new float[]{msConv[0], msConv[0]});
+        Arrays.sort(msConv);
 
-		for (int i=1; i<msConv.length; i++) {
+        boolean[] 	seed_clustered 		= new boolean[msConv.length];
+        int[] 		seed_cluster_idx 	= new int[msConv.length];
+        Vector<Integer> cluster_sizes	= new Vector<Integer>();
+        int nr_clusters 				= 0;
 
-			for (int j= 0; j<ClustLocs.size(); j++) {
+        seed_clustered[0] = true;
+        seed_cluster_idx[0] = nr_clusters;
+        cluster_sizes.add(1);
+        nr_clusters++;
 
-				if (msConv[i]<=ClustMinMax.get(j)[1]+d && msConv[i]>=ClustMinMax.get(j)[0]-d) {
+        for (int i = 1; i < msConv.length; i++) {
+            //for (int j = 0; j < msConvergence.length; j++) {
 
-					ClustLocs.get(j).add(msConv[i]);
-					if (msConv[i]>ClustMinMax.get(j)[1]) {
-						ClustMinMax.get(j)[1] = msConv[i];
-					}
+                //if(){
 
-					if (msConv[i]<ClustMinMax.get(j)[0])  {
-						ClustMinMax.get(j)[0] = msConv[i];
-					}
+                    if(Math.abs(msConv[i]-msConv[i-1])<d){
 
-				}
-				else {
+                        //if(seed_clustered[i]){
+                            // i was clustered
+                            seed_clustered[i] = true;
+                            seed_cluster_idx[i] = seed_cluster_idx[i-1];
+                            int tmp = cluster_sizes.get(seed_cluster_idx[i]);
+                            tmp++;
+                            cluster_sizes.setElementAt(tmp, seed_cluster_idx[i]);
 
-					ArrayList<Float> addLoc1 = new ArrayList<Float>();
-					addLoc1.add(msConv[i]);
-					ClustLocs.add(addLoc1);
-					ClustMinMax.add(new float[]{msConv[i], msConv[i]});
+                        //}
+                        //else{
+                            // i was not clustered
+//                            seed_clustered[i] = seed_clustered[j] = true;
+//                            seed_cluster_idx[i] = seed_cluster_idx[j] = nr_clusters;
+//                            cluster_sizes.add(2);
+//                            nr_clusters++;
+                        //}
+                    }
+            else {
+                        seed_clustered[i] = true;
+                        seed_cluster_idx[i] = nr_clusters;
+                        cluster_sizes.add(1);
+                        nr_clusters++;
 
-				}
+            }
 
-			}
+                //}
+            //}
 
-		}
+//            if(!seed_clustered[i]){
+//                seed_clustered[i] = true;
+//                seed_cluster_idx[i] = nr_clusters;
+//                cluster_sizes.add(1);
+//                nr_clusters++;
+//            }
 
-		// extract final clusters
-		ArrayList<float[]>			out 		= new ArrayList<float[]>(ClustLocs.size());
-		for (int i=0; i<ClustLocs.size(); i++) {
+        }
 
-			float sum = 0;
-			int nrPts = ClustLocs.get(i).size();
-			for (int j = 0; j<nrPts; j++)  sum += ClustLocs.get(i).get(j);
-			out.add(new float[]{sum/nrPts, nrPts});
+        Vector<float[]> clust = new Vector<float[]>();
+        for (int k = 0; k < cluster_sizes.size(); k++) {
+            if (cluster_sizes.get(k)>=M) {
 
-		}
+                float sum = 0;
+                int cnt = 0;
 
-		return out;
+                for (int l=0; l<seed_cluster_idx.length; l++) {
+
+                    if (seed_cluster_idx[l]==k) {
+
+                        sum+=msConv[l];
+                        cnt++;
+
+                    }
+
+                }
+
+                if (cnt>0) {
+                    clust.add(new float[] {sum/cnt, cnt}); // centroid, number of points
+                }
+
+            }
+        }
+
+        return clust;
 
 	}
 
@@ -739,6 +775,16 @@ public class Tools {
     public static double min3(double a, double b, double c)
     {
         return Math.min(a, Math.min(b, c));
+    }
+
+    public static float min3(float[] a)
+    {
+        return Math.min(a[0], Math.min(a[1], a[2]));
+    }
+
+    public static float max3(float[] a)
+    {
+        return Math.max(a[0], Math.max(a[1], a[2]));
     }
 
     public static PolygonRoi drawEllipse(float x, float y, float a, float b, float angle, Color clr, float lineWidth, int nrPoints)
@@ -952,7 +998,11 @@ public class Tools {
             diff = profile[r]-profile[Tools.wrap(r-1, profile.length)];
         }
 
-        return (profile[l]>profile[r])? profile[l] : profile[r] ; // take the one that is closer to the profile[pos]
+        return (profile[l]>profile[r])?
+                Math.min(profile[Math.round(pos)], profile[l]) :
+                Math.min(profile[Math.round(pos)], profile[r]) ;
+                //((profile[l]<profile[Math.round(pos)])?profile[l]:0)     :
+                //((profile[r]<profile[Math.round(pos)])?profile[r]:0)     ; // take the one that is closer to the profile[pos]
 
     }
 

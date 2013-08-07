@@ -321,7 +321,7 @@ public class DynamicProfileInspector implements PlugInFilter, ActionListener,
             x[i - 1] = (i-1)*Profiler.resolDeg;
 
         // Prepare plot window
-        Plot chart = new Plot("", "Frame number", "Intensity", x, exProf);
+        Plot chart = new Plot("", "", "", x, exProf);
         //float[] mm = Tools.getMinMax(exProf);
         //chart.setLimits(0, 360, mm[0]-1, mm[1]+1);
         chart.setSize(900, 450);
@@ -348,6 +348,7 @@ public class DynamicProfileInspector implements PlugInFilter, ActionListener,
         chart.addPoints(xMS, yMS, Plot.X);
 
         //Add MS plot
+        String domes = "";
         if (Analyzer.peakIdx[0][0]!=null) { // >=3 peaks
             chart.draw();
             chart.setColor(Color.RED);
@@ -365,13 +366,14 @@ public class DynamicProfileInspector implements PlugInFilter, ActionListener,
                 yMS[i] = (float) Tools.interp1Darray(Analyzer.peakIdx[0][0][i], exProf);
                 yLW[i] = Tools.findNextStationaryValue(Analyzer.peakIdx[0][0][i], roundedPeaks, exProf);
                 chart.drawLine(xMS[i], yLW[i], xMS[i], yMS[i]);
+                domes += "   " + IJ.d2s((yMS[i]>yLW[i])?(yMS[i]-yLW[i]):0, 2) + "  ";
             }
             //chart.addPoints(xMS, yMS, Plot.BOX);
 
         }
 
         pw.drawPlot(chart);
-		pw.setTitle("Profile, x = " + offscreenX + ", y = " + offscreenY + " : ");
+		pw.setTitle("Profile, x = " + offscreenX + ", y = " + offscreenY + " : " +domes);
 
 
 

@@ -31,8 +31,8 @@ public class Analyzer extends Thread  {
     double[]  start 		= new double[nrPoints];
     double[]  msFinish 		= new double[nrPoints];
 
-    public static int       maxIter = 150;
-    public static double    epsilon = 0.0001;
+    public static int       maxIter = 50;
+    public static double    epsilon = Double.MIN_VALUE;//0.0001;
     public static int       h = 2;              // in indexes
     public static double    minD = 0.5;
     public static int       M = 2;
@@ -268,9 +268,9 @@ public class Analyzer extends Thread  {
                     convIdx.get(locIdx).get(profileIdx)[i1] = (float) msFinish[i1];
                 }
 
-                Vector<float[]> cls = Tools.extractClusters(msFinish, minD, M);
-
-				extractPeakIdx(cls, locIdx, profileIdx);
+                //Vector<float[]> cls = Tools.extractClusters(msFinish, minD, M); // TODO replace this one with extractClusters1
+                Vector<float[]> cls = Tools.extractClusters1(msFinish, minD, M);
+				extractPeakIdx(cls, locIdx, profileIdx); // to extract 3 major ones (if there are three)
 
             }
 

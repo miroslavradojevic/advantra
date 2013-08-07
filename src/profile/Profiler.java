@@ -218,6 +218,9 @@ public class Profiler extends Thread {
 
 	}
 
+    /*
+    profile extractor per location coordinates (not index)
+     */
 	public static float[] extractProfile(int atX, int atY) { // profile at one location
 
 		float[] profileOut = new float[offsets.size()];

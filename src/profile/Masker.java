@@ -65,10 +65,14 @@ public class Masker extends Thread {
             int atX = locIdx%image_width;//Profiler.locations[locIdx][0];
             int atY = locIdx/image_width;//Profiler.locations[locIdx][1];
 
-            if (atX>nhood && atY>nhood && atX<inip.getWidth()-nhood && atY<inip.getHeight()-nhood) {
+            if (atX>nhood && atY>nhood && atX<inip.getWidth()-nhood && atY<inip.getHeight()-nhood) { // is in the image
+
+
+                /*
+                background using median
+                 */
 
                 float[] neigh = new float[(2*nhood+1)*(2*nhood+1)];
-
                 // fill the array in
                 int idx = 0;
                 for (int locX = atX-nhood; locX<=atX+nhood; locX++) {
@@ -77,9 +81,13 @@ public class Masker extends Thread {
                         idx++;
                     }
                 }
-
                 // take the median as a bkg estimate
                 float currBkgr = (float) Tools.median_Wirth(neigh);
+
+
+
+
+
 
                 back.setf(atX, atY, currBkgr);
 

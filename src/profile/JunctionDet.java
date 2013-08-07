@@ -179,7 +179,6 @@ public class JunctionDet implements PlugInFilter, MouseListener {
 		angularRes    	= new ArrayList<ArrayList<Integer>>(totalLocations);
         profilesName  	= new ArrayList<ArrayList<String>>(totalLocations);
 
-
         /*
         ***********************************************************
          */
@@ -423,6 +422,10 @@ public class JunctionDet implements PlugInFilter, MouseListener {
         ImagePlus scoreImagePlus = new ImagePlus("score", scoreimg);
 		scoreImagePlus.show();
 
+
+        /*
+        -----------------------------------------------
+         */
 
         t1 = System.currentTimeMillis();
 		Find_Connected_Regions conn_reg = new Find_Connected_Regions(scoreImagePlus, true);
