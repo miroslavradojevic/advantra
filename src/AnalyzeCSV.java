@@ -132,7 +132,6 @@ public class AnalyzeCSV {
         return col;
     }
 
-
     public int getLinesNr(){
         return file_length;
     }

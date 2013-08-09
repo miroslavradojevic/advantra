@@ -321,7 +321,7 @@ public class Tools {
             int 		max_iter,
             double 	    epsilon,
             int 		h,
-			double[] 	T // same length as start
+			double[] 	T // same length as start (this would be output)
     )
 	{
 
@@ -351,39 +351,39 @@ public class Tools {
 
     }
 
-	public static double[] runMS(
-            double[] 	start,
-            float[] 	inputProfile,
-            int 		max_iter,
-            double 	    epsilon,
-            int 		h
-    ){
-
-        double[] T = new double[start.length]; // slows down things...
-
-        for (int i = 0; i < T.length; i++) {
-            T[i] = start[i];
-        }
-
-        for (int i = 0; i < T.length; i++) {
-
-            int iter = 0;
-            double d;// = Double.MAX_VALUE;
-
-            do{
-
-                double new_pos = runOne(T[i], h, inputProfile);
-                d = Math.abs(new_pos - T[i]);
-                T[i] = new_pos;
-                iter++;
-            }
-            while(iter < max_iter && d > epsilon);
-
-        }
-
-        return T;
-
-    }
+//	public static double[] runMS(
+//            double[] 	start,
+//            float[] 	inputProfile,
+//            int 		max_iter,
+//            double 	    epsilon,
+//            int 		h
+//    ){
+//
+//        double[] T = new double[start.length]; // slows down things...
+//
+//        for (int i = 0; i < T.length; i++) {
+//            T[i] = start[i];
+//        }
+//
+//        for (int i = 0; i < T.length; i++) {
+//
+//            int iter = 0;
+//            double d;// = Double.MAX_VALUE;
+//
+//            do{
+//
+//                double new_pos = runOne(T[i], h, inputProfile);
+//                d = Math.abs(new_pos - T[i]);
+//                T[i] = new_pos;
+//                iter++;
+//            }
+//            while(iter < max_iter && d > epsilon);
+//
+//        }
+//
+//        return T;
+//
+//    }
 
     private static double 	runOne(
             double  curr_pos,
@@ -524,7 +524,8 @@ public class Tools {
 	public static Vector<float[]> extractClusters1(
 		double[] 	msConv,
 		double	    d,
-		int			M
+		int			M,
+        int         inputArrayLength // to avoid splitting in 2 clusters when values localize around the breakpoint
 	)
 	{
 
@@ -541,55 +542,43 @@ public class Tools {
         nr_clusters++;
 
         for (int i = 1; i < msConv.length; i++) {
-            //for (int j = 0; j < msConvergence.length; j++) {
 
-                //if(){
-
-                    if(Math.abs(msConv[i]-msConv[i-1])<d){
-
-                        //if(seed_clustered[i]){
-                            // i was clustered
-                            seed_clustered[i] = true;
-                            seed_cluster_idx[i] = seed_cluster_idx[i-1];
-                            int tmp = cluster_sizes.get(seed_cluster_idx[i]);
-                            tmp++;
-                            cluster_sizes.setElementAt(tmp, seed_cluster_idx[i]);
-
-                        //}
-                        //else{
-                            // i was not clustered
-//                            seed_clustered[i] = seed_clustered[j] = true;
-//                            seed_cluster_idx[i] = seed_cluster_idx[j] = nr_clusters;
-//                            cluster_sizes.add(2);
-//                            nr_clusters++;
-                        //}
-                    }
-            else {
-                        seed_clustered[i] = true;
-                        seed_cluster_idx[i] = nr_clusters;
-                        cluster_sizes.add(1);
-                        nr_clusters++;
+            if(Math.abs(msConv[i]-msConv[i-1])<d){
+                seed_clustered[i] = true;
+                seed_cluster_idx[i] = seed_cluster_idx[i-1];
+                int tmp = cluster_sizes.get(seed_cluster_idx[i]);
+                tmp++;
+                cluster_sizes.setElementAt(tmp, seed_cluster_idx[i]);
 
             }
-
-                //}
-            //}
-
-//            if(!seed_clustered[i]){
-//                seed_clustered[i] = true;
-//                seed_cluster_idx[i] = nr_clusters;
-//                cluster_sizes.add(1);
-//                nr_clusters++;
-//            }
+            else {
+                seed_clustered[i] = true;
+                seed_cluster_idx[i] = nr_clusters;
+                cluster_sizes.add(1);
+                nr_clusters++;
+            }
 
         }
 
-//		// wrap
-//		if (Math.abs(msConv[msConv.length-1]-msConv[0])<d) {
-//
-//			// join them together in a cluster
-//
-//		}
+		// wrap in case they converged around the breakpoint and split what was supposed to be one cluster
+        // last and the first one after sorting are less than d
+        if ( Math.abs( msConv[msConv.length-1] - msConv[0] - inputArrayLength ) < d  && false) {
+            // join the last cluster together with the first cluster
+            IJ.log("wrap clusters");
+
+            cluster_sizes.remove(cluster_sizes.size()-1);               // remove last cluster
+            int lastClusterIdx = seed_cluster_idx[msConv.length-1];     // remember it
+            seed_cluster_idx[msConv.length-1] = seed_cluster_idx[0];    // which is 0
+            cluster_sizes.setElementAt(0, cluster_sizes.get(0)+1);
+
+            int q = msConv.length-2;
+            while (seed_cluster_idx[q]==lastClusterIdx) {
+                seed_cluster_idx[q] = seed_cluster_idx[0];
+                cluster_sizes.setElementAt(0, cluster_sizes.get(0)+1);
+                q--;
+            }
+
+        }
 
         Vector<float[]> clust = new Vector<float[]>();
         for (int k = 0; k < cluster_sizes.size(); k++) {

@@ -52,7 +52,6 @@ import java.awt.Polygon;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
-
 class CancelDialog extends Dialog implements ActionListener {
 	/**
 	 *

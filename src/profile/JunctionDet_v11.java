@@ -264,6 +264,7 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 
         ImagePlus scoreImagePlus = new ImagePlus("score", scoreimg);
         scoreImagePlus.show();
+        if(true) return;
 
         /*
         -----------------------------------------------
@@ -345,12 +346,29 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 
         double score = 0;
 
-		// p1, p2, p3, w1, w2, w3 add them
-
         if (Analyzer.peakIdx[locIdx][0] != null) {
 
             float[] domes = new float[3];
             int[] roundedPks = new int[]{Math.round(Analyzer.peakIdx[locIdx][0][0]), Math.round(Analyzer.peakIdx[locIdx][0][1]), Math.round(Analyzer.peakIdx[locIdx][0][2])};
+
+            // p1, p2, p3, w1, w2, w3 add them
+            float p1 = (float) Tools.interp1Darray(Analyzer.peakIdx[locIdx][0][0], Profiler.profiles[locIdx]);
+            float p2 = (float) Tools.interp1Darray(Analyzer.peakIdx[locIdx][0][1], Profiler.profiles[locIdx]);
+            float p3 = (float) Tools.interp1Darray(Analyzer.peakIdx[locIdx][0][2], Profiler.profiles[locIdx]);
+
+            float pL1 = Tools.findNextStationaryValue(Analyzer.peakIdx[locIdx][0][0], roundedPks, Profiler.profiles[locIdx]);
+            float pL2 = Tools.findNextStationaryValue(Analyzer.peakIdx[locIdx][0][1], roundedPks, Profiler.profiles[locIdx]);
+            float pL3 = Tools.findNextStationaryValue(Analyzer.peakIdx[locIdx][0][2], roundedPks, Profiler.profiles[locIdx]);
+
+            float pLmin = Math.min(pL1, Math.min(pL2, pL3));
+
+            float w1 = p1/(p1+p2+p3);
+            float w2 = p2/(p1+p2+p3);
+            float w3 = p3/(p1+p2+p3);
+
+            score = w1*((p1-pL1)/(pL1-pLmin)) + w2*((p2-pL2)/(pL2-pLmin)) + w3*((p3-pL3)/(pL3-pLmin));
+
+            /*
 
             for (int i = 0; i < 3; i++) {
                 float pH, pL;
@@ -359,9 +377,11 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
                 domes[i] = (pH>pL)?(pH-pL):0;
             }
 
-            if (Tools.min3(domes)>5) {  // th depends on the thickness
+            if (Tools.min3(domes)>D) {  // th depends on the thickness
                 score = 255;
             }
+            */
+
 
         }
 
@@ -387,17 +407,8 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
         }
     }
 
-    @Override
-    public void mouseDragged(MouseEvent e) {
-        //To change body of implemented methods use File | Settings | File Templates.
-    }
-
     public void mouseMoved(MouseEvent e) {
         mouseClicked(e);
-    }
-
-    public void keyTyped(KeyEvent e) {
-
     }
 
     public void keyPressed(KeyEvent e) {
@@ -459,4 +470,11 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
     public void keyReleased(KeyEvent e) {
         //To change body of implemented methods use File | Settings | File Templates.
     }
+    public void mouseDragged(MouseEvent e) {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
+    public void keyTyped(KeyEvent e) {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
+
 }
