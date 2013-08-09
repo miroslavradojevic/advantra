@@ -32,7 +32,7 @@ public class Analyzer extends Thread  {
     double[]  msFinish 		= new double[nrPoints];
 
     public static int       maxIter = 100;
-    public static double    epsilon = 0.0001;//Double.MIN_VALUE;//
+    public static double    epsilon = 0.00001;//Double.MIN_VALUE;//
     public static int       h = 2;              // in indexes
     public static double    minD = 0.5;
     public static int       M = 2;
@@ -85,85 +85,6 @@ public class Analyzer extends Thread  {
         }
 
     }
-
-	public static void extractPeakIdxs(float[][] profiles1) // instead of ArrayList of ArrayLists of profiles
-	{
-
-		// profiles1[0][] -> scale1
-		// prodiles1[1][] -> scale2
-		// profiles1[2][] -> scale3 etc...
-
-        /*
-        profiles
-         */
-		profiles = new ArrayList<ArrayList<float[]>>(1);
-		//for (int i=0; i<profiles1.length; i++) {
-			ArrayList<float[]> temp = new ArrayList<float[]>(profiles1.length);
-			for (int j=0; j<profiles1.length; j++) {
-
-				float[] toAdd = new float[profiles1[0].length];
-
-				for (int k=0; k<toAdd.length; k++ ) {
-					toAdd[k] = profiles1[j][k];
-				}
-
-				temp.add(toAdd);
-
-			}
-			profiles.add(temp);
-		//}
-
-		/*
-		peakIdx
-		 */
-		peakIdx = new float[1][profiles.get(0).size()][]; // keeps three corresp indexes of profile values
-
-		/*
-		convIdx
-		 */
-		convIdx = new ArrayList<ArrayList<float[]>>(1); // this is where msFinish will be stored
-		//for (int i=0; i<profiles1.size(); i++) {
-			ArrayList<float[]> temp1 = new ArrayList<float[]>(profiles1.length);
-			for (int j=0; j<profiles1.length; j++) {
-
-				float[] toAdd = new float[nrPoints];
-				temp1.add(toAdd);
-
-			}
-			convIdx.add(temp1);
-		//}
-
-		// define arrays for start and finish specially for this method
-		double[] start11 	= new double[nrPoints];
-		double[] finish11 	= new double[nrPoints];
-
-		for (int profileIdx=0; profileIdx<profiles.get(0).size(); profileIdx++) {
-
-			int profileLength = profiles.get(0).get(0).length;
-
-			for (int k=0; k<nrPoints; k++) {
-				start11[k] = ((float) k / nrPoints) * profileLength;
-			}
-
-			Tools.runMS(start11,
-						profiles.get(0).get(profileIdx),
-						maxIter,
-						epsilon,
-						h,
-						finish11);
-
-			for (int i1=0; i1<nrPoints; i1++) {
-				convIdx.get(0).get(profileIdx)[i1] = (float) finish11[i1];
-			}
-
-			Vector<float[]> cls = Tools.extractClusters(finish11, minD, M);
-
-			extractPeakIdx(cls, 0, profileIdx);
-
-		}
-
-
-	}
 
 	public static void extractPeakIdxs(float[] profile1) // instead of ArrayList of ArrayLists of profiles
 	{
@@ -268,7 +189,6 @@ public class Analyzer extends Thread  {
                     convIdx.get(locIdx).get(profileIdx)[i1] = (float) msFinish[i1];
                 }
 
-                //Vector<float[]> cls = Tools.extractClusters(msFinish, minD, M); // TODO replace this one with extractClusters1
                 Vector<float[]> cls = Tools.extractClusters1(msFinish, minD, M);
 				extractPeakIdx(cls, locIdx, profileIdx); // to extract 3 major ones (if there are three)
 
@@ -336,3 +256,82 @@ public class Analyzer extends Thread  {
 
 
 }
+
+//	public static void extractPeakIdxs(float[][] profiles1) // instead of ArrayList of ArrayLists of profiles
+//	{
+//
+//		// profiles1[0][] -> scale1
+//		// prodiles1[1][] -> scale2
+//		// profiles1[2][] -> scale3 etc...
+//
+//        /*
+//        profiles
+//         */
+//		profiles = new ArrayList<ArrayList<float[]>>(1);
+//		//for (int i=0; i<profiles1.length; i++) {
+//			ArrayList<float[]> temp = new ArrayList<float[]>(profiles1.length);
+//			for (int j=0; j<profiles1.length; j++) {
+//
+//				float[] toAdd = new float[profiles1[0].length];
+//
+//				for (int k=0; k<toAdd.length; k++ ) {
+//					toAdd[k] = profiles1[j][k];
+//				}
+//
+//				temp.add(toAdd);
+//
+//			}
+//			profiles.add(temp);
+//		//}
+//
+//		/*
+//		peakIdx
+//		 */
+//		peakIdx = new float[1][profiles.get(0).size()][]; // keeps three corresp indexes of profile values
+//
+//		/*
+//		convIdx
+//		 */
+//		convIdx = new ArrayList<ArrayList<float[]>>(1); // this is where msFinish will be stored
+//		//for (int i=0; i<profiles1.size(); i++) {
+//			ArrayList<float[]> temp1 = new ArrayList<float[]>(profiles1.length);
+//			for (int j=0; j<profiles1.length; j++) {
+//
+//				float[] toAdd = new float[nrPoints];
+//				temp1.add(toAdd);
+//
+//			}
+//			convIdx.add(temp1);
+//		//}
+//
+//		// define arrays for start and finish specially for this method
+//		double[] start11 	= new double[nrPoints];
+//		double[] finish11 	= new double[nrPoints];
+//
+//		for (int profileIdx=0; profileIdx<profiles.get(0).size(); profileIdx++) {
+//
+//			int profileLength = profiles.get(0).get(0).length;
+//
+//			for (int k=0; k<nrPoints; k++) {
+//				start11[k] = ((float) k / nrPoints) * profileLength;
+//			}
+//
+//			Tools.runMS(start11,
+//						profiles.get(0).get(profileIdx),
+//						maxIter,
+//						epsilon,
+//						h,
+//						finish11);
+//
+//			for (int i1=0; i1<nrPoints; i1++) {
+//				convIdx.get(0).get(profileIdx)[i1] = (float) finish11[i1];
+//			}
+//
+//			Vector<float[]> cls = Tools.extractClusters(finish11, minD, M);
+//
+//			extractPeakIdx(cls, 0, profileIdx);
+//
+//		}
+//
+//
+//	}

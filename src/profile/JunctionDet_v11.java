@@ -343,10 +343,9 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 
     private double extractScore(int locIdx, boolean printVals) {
 
-        // Analyzer, Profiler
-        //IJ.log("extracting score, analyser has " + Analyzer.peakIdx.length + " points " + Analyzer.peakIdx[0][0].length);
-        //IJ.log("extracting score, profiler has " + Profiler.profiles.length + " locations with " + Profiler.profiles[0].length + " points");
         double score = 0;
+
+		// p1, p2, p3, w1, w2, w3 add them
 
         if (Analyzer.peakIdx[locIdx][0] != null) {
 
@@ -360,7 +359,7 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
                 domes[i] = (pH>pL)?(pH-pL):0;
             }
 
-            if (Tools.min3(domes)>D) {
+            if (Tools.min3(domes)>5) {  // th depends on the thickness
                 score = 255;
             }
 

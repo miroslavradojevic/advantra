@@ -584,6 +584,13 @@ public class Tools {
 
         }
 
+//		// wrap
+//		if (Math.abs(msConv[msConv.length-1]-msConv[0])<d) {
+//
+//			// join them together in a cluster
+//
+//		}
+
         Vector<float[]> clust = new Vector<float[]>();
         for (int k = 0; k < cluster_sizes.size(); k++) {
             if (cluster_sizes.get(k)>=M) {
@@ -1010,7 +1017,6 @@ public class Tools {
     {
         return idx = (idx<0)? idx+len : (idx>=len)? idx-len : idx ;
     }
-
 
 	// add 1d array wrapper for real indexes
 
