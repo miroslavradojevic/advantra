@@ -30,7 +30,7 @@ public class Masker extends Thread {
         this.endN = n1;
     }
 
-    public static void loadTemplate(ImageProcessor inip1, int nhood1, float th1)
+    public static void loadTemplate(ImageProcessor inip1, int nhood1, )  // float th1
     {
         /*
         set inip
