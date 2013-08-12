@@ -14,23 +14,26 @@ public class Masker extends Thread {
 
     private int begN, endN; // range of locations to work on
 
-    public static int 		image_width;
-    public static int 		image_height;
+    private static int 		image_width;
+    private static int 		image_height;
 
     public static FloatProcessor    inip;
-    public static FloatProcessor    back;
+    public static FloatProcessor    back;    // might be useful when hard deciding whether the point belongs to the background or not
     public static ByteProcessor     maskip;  // output
 
-    public static int   nhood;
-    public static float th;
+    private static int              nhood;
+    //public static float th;               // maybe use it
 
+    private static int              bgComputationMode;                  // background is lower than mean
+    private static boolean          localComputation;
+    private static float            currBckg;
 
-    public Masker (int n0, int n1) {
+    public Masker (int n0, int n1) { // complete range would be image_width*image_height
         this.begN = n0;
         this.endN = n1;
     }
 
-    public static void loadTemplate(ImageProcessor inip1, int nhood1, )  // float th1
+    public static void loadTemplate(ImageProcessor inip1, float nhood1, int bgComputationMode1, boolean localComputation1)  // float th1
     {
         /*
         set inip
@@ -52,67 +55,103 @@ public class Masker extends Thread {
 
         image_height 	= inip.getHeight();
         image_width 	= inip.getWidth();
-        nhood = nhood1;
-        th = th1;
+        nhood = (int) Math.ceil(nhood1);
+//        th = th1;
+        if (bgComputationMode1==0 || bgComputationMode1==1)
+            bgComputationMode = bgComputationMode1;  // 0-mean, 1-median
+        else
+            bgComputationMode = -1;
+
+        localComputation = localComputation1;
+
+        if (localComputation==false) {
+            if (bgComputationMode==0) {
+                // mean
+                currBckg = 0;
+                for (int i=0; i<image_width*image_height; i++) currBckg += inip.getf(i);
+                currBckg /= image_height*image_width;
+            }
+            else if (bgComputationMode==1) {
+                // median
+                float[] array = new float[image_width*image_height];
+                for (int i=0; i<array.length; i++) array[i] = inip.getf(i);
+                currBckg = (float) Tools.median_Wirth(array);
+            }
+            else currBckg = Float.NaN;
+        }
 
     }
 
     public void 	    run()
     {
-        // loop all locations in defined range
-        for (int locIdx=begN; locIdx<endN; locIdx++) {
 
-            int atX = locIdx%image_width;//Profiler.locations[locIdx][0];
-            int atY = locIdx/image_width;//Profiler.locations[locIdx][1];
+        if (localComputation==false) {
 
-            if (atX>nhood && atY>nhood && atX<inip.getWidth()-nhood && atY<inip.getHeight()-nhood) { // is in the image
+            // background is global mean/median
+            for (int locIdx=begN; locIdx<endN; locIdx++) {
+                int atX = locIdx%image_width;
+                int atY = locIdx/image_width;
+                back.setf(atX, atY, currBckg);
+                if (inip.getf(atX, atY)>currBckg) maskip.set(atX, atY, (byte)255);
+            }
 
+        }
+        else { // localComputation==true
 
-                /*
-                background using median
-                 */
+            if (bgComputationMode==0) {
 
-                float[] neigh = new float[(2*nhood+1)*(2*nhood+1)];
-                // fill the array in
-                int idx = 0;
-                for (int locX = atX-nhood; locX<=atX+nhood; locX++) {
-                    for (int locY = atY-nhood; locY<=atY+nhood; locY++) {
-                        neigh[idx] = inip.getf(locX, locY);
-                        idx++;
+                // local mean computation in nhood radius
+                for (int locIdx=begN; locIdx<endN; locIdx++) {
+                    int atX = locIdx%image_width;
+                    int atY = locIdx/image_width;
+
+                    if (atX>nhood && atY>nhood && atX<inip.getWidth()-nhood && atY<inip.getHeight()-nhood) { // is in the image
+
+                        //float[] neigh = new float[(2*nhood+1)*(2*nhood+1)];
+                        //int idx = 0;
+                        float b = 0;
+                        for (int locX = atX-nhood; locX<=atX+nhood; locX++) {
+                            for (int locY = atY-nhood; locY<=atY+nhood; locY++) {
+                                b += inip.getf(locX, locY);
+                                //idx++;
+                            }
+                        }
+                        // take the mean as a bkg estimate
+                        b = b / ((2*nhood+1)*(2*nhood+1));//float) Tools.median_Wirth(neigh);
+                        back.setf(atX, atY, b);
+                        if (inip.getf(atX, atY)>b) maskip.set(atX, atY, (byte)255);
+
                     }
+
                 }
-                // take the median as a bkg estimate
-                float currBkgr = (float) Tools.median_Wirth(neigh);
+
+            }
+            else if (bgComputationMode==1) {
+
+                // local median computation in nhood radius
+                for (int locIdx=begN; locIdx<endN; locIdx++) {
+                    int atX = locIdx%image_width;
+                    int atY = locIdx/image_width;
+
+                    if (atX>nhood && atY>nhood && atX<inip.getWidth()-nhood && atY<inip.getHeight()-nhood) { // is in the image
+
+                        float[] neigh = new float[(2*nhood+1)*(2*nhood+1)];
+                        int idx = 0;
+                        for (int locX = atX-nhood; locX<=atX+nhood; locX++) {
+                            for (int locY = atY-nhood; locY<=atY+nhood; locY++) {
+                                neigh[idx] = inip.getf(locX, locY);
+                                idx++;
+                            }
+                        }
+                        // take the median as a bkg estimate
+                        float b = (float) Tools.median_Wirth(neigh);
+                        back.setf(atX, atY, b);
+                        if (inip.getf(atX, atY)>b) maskip.set(atX, atY, (byte)255);
+
+                    }
 
 
 
-
-
-
-                back.setf(atX, atY, currBkgr);
-
-                //float currVal  = inip.getf(atX, atY);
-                // check the neighbours how they relate to backgraound value
-
-                boolean isForeground =
-                        //currVal-currBkgr>th ||
-
-//                        inip.getf(atX-1, atY-1)>currBkgr+th ||
-//                        inip.getf(atX-1, atY+0)>currBkgr+th ||
-//                        inip.getf(atX-1, atY+1)>currBkgr+th ||
-//
-//                                inip.getf(atX+0, atY-1)>currBkgr+th ||
-                                inip.getf(atX+0, atY+0)>currBkgr+th
-//                                ||
-//                                inip.getf(atX+0, atY+1)>currBkgr+th ||
-//
-//                                inip.getf(atX+1, atY-1)>currBkgr+th ||
-//                                inip.getf(atX+1, atY+0)>currBkgr+th ||
-//                                inip.getf(atX+1, atY+1)>currBkgr+th
-                        ;
-
-                if (isForeground) {
-                    maskip.set(atX, atY, (byte)255);
                 }
 
             }
@@ -120,6 +159,5 @@ public class Masker extends Thread {
         }
 
     }
-
 
 }

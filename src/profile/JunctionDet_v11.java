@@ -1,5 +1,6 @@
 package profile;
 
+import conn.Find_Connected_Regions;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.Prefs;
@@ -143,13 +144,13 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
         neuronDiamMax       =  Prefs.get("advantra.critpoint.neuronDiamMax", 3);
         scale               =  Prefs.get("advantra.critpoint.scale", 1.5);
         D                   =  Prefs.get("advantra.critpoint.D", 10);
-        CPU_NR              = (int) Prefs.get("advantra.critpoint.CPU_NR", 4);
+//        CPU_NR              = (int) Prefs.get("advantra.critpoint.CPU_NR", 4);
 
         GenericDialog gd = new GenericDialog("JUNCTION DET.");
         gd.addNumericField("neuronD ",  neuronDiamMax, 0, 10, " MAX");
         gd.addNumericField("scale ",  scale, 1, 10, " x(neuronD)");
         gd.addNumericField("D",         D, 1, 10, "score param.");
-        gd.addNumericField("CPU_NR ",   CPU_NR, 0, 10, "");
+//        gd.addNumericField("CPU_NR ",   CPU_NR, 0, 10, "");
 
         gd.showDialog();
         if (gd.wasCanceled()) return;
@@ -160,17 +161,19 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
         Prefs.set("advantra.critpoint.scale",   scale);
         D                   =  gd.getNextNumber();
         Prefs.set("advantra.critpoint.D",               D);
-        CPU_NR              =  (int) gd.getNextNumber();
-        Prefs.set("advantra.critpoint.CPU_NR", 	        CPU_NR);
+//        CPU_NR              =  (int) gd.getNextNumber();
+//        Prefs.set("advantra.critpoint.CPU_NR", 	        CPU_NR);
+
+        CPU_NR = Runtime.getRuntime().availableProcessors();
 
         /*
         ***********************************************************
          */
-        IJ.log("extracting background...");
+        IJ.log("extracting mask...");
         t1 = System.currentTimeMillis();
         int neighbourhoodR = (int) Math.ceil(4*neuronDiamMax);
-        Masker.loadTemplate(imp.getProcessor(), neighbourhoodR, (float) D);
-        totalJobs = Masker.image_height*Masker.image_width;
+        Masker.loadTemplate(imp.getProcessor(), neighbourhoodR, 0, true);
+        totalJobs = imp.getHeight()*imp.getWidth();
         Masker masker_jobs[] = new Masker[CPU_NR];
         for (int i = 0; i < masker_jobs.length; i++) {
             masker_jobs[i] = new Masker(i*totalJobs/CPU_NR,  (i+1)*totalJobs/CPU_NR);

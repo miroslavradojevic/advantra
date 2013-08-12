@@ -139,8 +139,8 @@ public class JunctionDet implements PlugInFilter, MouseListener {
         IJ.log("extracting background...");
         t1 = System.currentTimeMillis();
         int neighbourhoodR = (int) Math.ceil(4*neuronDiamMax);
-        Masker.loadTemplate(inimg.getProcessor(), neighbourhoodR, (float) D);
-        totalJobs = Masker.image_height*Masker.image_width;
+        Masker.loadTemplate(inimg.getProcessor(), neighbourhoodR, 0, true);
+        totalJobs = inimg.getHeight()*inimg.getWidth();
         Masker masker_jobs[] = new Masker[CPU_NR];
         for (int i = 0; i < masker_jobs.length; i++) {
             masker_jobs[i] = new Masker(i*totalJobs/CPU_NR,  (i+1)*totalJobs/CPU_NR);
