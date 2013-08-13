@@ -28,7 +28,7 @@ public class Masker extends Thread {
     private static boolean          localComputation;
     private static float            currBckg;
 
-	public static float VISIBLE_INTENSITY_DIFF = 3;
+	public static float VISIBLE_INTENSITY_DIFF = 5;
 	public static int VERY_SMALL_REGION_SIZE = 20;
 
     public Masker (int n0, int n1) { // complete range would be image_width*image_height

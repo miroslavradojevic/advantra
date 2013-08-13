@@ -5,6 +5,7 @@ import ij.ImagePlus;
 import ij.gui.*;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ByteProcessor;
+import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 
 import javax.swing.*;
@@ -311,7 +312,7 @@ public class DynamicProfileInspector implements PlugInFilter, ActionListener,
 		int offscreenX = canvas.offScreenX(e.getX());
 		int offscreenY = canvas.offScreenY(e.getY());
 
-		exProf = Profiler.extractProfile(offscreenX, offscreenY);
+		exProf = Profiler.extractProfile(D, s, offscreenX, offscreenY, (FloatProcessor) imp.getProcessor());
 
         Analyzer.extractPeakIdxs(exProf); // does mean-shift
 
@@ -424,7 +425,7 @@ public class DynamicProfileInspector implements PlugInFilter, ActionListener,
                         continue with scales
                       */
                     Profiler.loadParams(D, s+0.5, false);
-                    exProf = Profiler.extractProfile(offscreenX, offscreenY);
+                    exProf = Profiler.extractProfile(D, s, offscreenX, offscreenY, (FloatProcessor) imp.getProcessor());
 				    Analyzer.extractPeakIdxs(exProf);
 
                     if (Analyzer.peakIdx[0][0]!=null) {
@@ -465,7 +466,7 @@ public class DynamicProfileInspector implements PlugInFilter, ActionListener,
                          continue with scales
                           */
                         Profiler.loadParams(D, s+0.5+0.5, false);
-                        exProf = Profiler.extractProfile(offscreenX, offscreenY);
+                        exProf = Profiler.extractProfile(D, s, offscreenX, offscreenY, (FloatProcessor) imp.getProcessor());
                         Analyzer.extractPeakIdxs(exProf);
 
                         if (Analyzer.peakIdx[0][0]!=null) {

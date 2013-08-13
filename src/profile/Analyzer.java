@@ -86,82 +86,73 @@ public class Analyzer extends Thread  {
 
     }
 
-	public static void extractPeakIdxs(float[] profile1) // instead of ArrayList of ArrayLists of profiles
+	public static float[] extractPeakIdxs(float[] profile1)
 	{
 
-        /*
-        profiles
-         */
-		profiles = new ArrayList<ArrayList<float[]>>(1);
-		//for (int i=0; i<profiles1.length; i++) {
-		ArrayList<float[]> temp = new ArrayList<float[]>(1);
-		//for (int j=0; j<1; j++) {
-
-			float[] toAdd = new float[profile1.length];
-
-			for (int k=0; k<toAdd.length; k++ ) {
-				toAdd[k] = profile1[k];
-			}
-
-			temp.add(toAdd);
-
-		//}
-		profiles.add(temp);
-		//}
-
-		/*
-		peakIdx
-		 */
-		peakIdx = new float[1][1][]; // keeps three corresp indexes of profile values
-
-		/*
-		convIdx
-		 */
-		convIdx = new ArrayList<ArrayList<float[]>>(1); // this is where msFinish will be stored
-		//for (int i=0; i<profiles1.size(); i++) {
-		ArrayList<float[]> temp1 = new ArrayList<float[]>(1);
-		//for (int j=0; j<profiles1.length; j++) {
-
-			float[] toAdd1 = new float[nrPoints];
-			temp1.add(toAdd1);
-
-		//}
-		convIdx.add(temp1);
-		//}
-
-		// define arrays for start and finish specially for this method
-		double[] start11 	= new double[nrPoints];
+        double[] start11 	= new double[nrPoints];
 		double[] finish11 	= new double[nrPoints];
 
-		//for (int profileIdx=0; profileIdx<profiles.get(0).size(); profileIdx++) {
+	    int profileLength = profile1.length;
 
-			int profileLength = profiles.get(0).get(0).length;
+		for (int k=0; k<nrPoints; k++) {
+		    start11[k] = ((float) k / nrPoints) * profileLength;
+		}
 
-			for (int k=0; k<nrPoints; k++) {
-				start11[k] = ((float) k / nrPoints) * profileLength;
-			}
+		Tools.runMS(start11,
+				    profile1,
+					maxIter,
+					epsilon,
+					h,
+					finish11);
 
-        //IJ.log(""+nrPoints+" points covering "+profileLength+" values");
+	    Vector<float[]> cls = Tools.extractClusters(finish11, minD, M); // TODO: use extractClusters1() here
 
-			Tools.runMS(start11,
-						profiles.get(0).get(0),
-						maxIter,
-						epsilon,
-						h,
-						finish11);
+        if (cls.size()==0) return null;
 
-			for (int i1=0; i1<nrPoints; i1++) {
-				convIdx.get(0).get(0)[i1] = (float) finish11[i1];
-			}
+        else if (cls.size()==1) return new float[]{cls.get(0)[0]};
 
-			Vector<float[]> cls = Tools.extractClusters(finish11, minD, M);
+        else if (cls.size()==2) return new float[]{cls.get(0)[0], cls.get(1)[0]};
 
-			extractPeakIdx(cls, 0, 0);
+        else if (cls.size()==3) return new float[]{cls.get(0)[0], cls.get(1)[0], cls.get(2)[0]};
 
-		//}
+        else if (cls.size()==4) return new float[]{cls.get(0)[0], cls.get(1)[0], cls.get(2)[0], cls.get(3)[0]};
 
+        else return bestN(cls, 4);
 
 	}
+
+    private static float[] bestN(Vector<float[]> cls1, int N){
+
+        // cls1.size should be more or equal than N
+        boolean[] checked = new boolean[cls1.size()];
+        float[] out = new float[N];
+
+        for (int k = 0; k<N; k++) {
+            // reset max search
+            double  currMax = Double.MIN_VALUE;
+            int     currMaxIdx = -1;
+
+            for (int i=0; i<cls1.size(); i++) {
+
+                // find max in this round
+                if (!checked[i]) {
+                    if (cls1.get(i)[1]>currMax) {
+
+                        currMax = cls1.get(i)[1];
+                        currMaxIdx = i;
+
+                    }
+                }
+            }
+
+            checked[currMaxIdx] = true;
+            // set the output value
+            out[k] = cls1.get(currMaxIdx)[0];
+
+        }
+
+        return out;
+    }
 
     public void run(){ // considers begN and endN
 

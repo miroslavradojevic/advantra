@@ -736,10 +736,10 @@ public class Tools {
         return J;
     }
 
-    public static float wrap_180(float ang) // -180 + 180 wrapping
+    public static float wrap_180(float angDeg) // -180 + 180 wrapping
     {
 
-        float out = ang;
+        float out = angDeg;
 
         while (out<-180) {
             out += 360;
@@ -1007,7 +1007,67 @@ public class Tools {
         return idx = (idx<0)? idx+len : (idx>=len)? idx-len : idx ;
     }
 
-	// add 1d array wrapper for real indexes
+    public static int[] hungarianMappingAnglesDeg(float[] ref, float[] curr)
+    {
+
+        // match N dimentional arrays using Euclidean distance, output the mapping as array of correspondence indexes
+        boolean[][]     chkd = new boolean[ref.length][ref.length];
+        double[][]      dst2 = new double[ref.length][ref.length];
+
+        for (int i = 0; i < ref.length; i++) {
+            for (int j = 0; j < ref.length; j++) {
+                dst2[i][j] = Math.abs(Tools.wrap_180(curr[i] - ref[i]));
+            }
+        }
+
+        int[] mapping = new int[ref.length];
+
+        for (int check=0; check<ref.length; check++) {
+
+            double dst2Min = Double.MAX_VALUE;
+            int imin = -1;
+            int jmin = -1;
+
+            for (int i=0; i<ref.length; i++) {
+
+                for (int j=0; j<ref.length; j++) {
+                    if (!chkd[i][j] && dst2[i][j]<dst2Min) {
+                        dst2Min = dst2[i][j];
+                        imin = i;
+                        jmin = j;
+                    }
+                }
+
+            }
+
+            // row imin in chkd to true
+            for (int w=0; w<ref.length; w++) chkd[imin][w] = true;
+            // col jmin in chkd to true
+            for (int w=0; w<ref.length; w++) chkd[w][jmin] = true;
+
+            mapping[imin]=jmin;
+
+        }
+
+        return mapping;
+
+
+    }
+
+    public static void swap(float[] vals, int[] mapping)
+    {
+
+        float[] temp = new float[vals.length];
+
+        for (int t = 0; t < vals.length; t++) {
+            temp[mapping[t]] = vals[t];
+        }
+
+        for (int t =0; t < vals.length; t++) {
+            vals[t] = temp[t];
+        }
+
+    }
 
     public static int[] hungarian33(float[] refAng, float[] currAng)
     {

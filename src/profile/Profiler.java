@@ -220,24 +220,102 @@ public class Profiler extends Thread {
 
 	}
 
+    public static int getResolDeg(double scale1)
+    {
+        int resolDeg1 = (int) ( Math.round( ( 2*Math.atan(1f / (2 * scale1)) * (1f/8) / TwoPI) * 360 ) );
+        resolDeg1 = (resolDeg1>=1)? resolDeg1 : 1;
+        return resolDeg1;
+    }
+
     /*
     profile extractor per location coordinates (not index)
      */
-	public static float[] extractProfile(int atX, int atY) { // profile at one location
+	public static float[] extractProfile(double neuronDiam1, double scale1, int atX, int atY, FloatProcessor inip1)
+    { // profile at one location
 
-		float[] profileOut = new float[offsets.size()];
+        // form offsets & weights first (because it is static, to be independent)
+        // TODO make this a separate method because it appears twice within the class
+        // takes  neuronDiam1 and scale1 and outputs offsets1 and weights1
+
+        ArrayList<ArrayList<double[]>>  offsets1 = new ArrayList<ArrayList<double[]>>();
+        ArrayList<ArrayList<Double>>    weights1 = new ArrayList<ArrayList<Double>>();
+
+        int resolDeg1 = (int) ( Math.round( ( 2*Math.atan(1f / (2 * scale1)) * (1f/8) / TwoPI) * 360 ) );
+        resolDeg1 = (resolDeg1>=1)? resolDeg1 : 1;
+
+        double r1 = neuronDiam1 * scale1 - neuronDiam1;
+        double r2 = neuronDiam1 * scale1 + neuronDiam1;
+        double r0 = neuronDiam1 * scale1;
+
+        double[] n1 = new double[2];
+        double[] n2 = new double[2];
+        double[] n0 = new double[2];
+
+        // +/-limR, +/-limT (used to limit index)
+        int limR = (int) Math.ceil(0.75*neuronDiam1/samplingStep);
+        int limT = (int) Math.ceil(0.50*neuronDiam1/samplingStep);
+
+        for (int aDeg = 0; aDeg<360; aDeg+=resolDeg1) {
+
+            float aRad = ((float)aDeg/360)*TwoPI;
+
+            double sumWgt = 0;
+            ArrayList<double[]> offsetsAngleLoc = new ArrayList<double[]>();
+            ArrayList<Double> 	offsetsAngleWgt = new ArrayList<Double>();
+
+            n1[0] = r1 * (float) Math.cos(aRad);
+            n1[1] = r1 * (-1) * (float) Math.sin(aRad);
+
+            n2[0] = r2 * (float) Math.cos(aRad);
+            n2[1] = r2 * (-1) * (float) Math.sin(aRad);
+
+            n0[0] = r0 * (float) Math.cos(aRad);
+            n0[1] = r0 * (-1) * (float) Math.sin(aRad);
+
+            double dx = samplingStep*Math.sin(aRad);
+            double dy = samplingStep*Math.cos(aRad);
+
+            for (int i=-limR; i<=limR; i++) {
+
+                for (int j=-limT; j<=limT; j++) {
+
+                    double px = n0[0] + j * dx + i * (-dy);
+                    double py = n0[1] + j * dy + i * dx;
+
+                    double dst = point2line(n1[0], n1[1], n2[0], n2[1], px, py);
+                    offsetsAngleLoc.add(new double[]{px, py});
+                    double weight = Math.exp(-(dst*dst)/(2*(neuronDiam1/3)*(neuronDiam1/3)));
+                    offsetsAngleWgt.add(weight);
+                    sumWgt += weight;
+
+                }
+            }
+
+            // normalize
+            for (int k=0; k<offsetsAngleWgt.size(); k++) {
+                double newVal = offsetsAngleWgt.get(k) / sumWgt;
+                offsetsAngleWgt.set(k, newVal);
+            }
+
+            offsets1.add(offsetsAngleLoc);
+            weights1.add(offsetsAngleWgt);
+        }
+
+        // finished forming offsets1, weights1
+
+        float[] profileOut = new float[offsets1.size()];
 
 		// calculate profile
-		for (int offsetIdx = 0; offsetIdx < offsets.size(); offsetIdx++) {
+		for (int offsetIdx = 0; offsetIdx < offsets1.size(); offsetIdx++) {
 
 			profileOut[offsetIdx] = 0;
 
 			// calculate weighted response
-			for (int k=0; k<offsets.get(offsetIdx).size(); k++) {
-				profileOut[offsetIdx] += Interpolator.interpolateAt(atX+offsets.get(offsetIdx).get(k)[0],
-																	atY+offsets.get(offsetIdx).get(k)[1],
-																	inip
-				) * weights.get(offsetIdx).get(k);
+			for (int k=0; k<offsets1.get(offsetIdx).size(); k++) {
+				profileOut[offsetIdx] += Interpolator.interpolateAt(atX+offsets1.get(offsetIdx).get(k)[0],
+																	atY+offsets1.get(offsetIdx).get(k)[1],
+																	inip1
+				) * weights1.get(offsetIdx).get(k);
 			}
 
 			//profileOut[offsetIdx] /= offsets.get(offsetIdx).size();
