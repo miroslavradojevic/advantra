@@ -28,6 +28,9 @@ public class Masker extends Thread {
     private static boolean          localComputation;
     private static float            currBckg;
 
+	public static float VISIBLE_INTENSITY_DIFF = 3;
+	public static int VERY_SMALL_REGION_SIZE = 20;
+
     public Masker (int n0, int n1) { // complete range would be image_width*image_height
         this.begN = n0;
         this.endN = n1;
@@ -92,7 +95,18 @@ public class Masker extends Thread {
                 int atX = locIdx%image_width;
                 int atY = locIdx/image_width;
                 back.setf(atX, atY, currBckg);
-                if (inip.getf(atX, atY)>currBckg) maskip.set(atX, atY, (byte)255);
+
+				if (bgComputationMode==0) {
+					// mean
+					if (inip.getf(atX, atY) > currBckg + VISIBLE_INTENSITY_DIFF) maskip.set(atX, atY, (byte)255);
+				}
+				else if (bgComputationMode==1) {
+					// median
+					if (inip.getf(atX, atY) > currBckg) maskip.set(atX, atY, (byte)255);
+				}
+				else
+					maskip.set(atX, atY, (byte)0);
+
             }
 
         }
@@ -100,7 +114,7 @@ public class Masker extends Thread {
 
             if (bgComputationMode==0) {
 
-                // local mean computation in nhood radius
+                // local MEAN computation in nhood radius
                 for (int locIdx=begN; locIdx<endN; locIdx++) {
                     int atX = locIdx%image_width;
                     int atY = locIdx/image_width;
@@ -119,7 +133,7 @@ public class Masker extends Thread {
                         // take the mean as a bkg estimate
                         b = b / ((2*nhood+1)*(2*nhood+1));//float) Tools.median_Wirth(neigh);
                         back.setf(atX, atY, b);
-                        if (inip.getf(atX, atY)>b) maskip.set(atX, atY, (byte)255);
+                        if (inip.getf(atX, atY) > b + VISIBLE_INTENSITY_DIFF) maskip.set(atX, atY, (byte)255);
 
                     }
 
@@ -128,7 +142,7 @@ public class Masker extends Thread {
             }
             else if (bgComputationMode==1) {
 
-                // local median computation in nhood radius
+                // local MEDIAN computation in nhood radius
                 for (int locIdx=begN; locIdx<endN; locIdx++) {
                     int atX = locIdx%image_width;
                     int atY = locIdx/image_width;

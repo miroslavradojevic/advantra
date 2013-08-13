@@ -40,9 +40,6 @@ public class MaskerDemo implements PlugInFilter {
 
     long t1, t2;
 
-    private static int VERY_SMALL_REGION_SIZE = 25;
-    private static float VISIBLE_INTENSITY_DIFF = 5;
-
     public int setup(String s, ImagePlus imagePlus) {
         if(imagePlus==null) return DONE;
         inimg = Tools.convertToFloatImage(imagePlus);
@@ -60,6 +57,7 @@ public class MaskerDemo implements PlugInFilter {
         bgExtractionMode        =           Prefs.get("advantra.critpoint.mask.bgExtractionMode", "MEAN");
         bgLocal                 =           Prefs.get("advantra.critpoint.mask.bgLocal", true);
 
+
         GenericDialog gd = new GenericDialog("MASK EXTRACTOR");
         gd.addNumericField("radius ", nhoodRadius, 0, 10, "spatial neighbourhood");
         gd.addChoice("background extraction", new String[]{"MEAN", "MEDIAN"}, bgExtractionMode);
@@ -75,12 +73,14 @@ public class MaskerDemo implements PlugInFilter {
         bgLocal       =  gd.getNextBoolean();
         Prefs.set("advantra.critpoint.mask.bgLocal", 	        bgLocal);
 
+		CPU_NR = Runtime.getRuntime().availableProcessors();
+
         /*
         main
          */
 
         IJ.log("extracting background...    "+bgExtractionMode+", local? "+bgLocal);
-        CPU_NR = Runtime.getRuntime().availableProcessors();
+
         t1 = System.currentTimeMillis();
 
         if (bgExtractionMode=="MEAN") {
@@ -122,85 +122,70 @@ public class MaskerDemo implements PlugInFilter {
         gd1.addMessage("PRUNE REGIONS?");
 
         gd1.showDialog();
-        if (gd1.wasCanceled()) {
-            IJ.selectWindow(inimgTitle);
-            IJ.run("Add Image...", "image=inmask x="+0+" y="+0+" opacity=40");
-            IJ.selectWindow(inimgTitle);
-            IJ.setTool("hand");
-            incanvas.zoomIn(0, 0);
-//            return;
-        }
-        else {
-            // get connected regions
+        if (!gd1.wasCanceled()) {
 
-            t1 = System.currentTimeMillis();
-            IJ.log("conn. regions...");
-            Find_Connected_Regions conn_reg = new Find_Connected_Regions(inmask, true);
-            conn_reg.run("");
-            t2 = System.currentTimeMillis();
+			// get connected regions
+			t1 = System.currentTimeMillis();
+			IJ.log("conn. regions...");
+			Find_Connected_Regions conn_reg = new Find_Connected_Regions(inmask, true);
+			conn_reg.run("");
+			t2 = System.currentTimeMillis();
 
-            int nr_regions = conn_reg.getNrConnectedRegions();
+			int nr_regions = conn_reg.getNrConnectedRegions();
 
-            IJ.log("\n"+nr_regions+" connected regions extracted.\n" +
-                    "elapsed: "+((t2-t1)/1000f)+ " seconds.");
+			IJ.log("\n"+nr_regions+" connected regions extracted.\n" +
+						   "elapsed: "+((t2-t1)/1000f)+ " seconds.");
 
-            ArrayList<ArrayList<int[]>> regs = conn_reg.getConnectedRegions();
+			ArrayList<ArrayList<int[]>> regs = conn_reg.getConnectedRegions();
 
-//            Overlay ov = new Overlay();
+			IJ.log("pruning...");
 
-            IJ.log("prunning...");
+			for (int i=0; i<regs.size(); i++) {
 
-            for (int i=0; i<regs.size(); i++) {
+				if (regs.get(i).size()>Masker.VERY_SMALL_REGION_SIZE) {
 
-                if (regs.get(i).size()>VERY_SMALL_REGION_SIZE) {
+					float regAvg = 0;
+					float bkgAvg = 0;
+					for (int w=0; w<regs.get(i).size(); w++) {
+						int takeValX = regs.get(i).get(w)[1];
+						int takeValY = regs.get(i).get(w)[0];
+						regAvg += inimg.getProcessor().getf(takeValX, takeValY);
+						bkgAvg += Masker.back.getf(takeValX, takeValY);
+					}
+					regAvg /= regs.get(i).size();
+					bkgAvg /= regs.get(i).size();
 
-                    float regAvg = 0;
-                    float bkgAvg = 0;
-                    //float regMax = Float.MIN_VALUE;
-                    //float centroidX = 0;
-                    //float centroidY = 0;
-                    for (int w=0; w<regs.get(i).size(); w++) {
-                        int takeValX = regs.get(i).get(w)[1];
-                        int takeValY = regs.get(i).get(w)[0];
-                        regAvg += inimg.getProcessor().getf(takeValX, takeValY);
-                        bkgAvg += Masker.back.getf(takeValX, takeValY);
-                        //if (inimg.getProcessor().getf(takeValX, takeValY)>regMax) regMax = inimg.getProcessor().getf(takeValX, takeValY);
-                        //centroidX += takeValX;
-                        //centroidY += takeValY;
-                    }
-                    regAvg /= regs.get(i).size();
-                    bkgAvg /= regs.get(i).size();
-                    //centroidX /= regs.get(i).size();
-                    //centroidY /= regs.get(i).size();
+					if (regAvg < bkgAvg + Masker.VISIBLE_INTENSITY_DIFF ) { // Masker.back.getf((int)centroidX, (int)centroidY)
+						for (int q=0; q<regs.get(i).size(); q++) {
+							int removeX = regs.get(i).get(q)[1];
+							int removeY = regs.get(i).get(q)[0];
+							inmask.getProcessor().set(removeX, removeY, 0);
+						}
+					}
+//                    else {
+//                        //IJ.log("KEPT: region average: "+regAvg+", size "+regs.get(i).size());
+//                    }
+				}
+				else {  // prune small regions
+					for (int q=0; q<regs.get(i).size(); q++) {
+						int removeX = regs.get(i).get(q)[1];
+						int removeY = regs.get(i).get(q)[0];
+						inmask.getProcessor().set(removeX, removeY, 0);
+					}
+				}
 
-                    if (Math.abs( regAvg - bkgAvg ) < VISIBLE_INTENSITY_DIFF ) { // Masker.back.getf((int)centroidX, (int)centroidY)
-                        for (int q=0; q<regs.get(i).size(); q++) {
-                            int removeX = regs.get(i).get(q)[1];
-                            int removeY = regs.get(i).get(q)[0];
-                            inmask.getProcessor().set(removeX, removeY, 0);
-                        }
-                    }
-                    else {
-                        IJ.log("KEPT: region average: "+regAvg+", size "+regs.get(i).size());
-                    }
-                }
-                else {  // prune small regions
-                    for (int q=0; q<regs.get(i).size(); q++) {
-                        int removeX = regs.get(i).get(q)[1];
-                        int removeY = regs.get(i).get(q)[0];
-                        inmask.getProcessor().set(removeX, removeY, 0);
-                    }
-                }
-
-            }
-
-            IJ.log("done.");
-
-            inmask.updateAndDraw();
-
-//            imageLabels.setOverlay(ov);
+			}
 
         }
+
+		IJ.log("done.");
+
+		inmask.updateAndDraw();
+		IJ.selectWindow(inimgTitle);
+		IJ.run("Add Image...", "image=inmask x="+0+" y="+0+" opacity=40");
+		IJ.selectWindow(inimgTitle);
+		IJ.setTool("hand");
+		incanvas.zoomIn(0, 0);
 
         // check amount of extracted locations
         nr = 0;
@@ -208,12 +193,6 @@ public class MaskerDemo implements PlugInFilter {
         IJ.log("extracted "+nr+" out of "+totalProfiles+"  ("+IJ.d2s(nr*100f/totalProfiles, 2)+"%)");
 
 //        inmask.close();
-
-
-
-        //incanvas.zoomIn(0, 0);
-
-
 
     }
 }

@@ -25,10 +25,12 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 
     ImagePlus imp;
     ImageCanvas canvas;
+	String inimgTitle;
     double scale;               // only one scale now
     double neuronDiamMax, D;
     ArrayList<ArrayList<float[]>>   profiles;
-    PlotWindow pw;
+    PlotWindow pwP;
+	PlotWindow pwI;
 
     // some variables
     float[] exProf;
@@ -39,28 +41,331 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
     float[] yCSupper;
 
     int CPU_NR;
+	String bgExtractionMode;
+
+	public int setup(String s, ImagePlus imagePlus) {
+		if(imagePlus==null) return DONE;
+		imp = Tools.convertToFloatImage(imagePlus);
+		imp.setTitle("inimg");
+		canvas = imagePlus.getCanvas();
+		inimgTitle = imagePlus.getTitle();
+		return DOES_8G+DOES_32+NO_CHANGES;
+	}
+
+	public void run(ImageProcessor imageProcessor) {
+
+		int totalJobs; // used in paralelization lines
+		long t1, t2;
+		scale = 2.0;
+
+		neuronDiamMax       =  Prefs.get("advantra.critpoint.neuronDiamMax", 3);
+		scale               =  Prefs.get("advantra.critpoint.scale", 1.5);
+		bgExtractionMode        =           Prefs.get("advantra.critpoint.mask.bgExtractionMode", "MEAN");
+		D                   =  Prefs.get("advantra.critpoint.D", 10);
+//        CPU_NR              = (int) Prefs.get("advantra.critpoint.CPU_NR", 4);
+
+		GenericDialog gd = new GenericDialog("JUNCTION DET.");
+		gd.addNumericField("neuronD ",  neuronDiamMax, 0, 10, " MAX");
+		gd.addNumericField("scale ",  scale, 1, 10, " x(neuronD)");
+		gd.addChoice("background extraction", new String[]{"MEAN", "MEDIAN"}, bgExtractionMode);
+		gd.addNumericField("D",         D, 1, 10, "score param.");
+//        gd.addNumericField("CPU_NR ",   CPU_NR, 0, 10, "");
+
+		gd.showDialog();
+		if (gd.wasCanceled()) return;
+
+		neuronDiamMax       =  gd.getNextNumber();
+		Prefs.set("advantra.critpoint.neuronDiamMax",   neuronDiamMax);
+
+		scale               = gd.getNextNumber();
+		Prefs.set("advantra.critpoint.scale",   scale);
+
+		bgExtractionMode      = gd.getNextChoice();
+		Prefs.set("advantra.critpoint.mask.bgExtractionMode",   bgExtractionMode);
+
+		D                   =  gd.getNextNumber();
+		Prefs.set("advantra.critpoint.D",               D);
+
+//        CPU_NR              =  (int) gd.getNextNumber();
+//        Prefs.set("advantra.critpoint.CPU_NR", 	        CPU_NR);
+
+		CPU_NR = Runtime.getRuntime().availableProcessors();
+
+        /*
+        ***********************************************************
+         */
+		IJ.log("excluding background...");
+
+		t1 = System.currentTimeMillis();
+
+		int neighbourhoodR = (int) Math.ceil(scale*neuronDiamMax);
+
+		if (bgExtractionMode=="MEAN") {
+			Masker.loadTemplate(imp.getProcessor(), neighbourhoodR, 0, true);
+		}
+		else if (bgExtractionMode=="MEDIAN") {
+			Masker.loadTemplate(imp.getProcessor(), neighbourhoodR, 1, true);
+		}
+		else {
+			IJ.log("extraction mode was wrong");
+			return;
+		}
+
+
+		totalJobs = imp.getHeight()*imp.getWidth();
+		Masker masker_jobs[] = new Masker[CPU_NR];
+		for (int i = 0; i < masker_jobs.length; i++) {
+			masker_jobs[i] = new Masker(i*totalJobs/CPU_NR,  (i+1)*totalJobs/CPU_NR);
+			masker_jobs[i].start();
+		}
+		for (int i = 0; i < masker_jobs.length; i++) {
+			try {
+				masker_jobs[i].join();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+		t2 = System.currentTimeMillis();
+		IJ.log("done "+((t2-t1)/1000f)+" sec.");
+
+		ImagePlus inmask = new ImagePlus("inmask", Masker.maskip);
+		inmask.show();
+
+		int nr = 0;
+		for (int i=0; i<totalJobs; i++) if (Masker.maskip.getf(i)==255) nr++;
+
+		IJ.log("done. total "+nr+" check locations given by mask ("+(100*(float)nr/(totalJobs))+" % kept)");
+
+		/*
+        ***********************************************************
+         */
+
+		GenericDialog gd1 = new GenericDialog("PRUNE REGIONS?");
+		//gd1.addMessage("extracted "+nr+" out of "+totalProfiles+"  ("+IJ.d2s(nr*100f/totalProfiles, 2)+"%)");
+		gd1.addMessage("PRUNE REGIONS?");
+
+		gd1.showDialog();
+		if (!gd1.wasCanceled()) {
+			IJ.log("pruning...");
+
+			/*
+			***********************************
+			 */
+
+
+			// get connected regions
+			t1 = System.currentTimeMillis();
+			IJ.log("conn. regions...");
+			Find_Connected_Regions conn_reg = new Find_Connected_Regions(inmask, true);
+			conn_reg.run("");
+			t2 = System.currentTimeMillis();
+
+			int nr_regions = conn_reg.getNrConnectedRegions();
+
+			IJ.log("\n"+nr_regions+" connected regions extracted.\n" +
+						   "elapsed: "+((t2-t1)/1000f)+ " seconds.");
+
+			ArrayList<ArrayList<int[]>> regs = conn_reg.getConnectedRegions();
+
+			IJ.log("pruning..."); // TODO: mask pruning inside Masker class, here call method
+
+			for (int i=0; i<regs.size(); i++) {
+
+				if (regs.get(i).size()>Masker.VERY_SMALL_REGION_SIZE) {
+
+					float regAvg = 0;
+					float bkgAvg = 0;
+					for (int w=0; w<regs.get(i).size(); w++) {
+						int takeValX = regs.get(i).get(w)[1];
+						int takeValY = regs.get(i).get(w)[0];
+						regAvg += imp.getProcessor().getf(takeValX, takeValY);
+						bkgAvg += Masker.back.getf(takeValX, takeValY);
+					}
+					regAvg /= regs.get(i).size();
+					bkgAvg /= regs.get(i).size();
+
+					if (regAvg < bkgAvg + Masker.VISIBLE_INTENSITY_DIFF ) {
+						for (int q=0; q<regs.get(i).size(); q++) {
+							int removeX = regs.get(i).get(q)[1];
+							int removeY = regs.get(i).get(q)[0];
+							inmask.getProcessor().set(removeX, removeY, 0);
+						}
+					}
+				}
+				else {  // prune very small regions
+					for (int q=0; q<regs.get(i).size(); q++) {
+						int removeX = regs.get(i).get(q)[1];
+						int removeY = regs.get(i).get(q)[0];
+						inmask.getProcessor().set(removeX, removeY, 0);
+					}
+				}
+
+			}
+
+
+			/*
+			***********************************
+			 */
+
+
+			IJ.log("done.");
+		}
+
+		inmask.updateAndDraw();
+		IJ.selectWindow(inimgTitle);
+		IJ.run("Add Image...", "image=inmask x="+0+" y="+0+" opacity=40");
+		IJ.selectWindow(inimgTitle);
+		IJ.setTool("hand");
+		canvas.zoomIn(0, 0);
+
+		// check amount of extracted locations
+		nr = 0;
+		for (int i=0; i<totalJobs; i++) if (Masker.maskip.getf(i)==255) nr++;
+		IJ.log("extracted "+nr+" out of "+totalJobs+"  ("+IJ.d2s(nr*100f/totalJobs, 2)+"%)");
+
+        /*
+        ***********************************************************
+         */
+
+		Profiler.loadTemplate(imp.getProcessor(), Masker.maskip);
+		int totalLocations = Profiler.locations.length;
+		profiles     	= new ArrayList<ArrayList<float[]>>(totalLocations);
+
+		IJ.log("calculating profiles... ");
+		t1 = System.currentTimeMillis();
+//        double R = neuronDiamMax*scale;
+		Profiler.loadParams(neuronDiamMax, scale, true);
+
+		totalJobs = Profiler.offsets.size();
+		Profiler profiler_jobs[] = new Profiler[CPU_NR];
+
+		for (int i = 0; i < profiler_jobs.length; i++) {
+			profiler_jobs[i] = new Profiler(i*totalJobs/CPU_NR,  (i+1)*totalJobs/CPU_NR);
+			profiler_jobs[i].start();
+		}
+
+		for (int i = 0; i < profiler_jobs.length; i++) {
+			try {
+				profiler_jobs[i].join();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+
+		updateProfilesList();
+
+		t2 = System.currentTimeMillis();
+		IJ.log("done "+((t2-t1)/1000f)+" sec.");
+
+        /*
+        ***********************************************************
+         */
+
+		IJ.log("calculating peaks for selected locations... "+CPU_NR);
+		t1 = System.currentTimeMillis();
+
+		Analyzer.loadProfiles(profiles);
+		totalJobs = Analyzer.profiles.size();
+		Analyzer analyzer_jobs[] = new Analyzer[CPU_NR];
+		for (int i = 0; i < analyzer_jobs.length; i++) {
+			analyzer_jobs[i] = new Analyzer(i*totalJobs/CPU_NR,  (i+1)*totalJobs/CPU_NR);
+			analyzer_jobs[i].start();
+		}
+		for (int i = 0; i < analyzer_jobs.length; i++) {
+			try {
+				analyzer_jobs[i].join();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+
+		t2 = System.currentTimeMillis();
+		IJ.log("done extracting peaks "+((t2-t1)/1000f)+" sec.");
+
+		// loop once again and extract scores
+
+		ByteProcessor scoreimg = new ByteProcessor(imp.getWidth(), imp.getHeight());
+
+		for (int locIdx=0; locIdx<totalLocations; locIdx++) {
+
+			double score = 0;
+
+			if (Analyzer.peakIdx[locIdx][0] != null) {
+
+				//score =  extractScore(locIdx, false);
+
+			}
+
+
+
+			scoreimg.set(Profiler.locations[locIdx][0], Profiler.locations[locIdx][1], ((int) score));
+
+		}
+
+		//ImagePlus scoreImagePlus = new ImagePlus("score", scoreimg);
+		//scoreImagePlus.show();
+		IJ.selectWindow(inimgTitle);
+
+
+        /*
+        -----------------------------------------------
+         */
+
+
+/*		t1 = System.currentTimeMillis();
+		Find_Connected_Regions conn_reg = new Find_Connected_Regions(scoreImagePlus, true);
+		conn_reg.run("");
+		t2 = System.currentTimeMillis();
+		int nr_regions = conn_reg.getNrConnectedRegions();
+
+		IJ.log(nr_regions+" connected regions extracted.\n" +
+					   "elapsed: "+((t2-t1)/1000f)+ " seconds.");
+
+		//ImagePlus imageLabels = conn_reg.showLabels();
+		//imageLabels.show();*/
+
+
+
+        /*
+        -----------------------------------------------
+         */
+
+		//canvas.setOverlay(formOverlay(conn_reg.getConnectedRegions()));
+		canvas.addMouseListener(this);
+		canvas.addMouseMotionListener(this);
+		canvas.addKeyListener(this);
+	}
 
     public void mouseClicked(MouseEvent e) {
+
+		// on mouse click extract locations, plot profile, intensities along profile and overlay points
+
+
 
         int offscreenX = canvas.offScreenX(e.getX());
         int offscreenY = canvas.offScreenY(e.getY());
 
-        exProf = Profiler.extractProfile(offscreenX, offscreenY);
-        Analyzer.extractPeakIdxs(exProf);
+		Overlay currOvl = canvas.getOverlay();
+		currOvl.add(new PointRoi(offscreenX+.5, offscreenY+.5));
+		canvas.setOverlay(currOvl);
+
 
         // Fill in X axis (frame number)
         float[] x = new float[exProf.length];
         for (int i = 1; i <= x.length; i++) x[i - 1] = (i-1)*Profiler.resolDeg;
 
-        // Prepare plot window
+		exProf = Profiler.extractProfile(offscreenX, offscreenY);
+		Analyzer.extractPeakIdxs(exProf);
+
+		// Prepare plot window
         Plot chart = new Plot("", "", "", x, exProf);
         chart.setSize(900, 450);
 
-        if (pw == null) {
-            pw = chart.show();
+        if (pwP == null) {
+            pwP = chart.show();
             //pw.addWindowListener(this);
         } else
-            pw.setTitle("Profile, x = " + offscreenX + ", y = " + offscreenY);
+            pwP.setTitle("Profile, x = " + offscreenX + ", y = " + offscreenY);
 
         // Add the points for prettier plots
         chart.addPoints(x, exProf, PlotWindow.CIRCLE);
@@ -102,197 +407,9 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 
         }
 
-        pw.drawPlot(chart);
-        pw.setTitle("Profile, x = " + offscreenX + ", y = " + offscreenY + " : domes -> " +domes);
+        pwP.drawPlot(chart);
+        pwP.setTitle("Profile, x = " + offscreenX + ", y = " + offscreenY + " : domes -> " +domes);
 
-    }
-
-    @Override
-    public void mousePressed(MouseEvent e) {
-        //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public void mouseReleased(MouseEvent e) {
-        //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public void mouseEntered(MouseEvent e) {
-        //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public void mouseExited(MouseEvent e) {
-        //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    public int setup(String s, ImagePlus imagePlus) {
-        if(imagePlus==null) return DONE;
-        imp = Tools.convertToFloatImage(imagePlus);
-        imp.setTitle("inimg");
-        canvas = imagePlus.getCanvas();
-        return DOES_8G+DOES_32+NO_CHANGES;
-    }
-
-    public void run(ImageProcessor imageProcessor) {
-
-        int totalJobs; // used in paralelization lines
-        long t1, t2;
-        scale = 2.0;
-
-        neuronDiamMax       =  Prefs.get("advantra.critpoint.neuronDiamMax", 3);
-        scale               =  Prefs.get("advantra.critpoint.scale", 1.5);
-        D                   =  Prefs.get("advantra.critpoint.D", 10);
-//        CPU_NR              = (int) Prefs.get("advantra.critpoint.CPU_NR", 4);
-
-        GenericDialog gd = new GenericDialog("JUNCTION DET.");
-        gd.addNumericField("neuronD ",  neuronDiamMax, 0, 10, " MAX");
-        gd.addNumericField("scale ",  scale, 1, 10, " x(neuronD)");
-        gd.addNumericField("D",         D, 1, 10, "score param.");
-//        gd.addNumericField("CPU_NR ",   CPU_NR, 0, 10, "");
-
-        gd.showDialog();
-        if (gd.wasCanceled()) return;
-
-        neuronDiamMax       =  gd.getNextNumber();
-        Prefs.set("advantra.critpoint.neuronDiamMax",   neuronDiamMax);
-        scale               = gd.getNextNumber();
-        Prefs.set("advantra.critpoint.scale",   scale);
-        D                   =  gd.getNextNumber();
-        Prefs.set("advantra.critpoint.D",               D);
-//        CPU_NR              =  (int) gd.getNextNumber();
-//        Prefs.set("advantra.critpoint.CPU_NR", 	        CPU_NR);
-
-        CPU_NR = Runtime.getRuntime().availableProcessors();
-
-        /*
-        ***********************************************************
-         */
-        IJ.log("extracting mask...");
-        t1 = System.currentTimeMillis();
-        int neighbourhoodR = (int) Math.ceil(4*neuronDiamMax);
-        Masker.loadTemplate(imp.getProcessor(), neighbourhoodR, 0, true);
-        totalJobs = imp.getHeight()*imp.getWidth();
-        Masker masker_jobs[] = new Masker[CPU_NR];
-        for (int i = 0; i < masker_jobs.length; i++) {
-            masker_jobs[i] = new Masker(i*totalJobs/CPU_NR,  (i+1)*totalJobs/CPU_NR);
-            masker_jobs[i].start();
-        }
-        for (int i = 0; i < masker_jobs.length; i++) {
-            try {
-                masker_jobs[i].join();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-        t2 = System.currentTimeMillis();
-        IJ.log("done "+((t2-t1)/1000f)+" sec.");
-
-        //scoreimg = new ByteProcessor(imp.getWidth(), imp.getHeight());
-        Profiler.loadTemplate(imp.getProcessor(), Masker.maskip);
-        // can see the locations now
-        int totalLocations = Profiler.locations.length;
-
-        IJ.log("total "+totalLocations+" locations given by mask ("+(100*(float)totalLocations/(imp.getWidth()*imp.getHeight()))+" % kept)");
-
-        profiles     	= new ArrayList<ArrayList<float[]>>(totalLocations);
-
-        /*
-        ***********************************************************
-         */
-
-        IJ.log("calculating profiles... ");
-        t1 = System.currentTimeMillis();
-//        double R = neuronDiamMax*scale;
-        Profiler.loadParams(neuronDiamMax, scale, false);
-
-        totalJobs = Profiler.offsets.size();
-        Profiler profiler_jobs[] = new Profiler[CPU_NR];
-
-        for (int i = 0; i < profiler_jobs.length; i++) {
-            profiler_jobs[i] = new Profiler(i*totalJobs/CPU_NR,  (i+1)*totalJobs/CPU_NR);
-            profiler_jobs[i].start();
-        }
-
-        for (int i = 0; i < profiler_jobs.length; i++) {
-            try {
-                profiler_jobs[i].join();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-
-        updateProfilesList();
-
-        t2 = System.currentTimeMillis();
-        IJ.log("done "+((t2-t1)/1000f)+" sec.");
-
-        /*
-        ***********************************************************
-         */
-
-        IJ.log("calculating peaks for selected locations... ");
-        t1 = System.currentTimeMillis();
-
-        Analyzer.loadProfiles(profiles);
-        totalJobs = Analyzer.profiles.size();
-        Analyzer analyzer_jobs[] = new Analyzer[CPU_NR];
-        for (int i = 0; i < analyzer_jobs.length; i++) {
-            analyzer_jobs[i] = new Analyzer(i*totalJobs/CPU_NR,  (i+1)*totalJobs/CPU_NR);
-            analyzer_jobs[i].start();
-        }
-        for (int i = 0; i < analyzer_jobs.length; i++) {
-            try {
-                analyzer_jobs[i].join();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-
-        t2 = System.currentTimeMillis();
-        IJ.log("done extracting peaks "+((t2-t1)/1000f)+" sec.");
-
-        // loop once again and extract scores
-
-        ByteProcessor scoreimg = new ByteProcessor(imp.getWidth(), imp.getHeight());
-
-        for (int locIdx=0; locIdx<totalLocations; locIdx++) {
-
-            double score =  extractScore(locIdx, false);
-
-            scoreimg.set(Profiler.locations[locIdx][0], Profiler.locations[locIdx][1], ((int) score));
-
-        }
-
-        ImagePlus scoreImagePlus = new ImagePlus("score", scoreimg);
-        scoreImagePlus.show();
-        if(true) return;
-
-        /*
-        -----------------------------------------------
-         */
-
-        t1 = System.currentTimeMillis();
-        Find_Connected_Regions conn_reg = new Find_Connected_Regions(scoreImagePlus, true);
-        conn_reg.run("");
-        t2 = System.currentTimeMillis();
-        int nr_regions = conn_reg.getNrConnectedRegions();
-
-        IJ.log(nr_regions+" connected regions extracted.\n" +
-                "elapsed: "+((t2-t1)/1000f)+ " seconds.");
-
-        ImagePlus imageLabels = conn_reg.showLabels();
-        imageLabels.show();
-
-        /*
-        -----------------------------------------------
-         */
-
-        canvas.setOverlay(formOverlay(conn_reg.getConnectedRegions()));
-        canvas.addMouseListener(this);
-        canvas.addMouseMotionListener(this);
-        canvas.addKeyListener(this);
     }
 
     private Overlay formOverlay(ArrayList<ArrayList<int[]>> regs)
@@ -349,7 +466,9 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 
         double score = 0;
 
-        if (Analyzer.peakIdx[locIdx][0] != null) {
+//		Analyzer.peakIdx[locIdx]
+
+        //if (Analyzer.peakIdx[locIdx][0] != null) {
 
             float[] domes = new float[3];
             int[] roundedPks = new int[]{Math.round(Analyzer.peakIdx[locIdx][0][0]), Math.round(Analyzer.peakIdx[locIdx][0][1]), Math.round(Analyzer.peakIdx[locIdx][0][2])};
@@ -386,7 +505,7 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
             */
 
 
-        }
+        //}
 
         return score;
 
@@ -419,7 +538,7 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 
         if (e.getKeyCode() == KeyEvent.VK_U) {
 
-            if (pw!=null) {
+            if (pwP!=null) {
 
                 // export to csv
                 String profileFile = "profile.csv", msFile = "ms.csv", csFile = "cs.csv";
@@ -470,14 +589,12 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
     }
 
     @Override
-    public void keyReleased(KeyEvent e) {
-        //To change body of implemented methods use File | Settings | File Templates.
-    }
-    public void mouseDragged(MouseEvent e) {
-        //To change body of implemented methods use File | Settings | File Templates.
-    }
-    public void keyTyped(KeyEvent e) {
-        //To change body of implemented methods use File | Settings | File Templates.
-    }
+    public void keyReleased(KeyEvent e) {}
+    public void mouseDragged(MouseEvent e) {}
+    public void keyTyped(KeyEvent e) {}
+	public void mousePressed(MouseEvent e) {}
+	public void mouseReleased(MouseEvent e) {}
+	public void mouseEntered(MouseEvent e) {}
+	public void mouseExited(MouseEvent e) {}
 
 }

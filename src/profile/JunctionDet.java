@@ -1,5 +1,6 @@
 package profile;
 
+import conn.Find_Connected_Regions;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;

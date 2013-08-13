@@ -5,6 +5,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 
+import conn.Find_Connected_Regions;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.GenericDialog;

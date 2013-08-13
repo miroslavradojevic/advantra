@@ -115,8 +115,8 @@ public class Profiler extends Thread {
 		weights = new ArrayList<ArrayList<Double>>();
 
 		// +/-limR, +/-limT (used to limit index)
-		int limR = (int) Math.ceil(neuronDiam/samplingStep);
-		int limT = (int) Math.ceil(0.5*neuronDiam/samplingStep);
+		int limR = (int) Math.ceil(0.75*neuronDiam/samplingStep);
+		int limT = (int) Math.ceil(0.50*neuronDiam/samplingStep);
 
 		/* 	these will be used to visualize the sampling and the shape of the profiles
 			if showSampling was set to true
@@ -205,9 +205,11 @@ public class Profiler extends Thread {
 			ImagePlus sampling = new ImagePlus("sampling_scheme", stackSampling);
 			sampling.setOverlay(ov);
 			sampling.show();
+			sampling.getCanvas().zoomIn(0,0);
 
 			ImagePlus prof = new ImagePlus("filter_profiles", stackProfile);
 			prof.show();
+			prof.getCanvas().zoomIn(0,0);
 
 		}
 
