@@ -1007,30 +1007,77 @@ public class Tools {
         return idx = (idx<0)? idx+len : (idx>=len)? idx-len : idx ;
     }
 
-    public static int[] hungarianMappingAnglesDeg(float[] ref, float[] curr)
+//    public static int[] hungarianMappingAnglesDeg(float[] ref, float[] curr)  // need to be equal size
+//    {
+//
+//        // match N dimentional arrays using Euclidean distance, output the mapping as array of correspondence indexes
+//        boolean[][]     chkd = new boolean[ref.length][ref.length];
+//        double[][]      dst2 = new double[ref.length][ref.length];
+//
+//        for (int i = 0; i < ref.length; i++) {
+//            for (int j = 0; j < ref.length; j++) {
+//                dst2[i][j] = Math.abs(Tools.wrap_180(curr[i] - ref[j]));
+//            }
+//        }
+//
+//        int[] mapping = new int[ref.length];
+//
+//        for (int check=0; check<ref.length; check++) {
+//
+//            double dst2Min = Double.MAX_VALUE;
+//            int imin = -1;
+//            int jmin = -1;
+//
+//            for (int i=0; i<ref.length; i++) {
+//
+//                for (int j=0; j<ref.length; j++) {
+//                    if (!chkd[i][j] && dst2[i][j]<dst2Min) {
+//                        dst2Min = dst2[i][j];
+//                        imin = i;
+//                        jmin = j;
+//                    }
+//                }
+//
+//            }
+//
+//            // row imin in chkd to true
+//            for (int w=0; w<ref.length; w++) chkd[imin][w] = true;
+//            // col jmin in chkd to true
+//            for (int w=0; w<ref.length; w++) chkd[w][jmin] = true;
+//
+//            mapping[imin]=jmin;
+//
+//        }
+//
+//        return mapping;
+//
+//    }
+
+    public static int[][] hungarianMappingAnglesDeg(ArrayList<Float> angsDegA, ArrayList<Float> angsDegB)  // will output the best matching pairs of indexes
     {
 
-        // match N dimentional arrays using Euclidean distance, output the mapping as array of correspondence indexes
-        boolean[][]     chkd = new boolean[ref.length][ref.length];
-        double[][]      dst2 = new double[ref.length][ref.length];
+        // match A and B dimentional arrays using Euclidean distance, output the mapping as array of correspondence indexes
+        boolean[][]     chkd = new boolean[angsDegA.size()][angsDegB.size()]; // marker
+        double[][]      dst2 = new double[angsDegA.size()][angsDegB.size()];
 
-        for (int i = 0; i < ref.length; i++) {
-            for (int j = 0; j < ref.length; j++) {
-                dst2[i][j] = Math.abs(Tools.wrap_180(curr[i] - ref[i]));
+        for (int i = 0; i < angsDegA.size(); i++) {
+            for (int j = 0; j < angsDegB.size(); j++) {
+                dst2[i][j] = Math.abs(Tools.wrap_180(angsDegA.get(i) - angsDegB.get(j)));
             }
         }
 
-        int[] mapping = new int[ref.length];
+        int totalPairs = Math.min(angsDegA.size(), angsDegB.size());
 
-        for (int check=0; check<ref.length; check++) {
+        int[][] pairs = new int[totalPairs][2];
+
+        for (int check=0; check<totalPairs; check++) {
 
             double dst2Min = Double.MAX_VALUE;
             int imin = -1;
             int jmin = -1;
 
-            for (int i=0; i<ref.length; i++) {
-
-                for (int j=0; j<ref.length; j++) {
+            for (int i=0; i<angsDegA.size(); i++) {
+                for (int j=0; j<angsDegB.size(); j++) {
                     if (!chkd[i][j] && dst2[i][j]<dst2Min) {
                         dst2Min = dst2[i][j];
                         imin = i;
@@ -1041,20 +1088,21 @@ public class Tools {
             }
 
             // row imin in chkd to true
-            for (int w=0; w<ref.length; w++) chkd[imin][w] = true;
+            for (int w=0; w<angsDegB.size(); w++) chkd[imin][w] = true;  // loop columns
             // col jmin in chkd to true
-            for (int w=0; w<ref.length; w++) chkd[w][jmin] = true;
+            for (int w=0; w<angsDegA.size(); w++) chkd[w][jmin] = true;  // loop rows
 
-            mapping[imin]=jmin;
+            pairs[check][0] = imin;
+            pairs[check][1] = jmin;
+
+            IJ.log("matched angle "+angsDegA.get(imin)+" and "+angsDegB.get(jmin)+" diff="+dst2Min);
 
         }
 
-        return mapping;
-
+        return pairs;
 
     }
 
-	// TODO add version with ArrayLists
     public static void swap(float[] vals, int[] mapping)
     {
 
@@ -1166,6 +1214,21 @@ public class Tools {
     public static float triangleArea(float xA, float yA, float xB, float yB, float xC, float yC)
     {
         return (float) (0.5*Math.abs((xA-xC)*(yB-yA)-(xA-xB)*(yC-yA)));
+    }
+
+    public static float angularDeviation(float[] x1, float[] x2, float[] x3)
+    {
+        float dotProd = 0;
+        float v12 = 0;
+        float v32 = 0;
+        for (int i = 0; i < x1.length; i++) {
+            dotProd += (x2[i]-x1[i]) * (x3[i]-x2[i]);
+            v12 += (x2[i]-x1[i]) * (x2[i]-x1[i]);
+            v32 += (x3[i]-x2[i]) * (x3[i]-x2[i]);
+        }
+        IJ.log("dotProd: "+dotProd);
+        IJ.log("|v21|="+Math.sqrt(v12)+", |M32|="+Math.sqrt(v32));
+        return (float) (dotProd/(Math.sqrt(v12)*Math.sqrt(v32)));
     }
 
 }

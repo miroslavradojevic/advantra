@@ -121,7 +121,7 @@ public class Analyzer extends Thread  {
 
 	}
 
-	public static ArrayList<Float> extractPeakIdxsList(float[] profile1)
+	public static ArrayList<Float> extractPeakIdxsList(float[] profile1)   // for parallel
 	{
 
 		double[] start11 	= new double[nrPoints];
@@ -142,23 +142,41 @@ public class Analyzer extends Thread  {
 
 		Vector<float[]> cls = Tools.extractClusters(finish11, minD, M); // TODO: use new extractClusters1() here in future
 
-
-
 		if (cls.size()==0) return new ArrayList<Float>();
 
 		else if (cls.size()==1) {
 			ArrayList<Float> out = new ArrayList<Float>(1);
-			out.set(0, cls.get(0)[0]);
+			out.add(0, cls.get(0)[0]);
 			return out;
 		}
 
-		else if (cls.size()==2) return new float[]{cls.get(0)[0], cls.get(1)[0]};
+		else if (cls.size()==2) {
+            ArrayList<Float> out = new ArrayList<Float>(2);
+            out.add(0, cls.get(0)[0]);
+            out.add(1, cls.get(1)[0]);
+            return out;
+        }
 
-		else if (cls.size()==3) return new float[]{cls.get(0)[0], cls.get(1)[0], cls.get(2)[0]};
+		else if (cls.size()==3) {
+            ArrayList<Float> out = new ArrayList<Float>(3);
+            out.add(0, cls.get(0)[0]);
+            out.add(1, cls.get(1)[0]);
+            out.add(2, cls.get(2)[0]);
+            return out;
+        }
 
-		else if (cls.size()==4) return new float[]{cls.get(0)[0], cls.get(1)[0], cls.get(2)[0], cls.get(3)[0]};
+		else if (cls.size()==4) {
+            ArrayList<Float> out = new ArrayList<Float>(4);
+            out.add(0, cls.get(0)[0]);
+            out.add(1, cls.get(1)[0]);
+            out.add(2, cls.get(2)[0]);
+            out.add(3, cls.get(3)[0]);
+            return out;
+        }
 
-		else return bestN(cls, 4);
+		else {
+            return bestNList(cls, 4);
+        }
 
 	}
 
@@ -223,7 +241,7 @@ public class Analyzer extends Thread  {
 
 			checked[currMaxIdx] = true;
 			// set the output value
-			out.add(cls1.get(currMaxIdx)[0]);
+			out.add(k, cls1.get(currMaxIdx)[0]);
 
 		}
 

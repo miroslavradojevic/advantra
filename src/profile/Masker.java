@@ -96,12 +96,10 @@ public class Masker extends Thread {
                 int atY = locIdx/image_width;
                 back.setf(atX, atY, currBckg);
 
-				if (bgComputationMode==0) {
-					// mean
+				if (bgComputationMode==0) {// mean
 					if (inip.getf(atX, atY) > currBckg + VISIBLE_INTENSITY_DIFF) maskip.set(atX, atY, (byte)255);
 				}
-				else if (bgComputationMode==1) {
-					// median
+				else if (bgComputationMode==1) {// median
 					if (inip.getf(atX, atY) > currBckg) maskip.set(atX, atY, (byte)255);
 				}
 				else
