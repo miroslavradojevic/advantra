@@ -86,7 +86,7 @@ public class Analyzer extends Thread  {
 
     }
 
-	public static float[] extractPeakIdxs(float[] profile1)
+	public static float[] extractPeakIdxs(float[] profile1)  // not possible to use when parallel
 	{
 
         double[] start11 	= new double[nrPoints];
@@ -105,7 +105,7 @@ public class Analyzer extends Thread  {
 					h,
 					finish11);
 
-	    Vector<float[]> cls = Tools.extractClusters(finish11, minD, M); // TODO: use extractClusters1() here
+	    Vector<float[]> cls = Tools.extractClusters(finish11, minD, M); // TODO: use new extractClusters1() here in future
 
         if (cls.size()==0) return null;
 
@@ -121,7 +121,49 @@ public class Analyzer extends Thread  {
 
 	}
 
-    private static float[] bestN(Vector<float[]> cls1, int N){
+	public static ArrayList<Float> extractPeakIdxsList(float[] profile1)
+	{
+
+		double[] start11 	= new double[nrPoints];
+		double[] finish11 	= new double[nrPoints];
+
+		int profileLength = profile1.length;
+
+		for (int k=0; k<nrPoints; k++) {
+			start11[k] = ((float) k / nrPoints) * profileLength;
+		}
+
+		Tools.runMS(start11,
+						   profile1,
+						   maxIter,
+						   epsilon,
+						   h,
+						   finish11);
+
+		Vector<float[]> cls = Tools.extractClusters(finish11, minD, M); // TODO: use new extractClusters1() here in future
+
+
+
+		if (cls.size()==0) return new ArrayList<Float>();
+
+		else if (cls.size()==1) {
+			ArrayList<Float> out = new ArrayList<Float>(1);
+			out.set(0, cls.get(0)[0]);
+			return out;
+		}
+
+		else if (cls.size()==2) return new float[]{cls.get(0)[0], cls.get(1)[0]};
+
+		else if (cls.size()==3) return new float[]{cls.get(0)[0], cls.get(1)[0], cls.get(2)[0]};
+
+		else if (cls.size()==4) return new float[]{cls.get(0)[0], cls.get(1)[0], cls.get(2)[0], cls.get(3)[0]};
+
+		else return bestN(cls, 4);
+
+	}
+
+    private static float[] bestN(Vector<float[]> cls1, int N)
+	{
 
         // cls1.size should be more or equal than N
         boolean[] checked = new boolean[cls1.size()];
@@ -153,6 +195,41 @@ public class Analyzer extends Thread  {
 
         return out;
     }
+
+	private static ArrayList<Float> bestNList(Vector<float[]> cls1, int N)
+	{
+
+		// cls1.size should be more or equal than N
+		boolean[] checked = new boolean[cls1.size()];
+		ArrayList<Float> out = new ArrayList<Float>(N);
+
+		for (int k = 0; k<N; k++) {
+			// reset max search
+			double  currMax = Double.MIN_VALUE;
+			int     currMaxIdx = -1;
+
+			for (int i=0; i<cls1.size(); i++) {
+
+				// find max in this round
+				if (!checked[i]) {
+					if (cls1.get(i)[1]>currMax) {
+
+						currMax = cls1.get(i)[1];
+						currMaxIdx = i;
+
+					}
+				}
+			}
+
+			checked[currMaxIdx] = true;
+			// set the output value
+			out.add(cls1.get(currMaxIdx)[0]);
+
+		}
+
+		return out;
+
+	}
 
     public void run(){ // considers begN and endN
 

@@ -30,8 +30,8 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
     double scale;               // only one scale now
     double neuronDiamMax, D;
     ArrayList<ArrayList<float[]>>   profiles;
-    PlotWindow pwP;
-	PlotWindow pwI;
+    PlotWindow pwP_A;
+	PlotWindow pwI_B;
 
     Overlay     currOvl = new Overlay();
     PointRoi    pks     = new PointRoi(0, 0);
@@ -57,6 +57,14 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 		canvas = imagePlus.getCanvas();
 		inimgTitle = imagePlus.getTitle();
 		return DOES_8G+DOES_32+NO_CHANGES;
+	}
+
+	private Color getColor(int clusterIdx)
+	{
+		if (clusterIdx<=0) return Color.RED;
+		else if (clusterIdx==1) return Color.GREEN;
+		else if (clusterIdx==2) return Color.BLUE;
+		else return Color.MAGENTA;
 	}
 
 	public void run(ImageProcessor imageProcessor)
@@ -355,11 +363,10 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
         float[] profile_A = Profiler.extractProfile(neuronDiamMax, scale, offscreenX, offscreenY, (FloatProcessor) imp.getProcessor());
         float[] profile_A_MinMax = Tools.getMinMax(profile_A);
         float[] peakIdx_A = Analyzer.extractPeakIdxs(profile_A);
-        float[] peakAng_A, peakX_A, peakY_A, peakI_A, peakB_A;
 
+		float[] peakAng_A, peakX_A, peakY_A, peakI_A, peakB_A;
         if (peakIdx_A==null) { peakAng_A = peakX_A = peakY_A = peakI_A = peakB_A = null; }
         else {
-
             peakAng_A = peakX_A = peakY_A = peakI_A = peakB_A = new float[peakIdx_A.length];
 
             for (int i=0; i<peakIdx_A.length; i++) {
@@ -373,8 +380,9 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
                 }
 
             }
-
         }
+
+		Plot chartP_A, chartI_B;
 
 
 
@@ -385,9 +393,9 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
          */
 
         // Fill in X axis (frame number)
-        float[] x   = new float[exProf.length];
-        float[] xI  = new float[exProf.length];
-        float[] xB  = new float[exProf.length];
+        float[] x   = new float[profile_A.length];
+        float[] xI  = new float[profile_A.length];
+        float[] xB  = new float[profile_A.length];
         for (int i = 1; i <= x.length; i++) {
             x[i - 1] = (i-1)*Profiler.getResolDeg(scale);
             float pX = (float) (offscreenX + rd * Math.cos( x[i - 1] * ((float)Math.PI/180f) ));
