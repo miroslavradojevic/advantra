@@ -1095,7 +1095,7 @@ public class Tools {
             pairs[check][0] = imin;
             pairs[check][1] = jmin;
 
-            IJ.log("matched angle "+angsDegA.get(imin)+" and "+angsDegB.get(jmin)+" diff="+dst2Min);
+//            IJ.log("matched angle "+angsDegA.get(imin)+" and "+angsDegB.get(jmin)+" diff="+dst2Min);
 
         }
 
@@ -1226,8 +1226,6 @@ public class Tools {
             v12 += (x2[i]-x1[i]) * (x2[i]-x1[i]);
             v32 += (x3[i]-x2[i]) * (x3[i]-x2[i]);
         }
-        IJ.log("dotProd: "+dotProd);
-        IJ.log("|v21|="+Math.sqrt(v12)+", |M32|="+Math.sqrt(v32));
         return (float) (dotProd/(Math.sqrt(v12)*Math.sqrt(v32)));
     }
 

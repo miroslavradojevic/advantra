@@ -235,6 +235,7 @@ public class Profiler extends Thread {
 
         // form offsets & weights first (because it is static, to be independent)
         // TODO make this a separate method because it appears twice within the class
+		// also in loadParams()
         // takes  neuronDiam1 and scale1 and outputs offsets1 and weights1
 
         ArrayList<ArrayList<double[]>>  offsets1 = new ArrayList<ArrayList<double[]>>();

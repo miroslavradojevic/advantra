@@ -111,7 +111,7 @@ public class MaskerDemo implements PlugInFilter {
         inmask.show();
 
         // show extracted backgr
-        //new ImagePlus("backgr", Masker.back).show();
+        new ImagePlus("backgr", Masker.back).show();
 
         // check amount of extracted locations
         int nr = 0;
@@ -182,7 +182,7 @@ public class MaskerDemo implements PlugInFilter {
 
 		inmask.updateAndDraw();
 		IJ.selectWindow(inimgTitle);
-		IJ.run("Add Image...", "image=inmask x="+0+" y="+0+" opacity=40");
+		IJ.run("Add Image...", "image=inmask x="+0+" y="+0+" opacity=30");
 		IJ.selectWindow(inimgTitle);
 		IJ.setTool("hand");
 		incanvas.zoomIn(0, 0);

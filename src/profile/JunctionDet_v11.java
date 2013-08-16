@@ -127,33 +127,30 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 			}
 		}
 		t2 = System.currentTimeMillis();
-		IJ.log("done "+((t2-t1)/1000f)+" sec.");
 
-		ImagePlus inmask = new ImagePlus("inmask", Masker.maskip);
-		//inmask.show();
+//		ImagePlus inmask = new ImagePlus("inmask", Masker.maskip);
+//		inmask.show();
 
 		int nr = 0;
 		for (int i=0; i<totalJobs; i++) if (Masker.maskip.getf(i)==255) nr++;
 
-		IJ.log("done. total "+nr+" check locations given by mask ("+(100*(float)nr/(totalJobs))+" % kept)");
+		IJ.log("done "+((t2-t1)/1000f)+" sec. total "+nr+" check locations given by mask ("+(100*(float)nr/(totalJobs))+" % kept)");
 
 		/*
         ***********************************************************
          */
-        if (doCalculations) {
 
+
+
+/*
 		GenericDialog gd1 = new GenericDialog("PRUNE REGIONS?");
 		//gd1.addMessage("extracted "+nr+" out of "+totalProfiles+"  ("+IJ.d2s(nr*100f/totalProfiles, 2)+"%)");
 		gd1.addMessage("PRUNE REGIONS?");
 
 		gd1.showDialog();
 		if (!gd1.wasCanceled()) {
+
 			IJ.log("pruning...");
-
-			/*
-			***********************************
-			 */
-
 
 			// get connected regions
 			t1 = System.currentTimeMillis();
@@ -204,48 +201,47 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 
 			}
 
+			inmask.updateAndDraw();
+			IJ.selectWindow(inimgTitle);
+			//IJ.run("Add Image...", "image=inmask x="+0+" y="+0+" opacity=40");
+			//IJ.selectWindow(inimgTitle);
 
-			/*
-			***********************************
-			 */
+			IJ.log("done pruning.");
 
+			// check the new amount of extracted locations
+			nr = 0;
+			for (int i=0; i<totalJobs; i++) if (Masker.maskip.getf(i)==255) nr++;
+			IJ.log("extracted "+nr+" out of "+totalJobs+"  ("+IJ.d2s(nr*100f/totalJobs, 2)+"%)");
 
-			IJ.log("done.");
 		}
 
-		inmask.updateAndDraw();
-		IJ.selectWindow(inimgTitle);
-		//IJ.run("Add Image...", "image=inmask x="+0+" y="+0+" opacity=40");
-		//IJ.selectWindow(inimgTitle);
-
-		canvas.zoomIn(0, 0);
-
-		// check amount of extracted locations
-		nr = 0;
-		for (int i=0; i<totalJobs; i++) if (Masker.maskip.getf(i)==255) nr++;
-		IJ.log("extracted "+nr+" out of "+totalJobs+"  ("+IJ.d2s(nr*100f/totalJobs, 2)+"%)");
+		*/
 
         /*
         ***********************************************************
          */
 
-		Profiler.loadTemplate(imp.getProcessor(), Masker.maskip);
-		int totalLocations = Profiler.locations.length;
-		profiles     	= new ArrayList<ArrayList<float[]>>(totalLocations);
-
 		IJ.log("calculating profiles... ");
 		t1 = System.currentTimeMillis();
-//        double R = neuronDiamMax*scale;
+
+		// set the template first
+		//ByteProcessor maskarea = new ByteProcessor(imp.getWidth(), imp.getHeight());
+		//for (int q=0; q<maskarea.getWidth()*maskarea.getHeight(); q++)  maskarea.set(q, (int)255);
+		Profiler.loadTemplate(imp.getProcessor(), Masker.maskip); //
+
+
 		Profiler.loadParams(neuronDiamMax, scale, false);
-
 		totalJobs = Profiler.offsets.size();
-		Profiler profiler_jobs[] = new Profiler[CPU_NR];
+		IJ.log("jobs to split = "+totalJobs);
 
+		Profiler[] profiler_jobs;
+		profiles     	= new ArrayList<ArrayList<float[]>>(Profiler.locations.length);
+
+		profiler_jobs = new Profiler[CPU_NR];
 		for (int i = 0; i < profiler_jobs.length; i++) {
 			profiler_jobs[i] = new Profiler(i*totalJobs/CPU_NR,  (i+1)*totalJobs/CPU_NR);
 			profiler_jobs[i].start();
 		}
-
 		for (int i = 0; i < profiler_jobs.length; i++) {
 			try {
 				profiler_jobs[i].join();
@@ -254,7 +250,24 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 			}
 		}
 
-		updateProfilesList();
+		addProfilerList(profiles, Profiler.profiles);
+
+		Profiler.loadParams(neuronDiamMax, scale+1, false);
+		totalJobs = Profiler.offsets.size();
+		profiler_jobs = new Profiler[CPU_NR];
+		for (int i = 0; i < profiler_jobs.length; i++) {
+			profiler_jobs[i] = new Profiler(i*totalJobs/CPU_NR,  (i+1)*totalJobs/CPU_NR);
+			profiler_jobs[i].start();
+		}
+		for (int i = 0; i < profiler_jobs.length; i++) {
+			try {
+				profiler_jobs[i].join();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+
+		addProfilerList(profiles, Profiler.profiles);
 
 		t2 = System.currentTimeMillis();
 		IJ.log("done "+((t2-t1)/1000f)+" sec.");
@@ -263,11 +276,15 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
         ***********************************************************
          */
 
-		IJ.log("calculating peaks for selected locations... "+CPU_NR);
+		IJ.log("calculating peaks for selected locations...");
 		t1 = System.currentTimeMillis();
 
 		Analyzer.loadProfiles(profiles);
 		totalJobs = Analyzer.profiles.size();
+
+		IJ.log("total jobs: "+totalJobs);
+
+		if (doCalculations) {
 		Analyzer analyzer_jobs[] = new Analyzer[CPU_NR];
 		for (int i = 0; i < analyzer_jobs.length; i++) {
 			analyzer_jobs[i] = new Analyzer(i*totalJobs/CPU_NR,  (i+1)*totalJobs/CPU_NR);
@@ -288,7 +305,7 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 
 		ByteProcessor scoreimg = new ByteProcessor(imp.getWidth(), imp.getHeight());
 
-		for (int locIdx=0; locIdx<totalLocations; locIdx++) {
+		for (int locIdx=0; locIdx<Profiler.locations.length; locIdx++) {
 
 			double score = 0;
 
@@ -310,7 +327,6 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
         /*
         -----------------------------------------------
          */
-
 
 /*		t1 = System.currentTimeMillis();
 		Find_Connected_Regions conn_reg = new Find_Connected_Regions(scoreImagePlus, true);
@@ -347,17 +363,12 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
         int offscreenX = canvas.offScreenX(e.getX());
         int offscreenY = canvas.offScreenY(e.getY());
 
-//        ArrayList<Float> C_x    = new ArrayList<Float>();
-//        ArrayList<Float> C_y    = new ArrayList<Float>();
-
         float cI = Interpolator.interpolateAt(offscreenX, offscreenY, (FloatProcessor) imp.getProcessor());
         float cB = Interpolator.interpolateAt(offscreenX, offscreenY, (FloatProcessor) Masker.back);
         if (cI-cB > Masker.VISIBLE_INTENSITY_DIFF) {
             PointRoi pt = new PointRoi(offscreenX+.5, offscreenY+.5);
-            //pt.setStrokeColor(Color.YELLOW);
+            pt.setStrokeColor(Color.YELLOW);
             currOvl.add(pt);
-//            C_x.add(Float.valueOf(offscreenX));
-//            C_y.add(Float.valueOf(offscreenY));
         }
 
         // define ring A
@@ -390,10 +401,14 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
                 peakB_A[i] = Interpolator.interpolateAt(peakX_A[i], peakY_A[i], (FloatProcessor) Masker.back);
 
                 if (peakI_A[i]-peakB_A[i] > Masker.VISIBLE_INTENSITY_DIFF) {  // criteria!!
-                    //PointRoi pt = new PointRoi(peakX_A[i]+.5, peakY_A[i]+.5);
-                    //pt.setStrokeColor(getColor(i));
-                    //currOvl.add(pt);
-                    A_Ang.add(peakAng_A[i] * Rad2Deg); // because hungarian matching method will take angle differences in degrees
+
+
+					PointRoi pt = new PointRoi(peakX_A[i]+.5, peakY_A[i]+.5);
+                    pt.setStrokeColor(getColor(i));
+                    currOvl.add(pt);
+
+
+					A_Ang.add(peakAng_A[i] * Rad2Deg); // because hungarian matching method will take angle differences in degrees
                     A_x.add(peakX_A[i]);
                     A_y.add(peakY_A[i]);
                 }
@@ -482,10 +497,12 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
                 peakB_B[i] = Interpolator.interpolateAt(peakX_B[i], peakY_B[i], (FloatProcessor) Masker.back);
 
                 if (peakI_B[i]-peakB_B[i] > Masker.VISIBLE_INTENSITY_DIFF) {  // criteria!! maybe use xB averages here
-                    //PointRoi pt = new PointRoi(peakX_B[i]+.5, peakY_B[i]+.5);
-                    //pt.setStrokeColor(getColor(i));
-                    //currOvl.add(pt);
-                    B_Ang.add(peakAng_B[i] * Rad2Deg); // because hungarian matching method will take angle differences in degrees
+
+					PointRoi pt = new PointRoi(peakX_B[i]+.5, peakY_B[i]+.5);
+                    pt.setStrokeColor(getColor(i));
+                    currOvl.add(pt);
+
+					B_Ang.add(peakAng_B[i] * Rad2Deg); // because hungarian matching method will take angle differences in degrees
                     B_x.add(peakX_B[i]);
                     B_y.add(peakY_B[i]);
                 }
@@ -563,16 +580,18 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
             ringLocsXY[0][0] = A_x.get(map[k][0]);
             ringLocsXY[0][1] = A_y.get(map[k][0]); // point in A
 
-            PointRoi pt = new PointRoi(ringLocsXY[0][0]+.5, ringLocsXY[0][1]+.5);
-            pt.setStrokeColor(getColor(k));
-            currOvl.add(pt);
+//			// add point
+//            PointRoi pt = new PointRoi(ringLocsXY[0][0]+.5, ringLocsXY[0][1]+.5);
+//            pt.setStrokeColor(getColor(k));
+//            currOvl.add(pt);
 
             ringLocsXY[1][0] = B_x.get(map[k][1]);
             ringLocsXY[1][1] = B_y.get(map[k][1]); // point in B
 
-            pt = new PointRoi(ringLocsXY[1][0]+.5, ringLocsXY[1][1]+.5);
-            pt.setStrokeColor(getColor(k));
-            currOvl.add(pt);
+//			// add point
+//            pt = new PointRoi(ringLocsXY[1][0]+.5, ringLocsXY[1][1]+.5);
+//            pt.setStrokeColor(getColor(k));
+//            currOvl.add(pt);
 
             clustersXY.add(k, ringLocsXY);
 
@@ -580,9 +599,7 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 
         }
 
-
-
-        IJ.log(Tools.angularDeviation(new float[]{0,0}, new float[]{.5f,.5f}, new float[]{1,1})+" "+Arrays.toString(angDiv));
+        //IJ.log(Tools.angularDeviation(new float[]{0,0}, new float[]{.5f,.5f}, new float[]{1,1})+" "+Arrays.toString(angDiv));
 
         /*
         **************************
@@ -642,7 +659,8 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 
     }
 
-    private double extractScore(int locIdx, boolean printVals) {
+    private double extractScore(int locIdx, boolean printVals)
+	{
 
         double score = 0;
 
@@ -691,22 +709,50 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 
     }
 
-    private void updateProfilesList() // uses Profiler to update  profiles, profilesName, angularRes
+    private void addProfilerList(ArrayList<ArrayList<float[]>> profileListToUpdate, float[][] profilesToAppend)
+    // uses Profiler to update  list of profiles
+	// rows correspond to locations, columns to different scale
+	// one Profiler can contribute one column at the time
     {
-        // store it in the list for each loc
-        for (int loopLocations=0; loopLocations<Profiler.locations.length; loopLocations++) {
 
-            // profileToAdd from Profiler.profiles
-            float[] profileToAdd = new float[Profiler.profiles[loopLocations].length];
-            for (int k=0; k<profileToAdd.length; k++) {
-                profileToAdd[k] = Profiler.profiles[loopLocations][k];
-            }
+		if (profileListToUpdate.size() == 0) {
 
-                ArrayList<float[]> dummy = new ArrayList<float[]>();
-                dummy.add(profileToAdd);
-                profiles.add(dummy);
+			// store it in the list for each loc
+			for (int loopLocations=0; loopLocations<profilesToAppend.length; loopLocations++) {
 
-        }
+				// profileToAdd from Profiler.profiles
+				float[] profileToAdd = new float[profilesToAppend[loopLocations].length];
+				for (int k=0; k<profileToAdd.length; k++) {
+					profileToAdd[k] = profilesToAppend[loopLocations][k];
+				}
+
+				ArrayList<float[]> dummy = new ArrayList<float[]>();
+				dummy.add(profileToAdd);
+				profileListToUpdate.add(dummy);
+
+			}
+
+		}
+		else {
+
+			// it exists already
+			// store it in the list for each loc
+			for (int loopLocations=0; loopLocations<profilesToAppend.length; loopLocations++) {
+
+				// profileToAdd from Profiler.profiles
+				float[] profileToAdd = new float[profilesToAppend[loopLocations].length];
+				for (int k=0; k<profileToAdd.length; k++) {
+					profileToAdd[k] = profilesToAppend[loopLocations][k];
+				}
+
+				//ArrayList<float[]> dummy = new ArrayList<float[]>();
+				//dummy.add(profileToAdd);
+				profileListToUpdate.get(loopLocations).add(profileToAdd);
+
+			}
+
+		}
+
     }
 
     public void mouseMoved(MouseEvent e) {

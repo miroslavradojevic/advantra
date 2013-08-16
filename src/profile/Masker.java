@@ -158,7 +158,7 @@ public class Masker extends Thread {
                         // take the median as a bkg estimate
                         float b = (float) Tools.median_Wirth(neigh);
                         back.setf(atX, atY, b);
-                        if (inip.getf(atX, atY)>b) maskip.set(atX, atY, (byte)255);
+                        if (inip.getf(atX, atY) > b + VISIBLE_INTENSITY_DIFF) maskip.set(atX, atY, (byte)255);
 
                     }
 
