@@ -536,12 +536,45 @@ public class Tools {
         Vector<Integer> cluster_sizes	= new Vector<Integer>();
         int nr_clusters 				= 0;
 
+
+        // FIRST
         seed_clustered[0] = true;
         seed_cluster_idx[0] = nr_clusters;
         cluster_sizes.add(1);
         nr_clusters++;
 
-        for (int i = 1; i < msConv.length; i++) {
+        // CHECK WITH LAST
+        if (Math.abs((inputArrayLength-0.5-msConv[msConv.length-1]))+Math.abs(msConv[0]+0.5) < d) {
+
+            IJ.log("range  "+msConv[0]+"  %  "+msConv[msConv.length-1]);
+            seed_clustered[msConv.length-1] = true;
+            seed_cluster_idx[msConv.length-1] = seed_cluster_idx[0];
+            int tmp = cluster_sizes.get(seed_cluster_idx[msConv.length-1]);
+            tmp++;
+            cluster_sizes.setElementAt(tmp, seed_cluster_idx[msConv.length-1]);
+
+            // correct values for calculating centroids later
+            msConv[msConv.length-1] -= msConv.length;   // correction
+
+            for (int i = msConv.length-2; i>=0; i--) {
+                if (Math.abs(msConv[i]-msConv[i+1])<d) {
+                    seed_clustered[i] = true;
+                    seed_cluster_idx[i] = seed_cluster_idx[i+1]; // TODO optimize this assignment, can be simplified!
+                    tmp = cluster_sizes.get(seed_cluster_idx[i]);
+                    tmp++;
+                    cluster_sizes.setElementAt(tmp, seed_cluster_idx[i]);
+                    msConv[i] -= msConv.length; // correction
+                }
+                else {
+                    IJ.log("stopped at "+i+ "out of "+msConv.length);
+                    break;
+                }
+            }
+
+
+        }
+
+        for (int i = 1; i < msConv.length && !seed_clustered[i]; i++) {
 
             if(Math.abs(msConv[i]-msConv[i-1])<d){
                 seed_clustered[i] = true;
@@ -549,7 +582,6 @@ public class Tools {
                 int tmp = cluster_sizes.get(seed_cluster_idx[i]);
                 tmp++;
                 cluster_sizes.setElementAt(tmp, seed_cluster_idx[i]);
-
             }
             else {
                 seed_clustered[i] = true;
@@ -562,26 +594,29 @@ public class Tools {
 
 		// wrap in case they converged around the breakpoint and split what was supposed to be one cluster
         // last and the first one after sorting are less than d
-        if ( Math.abs( msConv[msConv.length-1] - msConv[0] - inputArrayLength ) < d  && false) {
-            // join the last cluster together with the first cluster
-            IJ.log("wrap clusters");
-
-            cluster_sizes.remove(cluster_sizes.size()-1);               // remove last cluster
-            int lastClusterIdx = seed_cluster_idx[msConv.length-1];     // remember it
-            seed_cluster_idx[msConv.length-1] = seed_cluster_idx[0];    // which is 0
-            cluster_sizes.setElementAt(0, cluster_sizes.get(0)+1);
-
-            int q = msConv.length-2;
-            while (seed_cluster_idx[q]==lastClusterIdx) {
-                seed_cluster_idx[q] = seed_cluster_idx[0];
-                cluster_sizes.setElementAt(0, cluster_sizes.get(0)+1);
-                q--;
-            }
-
-        }
+        IJ.log(Arrays.toString(msConv));
+//        if ( Math.abs( (inputArrayLength-0.5-msConv[msConv.length-1]) ) + Math.abs(  (msConv[0]+0.5)  ) < d && false) {   //  && true
+//            // join the last cluster together with the first cluster
+//
+//            cluster_sizes.remove(cluster_sizes.size()-1);               // remove last cluster
+//            int lastClusterIdx = seed_cluster_idx[msConv.length-1];     // remember it
+//            seed_cluster_idx[msConv.length-1] = seed_cluster_idx[0];    // which is 0
+//            cluster_sizes.setElementAt(0, cluster_sizes.get(0)+1);
+//
+//            int q = msConv.length-2;
+//            while (seed_cluster_idx[q]==lastClusterIdx) {
+//                seed_cluster_idx[q] = seed_cluster_idx[0];
+//                cluster_sizes.setElementAt(0, cluster_sizes.get(0)+1);
+//                q--;
+//            }
+//
+//        }
 
         Vector<float[]> clust = new Vector<float[]>();
         for (int k = 0; k < cluster_sizes.size(); k++) {
+
+
+
             if (cluster_sizes.get(k)>=M) {
 
                 float sum = 0;
@@ -598,8 +633,19 @@ public class Tools {
 
                 }
 
+
+
                 if (cnt>0) {
-                    clust.add(new float[] {sum/cnt, cnt}); // centroid, number of points
+                    float clusterCentroid = sum/cnt;
+                    clusterCentroid = (clusterCentroid<0)?              clusterCentroid+msConv.length : clusterCentroid ;
+                    clusterCentroid = (clusterCentroid>=msConv.length)? clusterCentroid-msConv.length : clusterCentroid ;
+
+                    IJ.log("cluster index "+k+" size: "+cluster_sizes.get(k)+ " counted: " +cnt+" centroid at index "+ clusterCentroid+ " was ok with count? "+(cluster_sizes.get(k)==cnt));
+                    if (!(cluster_sizes.get(k)==cnt)) {
+                        System.err.println("FATAL ERROR!");
+                    }
+
+                    clust.add(new float[] {clusterCentroid, cnt}); // centroid, number of points
                 }
 
             }
@@ -1086,6 +1132,9 @@ public class Tools {
                 }
 
             }
+
+            if (dst2Min>90)
+            IJ.log("matching angular diff. was "+dst2Min);
 
             // row imin in chkd to true
             for (int w=0; w<angsDegB.size(); w++) chkd[imin][w] = true;  // loop columns

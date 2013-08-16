@@ -276,7 +276,7 @@ public class JunctionDet implements PlugInFilter, MouseListener {
 //                centralAvgPerCfg.add();
 
                 // get indexes form Analyzer for this conf & loc
-                if (Analyzer.peakIdx[locIdx][cfgIdx]!=null) {
+                if (Analyzer.peakIdx.get(locIdx).get(locIdx).size() >=3) {   // there was a change in Analyzer
 
                     /*
                     converging angles and scores
@@ -286,13 +286,13 @@ public class JunctionDet implements PlugInFilter, MouseListener {
                     float[] indexes       	= new float[3];
                     float[] peaks          	= new float[3];
 
-                    indexes[0] = Analyzer.peakIdx[locIdx][cfgIdx][0];
-                    indexes[1] = Analyzer.peakIdx[locIdx][cfgIdx][1];
-                    indexes[2] = Analyzer.peakIdx[locIdx][cfgIdx][2];
+                    indexes[0] = Analyzer.peakIdx.get(locIdx).get(cfgIdx).get(0);
+                    indexes[1] = Analyzer.peakIdx.get(locIdx).get(cfgIdx).get(1);
+                    indexes[2] = Analyzer.peakIdx.get(locIdx).get(cfgIdx).get(2);
 
-                    anglesDeg[0] = Analyzer.peakIdx[locIdx][cfgIdx][0] * angularRes.get(locIdx).get(cfgIdx);
-                    anglesDeg[1] = Analyzer.peakIdx[locIdx][cfgIdx][1] * angularRes.get(locIdx).get(cfgIdx);
-                    anglesDeg[2] = Analyzer.peakIdx[locIdx][cfgIdx][2] * angularRes.get(locIdx).get(cfgIdx);
+                    anglesDeg[0] = Analyzer.peakIdx.get(locIdx).get(cfgIdx).get(0) * angularRes.get(locIdx).get(cfgIdx);
+                    anglesDeg[1] = Analyzer.peakIdx.get(locIdx).get(cfgIdx).get(1) * angularRes.get(locIdx).get(cfgIdx);
+                    anglesDeg[2] = Analyzer.peakIdx.get(locIdx).get(cfgIdx).get(2) * angularRes.get(locIdx).get(cfgIdx);
 
                     peaks[0] = (float) Tools.interp1Darray(indexes[0], profiles.get(locIdx).get(cfgIdx));
                     peaks[1] = (float) Tools.interp1Darray(indexes[1], profiles.get(locIdx).get(cfgIdx));
@@ -840,6 +840,8 @@ public class JunctionDet implements PlugInFilter, MouseListener {
 					p.setSize(600, 300);
 					p.draw();
 
+                    /*
+
                     // add convergence points
                     float[] plotConvX = new float[Analyzer.nrPoints];
                     float[] plotConvY = new float[Analyzer.nrPoints];
@@ -851,7 +853,7 @@ public class JunctionDet implements PlugInFilter, MouseListener {
                         plotConvY[i1] = (float) Tools.interp1Darray(Analyzer.convIdx.get(i).get(g)[i1], profiles.get(i).get(g));
 
                     p.addPoints(plotConvX, plotConvY, Plot.X);
-
+*/
                     // backgr
                     float[] currBckgr = new float[plotPts];
                     for (int i1=0; i1<plotPts; i1++) currBckgr[i1] = bacgr.get(i);
