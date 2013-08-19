@@ -140,7 +140,7 @@ public class JunctionDet implements PlugInFilter, MouseListener {
         IJ.log("extracting background...");
         t1 = System.currentTimeMillis();
         int neighbourhoodR = (int) Math.ceil(4*neuronDiamMax);
-        Masker.loadTemplate(inimg.getProcessor(), neighbourhoodR, 0, true);
+        Masker.loadTemplate(inimg.getProcessor(), neighbourhoodR);
         totalJobs = inimg.getHeight()*inimg.getWidth();
         Masker masker_jobs[] = new Masker[CPU_NR];
         for (int i = 0; i < masker_jobs.length; i++) {
@@ -160,7 +160,7 @@ public class JunctionDet implements PlugInFilter, MouseListener {
         inimg.show();
 
 		// overlay mask
-		ImagePlus maskViz = new ImagePlus("inmask", Masker.maskip);
+		ImagePlus maskViz = new ImagePlus("inmask", Masker.mask);
         maskViz.show();
         IJ.selectWindow("inimg");
         IJ.run("Add Image...", "image=inmask x="+0+" y="+0+" opacity=30");
@@ -170,7 +170,7 @@ public class JunctionDet implements PlugInFilter, MouseListener {
         score image initialize
          */
         scoreimg = new ByteProcessor(inimg.getWidth(), inimg.getHeight());
-		Profiler.loadTemplate(inimg.getProcessor(), Masker.maskip);
+		Profiler.loadTemplate(inimg.getProcessor(), Masker.mask);
         // can see the locations now
         int totalLocations = Profiler.locations.length;
 
@@ -404,7 +404,7 @@ public class JunctionDet implements PlugInFilter, MouseListener {
             idxs.add(idxsPerCfg);
 
             centrAvg.add(centralAvg(atX, atY, neuronDiamMax, (FloatProcessor) inimg.getProcessor()));
-            bacgr.add(Masker.back.getf(atX, atY)); // take the value from Masker
+            bacgr.add(Masker.backgr.getf(atX, atY)); // take the value from Masker
 
         }
 

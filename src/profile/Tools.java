@@ -23,6 +23,7 @@ import java.util.Vector;
 public class Tools {
 
     static double VERY_SMALL_POSITIVE = 0.000001;
+	static float  VERY_SMALL_POSITIVE_FLOAT = 0.000001f;
 
 	public static ImagePlus convertToFloatImage(
 		ImagePlus inim
@@ -425,17 +426,22 @@ public class Tools {
         // x is a real position of a pixel in an image
         // x = [-0.5, 	W-0.5)
         // width is array width - indexes will be wrapped - first corresponds to the last one
+		x = (x<=-0.5f+VERY_SMALL_POSITIVE_FLOAT		&&	x>=-0.5f-VERY_SMALL_POSITIVE_FLOAT)? -0.5f : x;
+		x = (x<=wth-0.5f+VERY_SMALL_POSITIVE_FLOAT	&&	x>=wth-0.5f-VERY_SMALL_POSITIVE_FLOAT)? wth-0.5f : x;
+		x = (x<-0.5f-VERY_SMALL_POSITIVE_FLOAT)? x+wth : (x>wth-0.5f+VERY_SMALL_POSITIVE_FLOAT)? x-wth : x ; // wrap
 
         // find four surrounding points
         int p11 = (int) Math.floor(x);
         int p12 = (int) Math.ceil(x);
+
         // bilinear coeffs a,b
         double a = ((p12 -p11)>0)?(x-p11)/(p12-p11) : 0.5;
         // wrap cols of surrounding pts
-        p11 = (p11<-0.5)? p11+wth : ((p11>=wth-0.5)?(p11-wth) : p11);
-        p12 = (p12<-0.5)? p12+wth : ((p12>=wth-0.5)?(p12-wth) : p12);
+        //p11 = (p11<-0.5)? p11+wth : ((p11>=wth-0.5)?(p11-wth) : p11);
+        p11 = (p11<0)? p11+wth : ((p11>=wth)?(p11-wth) : p11);
+        p12 = (p12<0)? p12+wth : ((p12>=wth)?(p12-wth) : p12);
 
-        double I11 = inarray[p11];
+		double I11 = inarray[p11];
         double I12 = inarray[p12];
 
         return (1-a)*I11 + a*I12;
@@ -546,7 +552,6 @@ public class Tools {
         // CHECK WITH LAST
         if (Math.abs((inputArrayLength-0.5-msConv[msConv.length-1]))+Math.abs(msConv[0]+0.5) < d) {
 
-            IJ.log("range  "+msConv[0]+"  %  "+msConv[msConv.length-1]);
             seed_clustered[msConv.length-1] = true;
             seed_cluster_idx[msConv.length-1] = seed_cluster_idx[0];
             int tmp = cluster_sizes.get(seed_cluster_idx[msConv.length-1]);
@@ -566,7 +571,7 @@ public class Tools {
                     msConv[i] -= msConv.length; // correction
                 }
                 else {
-                    IJ.log("stopped at "+i+ "out of "+msConv.length);
+//                    IJ.log("stopped at "+i+ "out of "+msConv.length);
                     break;
                 }
             }
@@ -592,30 +597,8 @@ public class Tools {
 
         }
 
-		// wrap in case they converged around the breakpoint and split what was supposed to be one cluster
-        // last and the first one after sorting are less than d
-        IJ.log(Arrays.toString(msConv));
-//        if ( Math.abs( (inputArrayLength-0.5-msConv[msConv.length-1]) ) + Math.abs(  (msConv[0]+0.5)  ) < d && false) {   //  && true
-//            // join the last cluster together with the first cluster
-//
-//            cluster_sizes.remove(cluster_sizes.size()-1);               // remove last cluster
-//            int lastClusterIdx = seed_cluster_idx[msConv.length-1];     // remember it
-//            seed_cluster_idx[msConv.length-1] = seed_cluster_idx[0];    // which is 0
-//            cluster_sizes.setElementAt(0, cluster_sizes.get(0)+1);
-//
-//            int q = msConv.length-2;
-//            while (seed_cluster_idx[q]==lastClusterIdx) {
-//                seed_cluster_idx[q] = seed_cluster_idx[0];
-//                cluster_sizes.setElementAt(0, cluster_sizes.get(0)+1);
-//                q--;
-//            }
-//
-//        }
-
         Vector<float[]> clust = new Vector<float[]>();
         for (int k = 0; k < cluster_sizes.size(); k++) {
-
-
 
             if (cluster_sizes.get(k)>=M) {
 
@@ -640,9 +623,9 @@ public class Tools {
                     clusterCentroid = (clusterCentroid<0)?              clusterCentroid+msConv.length : clusterCentroid ;
                     clusterCentroid = (clusterCentroid>=msConv.length)? clusterCentroid-msConv.length : clusterCentroid ;
 
-                    IJ.log("cluster index "+k+" size: "+cluster_sizes.get(k)+ " counted: " +cnt+" centroid at index "+ clusterCentroid+ " was ok with count? "+(cluster_sizes.get(k)==cnt));
+//                    IJ.log("cluster index "+k+" size: "+cluster_sizes.get(k)+ " counted: " +cnt+" centroid at index "+ clusterCentroid+ " was ok with count? "+(cluster_sizes.get(k)==cnt));
                     if (!(cluster_sizes.get(k)==cnt)) {
-                        System.err.println("FATAL ERROR!");
+                        System.out.println("FATAL ERROR!");
                     }
 
                     clust.add(new float[] {clusterCentroid, cnt}); // centroid, number of points
@@ -1099,6 +1082,22 @@ public class Tools {
 //
 //    }
 
+	public static float[] circularLocalAvg(float[] in, int w)
+	{
+	  	float[] out = new float[in.length];
+		float locAvg;
+		int wrappedIdx;
+		for (int i=0; i<in.length; i++) {
+			locAvg = 0;
+			for (int j=i-w; j<=i+w; j++) {
+				wrappedIdx = (j<0)? j+in.length : (j>=in.length)? j-in.length : j ;
+				locAvg += in[wrappedIdx];
+			}
+			out[i] = locAvg/(2*w+1);
+		}
+		return out;
+	}
+
     public static int[][] hungarianMappingAnglesDeg(ArrayList<Float> angsDegA, ArrayList<Float> angsDegB)  // will output the best matching pairs of indexes
     {
 
@@ -1132,9 +1131,6 @@ public class Tools {
                 }
 
             }
-
-            if (dst2Min>90)
-            IJ.log("matching angular diff. was "+dst2Min);
 
             // row imin in chkd to true
             for (int w=0; w<angsDegB.size(); w++) chkd[imin][w] = true;  // loop columns
@@ -1264,6 +1260,17 @@ public class Tools {
     {
         return (float) (0.5*Math.abs((xA-xC)*(yB-yA)-(xA-xB)*(yC-yA)));
     }
+
+	public static float angularDeviation(float Cx, float Cy, float Ax, float Ay, float Bx, float By)
+	{
+		float dotProd = 0;
+		float v12 = 0;
+		float v32 = 0;
+			dotProd = (Ax-Cx) * (Bx-Ax) + (Ay-Cy) * (By-Ay);
+			v12 = (float) Math.sqrt((Ax-Cx)*(Ax-Cx) + (Ay-Cy)*(Ay-Cy));
+			v32 = (float) Math.sqrt((Bx-Ax)*(Bx-Ax) + (By-Ay)*(By-Ay));
+		return dotProd/(v12*v32);
+	}
 
     public static float angularDeviation(float[] x1, float[] x2, float[] x3)
     {

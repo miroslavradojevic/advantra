@@ -1,5 +1,6 @@
 package profile;
 
+import ij.IJ;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
@@ -18,25 +19,24 @@ public class Masker extends Thread {
     private static int 		image_height;
 
     public static FloatProcessor    inip;
-    public static FloatProcessor    back;    // might be useful when hard deciding whether the point belongs to the background or not
-    public static ByteProcessor     maskip;  // output
 
-    private static int              nhood;
-    //public static float th;               // maybe use it
+    public static FloatProcessor    backgr;    	// at one point
+    public static FloatProcessor    margin;    		// how much above background
+	public static ByteProcessor     mask;  			// refers to region around the location
 
-    private static int              bgComputationMode;                  // background is lower than mean
-    private static boolean          localComputation;
-    private static float            currBckg;
+    public static int              	radius;
+	public static int				alloc;
 
-	public static float VISIBLE_INTENSITY_DIFF = 5;
-	public static int VERY_SMALL_REGION_SIZE = 20;
+//    private static int              bgComputationMode;
+
+	public static float I_DIFF = 10;
 
     public Masker (int n0, int n1) { // complete range would be image_width*image_height
         this.begN = n0;
         this.endN = n1;
     }
 
-    public static void loadTemplate(ImageProcessor inip1, float nhood1, int bgComputationMode1, boolean localComputation1)  // float th1
+    public static void loadTemplate(ImageProcessor inip1, float radius1) // , int bgComputationMode1, boolean localComputation1
     {
         /*
         set inip
@@ -47,129 +47,180 @@ public class Masker extends Thread {
         }
 
         /*
-        initialize maskip
+        initialize mask
          */
-        maskip = new ByteProcessor(inip1.getWidth(), inip1.getHeight()); // all zeros
+        mask = new ByteProcessor(inip1.getWidth(), inip1.getHeight()); // all zeros
 
         /*
-        initialize back
+        initialize local average
          */
-        back = new FloatProcessor(inip1.getWidth(), inip1.getHeight()); // all zeros
+		backgr 		= new FloatProcessor(inip1.getWidth(), inip1.getHeight()); // all zeros
+		margin 		= new FloatProcessor(inip1.getWidth(), inip1.getHeight()); // all zeros
 
         image_height 	= inip.getHeight();
         image_width 	= inip.getWidth();
-        nhood = (int) Math.ceil(nhood1);
-//        th = th1;
-        if (bgComputationMode1==0 || bgComputationMode1==1)
-            bgComputationMode = bgComputationMode1;  // 0-mean, 1-median
-        else
-            bgComputationMode = -1;
-
-        localComputation = localComputation1;
-
-        if (localComputation==false) {
-            if (bgComputationMode==0) {
-                // mean
-                currBckg = 0;
-                for (int i=0; i<image_width*image_height; i++) currBckg += inip.getf(i);
-                currBckg /= image_height*image_width;
-            }
-            else if (bgComputationMode==1) {
-                // median
-                float[] array = new float[image_width*image_height];
-                for (int i=0; i<array.length; i++) array[i] = inip.getf(i);
-                currBckg = (float) Tools.median_Wirth(array);
-            }
-            else currBckg = Float.NaN;
-        }
+        radius = (int) Math.ceil(radius1);
+		alloc = circleElements(radius);
 
     }
 
-    public void 	    run()
+    public void run()
     {
+		for (int locIdx=begN; locIdx<endN; locIdx++) {
 
-        if (localComputation==false) {
+			int atX = locIdx%image_width;
+            int atY = locIdx/image_width;
 
-            // background is global mean/median
-            for (int locIdx=begN; locIdx<endN; locIdx++) {
-                int atX = locIdx%image_width;
-                int atY = locIdx/image_width;
-                back.setf(atX, atY, currBckg);
+            float[] circNeigh = extractCircleVals(atX, atY, radius, alloc);
 
-				if (bgComputationMode==0) {// mean
-					if (inip.getf(atX, atY) > currBckg + VISIBLE_INTENSITY_DIFF) maskip.set(atX, atY, (byte)255);
-				}
-				else if (bgComputationMode==1) {// median
-					if (inip.getf(atX, atY) > currBckg) maskip.set(atX, atY, (byte)255);
-				}
-				else
-					maskip.set(atX, atY, (byte)0);
+			float locAvgXY 	= average(circNeigh);
+			float locMedXY 	= median(circNeigh);   		// background
+			float locStdXY 	= std(circNeigh, locAvgXY);
+			float diff 		= locAvgXY + 2 * locStdXY - locMedXY;
+			float locMgnXY 	= (diff<=I_DIFF)? I_DIFF : I_DIFF*(float)Math.exp(-(diff-I_DIFF)) ;
 
-            }
+			backgr.setf(atX, atY, locMedXY);
+			margin.setf(atX, atY, locMgnXY);
 
-        }
-        else { // localComputation==true
-
-            if (bgComputationMode==0) {
-
-                // local MEAN computation in nhood radius
-                for (int locIdx=begN; locIdx<endN; locIdx++) {
-                    int atX = locIdx%image_width;
-                    int atY = locIdx/image_width;
-
-                    if (atX>nhood && atY>nhood && atX<inip.getWidth()-nhood && atY<inip.getHeight()-nhood) { // is in the image
-
-                        //float[] neigh = new float[(2*nhood+1)*(2*nhood+1)];
-                        //int idx = 0;
-                        float b = 0;
-                        for (int locX = atX-nhood; locX<=atX+nhood; locX++) {
-                            for (int locY = atY-nhood; locY<=atY+nhood; locY++) {
-                                b += inip.getf(locX, locY);
-                                //idx++;
-                            }
-                        }
-                        // take the mean as a bkg estimate
-                        b = b / ((2*nhood+1)*(2*nhood+1));//float) Tools.median_Wirth(neigh);
-                        back.setf(atX, atY, b);
-                        if (inip.getf(atX, atY) > b + VISIBLE_INTENSITY_DIFF) maskip.set(atX, atY, (byte)255);
-
-                    }
-
-                }
-
-            }
-            else if (bgComputationMode==1) {
-
-                // local MEDIAN computation in nhood radius
-                for (int locIdx=begN; locIdx<endN; locIdx++) {
-                    int atX = locIdx%image_width;
-                    int atY = locIdx/image_width;
-
-                    if (atX>nhood && atY>nhood && atX<inip.getWidth()-nhood && atY<inip.getHeight()-nhood) { // is in the image
-
-                        float[] neigh = new float[(2*nhood+1)*(2*nhood+1)];
-                        int idx = 0;
-                        for (int locX = atX-nhood; locX<=atX+nhood; locX++) {
-                            for (int locY = atY-nhood; locY<=atY+nhood; locY++) {
-                                neigh[idx] = inip.getf(locX, locY);
-                                idx++;
-                            }
-                        }
-                        // take the median as a bkg estimate
-                        float b = (float) Tools.median_Wirth(neigh);
-                        back.setf(atX, atY, b);
-                        if (inip.getf(atX, atY) > b + VISIBLE_INTENSITY_DIFF) maskip.set(atX, atY, (byte)255);
-
-                    }
-
-
-
-                }
-
-            }
+			//create mask (these locations will be considered in detection)
+			if (atX>radius && atY>radius && atX<inip.getWidth()-radius && atY<inip.getHeight()-radius) { // is in the image
+				float Ixy = (inip.getf(atX, atY) + inip.getf(atX-1, atY) + inip.getf(atX+1, atY) + inip.getf(atX, atY-1) + inip.getf(atX, atY+1)) / 5f;
+				if (Ixy > locMedXY + locMgnXY) mask.set(atX, atY, (byte)255);
+			}
 
         }
-
     }
+
+	public static float[] extractCircleVals(int x, int y, int r, int alloc)
+	{
+
+		float[] out = new float[alloc];
+
+		if (x>r && y>r && x<inip.getWidth()-r && y<inip.getHeight()-r) {
+			int idx = 0;
+			for (int locX = x-r; locX<=x+r; locX++) {
+				for (int locY = y-r; locY<=y+r; locY++) {
+					if ((locX-x)*(locX-x)+(locY-y)*(locY-y)<=r*r) {
+						out[idx] = inip.getf(locX, locY);
+						idx++;
+					}
+				}
+			}
+		}
+
+		return out;
+	}
+
+	private static int circleElements(int r)
+	{
+		int cnt = 0;
+		for (int a=-r; a<=r; a++) {
+			for (int b=-r; b<=r; b++) {
+				if (a*a+b*b<=r*r) cnt++;
+			}
+		}
+		return cnt;
+	}
+
+	/*
+	average
+	 */
+
+	public static float[] averageVec(float[] in)
+	{
+		float[] out = new float[in.length];
+
+		float avg = average(in);
+
+		for (int i=0; i<in.length; i++) {
+			out[i] = avg;
+		}
+
+		return out;
+	}
+
+	public static float average(float[] in)
+	{
+		float avg = 0;
+		for (int i=0; i<in.length; i++) {
+			avg += in[i];
+		}
+		avg /= in.length;
+		return avg;
+	}
+
+	/*
+	median
+	 */
+
+	public static float[] medianVec(float[] in)
+	{
+		float[] out = new float[in.length];
+
+		float avg = median(in);
+
+		for (int i=0; i<in.length; i++) {
+			out[i] = avg;
+		}
+
+		return out;
+	}
+
+	public static float median(float[] a)
+	{
+		int n = a.length;
+		int i, j, l, m, k;
+		double x;
+		if (n % 2 == 0) k = (n/2)-1;
+		else k = (n/2);
+		l=0 ; m=n-1 ;
+		while (l < m)
+		{
+			x=a[k] ;
+			i = l ;
+			j = m ;
+			do
+			{
+				while (a[i] < x) i++ ;
+				while (x < a[j]) j-- ;
+				if (i <= j) {
+					float temp = a[i];
+					a[i] = a[j];
+					a[j] = temp;
+					i++ ; j-- ;
+				}
+			} while (i <= j) ;
+			if (j < k) l = i ;
+			if (k < i) m = j ;
+		}
+		return a[k] ;
+	}
+
+	/*
+	standard deviation
+	 */
+
+	public static float[] stdVec(float[] in, float avg)
+	{
+		float[] out = new float[in.length];
+		float std = std(in, average(in));
+		for (int i=0; i<in.length; i++) {
+			out[i] = std;
+		}
+		return out;
+	}
+
+	public static float std(float[] in, float avg)
+	{
+		float std = 0;
+		for (int i=0; i<in.length; i++) {
+			std += (in[i]-avg)*(in[i]-avg);
+		}
+		std /= in.length;
+		std = (float) Math.sqrt(std);
+		return std;
+	}
+
+
 
 }

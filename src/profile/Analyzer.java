@@ -128,7 +128,7 @@ public class Analyzer extends Thread  {
 					h,
 					finish11);
 
-	    Vector<float[]> cls = Tools.extractClusters1(finish11, minD, M, profileLength); // TODO: use new extractClusters1() here in future
+	    Vector<float[]> cls = Tools.extractClusters1(finish11, minD, M, profileLength);
 
         if (cls.size()==0) return null;
 
@@ -163,7 +163,7 @@ public class Analyzer extends Thread  {
 						   h,
 						   finish11);
 
-		Vector<float[]> cls = Tools.extractClusters1(finish11, minD, M, profileLength); // TODO: use new extractClusters1() here in future
+		Vector<float[]> cls = Tools.extractClusters1(finish11, minD, M, profileLength);
 
 		if (cls.size()==0) return new ArrayList<Float>();
 
