@@ -36,8 +36,8 @@ public class Analyzer extends Thread  {
     double[]  start 		= new double[nrPoints];
     double[]  msFinish 		= new double[nrPoints];
 
-    public static int       maxIter = 250;
-    public static double    epsilon = 0.00001;//Double.MIN_VALUE;//
+    public static int       maxIter = 50;
+    public static double    epsilon = 0.01;//Double.MIN_VALUE;//
     public static int       h = 3;              // in indexes
     public static double    minD = 0.5;
     public static int       M = (int) Math.round(0.05*nrPoints);         // 0.05 of the nrPoints
@@ -331,59 +331,3 @@ public class Analyzer extends Thread  {
     }
 
 }
-
-//	private static void extractPeakIdx(Vector<float[]> cls, int locIdx, int profileIdx)  // will update peakIdx static variable
-//	{
-//		// store the values
-//		if (cls.size()<=2) {
-//			//peakIdx[locIdx][profileIdx] = null;
-//			for (int a1=profileIdx; a1<profiles.get(locIdx).size(); a1++) {
-//				peakIdx[locIdx][profileIdx] = null;
-//			}
-//
-//			//break; // break the loop for the rest of configurations
-//
-//		}
-//		else if (cls.size()==3) {
-//			peakIdx[locIdx][profileIdx] = new float[3];
-//			peakIdx[locIdx][profileIdx][0]  = cls.get(0)[0];
-//			peakIdx[locIdx][profileIdx][1]  = cls.get(1)[0];
-//			peakIdx[locIdx][profileIdx][2]  = cls.get(2)[0];
-//		}
-//		else { // >3
-//
-//			boolean[] checked = new boolean[cls.size()]; // all to false
-//
-//			// extract 3 angles with most convergence points
-//			// cls.get(i)[0] - convergence point
-//			// cls.get(i)[1] - nr. points
-//			peakIdx[locIdx][profileIdx] = new float[3];
-//
-//			// find top 3
-//			for (int k = 0; k<3; k++) {
-//				// reset max search
-//				double  currMax = Double.MIN_VALUE;
-//				int     currMaxIdx = -1;
-//
-//				for (int i=0; i<cls.size(); i++) {
-//
-//					// find max in this round
-//					if (!checked[i]) {
-//						if (cls.get(i)[1]>currMax) {
-//
-//							currMax = cls.get(i)[1];
-//							currMaxIdx = i;
-//
-//						}
-//					}
-//				}
-//
-//				checked[currMaxIdx] = true;
-//				// set the output value
-//				peakIdx[locIdx][profileIdx][k] = cls.get(currMaxIdx)[0];
-//
-//			}
-//
-//		}
-//
-//	}

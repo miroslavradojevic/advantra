@@ -550,7 +550,7 @@ public class Tools {
         nr_clusters++;
 
         // CHECK WITH LAST
-        if (Math.abs((inputArrayLength-0.5-msConv[msConv.length-1]))+Math.abs(msConv[0]+0.5) < d) {
+        if ( Math.abs((inputArrayLength-0.5-msConv[msConv.length-1]))+Math.abs(msConv[0]+0.5) < d ) {
 
             seed_clustered[msConv.length-1] = true;
             seed_cluster_idx[msConv.length-1] = seed_cluster_idx[0];
@@ -559,7 +559,12 @@ public class Tools {
             cluster_sizes.setElementAt(tmp, seed_cluster_idx[msConv.length-1]);
 
             // correct values for calculating centroids later
-            msConv[msConv.length-1] -= msConv.length;   // correction
+//            System.out.println("DIFF "+inputArrayLength+"  btw" + msConv[msConv.length-1] + " and " + msConv[0] +" IS CALC. "+
+//                    Math.abs((inputArrayLength-0.5-msConv[msConv.length-1]))
+//                    +" plus "+Math.abs(msConv[0]+0.5)+" was < "+ d + " ? "+ (Math.abs((inputArrayLength-0.5-msConv[msConv.length-1]))+Math.abs(msConv[0]+0.5) < d ));
+//            System.out.println("msConv "+(msConv.length-1)+"  "+msConv[msConv.length-1]+" becomes ");
+            msConv[msConv.length-1] -= inputArrayLength;    // correction
+//            System.out.println(" "+msConv[msConv.length-1] + " because ");
 
             for (int i = msConv.length-2; i>=0; i--) {
                 if (Math.abs(msConv[i]-msConv[i+1])<d) {
@@ -568,10 +573,9 @@ public class Tools {
                     tmp = cluster_sizes.get(seed_cluster_idx[i]);
                     tmp++;
                     cluster_sizes.setElementAt(tmp, seed_cluster_idx[i]);
-                    msConv[i] -= msConv.length; // correction
+                    msConv[i] -= inputArrayLength; // correction
                 }
                 else {
-//                    IJ.log("stopped at "+i+ "out of "+msConv.length);
                     break;
                 }
             }
@@ -608,7 +612,7 @@ public class Tools {
                 for (int l=0; l<seed_cluster_idx.length; l++) {
 
                     if (seed_cluster_idx[l]==k) {
-
+                        //if(k==0) System.out.print(""+msConv[l]+"  , ");
                         sum+=msConv[l];
                         cnt++;
 
@@ -616,18 +620,16 @@ public class Tools {
 
                 }
 
-
-
                 if (cnt>0) {
                     float clusterCentroid = sum/cnt;
-                    clusterCentroid = (clusterCentroid<0)?              clusterCentroid+msConv.length : clusterCentroid ;
-                    clusterCentroid = (clusterCentroid>=msConv.length)? clusterCentroid-msConv.length : clusterCentroid ;
+                    clusterCentroid = (clusterCentroid<0)?                  clusterCentroid+inputArrayLength : clusterCentroid ;
+                    clusterCentroid = (clusterCentroid>=inputArrayLength)?  clusterCentroid-inputArrayLength : clusterCentroid ;
 
 //                    IJ.log("cluster index "+k+" size: "+cluster_sizes.get(k)+ " counted: " +cnt+" centroid at index "+ clusterCentroid+ " was ok with count? "+(cluster_sizes.get(k)==cnt));
                     if (!(cluster_sizes.get(k)==cnt)) {
                         System.out.println("FATAL ERROR!");
                     }
-
+//                    System.out.println("add "+clusterCentroid+" at pos "+clust.size());
                     clust.add(new float[] {clusterCentroid, cnt}); // centroid, number of points
                 }
 
@@ -782,16 +784,16 @@ public class Tools {
 
     }
 
-	public static float wrap_0_180(float ang)
+	public static float wrap_360(float angDeg)
 	{
-		float out = ang;
+		float out = angDeg;
 
 		while (out<0) {
-			out += 180;
+			out += 360;
 		}
 
-		while (out>=180) {
-			out -= 180;
+		while (out>=360) {
+			out -= 360;
 		}
 
 		return out;

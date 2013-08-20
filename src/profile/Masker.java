@@ -29,7 +29,8 @@ public class Masker extends Thread {
 
 //    private static int              bgComputationMode;
 
-	public static float I_DIFF = 10;
+	public static   float I_DIFF = 10;
+    public static   float DECAY_STD = .5f*I_DIFF;
 
     public Masker (int n0, int n1) { // complete range would be image_width*image_height
         this.begN = n0;
@@ -59,8 +60,8 @@ public class Masker extends Thread {
 
         image_height 	= inip.getHeight();
         image_width 	= inip.getWidth();
-        radius = (int) Math.ceil(radius1);
-		alloc = circleElements(radius);
+        radius          = (int) Math.ceil(radius1);
+		alloc           = circleElements(radius);
 
     }
 
@@ -74,10 +75,15 @@ public class Masker extends Thread {
             float[] circNeigh = extractCircleVals(atX, atY, radius, alloc);
 
 			float locAvgXY 	= average(circNeigh);
-			float locMedXY 	= median(circNeigh);   		// background
+
 			float locStdXY 	= std(circNeigh, locAvgXY);
-			float diff 		= locAvgXY + 2 * locStdXY - locMedXY;
-			float locMgnXY 	= (diff<=I_DIFF)? I_DIFF : I_DIFF*(float)Math.exp(-(diff-I_DIFF)) ;
+
+            float locMedXY 	= median(circNeigh);   		// background
+
+            float locIdiffXY= locAvgXY + 2 * locStdXY - locMedXY;
+            //float locIdiffXY= locAvgXY + 2 * locStdXY - locMedXY;
+
+            float locMgnXY 	= (locIdiffXY<=I_DIFF)? I_DIFF : I_DIFF*(float)Math.exp(- (locIdiffXY-I_DIFF)*(locIdiffXY-I_DIFF) / (2*DECAY_STD*DECAY_STD) ) ;
 
 			backgr.setf(atX, atY, locMedXY);
 			margin.setf(atX, atY, locMgnXY);

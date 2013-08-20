@@ -43,14 +43,19 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
     ByteProcessor ringAip;
     ByteProcessor ringBip;
 
-    // some variables (used by .csv export (buttonPressed) and mouse click plots (mouseCLicked))
-    float[] profile_A, profile_B;
+    // some variables (used by file export (buttonPressed) and mouse click plots (mouseCLicked))
+    float[] ang_A, ang_B;  // they cover [0, 360) but with different sampling rate
+    float[] i_A, i_B;
+    float[] iTh_A, iTh_B;
+    float[] peakAng_A, peakAng_B;
+    float[] peakIdx_A, peakIdx_B;
+    float[] profile_A = null, profile_B = null;
 
     int CPU_NR;
-	String bgExtractionMode;
 
     private static float Deg2Rad = (float) (Math.PI/180f);
     private static float Rad2Deg = (float) (180f/Math.PI);
+    private static float MIN_COS_ANG = 0.85f;
 
 	public int setup(String s, ImagePlus imagePlus) {
 		if(imagePlus==null) return DONE;
@@ -127,8 +132,8 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 		}
 		t2 = System.currentTimeMillis();
 
-		ImagePlus inmask = new ImagePlus("inmask", Masker.mask);
-		inmask.show();
+//		ImagePlus inmask = new ImagePlus("inmask", Masker.mask);
+//		inmask.show();
 
 		int nr = 0;
 		for (int i=0; i<totalJobs; i++) if (Masker.mask.getf(i)==255) nr++;
@@ -136,85 +141,6 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 		IJ.log("done "+((t2-t1)/1000f)+" sec. total "+nr+" check locations given by mask ("+(100*(float)nr/(totalJobs))+" % kept)");
 
 		/*
-        ***********************************************************
-         */
-
-/*
-		GenericDialog gd1 = new GenericDialog("PRUNE REGIONS?");
-		//gd1.addMessage("extracted "+nr+" out of "+totalProfiles+"  ("+IJ.d2s(nr*100f/totalProfiles, 2)+"%)");
-		gd1.addMessage("PRUNE REGIONS?");
-
-		gd1.showDialog();
-		if (!gd1.wasCanceled()) {
-
-			IJ.log("pruning...");
-
-			// get connected regions
-			t1 = System.currentTimeMillis();
-			IJ.log("conn. regions...");
-			Find_Connected_Regions conn_reg = new Find_Connected_Regions(inmask, true);
-			conn_reg.run("");
-			t2 = System.currentTimeMillis();
-
-			int nr_regions = conn_reg.getNrConnectedRegions();
-
-			IJ.log("\n"+nr_regions+" connected regions extracted.\n" +
-						   "elapsed: "+((t2-t1)/1000f)+ " seconds.");
-
-			ArrayList<ArrayList<int[]>> regs = conn_reg.getConnectedRegions();
-
-			IJ.log("pruning...");
-
-			for (int i=0; i<regs.size(); i++) {
-
-				if (regs.get(i).size()>Masker.VERY_SMALL_REGION_SIZE) {
-
-					float regAvg = 0;
-					float bkgAvg = 0;
-					for (int w=0; w<regs.get(i).size(); w++) {
-						int takeValX = regs.get(i).get(w)[1];
-						int takeValY = regs.get(i).get(w)[0];
-						regAvg += imp.getProcessor().getf(takeValX, takeValY);
-						bkgAvg += Masker.back.getf(takeValX, takeValY);
-					}
-					regAvg /= regs.get(i).size();
-					bkgAvg /= regs.get(i).size();
-
-					if (regAvg < bkgAvg + Masker.VISIBLE_INTENSITY_DIFF ) {
-						for (int q=0; q<regs.get(i).size(); q++) {
-							int removeX = regs.get(i).get(q)[1];
-							int removeY = regs.get(i).get(q)[0];
-							inmask.getProcessor().set(removeX, removeY, 0);
-						}
-					}
-				}
-				else {  // prune very small regions
-					for (int q=0; q<regs.get(i).size(); q++) {
-						int removeX = regs.get(i).get(q)[1];
-						int removeY = regs.get(i).get(q)[0];
-						inmask.getProcessor().set(removeX, removeY, 0);
-					}
-				}
-
-			}
-
-			inmask.updateAndDraw();
-			IJ.selectWindow(inimgTitle);
-			//IJ.run("Add Image...", "image=inmask x="+0+" y="+0+" opacity=40");
-			//IJ.selectWindow(inimgTitle);
-
-			IJ.log("done pruning.");
-
-			// check the new amount of extracted locations
-			nr = 0;
-			for (int i=0; i<totalJobs; i++) if (Masker.maskip.getf(i)==255) nr++;
-			IJ.log("extracted "+nr+" out of "+totalJobs+"  ("+IJ.d2s(nr*100f/totalJobs, 2)+"%)");
-
-		}
-
-		*/
-
-        /*
         ***********************************************************
          */
 
@@ -294,7 +220,6 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 
 		t2 = System.currentTimeMillis();
 		IJ.log("done extracting peaks "+((t2-t1)/1000f)+" sec.");
-        //IJ.log("allocated peakIdx container: "+Analyzer.peakIdx.size()+" x "+Analyzer.peakIdx.get(0).size()+" x "+Analyzer.peakIdx.get(0).get(0).size());
 
 		// loop once again and extract scores
 		ByteProcessor scoreimg = new ByteProcessor(imp.getWidth(), imp.getHeight());
@@ -353,16 +278,26 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
         }
 
         //detectionOverlay = formOverlay(conn_reg.getConnectedRegions());
-		//canvas.setOverlay(detectionOverlay);
+		canvas.setOverlay(detectionOverlay);
 		canvas.addMouseListener(this);
 		canvas.addMouseMotionListener(this);
 		canvas.addKeyListener(this);
 
         IJ.selectWindow(inimgTitle);
         IJ.setTool("hand");
+
+//        ImagePlus outIm = new ImagePlus("viz", imp.getProcessor());
+//        outIm.setOverlay(formOverlay(conn_reg.getConnectedRegions()));
+//        outIm.show();
+
+        ImagePlus outIm1 = new ImagePlus("viz1", imp.getProcessor());
+        outIm1.setOverlay(formPointOverlay(conn_reg.getConnectedRegions(), 0));
+        outIm1.show();
+
 	}
 
-    public void mouseClicked(MouseEvent e) {
+    public void mouseClicked(MouseEvent e)
+    {
 
 		// on mouse click extract locations, plot profile, intensities along profile and overlay points
         currOvl.clear();
@@ -371,28 +306,26 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
         int offscreenX = canvas.offScreenX(e.getX());
         int offscreenY = canvas.offScreenY(e.getY());
 
-        float cI = Interpolator.interpolateAt(offscreenX, offscreenY, (FloatProcessor) imp.getProcessor());
-        float cB = Interpolator.interpolateAt(offscreenX, offscreenY, (FloatProcessor) Masker.backgr);
-        if (true) { //cI-cB > Masker.VISIBLE_INTENSITY_DIFF
+        IJ.log(""+offscreenX+", "+offscreenY);
+
+        //float cI = Interpolator.interpolateAt(offscreenX, offscreenY, (FloatProcessor) imp.getProcessor());
+        //float cB = Interpolator.interpolateAt(offscreenX, offscreenY, (FloatProcessor) Masker.backgr);
             PointRoi pt = new PointRoi(offscreenX+.5, offscreenY+.5);
-            //pt.setStrokeColor(Color.YELLOW);
             currOvl.add(pt);
-        }
 
         // define ring A
-//        scale_A = scale;
         double rd_A = neuronDiamMax*scale_A;
         OvalRoi ring_A = new OvalRoi(offscreenX-rd_A+.5, offscreenY-rd_A+.5, 2*rd_A, 2*rd_A);
         currOvl.add(ring_A);
 
         profile_A = Profiler.extractProfile(neuronDiamMax, scale_A, offscreenX, offscreenY, (FloatProcessor) imp.getProcessor());
-        float[] peakIdx_A = Analyzer.extractPeakIdxs(profile_A); // MS returns values range [0, length)
+        peakIdx_A = Analyzer.extractPeakIdxs(profile_A); // MS returns values range [0, length)
 
         ArrayList<Float> A_Ang  = new ArrayList<Float>(4); // store those that were selected as ok
         ArrayList<Float> A_x    = new ArrayList<Float>(4);
         ArrayList<Float> A_y    = new ArrayList<Float>(4);
 
-		float[] peakAng_A   = null;
+		peakAng_A   = null;
         if (peakIdx_A!=null) {
             float[] peakX_A, peakY_A, peakI_A, peakB_A;
             peakAng_A = new float[peakIdx_A.length];
@@ -406,18 +339,15 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
                 peakX_A[i] = (float) (offscreenX + rd_A * Math.cos( peakAng_A[i] ));
                 peakY_A[i] = (float) (offscreenY - rd_A * Math.sin( peakAng_A[i] ));
                 peakI_A[i] = Interpolator.interpolateAt(peakX_A[i], peakY_A[i], (FloatProcessor) imp.getProcessor());
-                peakB_A[i] = Interpolator.interpolateAt(peakX_A[i], peakY_A[i], (FloatProcessor) Masker.backgr);
-
-                if (true) {  // criteria!!     // peakI_A[i]-peakB_A[i] > Masker.VISIBLE_INTENSITY_DIFF
+                peakB_A[i] = Interpolator.interpolateAt(peakX_A[i], peakY_A[i], Masker.backgr);
 
 //					PointRoi pt = new PointRoi(peakX_A[i]+.5, peakY_A[i]+.5);
-//                    pt.setStrokeColor(getColor(i));
-//                    currOvl.add(pt);
+//                  pt.setStrokeColor(getColor(i));
+//                  currOvl.add(pt);
 
-					A_Ang.add(peakIdx_A[i] * Profiler.getResolDeg(scale_A)); // because hungarian matching method will take angle differences in degrees
-                    A_x.add(peakX_A[i]);
-                    A_y.add(peakY_A[i]);
-                }
+				A_Ang.add(peakIdx_A[i] * Profiler.getResolDeg(scale_A)); // because hungarian matching method will take angle differences in degrees
+                A_x.add(peakX_A[i]);
+                A_y.add(peakY_A[i]);
 
             }
         }
@@ -429,41 +359,40 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 		Plot chartP_A, chartI_A;
         float[] profile_A_MinMax = Tools.getMinMax(profile_A);
 
-        // intensity profile
-        float[] x   = new float[profile_A.length];
-        float[] xI  = new float[profile_A.length];
-        float[] xB  = new float[profile_A.length];
-        for (int i = 1; i <= x.length; i++) {
-            x[i - 1] = (i-1)*Profiler.getResolDeg(scale_A);
-            float pX = (float) (offscreenX + rd_A * Math.cos( x[i - 1] * ((float)Math.PI/180f) ));
-            float pY = (float) (offscreenY - rd_A * Math.sin( x[i - 1] * ((float)Math.PI/180f) ));
-            xI[i-1]  = Interpolator.interpolateAt(pX, pY, (FloatProcessor) imp.getProcessor());
-            xB[i-1]  = Interpolator.interpolateAt(pX, pY, (FloatProcessor) Masker.backgr);
+        if (pwI_A == null) {
+            ang_A   = new float[profile_A.length];
+            i_A     = new float[profile_A.length];
+            iTh_A   = new float[profile_A.length];
         }
 
-		float[] xB_Avg = Tools.circularLocalAvg(xI, (int)neuronDiamMax);
+        for (int i = 1; i <= ang_A.length; i++) {
+            ang_A[i - 1] = (i-1)*Profiler.getResolDeg(scale_A);
+            float pX = (float) (offscreenX + rd_A * Math.cos( ang_A[i - 1] * Deg2Rad ));
+            float pY = (float) (offscreenY - rd_A * Math.sin( ang_A[i - 1] * Deg2Rad ));
+            i_A[i-1]    = Interpolator.interpolateAt(pX, pY, (FloatProcessor) imp.getProcessor());
+            iTh_A[i-1]  = Interpolator.interpolateAt(pX, pY, Masker.backgr) + Interpolator.interpolateAt(pX, pY, Masker.margin);
+        }
 
-        chartP_A = new Plot("", "", "", x, profile_A);
-        chartP_A.setSize(600, 300);
-        chartP_A.addPoints(x, profile_A, PlotWindow.CIRCLE);
+        chartP_A = new Plot("", "", "", ang_A, profile_A);
+        chartP_A.setSize(500, 250);
+        chartP_A.addPoints(ang_A, profile_A, PlotWindow.CIRCLE);
         chartP_A.draw();  chartP_A.setColor(Color.RED);
         // draw peak detections
         if (peakAng_A!=null)
-            for (int i = 0; i < peakIdx_A.length; i++)
+            for (int i = 0; i < peakIdx_A.length; i++) {
                 chartP_A.drawLine(peakAng_A[i] * Rad2Deg, profile_A_MinMax[0], peakAng_A[i] * Rad2Deg, Tools.interp1Darray(peakIdx_A[i], profile_A));
+            }
 
-        chartI_A = new Plot("", "", "", x, xI);
-        chartI_A.setSize(600, 300);
-		chartI_A.addPoints(x, xI, PlotWindow.CIRCLE);
+        chartI_A = new Plot("", "", "", ang_A, i_A);
+        chartI_A.setSize(500, 250);
+		chartI_A.addPoints(ang_A, i_A, PlotWindow.CIRCLE);
         chartI_A.draw(); chartI_A.setColor(Color.BLUE);
-        chartI_A.addPoints(x, xB, PlotWindow.LINE);
-		chartI_A.draw(); chartI_A.setColor(Color.GREEN);
-		chartI_A.addPoints(x, xB_Avg, PlotWindow.LINE);
+        chartI_A.addPoints(ang_A, iTh_A, PlotWindow.LINE);
         chartI_A.draw();  chartI_A.setColor(Color.RED);
         // draw peak detections
         if (peakAng_A!=null)
             for (int i = 0; i < peakIdx_A.length; i++)
-                chartI_A.drawLine(peakAng_A[i] * Rad2Deg, Tools.interp1Darray(peakIdx_A[i], xB), peakAng_A[i] * Rad2Deg, Tools.interp1Darray(peakIdx_A[i], xI));
+                chartI_A.drawLine(peakAng_A[i] * Rad2Deg, Tools.interp1Darray(peakIdx_A[i], iTh_A), peakAng_A[i] * Rad2Deg, Tools.interp1Darray(peakIdx_A[i], i_A));
 
         if (pwP_A == null) pwP_A = chartP_A.show();
         pwP_A.drawPlot(chartP_A);
@@ -472,7 +401,6 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
         if (pwI_A == null) pwI_A = chartI_A.show();
         pwI_A.drawPlot(chartI_A);
         pwI_A.setTitle("RING A: intenst, x = " + offscreenX + ", y = " + offscreenY);
-
 
         /*
         **************************
@@ -485,13 +413,13 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
         currOvl.add(ringB);
 
         profile_B = Profiler.extractProfile(neuronDiamMax, scale_B, offscreenX, offscreenY, (FloatProcessor) imp.getProcessor());
-        float[] peakIdx_B = Analyzer.extractPeakIdxs(profile_B); // MS values range [0, length)
+        peakIdx_B = Analyzer.extractPeakIdxs(profile_B); // MS values range [0, length)
 
         ArrayList<Float> B_Ang  = new ArrayList<Float>(4); // store those that were selected as ok
         ArrayList<Float> B_x    = new ArrayList<Float>(4);
         ArrayList<Float> B_y    = new ArrayList<Float>(4);
 
-        float[] peakAng_B   = null;
+        peakAng_B   = null;
         if (peakIdx_B!=null) {
             float[] peakX_B, peakY_B, peakI_B, peakB_B;
             peakAng_B = new float[peakIdx_B.length];
@@ -505,18 +433,15 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
                 peakX_B[i] = (float) (offscreenX + rd_B * Math.cos( peakAng_B[i] ));
                 peakY_B[i] = (float) (offscreenY - rd_B * Math.sin( peakAng_B[i] ));
                 peakI_B[i] = Interpolator.interpolateAt(peakX_B[i], peakY_B[i], (FloatProcessor) imp.getProcessor());
-                peakB_B[i] = Interpolator.interpolateAt(peakX_B[i], peakY_B[i], (FloatProcessor) Masker.backgr);
-
-                if (true) {  // criteria!! peakI_B[i]-peakB_B[i] > Masker.VISIBLE_INTENSITY_DIFF
+                peakB_B[i] = Interpolator.interpolateAt(peakX_B[i], peakY_B[i], Masker.backgr);
 
 //					PointRoi pt = new PointRoi(peakX_B[i]+.5, peakY_B[i]+.5);
 //                    pt.setStrokeColor(getColor(i));
 //                    currOvl.add(pt);
 
-					B_Ang.add(peakIdx_B[i] * Profiler.getResolDeg(scale_B)); // because hungarian matching method will take angle differences in degrees
-                    B_x.add(peakX_B[i]);
-                    B_y.add(peakY_B[i]);
-                }
+				B_Ang.add(peakIdx_B[i] * Profiler.getResolDeg(scale_B)); // because hungarian matching method will take angle differences in degrees
+                B_x.add(peakX_B[i]);
+                B_y.add(peakY_B[i]);
 
             }
         }
@@ -528,41 +453,39 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
         Plot chartP_B, chartI_B;
         float[] profile_B_MinMax = Tools.getMinMax(profile_B);
 
-        // intensity profile
-        x   = new float[profile_B.length]; // use the same variable as for ring A
-        xI  = new float[profile_B.length];
-        xB  = new float[profile_B.length];
-        for (int i = 1; i <= x.length; i++) {
-            x[i - 1] = (i-1)*Profiler.getResolDeg(scale_B);
-            float pX = (float) (offscreenX + rd_B * Math.cos( x[i - 1] * Deg2Rad ));
-            float pY = (float) (offscreenY - rd_B * Math.sin( x[i - 1] * Deg2Rad ));
-            xI[i-1]  = Interpolator.interpolateAt(pX, pY, (FloatProcessor) imp.getProcessor());
-            xB[i-1]  = Interpolator.interpolateAt(pX, pY, (FloatProcessor) Masker.backgr);
+        if (pwI_B == null) {
+            ang_B   = new float[profile_B.length];
+            i_B     = new float[profile_B.length];
+            iTh_B   = new float[profile_B.length];
         }
 
-		xB_Avg = Tools.circularLocalAvg(xI, (int)neuronDiamMax);
+        for (int i = 1; i <= ang_B.length; i++) {
+            ang_B[i - 1] = (i-1)*Profiler.getResolDeg(scale_B);
+            float pX = (float) (offscreenX + rd_B * Math.cos( ang_B[i - 1] * Deg2Rad ));
+            float pY = (float) (offscreenY - rd_B * Math.sin( ang_B[i - 1] * Deg2Rad ));
+            i_B[i-1]  = Interpolator.interpolateAt(pX, pY, (FloatProcessor) imp.getProcessor());
+            iTh_B[i-1]  = Interpolator.interpolateAt(pX, pY, Masker.backgr) + Interpolator.interpolateAt(pX, pY, Masker.margin);
+        }
 
-        chartP_B = new Plot("", "", "", x, profile_B);
-        chartP_B.setSize(600, 300);
-        chartP_B.addPoints(x, profile_B, PlotWindow.CIRCLE);
+        chartP_B = new Plot("", "", "", ang_B, profile_B);
+        chartP_B.setSize(500, 250);
+        chartP_B.addPoints(ang_B, profile_B, PlotWindow.CIRCLE);
         chartP_B.draw();  chartP_B.setColor(Color.RED);
         // draw peak detections
         if (peakAng_B!=null)
             for (int i = 0; i < peakIdx_B.length; i++)
                 chartP_B.drawLine(peakAng_B[i] * Rad2Deg, profile_B_MinMax[0], peakAng_B[i] * Rad2Deg, Tools.interp1Darray(peakIdx_B[i], profile_B));
 
-        chartI_B = new Plot("", "", "", x, xI);
-        chartI_B.setSize(600, 300);
-		chartI_B.addPoints(x, xI, PlotWindow.CIRCLE);
+        chartI_B = new Plot("", "", "", ang_B, i_B);
+        chartI_B.setSize(500, 250);
+		chartI_B.addPoints(ang_B, i_B, PlotWindow.CIRCLE);
         chartI_B.draw(); chartI_B.setColor(Color.BLUE);
-        chartI_B.addPoints(x, xB, PlotWindow.LINE);
-		chartI_B.draw(); chartI_B.setColor(Color.GREEN);
-		chartI_B.addPoints(x, xB_Avg, PlotWindow.LINE);
+        chartI_B.addPoints(ang_B, iTh_B, PlotWindow.LINE);
         chartI_B.draw();  chartI_B.setColor(Color.RED);
         // draw peak detections
         if (peakAng_B!=null)
             for (int i = 0; i < peakIdx_B.length; i++)
-                chartI_B.drawLine(peakAng_B[i] * Rad2Deg, Tools.interp1Darray(peakIdx_B[i], xB), peakAng_B[i] * Rad2Deg, Tools.interp1Darray(peakIdx_B[i], xI));
+                chartI_B.drawLine(peakAng_B[i] * Rad2Deg, Tools.interp1Darray(peakIdx_B[i], iTh_B), peakAng_B[i] * Rad2Deg, Tools.interp1Darray(peakIdx_B[i], i_B));
 
         if (pwP_B == null) pwP_B = chartP_B.show();
         pwP_B.drawPlot(chartP_B);
@@ -579,43 +502,35 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
         int[][] map = Tools.hungarianMappingAnglesDeg(A_Ang, B_Ang); // map(A ring index, B ring index)
 
         // after mapping
-        ArrayList<float[][]> clustersXY = new ArrayList<float[][]>(map.length);
         float[] angDiv = new float[map.length];
-        // map[index from A][index from B]
 
         for (int k=0; k<map.length; k++) {
 
-            float[][] ringLocsXY = new float[2][2];
-
-            ringLocsXY[0][0] = A_x.get(map[k][0]);
-            ringLocsXY[0][1] = A_y.get(map[k][0]); // point in A
-
-			// add point
-            PointRoi pt = new PointRoi(ringLocsXY[0][0]+.5, ringLocsXY[0][1]+.5);
+            // point in A : A_x.get(map[k][0], A_y.get(map[k][0])
+            float ax = A_x.get(map[k][0]);
+            float ay = A_y.get(map[k][0]);
+			// add it
+            pt = new PointRoi(ax+.5, ay+.5);
             pt.setStrokeColor(getColor(k));
             currOvl.add(pt);
 
-            ringLocsXY[1][0] = B_x.get(map[k][1]);
-            ringLocsXY[1][1] = B_y.get(map[k][1]); // point in B
-
-			// add point
-            pt = new PointRoi(ringLocsXY[1][0]+.5, ringLocsXY[1][1]+.5);
+            // point in B : B_x.get(map[k][1]), B_y.get(map[k][1])
+            float bx = B_x.get(map[k][1]);
+            float by = B_y.get(map[k][1]);
+			// add it
+            pt = new PointRoi(bx+.5, by+.5);
             pt.setStrokeColor(getColor(k));
             currOvl.add(pt);
 
-            clustersXY.add(k, ringLocsXY);
+            angDiv[k] = Tools.angularDeviation(offscreenX, offscreenY, ax, ay, bx, by);
 
-            //angDiv[k] = Tools.extractProfile(new float[]{offscreenX, offscreenY}, clustersXY.get(k)[0], clustersXY.get(k)[1]);
-            angDiv[k] = Tools.angularDeviation(
-													  offscreenX, offscreenY,
-													  A_x.get(map[k][0]), A_y.get(map[k][0]),
-													  B_x.get(map[k][1]), B_y.get(map[k][1]) );
+            IJ.log(offscreenX+","+offscreenY+" -> "+angDiv[k]+" -> "+ax+","+ay+" \t "+bx+","+by);
 
-			if (angDiv[k]>0.5) {
+			if (angDiv[k]>MIN_COS_ANG) {
 
 				PolygonRoi pr = new PolygonRoi(
-													  new float[]{offscreenX+.5f, clustersXY.get(k)[0][0]+.5f, clustersXY.get(k)[1][0]+.5f},
-													  new float[]{offscreenY+.5f, clustersXY.get(k)[0][1]+.5f, clustersXY.get(k)[1][1]+.5f},
+													  new float[]{offscreenX+.5f, ax+.5f, ay+.5f},
+													  new float[]{offscreenY+.5f, bx+.5f, by+.5f},
 													  3,
 													  PolygonRoi.FREELINE
 													  );
@@ -625,7 +540,8 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 
         }
 
-		System.out.println("\nCLUSTER ANG DIVS "+Arrays.toString(angDiv));
+		//System.out.println("\nCLUSTER ANG DIVS "+Arrays.toString(angDiv));
+		IJ.log("\nCLUSTER ANG DIVS "+Arrays.toString(angDiv));
 
         /*
         **************************
@@ -642,7 +558,7 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
         Overlay detections = new Overlay();
 
         for (int i=0; i<regs.size(); i++) {
-            if (regs.get(i).size()>1) {
+            if (regs.get(i).size()>0) {
                 float[] ellipseParams = Tools.extractEllipse(regs.get(i));
 
                 /*
@@ -670,14 +586,37 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 
                 }
 
-//                IJ.log("A: "+A+" , B: "+B+"");
-//                if(regs.get(i).get(0)[1]==584 && regs.get(i).get(0)[0]==254) {
-//                    IJ.log("debug");
-//                    IJ.log("x="+regs.get(i).get(0)[1]+", y="+regs.get(i).get(0)[0]+", A="+A+", B="+B+", angle="+ellipseParams[4]);
-//                }
-
                 float scalePlot = 2;
                 detections.add(Tools.drawEllipse(ellipseParams[1]+0.5f, ellipseParams[0]+0.5f, scalePlot*A, scalePlot*B, ellipseParams[4], Color.YELLOW, 2, 50));
+
+            }
+        }
+
+        return detections;
+
+    }
+
+    private Overlay formPointOverlay(ArrayList<ArrayList<int[]>> regs, int minSize)
+    {
+
+        Overlay detections = new Overlay();
+
+        for (int i=0; i<regs.size(); i++) {
+            if (regs.get(i).size()>minSize) {
+
+                float Cx=0, Cy=0, R= (float) Math.sqrt((float)regs.get(i).size()/Math.PI);
+                R = (R<1)? 1 : R ;
+
+                for (int aa=0; aa<regs.get(i).size(); aa++) {
+                    Cx += regs.get(i).get(aa)[1];
+                    Cy += regs.get(i).get(aa)[0];
+                }
+                Cx /= regs.get(i).size();
+                Cy /= regs.get(i).size();
+
+                OvalRoi ovroi = new OvalRoi(Cx-R+.5, Cy-R+.5, 2*R, 2*R);
+                ovroi.setStrokeWidth(3);
+                detections.add(ovroi);
 
             }
         }
@@ -695,13 +634,22 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 							 float scale_A, float scale_B)
 							 // specific for 2 rings, last argument needs to be array for more generic case
 	{
-		// it is considered as peakIdxsAtLoc.size() == 2
-
         int score = 255;
+
+        System.out.print("\n"+IJ.d2s(locX,0)+","+IJ.d2s(locY,0)+" -> ");
 
 		// check number of peaks for each ring
 		for (int ringIdx=0; ringIdx<2; ringIdx++)
-			if (peakIdxsAtLoc.get(ringIdx).size() < 3) return 0;
+			if (peakIdxsAtLoc.get(ringIdx).size() < 3) {
+                System.out.print("profile at ring "+ringIdx+" had "+peakIdxsAtLoc.get(ringIdx).size()+" peaks. score=0");
+                return 0;
+            }
+            else {
+                System.out.print("PEAK "+ringIdx);
+                for (int aa=0; aa<peakIdxsAtLoc.get(ringIdx).size(); aa++) {
+                    System.out.print(""+peakIdxsAtLoc.get(ringIdx).get(aa)+" , ");
+                }
+            }
 
 		// check directionality, calculate Angles, Ax, Ay, Bx, By for each cluster
 		int nrPointsA = peakIdxsAtLoc.get(0).size();
@@ -710,7 +658,7 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 		ArrayList<Float> peakAngA 	= new ArrayList<Float>(nrPointsA);
 		ArrayList<Float> Ax  		= new ArrayList<Float>(nrPointsA);
 		ArrayList<Float> Ay  		= new ArrayList<Float>(nrPointsA);
-		ArrayList<Float> peakAngB = new ArrayList<Float>(nrPointsB);
+		ArrayList<Float> peakAngB   = new ArrayList<Float>(nrPointsB);
 		ArrayList<Float> Bx  		= new ArrayList<Float>(nrPointsB);
 		ArrayList<Float> By  		= new ArrayList<Float>(nrPointsB);
 
@@ -734,12 +682,10 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 			By.add(ii, (float) (locY - neuronDiamMax * scale_B * Math.sin(peakAngB.get(ii) * Deg2Rad)));
 		}
 
-		// at least 3 clusters have to be aligned
-//		int countAligned = 0;
+		// at least 3 clusters have to be aligned and higher than threshold
 		int countBranches = 0;
+        ArrayList<Float> outDirectionsDeg = new ArrayList<Float>(4); // aligned directons
 		for (int k=0; k<map.length; k++) { // k loops clusters
-
-			// check each branch (cluster) - A(x,y), B(x,y)
 
 			float pAx = Ax.get(map[k][0]);
 			float pAy = Ay.get(map[k][0]);
@@ -748,33 +694,76 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 			float pBy = By.get(map[k][1]);
 
 			float cosAngle = Tools.angularDeviation(locX, locY, pAx, pAy, pBx, pBy);
+            System.out.println(locX+","+locY+" -> "+cosAngle+" -> "+pAx+","+pAy+" \t "+pBx+","+pBy);
+            // map[k][0] is index in A, map[k][1] is index in B
+            if (cosAngle>MIN_COS_ANG) {
 
-			boolean isON = true;
-			isON = isON && Interpolator.interpolateAt(pAx, pAy, inip1) > Interpolator.interpolateAt(pAx, pAy, backgr1) + Interpolator.interpolateAt(pAx, pAy, margin1);
-			isON = isON && Interpolator.interpolateAt(pBx, pBy, inip1) > Interpolator.interpolateAt(pBx, pBy, backgr1) + Interpolator.interpolateAt(pBx, pBy, margin1);
+                float estimatedDIrectionDeg = Tools.wrap_360( 0.5f*(peakAngA.get(map[k][0]) + peakAngB.get(map[k][1])) );
+                outDirectionsDeg.add( k,  estimatedDIrectionDeg);
 
-			if (cosAngle>0.9 && isON) countBranches++;
+
+                boolean isON = true;
+                isON = isON && Interpolator.interpolateAt(pAx, pAy, inip1) > Interpolator.interpolateAt(pAx, pAy, backgr1) + Interpolator.interpolateAt(pAx, pAy, margin1);
+                isON = isON && Interpolator.interpolateAt(pBx, pBy, inip1) > Interpolator.interpolateAt(pBx, pBy, backgr1) + Interpolator.interpolateAt(pBx, pBy, margin1);
+
+                if (isON) {
+                        System.out.print("\nadded branch at "+estimatedDIrectionDeg+" with "+cosAngle+" counting so far "+countBranches+" bches ");
+                        countBranches++;
+                }
+                else {
+                    System.out.print("branch ["+peakAngA.get(map[k][0])+", "+peakAngB.get(map[k][1])+"] deg. cos(angle)="+cosAngle+" was NOT ON, "+countBranches+" branches so far");
+                }
+            }
+            else {
+                System.out.print("branch ["+peakAngA.get(map[k][0])+", "+peakAngB.get(map[k][1])+"] deg. cos(angle)="+cosAngle+" was NOT LINEAR, "+countBranches+" branches so far");
+            }
 
 		}
 
-		if (countBranches<3)
-			return 0;
+		if (countBranches<3) {
+            System.out.print("less than 3 branches with direciton and intensity, score=0");
+            return 0;
+        }
+        else { // 3 or 4 branches that hae ok direction and each is above margin
 
-		// prune branches
-//        if (Interpolator.interpolateAt(locX, locY, inip1) > Interpolator.interpolateAt(locX, locY, backgr1) + Masker.VISIBLE_INTENSITY_DIFF) {
-//            score = 255;
-//            for (int confIdx=0; confIdx<peakIdxsAtLoc.size(); confIdx++) {
-//
-//                if (peakIdxsAtLoc.get(confIdx).size()<3) {
-//                    score = 0;
-//                    break;
-//                }
-//            }
-//        }
+            // TODO: add individual profile check
+            boolean chk = checkProfile();
 
+            if (chk) {
+
+
+            }
+            else {
+                System.out.print("rejected profile");
+                return 0;
+            }
+
+        }
+
+		// wrong 3 angle configuration
+        float[] a = null;
+        if (outDirectionsDeg.size()==3) {
+            a = new float[3];
+            a[0] = outDirectionsDeg.get(0);
+            a[1] = outDirectionsDeg.get(1);
+            a[2] = outDirectionsDeg.get(2);
+            Arrays.sort(a);
+            if (a[0]+360-a[2] >180) {
+                System.out.print("bad configureation, alfa20>180, score=0");
+                return 0;
+            }
+            if (a[2]-a[1] >180) {
+                System.out.print("bad configureation, alfa21>180, score=0");
+                return 0;
+            }
+            if (a[1]-a[0] >180) {
+                System.out.print("bad configureation, alfa10>180, score=0");
+                return 0;
+            }
+        }
+
+        System.out.println(" OK! ");
         return score;
-
-        //if (Analyzer.peakIdx[locIdx][0] != null) {
 
 //            float[] domes = new float[3];
 //            int[] roundedPks = new int[]{Math.round(Analyzer.peakIdx[locIdx][0][0]), Math.round(Analyzer.peakIdx[locIdx][0][1]), Math.round(Analyzer.peakIdx[locIdx][0][2])};
@@ -796,20 +785,16 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 //
 //            score = w1*((p1-pL1)/(pL1-pLmin)) + w2*((p2-pL2)/(pL2-pLmin)) + w3*((p3-pL3)/(pL3-pLmin));
 
-            /*
-
-            for (int i = 0; i < 3; i++) {
-                float pH, pL;
-                pH = (float) Tools.interp1Darray(Analyzer.peakIdx[locIdx][0][i], Profiler.profiles[locIdx]);
-                pL = Tools.findNextStationaryValue(Analyzer.peakIdx[locIdx][0][i], roundedPks, Profiler.profiles[locIdx]);
-                domes[i] = (pH>pL)?(pH-pL):0;
-            }
-
-            if (Tools.min3(domes)>D) {  // th depends on the thickness
-                score = 255;
-            }
-            */
-        //}
+//            for (int i = 0; i < 3; i++) {
+//                float pH, pL;
+//                pH = (float) Tools.interp1Darray(Analyzer.peakIdx[locIdx][0][i], Profiler.profiles[locIdx]);
+//                pL = Tools.findNextStationaryValue(Analyzer.peakIdx[locIdx][0][i], roundedPks, Profiler.profiles[locIdx]);
+//                domes[i] = (pH>pL)?(pH-pL):0;
+//            }
+//
+//            if (Tools.min3(domes)>D) {  // th depends on the thickness
+//                score = 255;
+//            }
 
     }
 
@@ -865,52 +850,55 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 
     public void keyPressed(KeyEvent e) {
 
+        // pressing key 'U' will export data to profile.log
 
         if (e.getKeyCode() == KeyEvent.VK_U) {
 
             if (pwP_A!=null) {
 
-                // export to csv
-                String profileFile = "profile.csv", msFile = "ms.csv", csFile = "cs.csv";
+                // export to csv when clicked
+                String profileFile = "profile_v11.log";
 
                 // empty the file
                 PrintWriter writer = null;
                 try {
                     writer = new PrintWriter(profileFile);  writer.print("");   writer.close();
-                    writer = new PrintWriter(msFile);       writer.print("");   writer.close();
-                    writer = new PrintWriter(csFile);    writer.print("");   writer.close();
                 } catch (FileNotFoundException ex) {}
 
                 try {
                     PrintWriter out;
 
                     out = new PrintWriter(new BufferedWriter(new FileWriter(profileFile, true)));
-                    out.println("Angle, Response");
-                    int idx = 0;
-                    for (int aDeg = 0; aDeg<360; aDeg+=Profiler.resolDeg) {
-                        out.println(aDeg+", "+profile_A[idx++]);
-                    }
+
+                    // profile A
+                    out.print("angle[deg]");for (int idx=0; idx<profile_A.length; idx++)    out.print(" " + ang_A[idx]);                out.print("\n");
+                    out.print("profile_A"); for (int idx=0; idx<profile_A.length; idx++)    out.print(" " + profile_A[idx]);            out.print("\n");
+                    out.print("peak_A_ang");for (int idx=0; idx<peakIdx_A.length; idx++)    out.print(" " + peakAng_A[idx] * Rad2Deg);  out.print("\n");
+                    out.print("peak_A_val");for (int idx=0; idx<peakIdx_A.length; idx++)    out.print(" " + Tools.interp1Darray(peakIdx_A[idx], profile_A)); out.print("\n");
+
+                    // profile B
+                    out.print("angle[deg]");for (int idx=0; idx<profile_B.length; idx++)    out.print(" " + ang_B[idx]);                out.print("\n");
+                    out.print("profile_B"); for (int idx=0; idx<profile_B.length; idx++)    out.print(" " + profile_B[idx]);            out.print("\n");
+                    out.print("peak_B_ang");for (int idx=0; idx<peakIdx_B.length; idx++)    out.print(" " + peakAng_B[idx] * Rad2Deg);  out.print("\n");
+                    out.print("peak_B_val");for (int idx=0; idx<peakIdx_B.length; idx++)    out.print(" " + Tools.interp1Darray(peakIdx_B[idx], profile_B)); out.print("\n");
+
+                    // intensities A
+                    out.print("i_A");           for (int idx=0; idx<profile_A.length; idx++)    out.print(" " + i_A[idx]);    out.print("\n");
+                    out.print("iTh_A");         for (int idx=0; idx<profile_A.length; idx++)    out.print(" " + iTh_A[idx]);  out.print("\n");
+                    out.print("peak_A_Low");    for (int idx=0; idx<peakIdx_A.length; idx++)    out.print(" " + Tools.interp1Darray(peakIdx_A[idx], iTh_A)); out.print("\n");
+                    out.print("peak_A_high");   for (int idx=0; idx<peakIdx_A.length; idx++)    out.print(" " + Tools.interp1Darray(peakIdx_A[idx], i_A));   out.print("\n");
+
+                    // intensities B
+                    out.print("i_B");        for (int idx=0; idx<profile_B.length; idx++)    out.print(" " + i_B[idx]);              out.print("\n");
+                    out.print("iTh_B");      for (int idx=0; idx<profile_B.length; idx++)    out.print(" " + iTh_B[idx]);            out.print("\n");
+                    out.print("peak_B_Low"); for (int idx=0; idx<peakIdx_B.length; idx++)    out.print(" " + Tools.interp1Darray(peakIdx_B[idx], iTh_B));  out.print("\n");
+                    out.print("peak_B_high");for (int idx=0; idx<peakIdx_B.length; idx++)    out.print(" " + Tools.interp1Darray(peakIdx_B[idx], i_B)); out.print("\n");
+
                     out.close();
-
-//                    out = new PrintWriter(new BufferedWriter(new FileWriter(msFile, true)));
-//                    out.println("Angle, Response");
-
-//                    for (int i = 0; i<xMS.length; i++) {
-//                        out.println(xMS[i]+", "+yMS[i]);
-//                    }
-//                    out.close();
-
-//                    out = new PrintWriter(new BufferedWriter(new FileWriter(csFile, true)));
-//                    out.println("Angle, Lower, Higher");
-
-//                    for (int i = 0; i<xCS.length; i++) {
-//                        out.println(xCS[i]+", "+yCSlower[i]+", "+yCSupper[i]);
-//                    }
-//                    out.close();
 
                 } catch (IOException e1) {}
 
-                IJ.log("exported to : \n" + new File(profileFile).getAbsolutePath()+ " \n " + new File(msFile).getAbsolutePath() + "\n" + new File(csFile).getAbsolutePath());
+                IJ.log("exported to : \n" + new File(profileFile).getAbsolutePath()+ " \n ");
 
             }
 

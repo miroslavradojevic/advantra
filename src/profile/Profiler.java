@@ -40,12 +40,17 @@ public class Profiler extends Thread {
 	public static double    samplingStep = 0.5;
 	public static float     TwoPI = (float) (Math.PI*2);
 
+    public static float     R_HALF = 0.75f;
+    public static float     T_HALF = 0.50f;
+
+
 	public Profiler (int n0, int n1) {
 		this.begN = n0;
 		this.endN = n1;
 	}
 
-    public static void loadTemplate(ImageProcessor inip1, ByteProcessor maskip1) {
+    public static void loadTemplate(ImageProcessor inip1, ByteProcessor maskip1)
+    {
 
         /*
         set inip
@@ -86,7 +91,8 @@ public class Profiler extends Thread {
 
     }
 
-	public static void loadParams(double neuronDiam1, double scale1, boolean showSampling) {
+	public static void loadParams(double neuronDiam1, double scale1, boolean showSampling)
+    {
 
 		neuronDiam 	= neuronDiam1;
 		scale 		= scale1;
@@ -115,8 +121,8 @@ public class Profiler extends Thread {
 		weights = new ArrayList<ArrayList<Double>>();
 
 		// +/-limR, +/-limT (used to limit index)
-		int limR = (int) Math.ceil(0.75*neuronDiam/samplingStep);
-		int limT = (int) Math.ceil(0.50*neuronDiam/samplingStep);
+		int limR = (int) Math.ceil(R_HALF*neuronDiam/samplingStep);
+		int limT = (int) Math.ceil(T_HALF*neuronDiam/samplingStep);
 
 		/* 	these will be used to visualize the sampling and the shape of the profiles
 			if showSampling was set to true
@@ -253,8 +259,8 @@ public class Profiler extends Thread {
         double[] n0 = new double[2];
 
         // +/-limR, +/-limT (used to limit index)
-        int limR = (int) Math.ceil(0.75*neuronDiam1/samplingStep);
-        int limT = (int) Math.ceil(0.50*neuronDiam1/samplingStep);
+        int limR = (int) Math.ceil(R_HALF*neuronDiam1/samplingStep);
+        int limT = (int) Math.ceil(T_HALF*neuronDiam1/samplingStep);
 
         for (int aDeg = 0; aDeg<360; aDeg+=resolDeg1) {
 

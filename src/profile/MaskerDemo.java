@@ -85,12 +85,7 @@ public class MaskerDemo implements PlugInFilter, MouseListener, MouseMotionListe
 
         t1 = System.currentTimeMillis();
 
-//        if (bgExtractionMode=="MEAN") {
-            Masker.loadTemplate(inimg.getProcessor(), nhoodRadius);
-//        }
-//        if (bgExtractionMode=="MEDIAN") {
-//            Masker.loadTemplate(inimg.getProcessor(), nhoodRadius);
-//        }
+        Masker.loadTemplate(inimg.getProcessor(), nhoodRadius);
 
         int totalProfiles = inimg.getHeight()*inimg.getWidth();
 
@@ -217,7 +212,7 @@ public class MaskerDemo implements PlugInFilter, MouseListener, MouseMotionListe
 		float diff = std[0]-med[0];
 		float margin = (diff<=Masker.I_DIFF)?
 							   Masker.I_DIFF :
-							   Masker.I_DIFF*(float)Math.exp(-(diff-Masker.I_DIFF)) ;
+							   Masker.I_DIFF*(float)Math.exp(-0.5*(diff-Masker.I_DIFF)) ;
 		float[] mg = new float[circVals.length];
 		for (int i=0; i<circVals.length; i++) mg[i] = med[0] + margin;
 
