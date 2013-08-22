@@ -29,8 +29,9 @@ public class Masker extends Thread {
 
 //    private static int              bgComputationMode;
 
-	public static   float I_DIFF = 10;
-    public static   float DECAY_STD = .5f*I_DIFF;
+	public static   float I_DIFF = 5;
+	public static 	float HYSTERESIS = 1;
+    public static   float DECAY_STD = .25f*I_DIFF;
 
     public Masker (int n0, int n1) { // complete range would be image_width*image_height
         this.begN = n0;
@@ -78,12 +79,14 @@ public class Masker extends Thread {
 
 			float locStdXY 	= std(circNeigh, locAvgXY);
 
+			float locQ3XY 	= quartile3(circNeigh);
+
             float locMedXY 	= median(circNeigh);   		// background
 
-            float locIdiffXY= locAvgXY + 2 * locStdXY - locMedXY;
             //float locIdiffXY= locAvgXY + 2 * locStdXY - locMedXY;
+            float locIdiffXY= locQ3XY - locMedXY;
 
-            float locMgnXY 	= (locIdiffXY<=I_DIFF)? I_DIFF : I_DIFF*(float)Math.exp(- (locIdiffXY-I_DIFF)*(locIdiffXY-I_DIFF) / (2*DECAY_STD*DECAY_STD) ) ;
+            float locMgnXY 	= (locIdiffXY<=I_DIFF)? I_DIFF : 0;// I_DIFF*(float)Math.exp(- (locIdiffXY-I_DIFF)*(locIdiffXY-I_DIFF) / (2*DECAY_STD*DECAY_STD) ) ;
 
 			backgr.setf(atX, atY, locMedXY);
 			margin.setf(atX, atY, locMgnXY);
@@ -179,6 +182,56 @@ public class Masker extends Thread {
 		double x;
 		if (n % 2 == 0) k = (n/2)-1;
 		else k = (n/2);
+		l=0 ; m=n-1 ;
+		while (l < m)
+		{
+			x=a[k] ;
+			i = l ;
+			j = m ;
+			do
+			{
+				while (a[i] < x) i++ ;
+				while (x < a[j]) j-- ;
+				if (i <= j) {
+					float temp = a[i];
+					a[i] = a[j];
+					a[j] = temp;
+					i++ ; j-- ;
+				}
+			} while (i <= j) ;
+			if (j < k) l = i ;
+			if (k < i) m = j ;
+		}
+		return a[k] ;
+	}
+
+	/*
+    kth smallest
+	 */
+
+	public static float[] quartile3Vec(float[] in)
+	{
+		float[] out = new float[in.length];
+
+		float q3 = quartile3(in);
+
+		for (int i=0; i<in.length; i++) {
+			out[i] = q3;
+		}
+
+		return out;
+
+	}
+
+	public static float quartile3(float[] a)
+	{
+		int n = a.length;
+		int i, j, l, m, k;
+		double x;
+
+		if (n % 2 == 0) k = ((3*n)/4)-1;
+		else k = ((3*n)/4);
+
 		l=0 ; m=n-1 ;
 		while (l < m)
 		{
