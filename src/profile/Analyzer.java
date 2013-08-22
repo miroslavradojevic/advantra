@@ -1,6 +1,7 @@
 package profile;
 
 import ij.IJ;
+import ij.gui.Plot;
 
 import java.util.ArrayList;
 import java.util.Vector;
@@ -32,13 +33,13 @@ public class Analyzer extends Thread  {
     public static ArrayList<ArrayList<float[]>> convIdx;
     */
 
-    public static int       nrPoints = 200;
+    public static int       nrPoints = 150;
     double[]  start 		= new double[nrPoints];
     double[]  msFinish 		= new double[nrPoints];
 
-    public static int       maxIter = 50;
+    public static int       maxIter = 200;
     public static double    epsilon = 0.01;//Double.MIN_VALUE;//
-    public static int       h = 3;              // in indexes
+    public static int       h = 4;              // in indexes
     public static double    minD = 0.5;
     public static int       M = (int) Math.round(0.05*nrPoints);         // 0.05 of the nrPoints
 
@@ -109,7 +110,7 @@ public class Analyzer extends Thread  {
 
     }
 
-	public static float[] extractPeakIdxs(float[] profile1)  // not possible to use when parallel
+	public static float[] extractPeakIdxs(float[] profile1, boolean showConv)  // not possible to use when parallel
 	{
 
         double[] start11 	= new double[nrPoints];
@@ -127,6 +128,24 @@ public class Analyzer extends Thread  {
 					epsilon,
 					h,
 					finish11);
+
+        if (showConv) {
+
+            double[] startY = new double[nrPoints];
+            double[] endY = new double[nrPoints];
+
+            for (int yy=0; yy<nrPoints; yy++) {
+                startY[yy] = (float) Tools.interp1Darray((float) start11[yy], profile1);
+                endY[yy] = (float) Tools.interp1Darray((float) finish11[yy], profile1);
+            }
+
+            Plot p = new Plot("", "", "");
+            p.setLimits(0, profileLength, Tools.getMinMax(profile1)[0], Tools.getMinMax(profile1)[1]);
+            p.addPoints(start11, startY, Plot.DOT);
+            p.addPoints(finish11, endY, Plot.BOX);
+            p.show();
+
+        }
 
 	    Vector<float[]> cls = Tools.extractClusters1(finish11, minD, M, profileLength);
 

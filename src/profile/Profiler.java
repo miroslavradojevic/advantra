@@ -1,6 +1,5 @@
 package profile;
 
-import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.Overlay;
@@ -121,7 +120,7 @@ public class Profiler extends Thread {
 		weights = new ArrayList<ArrayList<Double>>();
 
 		// +/-limR, +/-limT (used to limit index)
-		int limR = (int) Math.ceil(R_HALF*neuronDiam/samplingStep);
+		int limR = (int) Math.ceil(scale*neuronDiam/samplingStep);
 		int limT = (int) Math.ceil(T_HALF*neuronDiam/samplingStep);
 
 		/* 	these will be used to visualize the sampling and the shape of the profiles
@@ -130,12 +129,12 @@ public class Profiler extends Thread {
 		Overlay ov  = new Overlay();
 		ImageStack stackSampling = new ImageStack();
 		ImageStack stackProfile  = new ImageStack();
-		FloatProcessor stackProfileSlice = new FloatProcessor(2*limT+1, 2*limR+1);
+		FloatProcessor stackProfileSlice = new FloatProcessor(2*limT+1, 1*limR+1);
 		PointRoi pt;
 
 		if (showSampling) {
 			stackSampling 	= new ImageStack(2*outerRange+1, 2*outerRange+1);
-			stackProfile 	= new ImageStack(2*limT+1, 2*limR+1);
+			stackProfile 	= new ImageStack(2*limT+1, 1*limR+1);
 			pt = new PointRoi(outerRange+0.5, outerRange+0.5);
 			ov.add(pt);
 		}
@@ -161,15 +160,15 @@ public class Profiler extends Thread {
 			double dy = samplingStep*Math.cos(aRad);
 
 			if (showSampling) {
-				stackProfileSlice = new FloatProcessor(2*limT+1, 2*limR+1);
+				stackProfileSlice = new FloatProcessor(2*limT+1, 1*limR+1);
 			}
 
-			for (int i=-limR; i<=limR; i++) {
+			for (int i=-limR; i<=0; i++) {
 
 				for (int j=-limT; j<=limT; j++) {
 
-					double px = n0[0] + j * dx + i * (-dy);
-					double py = n0[1] + j * dy + i * dx;
+					double px = n0[0] + j * dx - i * (-dy);
+					double py = n0[1] + j * dy - i * dx;
 
 					double dst = point2line(n1[0], n1[1], n2[0], n2[1], px, py);
 					offsetsAngleLoc.add(new double[]{px, py});
@@ -212,9 +211,22 @@ public class Profiler extends Thread {
 			sampling.setOverlay(ov);
 			sampling.show();
 			sampling.getCanvas().zoomIn(0,0);
+			sampling.getCanvas().zoomIn(0,0);
+			sampling.getCanvas().zoomIn(0,0);
+			sampling.getCanvas().zoomIn(0,0);
+			sampling.getCanvas().zoomIn(0,0);
+			sampling.getCanvas().zoomIn(0,0);
+			sampling.getCanvas().zoomIn(0,0);
 
 			ImagePlus prof = new ImagePlus("filter_profiles", stackProfile);
 			prof.show();
+			prof.getCanvas().zoomIn(0,0);
+			prof.getCanvas().zoomIn(0,0);
+			prof.getCanvas().zoomIn(0,0);
+			prof.getCanvas().zoomIn(0,0);
+			prof.getCanvas().zoomIn(0,0);
+			prof.getCanvas().zoomIn(0,0);
+			prof.getCanvas().zoomIn(0,0);
 			prof.getCanvas().zoomIn(0,0);
 
 		}
@@ -259,7 +271,7 @@ public class Profiler extends Thread {
         double[] n0 = new double[2];
 
         // +/-limR, +/-limT (used to limit index)
-        int limR = (int) Math.ceil(R_HALF*neuronDiam1/samplingStep);
+        int limR = (int) Math.ceil(scale1*neuronDiam1/samplingStep);
         int limT = (int) Math.ceil(T_HALF*neuronDiam1/samplingStep);
 
         for (int aDeg = 0; aDeg<360; aDeg+=resolDeg1) {
@@ -282,12 +294,12 @@ public class Profiler extends Thread {
             double dx = samplingStep*Math.sin(aRad);
             double dy = samplingStep*Math.cos(aRad);
 
-            for (int i=-limR; i<=limR; i++) {
+            for (int i=-limR; i<=0; i++) {
 
                 for (int j=-limT; j<=limT; j++) {
 
-                    double px = n0[0] + j * dx + i * (-dy);
-                    double py = n0[1] + j * dy + i * dx;
+                    double px = n0[0] + j * dx - i * (-dy);
+                    double py = n0[1] + j * dy - i * dx;
 
                     double dst = point2line(n1[0], n1[1], n2[0], n2[1], px, py);
                     offsetsAngleLoc.add(new double[]{px, py});

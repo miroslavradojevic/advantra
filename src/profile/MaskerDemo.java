@@ -207,9 +207,11 @@ public class MaskerDemo implements PlugInFilter, MouseListener, MouseMotionListe
 
 		float avg =  Masker.average(circVals);
 		float[] med = Masker.medianVec(circVals);
-		float[] std = Masker.stdVec(circVals, avg);
-		for (int i=0; i<circVals.length; i++) std[i] = avg + 2*std[i];
-		float diff = std[0]-med[0];
+		float[] std = Masker.stdVec(circVals, avg); for (int i=0; i<circVals.length; i++) std[i] = avg + 2*std[i];
+        float[] q3 = Masker.quartile3Vec(circVals);
+
+
+        float diff = std[0]-med[0];  // std , q3
 		float margin = (diff<=Masker.I_DIFF)?
 							   Masker.I_DIFF :
 							   0;//Masker.I_DIFF*(float)Math.exp(-0.5*(diff-Masker.I_DIFF)) ;
@@ -218,13 +220,23 @@ public class MaskerDemo implements PlugInFilter, MouseListener, MouseMotionListe
 
 		p.setLimits(1, x.length, circVals[0], Math.max(circVals[circVals.length-1], Math.max(std[0], mg[0]))+5);
 
-		p.draw(); p.setLineWidth(2); p.setColor(Color.RED);
-		p.addPoints(x, med, Plot.LINE);
+        /*
+        BGRD
+         */
 
 		p.draw(); p.setLineWidth(2); p.setColor(Color.BLUE);
-		p.addPoints(x, std, Plot.LINE);
+		p.addPoints(x, med, Plot.LINE);
 
+        /*
+        LEVEL
+         */
 		p.draw(); p.setLineWidth(2); p.setColor(Color.GREEN);
+		p.addPoints(x, std, Plot.LINE);  // std, q3
+
+        /*
+        THRESHOLD
+         */
+		p.draw(); p.setLineWidth(2); p.setColor(Color.RED);
 		p.addPoints(x, mg, Plot.LINE);
 
 		IJ.log("median(R): "+med[0]+", upper limit(G): "+std[0]+", margin: "+mg[0]+", value:"+inimg.getProcessor().getf(offscreenX, offscreenY));

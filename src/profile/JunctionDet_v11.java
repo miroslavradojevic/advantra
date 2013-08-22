@@ -164,7 +164,7 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 		scale_A = scale;
 		scale_B = scale_A + 1;
 
-		Profiler.loadParams(neuronDiamMax, scale_A, false);
+		Profiler.loadParams(neuronDiamMax, scale_A, true);
 		totalJobs = Profiler.offsets.size();
 
 		Profiler[] profiler_jobs;
@@ -185,7 +185,7 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 
 		addProfilerList(profiles, Profiler.profiles);
 
-		Profiler.loadParams(neuronDiamMax, scale_B, false);
+		Profiler.loadParams(neuronDiamMax, scale_B, true);
 		totalJobs = Profiler.offsets.size();
 		profiler_jobs = new Profiler[CPU_NR];
 		for (int i = 0; i < profiler_jobs.length; i++) {
@@ -346,7 +346,7 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
         currOvl.add(ring_A);
 
         profile_A = Profiler.extractProfile(neuronDiamMax, scale_A, offscreenX, offscreenY, (FloatProcessor) imp.getProcessor());
-        peakIdx_A = Analyzer.extractPeakIdxs(profile_A); // MS returns values range [0, length)
+        peakIdx_A = Analyzer.extractPeakIdxs(profile_A, true); // MS returns values range [0, length)
 
         ArrayList<Float> A_Ang  = new ArrayList<Float>(4); // store those that were selected as ok
         ArrayList<Float> A_x    = new ArrayList<Float>(4);
@@ -397,11 +397,21 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
             float pX = (float) (offscreenX + rd_A * Math.cos( ang_A[i - 1] * Deg2Rad ));
             float pY = (float) (offscreenY - rd_A * Math.sin( ang_A[i - 1] * Deg2Rad ));
             i_A[i-1]    = Interpolator.interpolateAt(pX, pY, (FloatProcessor) imp.getProcessor());
-            iTh_A[i-1]  = Interpolator.interpolateAt(pX, pY, Masker.backgr) + Interpolator.interpolateAt(pX, pY, Masker.margin);
+            iTh_A[i-1]  = Interpolator.interpolateAt(pX, pY, Masker.backgr);// + Interpolator.interpolateAt(pX, pY, Masker.margin);
         }
 
         chartP_A = new Plot("", "", "", ang_A, profile_A);
         chartP_A.setSize(500, 250);
+
+/*        if (peakIdx_A!=null) {
+            float[] dummyX = new float[peakIdx_A.length];
+            for (int i=0; i<dummyX.length; i++) dummyX[i] = peakIdx_A[i] * Profiler.getResolDeg(scale_A);
+            float[] dummyY = new float[peakIdx_A.length];
+            for (int i=0; i<dummyY.length; i++) dummyY[i] = (float) Tools.interp1Darray(peakIdx_A[i], profile_A);// peakIdx_A[i] * Profiler.getResolDeg(scale_A);
+            chartP_A.addPoints(dummyX, dummyY, PlotWindow.BOX);
+        }*/
+
+
         chartP_A.addPoints(ang_A, profile_A, PlotWindow.CIRCLE);
         chartP_A.draw();  chartP_A.setColor(Color.RED);
         // draw peak detections
@@ -440,7 +450,7 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
         currOvl.add(ringB);
 
         profile_B = Profiler.extractProfile(neuronDiamMax, scale_B, offscreenX, offscreenY, (FloatProcessor) imp.getProcessor());
-        peakIdx_B = Analyzer.extractPeakIdxs(profile_B); // MS values range [0, length)
+        peakIdx_B = Analyzer.extractPeakIdxs(profile_B, false); // MS values range [0, length)
 
         ArrayList<Float> B_Ang  = new ArrayList<Float>(4); // store those that were selected as ok
         ArrayList<Float> B_x    = new ArrayList<Float>(4);
@@ -491,7 +501,7 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
             float pX = (float) (offscreenX + rd_B * Math.cos( ang_B[i - 1] * Deg2Rad ));
             float pY = (float) (offscreenY - rd_B * Math.sin( ang_B[i - 1] * Deg2Rad ));
             i_B[i-1]  = Interpolator.interpolateAt(pX, pY, (FloatProcessor) imp.getProcessor());
-            iTh_B[i-1]  = Interpolator.interpolateAt(pX, pY, Masker.backgr) + Interpolator.interpolateAt(pX, pY, Masker.margin);
+            iTh_B[i-1]  = Interpolator.interpolateAt(pX, pY, Masker.backgr);// + Interpolator.interpolateAt(pX, pY, Masker.margin);
         }
 
         chartP_B = new Plot("", "", "", ang_B, profile_B);
@@ -508,11 +518,15 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 		chartI_B.addPoints(ang_B, i_B, PlotWindow.CIRCLE);
         chartI_B.draw(); chartI_B.setColor(Color.BLUE);
         chartI_B.addPoints(ang_B, iTh_B, PlotWindow.LINE);
-        chartI_B.draw();  chartI_B.setColor(Color.RED);
+        chartI_B.draw();  chartI_B.setColor(Color.RED); chartI_B.setLineWidth(3);
         // draw peak detections
         if (peakAng_B!=null)
-            for (int i = 0; i < peakIdx_B.length; i++)
-                chartI_B.drawLine(peakAng_B[i] * Rad2Deg, Tools.interp1Darray(peakIdx_B[i], iTh_B), peakAng_B[i] * Rad2Deg, Tools.interp1Darray(peakIdx_B[i], i_B));
+            for (int i = 0; i < peakIdx_B.length; i++) {
+                float low_B = (float) Tools.interp1Darray(peakIdx_B[i], iTh_B);
+                float hgh_B = (float) Tools.interp1Darray(peakIdx_B[i], i_B);
+                if(hgh_B>low_B) chartI_B.drawLine(peakAng_B[i] * Rad2Deg, low_B, peakAng_B[i] * Rad2Deg, hgh_B);
+            }
+
 
         if (pwP_B == null) pwP_B = chartP_B.show();
         pwP_B.drawPlot(chartP_B);
@@ -733,8 +747,8 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 			logWriter.println("mapping # "+k+" cos(ang) = "+cosAngle+" : "+peakAngsAtLoc.get(0).get(map[k][0])+" \t "+peakAngsAtLoc.get(1).get(map[k][1]));
 
 			if (cosAngle>MIN_COS_ANG &&
-						isForeground(p[0][k], inip1, backgr1, margin1) &&
-						isForeground(p[1][k], inip1, backgr1, margin1)) {
+						isForeground(p[0][k], inip1, backgr1) &&
+						isForeground(p[1][k], inip1, backgr1)) {
 				idxDirectedClusters.add(k); // contains mapping index k
 			}
 		}
@@ -757,11 +771,11 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 		Arrays.sort(directionsRad[0]);
 		Arrays.sort(directionsRad[1]);
 
-		logWriter.println("checked directions in [rad] : ");
+		logWriter.println("checked directions in [deg] : ");
 		for (int i=0; i< directionsRad.length; i++) {
 			logWriter.println("ring "+i+" : ");
 			for (int j=0; j< directionsRad[0].length; j++) {
-				logWriter.print(directionsRad[i][j]+" ");
+				logWriter.print( (directionsRad[i][j]*Rad2Deg)+" ");
 			}
 			logWriter.println();
 		}
@@ -779,16 +793,16 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 		boolean chk;
 		float r_A = (float) (neuronDiamMax*scale_A);
 		chk = profileOK(locX, locY, r_A, directionsRad[0], inip1, backgr1, margin1);
-		if (!chk) {
-			logWriter.println("profile A was illegal");
-			return 0;
-		}
+//		if (!chk) {
+//			logWriter.println("profile A was illegal");
+//			return 0;
+//		}
 		float r_B = (float) (neuronDiamMax*scale_B);
 		chk = profileOK(locX, locY, r_B, directionsRad[1], inip1, backgr1, margin1);
-		if (!chk) {
-			logWriter.println("profile B was illegal");
-			return 0;
-		}
+//		if (!chk) {
+//			logWriter.println("profile B was illegal");
+//			return 0;
+//		}
 
 		logWriter.println(" YES! \n");
 
@@ -802,6 +816,11 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 	{
 		return Interpolator.interpolateAt(loc[0], loc[1], inip1) > Interpolator.interpolateAt(loc[0], loc[1], back1) + Interpolator.interpolateAt(loc[0], loc[1], marg1);
 	}
+
+    private boolean isForeground(float[] loc, FloatProcessor inip1, FloatProcessor back1)
+    {
+        return Interpolator.interpolateAt(loc[0], loc[1], inip1) > Interpolator.interpolateAt(loc[0], loc[1], back1);
+    }
 
 	private boolean profileOK(
 										float posx,
@@ -828,8 +847,8 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 			currI = Interpolator.interpolateAt(currX, currY, inip1);
 			currB = Interpolator.interpolateAt(currX, currY, backgr1);
 			currM = Interpolator.interpolateAt(currX, currY, margin1);
-			up = up || (currI>currB+currM);
-			down = up && (currI<currB+currM); //Masker.HYSTERESIS
+			up = up || (currI>currB);  //+currM
+			down = up && (currI<currB); //Masker.HYSTERESIS     +currM
 			if (down) break;
 		}
 		if (!down) {
@@ -847,8 +866,8 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 				currI = Interpolator.interpolateAt(currX, currY, inip1);
 				currB = Interpolator.interpolateAt(currX, currY, backgr1);
 				currM = Interpolator.interpolateAt(currX, currY, margin1);
-				up = up || (currI>currB+currM);
-				down = up && (currI<currB+currM); // Masker.HYSTERESIS
+				up = up || (currI>currB);     //+currM
+				down = up && (currI<currB); // Masker.HYSTERESIS  +currM
 				if (down) break;
 			}
 			if (!down) {

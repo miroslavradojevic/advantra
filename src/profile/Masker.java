@@ -29,7 +29,7 @@ public class Masker extends Thread {
 
 //    private static int              bgComputationMode;
 
-	public static   float I_DIFF = 5;
+	public static   float I_DIFF = 20;
 	public static 	float HYSTERESIS = 1;
     public static   float DECAY_STD = .25f*I_DIFF;
 
@@ -83,8 +83,8 @@ public class Masker extends Thread {
 
             float locMedXY 	= median(circNeigh);   		// background
 
-            //float locIdiffXY= locAvgXY + 2 * locStdXY - locMedXY;
-            float locIdiffXY= locQ3XY - locMedXY;
+            float locIdiffXY= locAvgXY + 2 * locStdXY - locMedXY;
+            //float locIdiffXY= locQ3XY - locMedXY;
 
             float locMgnXY 	= (locIdiffXY<=I_DIFF)? I_DIFF : 0;// I_DIFF*(float)Math.exp(- (locIdiffXY-I_DIFF)*(locIdiffXY-I_DIFF) / (2*DECAY_STD*DECAY_STD) ) ;
 
