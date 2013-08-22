@@ -212,7 +212,7 @@ public class MaskerDemo implements PlugInFilter, MouseListener, MouseMotionListe
 		float diff = std[0]-med[0];
 		float margin = (diff<=Masker.I_DIFF)?
 							   Masker.I_DIFF :
-							   Masker.I_DIFF*(float)Math.exp(-0.5*(diff-Masker.I_DIFF)) ;
+							   0;//Masker.I_DIFF*(float)Math.exp(-0.5*(diff-Masker.I_DIFF)) ;
 		float[] mg = new float[circVals.length];
 		for (int i=0; i<circVals.length; i++) mg[i] = med[0] + margin;
 
