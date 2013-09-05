@@ -6,7 +6,6 @@ fileName="~/ImageJ/profile_v11.log"
 conn=file(fileName, open="r")
 linn=readLines(conn)
 
-# PLOT PROFILE A
 # line 1 profile angles in degrees
 # line 2 profile values at ring A
 # line 3 peak angles for A

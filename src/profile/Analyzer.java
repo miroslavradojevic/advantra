@@ -1,6 +1,5 @@
 package profile;
 
-import ij.IJ;
 import ij.gui.Plot;
 
 import java.util.ArrayList;
@@ -16,43 +15,33 @@ public class Analyzer extends Thread  {
 
     private int begN, endN;
 
-	/*
-		shared variables are static
-	 */
 	// input
-    public static ArrayList<ArrayList<float[]>> profiles;
+    public static ArrayList<ArrayList<float[]>> 	profiles;  	// nr. loc x nr.scales
+	// aux
+	public static ArrayList<double[]> 				startIdx; 	// nr. scales
+	public static ArrayList<ArrayList<double[]>> 	finishIdx;  // nr. loc x nr.
+    // output
+    public static ArrayList<ArrayList<ArrayList<Float>>> peakIdx; // one profile will give ArrayList<Float>, different number of peaks can be detected
 
-    // outputs
-    //public static float[][][] peakIdx; // array index
-    // changing outputs of the Analyzer to be ArrayList of peakIdx so that different number of peaks can be detected
-    public static ArrayList<ArrayList<ArrayList<Float>>> peakIdx; // one profile will give ArrayList<Float>
+    public static int       nrPoints 	= 150;
+    public static int       maxIter 	= 20;
+    public static double    epsilon 	= 1e-8;
+    public static int       h 			= 2;              						// in indexes
+    public static double    minD 		= 0.5;     								// separation
+    public static int       M = (int) Math.round(0.05*nrPoints);        		// 0.05 of the nrPoints
 
-
-    /*
-    // this is functionally not necessary - just to visualize how it converged (it's calculated anyway)
-    public static ArrayList<ArrayList<float[]>> convIdx;
-    */
-
-    public static int       nrPoints = 150;
-    double[]  start 		= new double[nrPoints];
-    double[]  msFinish 		= new double[nrPoints];
-
-    public static int       maxIter = 200;
-    public static double    epsilon = 0.01;//Double.MIN_VALUE;//
-    public static int       h = 4;              // in indexes
-    public static double    minD = 0.5;
-    public static int       M = (int) Math.round(0.05*nrPoints);         // 0.05 of the nrPoints
-
-    public Analyzer (int n0, int n1) {
+    public Analyzer (int n0, int n1)
+	{
         this.begN = n0;
         this.endN = n1;
     }
 
-    public static void loadProfiles(ArrayList<ArrayList<float[]>> profiles1){
+    public static void loadProfiles(ArrayList<ArrayList<float[]>> profiles1)
+	{
 
         /*
         profiles
-         */
+        */
 		profiles = new ArrayList<ArrayList<float[]>>(profiles1.size());
 		for (int i=0; i<profiles1.size(); i++) {
             ArrayList<float[]> temp = new ArrayList<float[]>(profiles1.get(i).size());
@@ -72,10 +61,8 @@ public class Analyzer extends Thread  {
 
 		/*
 		peakIdx
-		 */
-        //peakIdx = new float[profiles.size()][profiles.get(0).size()][]; // keeps three corresp indexes of profile values
+		*/
         peakIdx = new ArrayList<ArrayList<ArrayList<Float>>>(profiles.size());
-
         for (int i=0; i<profiles.size(); i++) {
 
             ArrayList<ArrayList<Float>> profilesAtLoc = new ArrayList<ArrayList<Float>>(2); // ring A & B, two profiles
@@ -92,62 +79,53 @@ public class Analyzer extends Thread  {
         }
 
 		/*
-		*//*
-		convIdx
-		 *//*
-		convIdx = new ArrayList<ArrayList<float[]>>(); // this is where msFinish will be stored
+		finishIdx
+		*/
+		finishIdx = new ArrayList<ArrayList<double[]>>(profiles.size());
         for (int i=0; i<profiles1.size(); i++) {
-            ArrayList<float[]> temp = new ArrayList<float[]>(profiles1.get(i).size());
+            ArrayList<double[]> temp = new ArrayList<double[]>(profiles1.get(i).size());
             for (int j=0; j<profiles1.get(i).size(); j++) {
 
-                float[] toAdd = new float[nrPoints];
+				double[] toAdd = new double[nrPoints];
                 temp.add(toAdd);
 
             }
-            convIdx.add(temp);
+			finishIdx.add(temp);
         }
-        */
+
+		/*
+		startIdx
+		 */
+		startIdx = new ArrayList<double[]>(profiles.get(0).size());
+		for (int j=0; j<profiles.get(0).size(); j++) {
+
+			int profileLength = profiles.get(0).get(j).length;
+			double[] startToAdd = new double[nrPoints];
+
+			for (int k=0; k<nrPoints; k++) {
+				startToAdd[k] = ((float) k / nrPoints) * profileLength;
+			}
+
+			startIdx.add(startToAdd);
+
+		}
 
     }
 
-	public static float[] extractPeakIdxs(float[] profile1, boolean showConv)  // not possible to use when parallel
+	public static float[] extractPeakIdxs(float[] profile1, double[] startPts, double[] finishPts)
 	{
 
-        double[] start11 	= new double[nrPoints];
-		double[] finish11 	= new double[nrPoints];
-
+		int convPoints = startPts.length;
 	    int profileLength = profile1.length;
 
-		for (int k=0; k<nrPoints; k++) {
-		    start11[k] = ((float) k / nrPoints) * profileLength;
+		for (int k=0; k<convPoints; k++) {
+			startPts[k] = ((float) k / convPoints) * profileLength;
 		}
 
-		Tools.runMS(start11,
-				    profile1,
-					maxIter,
-					epsilon,
-					h,
-					finish11);
+		//Tools.runMeanShift(startPts, profile1, maxIter, epsilon, h,	finishPts);
+		Tools.runMaxShift(startPts, profile1, maxIter, epsilon, h, finishPts);
 
-        if (showConv) {
-
-            double[] startY = new double[nrPoints];
-            double[] endY = new double[nrPoints];
-
-            for (int yy=0; yy<nrPoints; yy++) {
-                startY[yy] = (float) Tools.interp1Darray((float) start11[yy], profile1);
-                endY[yy] = (float) Tools.interp1Darray((float) finish11[yy], profile1);
-            }
-
-            Plot p = new Plot("", "", "");
-            p.setLimits(0, profileLength, Tools.getMinMax(profile1)[0], Tools.getMinMax(profile1)[1]);
-            p.addPoints(start11, startY, Plot.DOT);
-            p.addPoints(finish11, endY, Plot.BOX);
-            p.show();
-
-        }
-
-	    Vector<float[]> cls = Tools.extractClusters1(finish11, minD, M, profileLength);
+	    Vector<float[]> cls = Tools.extractClusters1(finishPts, minD, M, profileLength);
 
         if (cls.size()==0) return null;
 
@@ -163,26 +141,22 @@ public class Analyzer extends Thread  {
 
 	}
 
-	public static ArrayList<Float> extractPeakIdxsList(float[] profile1)   // for parallel
+	public static ArrayList<Float> extractPeakIdxsList(float[] profile1, double[] start1, double[] finish1)
 	{
 
-		double[] start11 	= new double[nrPoints];
-		double[] finish11 	= new double[nrPoints];
+//		, double[] start11, double[] finish11
+//		double[] start11 	= new double[nrPoints];
+//		double[] finish11 	= new double[nrPoints];
 
 		int profileLength = profile1.length;
 
-		for (int k=0; k<nrPoints; k++) {
-			start11[k] = ((float) k / nrPoints) * profileLength;
-		}
+//		for (int k=0; k<nrPoints; k++) {
+//			start11[k] = ((float) k / nrPoints) * profileLength;
+//		}
 
-		Tools.runMS(start11,
-						   profile1,
-						   maxIter,
-						   epsilon,
-						   h,
-						   finish11);
+		Tools.runMaxShift(start1, profile1, maxIter, epsilon, h, finish1);
 
-		Vector<float[]> cls = Tools.extractClusters1(finish11, minD, M, profileLength);
+		Vector<float[]> cls = Tools.extractClusters1(finish1, minD, M, profileLength);
 
 		if (cls.size()==0) return new ArrayList<Float>();
 
@@ -297,27 +271,24 @@ public class Analyzer extends Thread  {
 
             // do mean-shift for profiles at these locations
 
-            for (int profileIdx=0; profileIdx<profiles.get(locIdx).size(); profileIdx++) { // loop rings A & B
+            for (int profileIdx=0; profileIdx<profiles.get(locIdx).size(); profileIdx++) {
 
                 // access the profile
-                int profileLength = profiles.get(locIdx).get(profileIdx).length;
+//                int profileLength = profiles.get(locIdx).get(profileIdx).length;
 
                 // calculate peaks for the ring 'profileIdx'
-                //float[] peakIdx_A = Analyzer.extractPeakIdxs(profiles.get(locIdx).get(profileIdx)); // MS
-                ArrayList<Float> currPeaks = extractPeakIdxsList(profiles.get(locIdx).get(profileIdx));
+                ArrayList<Float> currPeaks = extractPeakIdxsList(profiles.get(locIdx).get(profileIdx), startIdx.get(profileIdx), finishIdx.get(locIdx).get(profileIdx));
 
-                if (currPeaks.size()<3) {
-                    // it is not a bifurcation according to MS for this ring, don't calculate further, leave empty fields of peakIdx at this location
-                    break;
-                }
-                else {
+                //if (currPeaks.size()<3) {
+                //    // it is not a bifurcation according to MS for this ring, don't calculate further, leave empty fields of peakIdx at this location
+                //    break;
+                //}
+                //else {
                     // add those points
                     for (int pp=0; pp<currPeaks.size(); pp++){
                         peakIdx.get(locIdx).get(profileIdx).add(pp, currPeaks.get(pp));
                     }
-                }
-
-
+                //}
 
 /*
 				for (int k=0; k<nrPoints; k++) {
@@ -348,5 +319,34 @@ public class Analyzer extends Thread  {
         }
 
     }
+
+	public static ArrayList<ArrayList<ArrayList<Float>>> exportPeakIdx()
+	{
+
+		ArrayList<ArrayList<ArrayList<Float>>> out = new ArrayList<ArrayList<ArrayList<Float>>>(peakIdx.size());
+		for (int i=0; i<peakIdx.size(); i++) {
+
+			ArrayList<ArrayList<Float>> out1 = new ArrayList<ArrayList<Float>>(peakIdx.get(i).size());
+
+			for (int j=0; j<peakIdx.get(i).size(); j++) {
+
+				ArrayList<Float> out2 = new ArrayList<Float>(peakIdx.get(i).get(j).size());
+
+				for (int k=0; k<peakIdx.get(i).get(j).size(); k++) {
+
+					out2.add(k, peakIdx.get(i).get(j).get(k));
+
+				}
+
+				out1.add(j, out2);
+
+			}
+
+			out.add(i, out1);
+		}
+
+		return out;
+
+	}
 
 }

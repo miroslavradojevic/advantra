@@ -1,5 +1,6 @@
 package profile;
 
+import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.Overlay;
@@ -25,13 +26,13 @@ public class Profiler extends Thread {
 	public static double 	scale;
 	public static int 		outerRange;
 
-	public static int 		resolDeg;
+	private static int 		resolDeg;
 
-	public static ArrayList<ArrayList<double[]>> offsets; 	// each offset location score calculation will be parallelled
-	public static ArrayList<ArrayList<Double>> weights; 	// weight for each offset - to emphasize body direction
+	public static ArrayList<ArrayList<double[]>> 	offsets; 	// each offset location score calculation will be parallelled
+	public static ArrayList<ArrayList<Double>> 		weights; 	// weight for each offset - to emphasize body direction
 
-	public static FloatProcessor    inip;
-	public static ByteProcessor     maskip;
+	private static FloatProcessor    inip;
+	private static FloatProcessor    maskip;   // will contain mapping
 
 	public static float[][]     profiles;     // array of profiles
     public static int[][]       locations;    // [x, y]
@@ -39,16 +40,17 @@ public class Profiler extends Thread {
 	public static double    samplingStep = 0.5;
 	public static float     TwoPI = (float) (Math.PI*2);
 
-    public static float     R_HALF = 0.75f;
+    public static float     R_FULL = 1.00f;
     public static float     T_HALF = 0.50f;
 
 
-	public Profiler (int n0, int n1) {
+	public Profiler (int n0, int n1)
+	{
 		this.begN = n0;
 		this.endN = n1;
 	}
 
-    public static void loadTemplate(ImageProcessor inip1, ByteProcessor maskip1)
+    public static void loadTemplate(ImageProcessor inip1, ByteProcessor maskip1, double neuronDiam1, double scale1, boolean showSampling)
     {
 
         /*
@@ -63,34 +65,86 @@ public class Profiler extends Thread {
         set maskip
          */
         int cnt = 0;
-        maskip = new ByteProcessor(maskip1.getWidth(), maskip1.getHeight());
-        byte[] arr = (byte[]) maskip1.getPixels();
-        for (int i=0; i<arr.length; i++) {
-            if (arr[i]==(byte)255) {
-                maskip.set(i, 255);
+        maskip = new FloatProcessor(maskip1.getWidth(), maskip1.getHeight());
+        for (int i=0; i<maskip1.getHeight()*maskip1.getWidth(); i++) {
+            if (maskip1.get(i)==255) {
+                maskip.setf(i, cnt);
                 cnt++;
             }
             else {
-                maskip.set(i, 0);
+                maskip.setf(i, -1);
             }
         }
-
         /*
         set locations
          */
         locations = new int[cnt][2];
         cnt = 0;
-        for (int i=0; i<arr.length; i++) {
-            if (arr[i]==(byte)255) {
+        for (int i=0; i<maskip.getWidth()*maskip.getHeight(); i++) {
+            if (maskip.getf(i)>=0) {
                 locations[cnt][0] = i%maskip.getWidth();
                 locations[cnt][1] = i/maskip.getWidth();
                 cnt++;
             }
         }
 
+		/*
+		weights and offsets
+		 */
+		loadParams(neuronDiam1, scale1, showSampling);
+
+		/*
+		 allocate profiles container
+		*/
+		profiles = new float [locations.length][offsets.size()];
+
     }
 
-	public static void loadParams(double neuronDiam1, double scale1, boolean showSampling)
+	public static int indexInList(float[] locxy)
+	{
+
+		int x = Math.round(locxy[0]);
+		int y = Math.round(locxy[1]);
+
+		return Math.round(maskip.getf(x, y));
+
+	}
+
+	public static int indexInList(int[] locxy)
+	{
+
+		return Math.round(maskip.getf(locxy[0], locxy[1]));
+
+	}
+
+	public static int indexInList(float locx, float locy)
+	{
+		int x = Math.round(locx);
+		int y = Math.round(locy);
+
+		return Math.round(maskip.getf(x, y));
+	}
+
+	public static int getProfilerLocationsTotal()
+	{
+		int out = 0;
+
+		if (maskip==null) return 0;
+
+		for (int a=0; a<maskip.getWidth()*maskip.getHeight(); a++) {
+			if (maskip.getf(a)>=0) {
+				out++;
+			}
+		}
+		return out;
+	}
+
+	public static ImagePlus getLocation2IndexMapping()
+	{
+		return new ImagePlus("loc2idx", maskip);
+	}
+
+	private static void loadParams(double neuronDiam1, double scale1, boolean showSampling)
     {
 
 		neuronDiam 	= neuronDiam1;
@@ -119,8 +173,7 @@ public class Profiler extends Thread {
 		offsets = new ArrayList<ArrayList<double[]>>();
 		weights = new ArrayList<ArrayList<Double>>();
 
-		// +/-limR, +/-limT (used to limit index)
-		int limR = (int) Math.ceil(scale*neuronDiam/samplingStep);
+		int limR = (int) Math.ceil(R_FULL*neuronDiam/samplingStep);
 		int limT = (int) Math.ceil(T_HALF*neuronDiam/samplingStep);
 
 		/* 	these will be used to visualize the sampling and the shape of the profiles
@@ -207,7 +260,7 @@ public class Profiler extends Thread {
 
 		if (showSampling) {
 
-			ImagePlus sampling = new ImagePlus("sampling_scheme", stackSampling);
+			ImagePlus sampling = new ImagePlus("sampling,D="+neuronDiam+",s="+scale, stackSampling);
 			sampling.setOverlay(ov);
 			sampling.show();
 			sampling.getCanvas().zoomIn(0,0);
@@ -218,7 +271,7 @@ public class Profiler extends Thread {
 			sampling.getCanvas().zoomIn(0,0);
 			sampling.getCanvas().zoomIn(0,0);
 
-			ImagePlus prof = new ImagePlus("filter_profiles", stackProfile);
+			ImagePlus prof = new ImagePlus("filter,D="+neuronDiam+",s="+scale, stackProfile);
 			prof.show();
 			prof.getCanvas().zoomIn(0,0);
 			prof.getCanvas().zoomIn(0,0);
@@ -230,11 +283,6 @@ public class Profiler extends Thread {
 			prof.getCanvas().zoomIn(0,0);
 
 		}
-
-		/*
-		 allocate profiles container
-		*/
-		profiles = new float [locations.length][offsets.size()];
 
 	}
 
@@ -248,93 +296,24 @@ public class Profiler extends Thread {
     /*
     profile extractor per location coordinates (not index)
      */
-	public static float[] extractProfile(double neuronDiam1, double scale1, int atX, int atY, FloatProcessor inip1)
-    { // profile at one location
+	public static float[] extractProfile(double neuronDiam1, double scale1, int atX, int atY, FloatProcessor inip1) // profile at one location
+    {
 
-        // form offsets & weights first (because it is static, to be independent)
-        // TODO make this a separate method because it appears twice within the class
-		// also in loadParams()
-        // takes  neuronDiam1 and scale1 and outputs offsets1 and weights1
+		loadParams(neuronDiam1, scale1, false); // finished forming offsets, weights
 
-        ArrayList<ArrayList<double[]>>  offsets1 = new ArrayList<ArrayList<double[]>>();
-        ArrayList<ArrayList<Double>>    weights1 = new ArrayList<ArrayList<Double>>();
-
-        int resolDeg1 = (int) ( Math.round( ( 2*Math.atan(1f / (2 * scale1)) * (1f/8) / TwoPI) * 360 ) );
-        resolDeg1 = (resolDeg1>=1)? resolDeg1 : 1;
-
-        double r1 = neuronDiam1 * scale1 - neuronDiam1;
-        double r2 = neuronDiam1 * scale1 + neuronDiam1;
-        double r0 = neuronDiam1 * scale1;
-
-        double[] n1 = new double[2];
-        double[] n2 = new double[2];
-        double[] n0 = new double[2];
-
-        // +/-limR, +/-limT (used to limit index)
-        int limR = (int) Math.ceil(scale1*neuronDiam1/samplingStep);
-        int limT = (int) Math.ceil(T_HALF*neuronDiam1/samplingStep);
-
-        for (int aDeg = 0; aDeg<360; aDeg+=resolDeg1) {
-
-            float aRad = ((float)aDeg/360)*TwoPI;
-
-            double sumWgt = 0;
-            ArrayList<double[]> offsetsAngleLoc = new ArrayList<double[]>();
-            ArrayList<Double> 	offsetsAngleWgt = new ArrayList<Double>();
-
-            n1[0] = r1 * (float) Math.cos(aRad);
-            n1[1] = r1 * (-1) * (float) Math.sin(aRad);
-
-            n2[0] = r2 * (float) Math.cos(aRad);
-            n2[1] = r2 * (-1) * (float) Math.sin(aRad);
-
-            n0[0] = r0 * (float) Math.cos(aRad);
-            n0[1] = r0 * (-1) * (float) Math.sin(aRad);
-
-            double dx = samplingStep*Math.sin(aRad);
-            double dy = samplingStep*Math.cos(aRad);
-
-            for (int i=-limR; i<=0; i++) {
-
-                for (int j=-limT; j<=limT; j++) {
-
-                    double px = n0[0] + j * dx - i * (-dy);
-                    double py = n0[1] + j * dy - i * dx;
-
-                    double dst = point2line(n1[0], n1[1], n2[0], n2[1], px, py);
-                    offsetsAngleLoc.add(new double[]{px, py});
-                    double weight = Math.exp(-(dst*dst)/(2*(neuronDiam1/3)*(neuronDiam1/3)));
-                    offsetsAngleWgt.add(weight);
-                    sumWgt += weight;
-
-                }
-            }
-
-            // normalize
-            for (int k=0; k<offsetsAngleWgt.size(); k++) {
-                double newVal = offsetsAngleWgt.get(k) / sumWgt;
-                offsetsAngleWgt.set(k, newVal);
-            }
-
-            offsets1.add(offsetsAngleLoc);
-            weights1.add(offsetsAngleWgt);
-        }
-
-        // finished forming offsets1, weights1
-
-        float[] profileOut = new float[offsets1.size()];
+        float[] profileOut = new float[offsets.size()];
 
 		// calculate profile
-		for (int offsetIdx = 0; offsetIdx < offsets1.size(); offsetIdx++) {
+		for (int offsetIdx = 0; offsetIdx < offsets.size(); offsetIdx++) {
 
 			profileOut[offsetIdx] = 0;
 
 			// calculate weighted response
-			for (int k=0; k<offsets1.get(offsetIdx).size(); k++) {
-				profileOut[offsetIdx] += Interpolator.interpolateAt(atX+offsets1.get(offsetIdx).get(k)[0],
-																	atY+offsets1.get(offsetIdx).get(k)[1],
+			for (int k=0; k<offsets.get(offsetIdx).size(); k++) {
+				profileOut[offsetIdx] += Interpolator.interpolateAt(atX+offsets.get(offsetIdx).get(k)[0],
+																	atY+offsets.get(offsetIdx).get(k)[1],
 																	inip1
-				) * weights1.get(offsetIdx).get(k);
+				) * weights.get(offsetIdx).get(k);
 			}
 
 			//profileOut[offsetIdx] /= offsets.get(offsetIdx).size();
@@ -346,11 +325,10 @@ public class Profiler extends Thread {
 
     public void run(){ // considers begN and endN
 
-        byte[] arr = (byte[]) maskip.getPixels();
         int locIdxProfile = 0;
 
-        for (int locIdx=0; locIdx<arr.length; locIdx++) {
-            if (arr[locIdx]==(byte)255) {
+        for (int locIdx=0; locIdx<maskip.getWidth()*maskip.getHeight(); locIdx++) {
+            if (maskip.getf(locIdx)>=0) {
 
                 int atX = locIdx%maskip.getWidth();
                 int atY = locIdx/maskip.getWidth();

@@ -34,7 +34,7 @@ public class MaskerDemo implements PlugInFilter, MouseListener, MouseMotionListe
     /*
     parameters
      */
-    float       nhoodRadius;
+    float       nhoodRadius, iDiff;
     int         CPU_NR;
 //    float   th;
 //    String      bgExtractionMode;
@@ -56,24 +56,20 @@ public class MaskerDemo implements PlugInFilter, MouseListener, MouseMotionListe
         Generic Dialog
          */
         nhoodRadius             = (float)   Prefs.get("advantra.critpoint.mask.nhoodRadius", 5);
-//        bgExtractionMode        =           Prefs.get("advantra.critpoint.mask.bgExtractionMode", "MEAN");
-        //bgLocal                 =           Prefs.get("advantra.critpoint.mask.bgLocal", true);
+		iDiff 					= (float)   Prefs.get("advantra.critpoint.mask.iDiff", 5);
 
-
-        GenericDialog gd = new GenericDialog("MASK EXTRACTOR");
-        gd.addNumericField("radius ", nhoodRadius, 0, 10, "spatial neighbourhood");
-//        gd.addChoice("background extraction", new String[]{"MEAN", "MEDIAN"}, bgExtractionMode);
-        //gd.addCheckbox("local neighbourhood", true);
+		GenericDialog gd = new GenericDialog("MASK EXTRACTOR");
+        gd.addNumericField("radius ", 	nhoodRadius, 	0, 10, "spatial neighbourhood");
+        gd.addNumericField("iDiff ", 	iDiff, 			0, 10, "intensity margin");
 
         gd.showDialog();
         if (gd.wasCanceled()) return;
 
-        nhoodRadius       = (float) gd.getNextNumber();
-        Prefs.set("advantra.critpoint.mask.nhoodRadius", 	    nhoodRadius);
-//        bgExtractionMode      = gd.getNextChoice();
-//        Prefs.set("advantra.critpoint.mask.bgExtractionMode",   bgExtractionMode);
-        //bgLocal       =  gd.getNextBoolean();
-        //Prefs.set("advantra.critpoint.mask.bgLocal", 	        bgLocal);
+        nhoodRadius      = (float) gd.getNextNumber();
+        Prefs.set("advantra.critpoint.mask.nhoodRadius",	nhoodRadius);
+
+		iDiff       	= (float) gd.getNextNumber();
+		Prefs.set("advantra.critpoint.mask.iDiff", 	    	iDiff);
 
 		CPU_NR = Runtime.getRuntime().availableProcessors();
 
@@ -85,7 +81,7 @@ public class MaskerDemo implements PlugInFilter, MouseListener, MouseMotionListe
 
         t1 = System.currentTimeMillis();
 
-        Masker.loadTemplate(inimg.getProcessor(), nhoodRadius);
+        Masker.loadTemplate(inimg.getProcessor(), nhoodRadius, iDiff);
 
         int totalProfiles = inimg.getHeight()*inimg.getWidth();
 
@@ -111,8 +107,9 @@ public class MaskerDemo implements PlugInFilter, MouseListener, MouseMotionListe
         //new ImagePlus("background", Masker.backgr).show();
 
         // check amount of extracted locations
-        int nr = 0;
-        for (int i=0; i<totalProfiles; i++) if (Masker.mask.getf(i)==255) nr++;
+        int nr = Masker.getMaskLocationsTotal();
+
+//        for (int i=0; i<totalProfiles; i++) if (Masker.mask.getf(i)==255) nr++;
 
 //        GenericDialog gd1 = new GenericDialog("PRUNE REGIONS?");
 //        gd1.addMessage("extracted "+nr+" out of "+totalProfiles+"  ("+IJ.d2s(nr*100f/totalProfiles, 2)+"%)");
@@ -182,11 +179,9 @@ public class MaskerDemo implements PlugInFilter, MouseListener, MouseMotionListe
 		//incanvas.zoomIn(0, 0);
 
         // check amount of extracted locations
-        nr = 0;
-        for (int i=0; i<totalProfiles; i++) if (Masker.mask.getf(i)==255) nr++;
+        //nr = 0;
+        //for (int i=0; i<totalProfiles; i++) if (Masker.mask.getf(i)==255) nr++;
         IJ.log("extracted "+nr+" out of "+totalProfiles+"  ("+IJ.d2s(nr*100f/totalProfiles, 2)+"%)");
-
-//        inmask.close();
 
 		incanvas.addMouseListener(this);
 		incanvas.addMouseMotionListener(this);
@@ -198,7 +193,8 @@ public class MaskerDemo implements PlugInFilter, MouseListener, MouseMotionListe
 		int offscreenX = incanvas.offScreenX(e.getX());
 		int offscreenY = incanvas.offScreenY(e.getY());
 
-		float[] circVals = Masker.extractCircleVals(offscreenX, offscreenY, Masker.radius, Masker.alloc);
+		int radiusToCheck = (int) Math.ceil(nhoodRadius);
+		float[] circVals = Masker.extractCircleVals(offscreenX, offscreenY, radiusToCheck, Masker.circleElements(radiusToCheck));
 		Arrays.sort(circVals);
 		float[] x = new float[circVals.length];
 		for (int i=0; i<x.length; i++) x[i] = i+1;
@@ -212,8 +208,8 @@ public class MaskerDemo implements PlugInFilter, MouseListener, MouseMotionListe
 
 
         float diff = std[0]-med[0];  // std , q3
-		float margin = (diff<=Masker.I_DIFF)?
-							   Masker.I_DIFF :
+		float margin = (diff<=iDiff)?
+							   iDiff :
 							   0;//Masker.I_DIFF*(float)Math.exp(-0.5*(diff-Masker.I_DIFF)) ;
 		float[] mg = new float[circVals.length];
 		for (int i=0; i<circVals.length; i++) mg[i] = med[0] + margin;

@@ -1,11 +1,16 @@
+package profile;
+
 import ij.IJ;
 import ij.ImagePlus;
+import ij.ImageStack;
+import ij.Prefs;
+import ij.gui.GenericDialog;
 import ij.gui.Line;
 import ij.gui.Overlay;
-import ij.gui.PointRoi;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
 import imagescience.image.*;
+import profile.MyHessian;
 
 import java.util.Vector;
 
@@ -31,10 +36,20 @@ public class MyHessianDemo implements PlugInFilter {
 
     public void run(ImageProcessor imageProcessor) {
 
-        // extract hessian eigen values and eigen vectors for different scales
-//        Image im = new FloatImage(Image.wrap(inimg));
+		double scale = 2;
 
-        double scale = 2;// new double[]{4};
+        // extract hessian eigen values and eigen vectors for different scales
+
+		scale               = Prefs.get("advantra.critpoint.scale", 1.5);
+
+		GenericDialog gd 	= new GenericDialog("NEURITENESS");
+		gd.addNumericField("scale ",  scale, 1, 10, " pix");
+
+		gd.showDialog();
+		if (gd.wasCanceled()) return;
+
+		scale               =  gd.getNextNumber();
+		Prefs.set("advantra.critpoint.scale",   scale);
 
         Dimensions dims 		= im.dimensions();
         Dimensions new_dims 	= new Dimensions(img.getWidth(), img.getHeight(), 1);
@@ -48,12 +63,11 @@ public class MyHessianDemo implements PlugInFilter {
 
         MyHessian my_hess = new MyHessian();
 
-        double[] aL1 = new double[dims.x];
-        double[] aL2 = new double[dims.x];
-        double[] aV11 = new double[dims.x];
-        double[] aV12 = new double[dims.x];
+        double[] aL1 	= new double[dims.x];
+        double[] aL2 	= new double[dims.x];
+        double[] aV11 	= new double[dims.x];
+        double[] aV12 	= new double[dims.x];
 
-        System.out.println("extracting hessian for scale " + IJ.d2s(scale));
         double Lmin = Double.MAX_VALUE;
 
         Vector<Image> hess = my_hess.eigs(im.duplicate(), scale, false);
@@ -125,18 +139,19 @@ public class MyHessianDemo implements PlugInFilter {
 //            }
         //}
 
-        nness.name("nness");
+        nness.name("nness,s="+IJ.d2s(scale,1));
         ImagePlus neuriteness = nness.imageplus();
         neuriteness.setOverlay(ov);
         neuriteness.show();
 
-//        L1scales.name("L1");
+//      L1scales.name("L1");
 //		L1scales.imageplus().show();
-//        L2scales.name("L2");
+//      L2scales.name("L2");
 //		L2scales.imageplus().show();
 //		v1scales.imageplus().show();
 //		v2scales.imageplus().show();
         // neuriteness calculation
 
     }
+
 }

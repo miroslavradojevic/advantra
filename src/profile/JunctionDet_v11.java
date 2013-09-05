@@ -5,6 +5,7 @@ import ij.IJ;
 import ij.ImagePlus;
 import ij.Prefs;
 import ij.gui.*;
+import ij.measure.ResultsTable;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
@@ -30,25 +31,40 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
     ImagePlus 		imp;
     ImageCanvas 	canvas;
 	String 			inimgTitle;
-	String			logFile;
+
+	FloatProcessor 	fuzzyScores;
+
+	String 			timestamp = "";
+	String			logFile 	= "";
+	String 			profileFile = "profile_v11.log";
 	PrintWriter 	logWriter;
 
-    float scale;
-	float scale_A;
-	float scale_B;               // only one scale now
-    double neuronDiamMax, D;
-    ArrayList<ArrayList<float[]>>   profiles;
 
-    PlotWindow pwP_A, pwI_A, pwP_B, pwI_B;
+    float 	scale;
+    double 	D;
+	float 	iDiff;
+	float 	r;
+	float   resolDeg;
 
-    Overlay     currOvl = new Overlay();
-    Overlay 	detectionOverlay;
+	ArrayList<ArrayList<float[]>>   						profiles;
+    ArrayList<int[]>   										centersXY;
+	ArrayList<ArrayList<ArrayList<Float>>>					anglesRad;
+	ArrayList<ArrayList<ArrayList<float[]>>>				peaksXY;
+    ArrayList<ArrayList<ArrayList<ArrayList<float[]>>>>   	topologyXY;
+	ArrayList<float[][]> 									theta;
 
-    // DEBUG
-    ByteProcessor ringAip;
-    ByteProcessor ringBip;
+	// MS
+	private int pointsMS = 200;
+	private double[] startMS 	= new double[pointsMS];
+	private double[] finishMS 	= new double[pointsMS];
 
-    // some variables (used by file export (buttonPressed) and mouse click plots (mouseCLicked))
+	PlotWindow pwP_A;//, pwI_A;
+
+    Overlay     currOvl = new Overlay();  // mouse click overlay points
+    Overlay 	detectionOverlay = new Overlay();
+	ResultsTable resTab = new ResultsTable();
+
+    // used for export variables (used by file export (buttonPressed) and mouse click plots (mouseCLicked))
     float[] ang_A, ang_B;  // they cover [0, 360) but with different sampling rate
     float[] i_A, i_B;
     float[] iTh_A, iTh_B;
@@ -56,11 +72,17 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
     float[] peakIdx_A, peakIdx_B;
     float[] profile_A = null, profile_B = null;
 
+	Fuzzy fz;
+
     int CPU_NR;
 
     private static float Deg2Rad = (float) (Math.PI/180f);
     private static float Rad2Deg = (float) (180f/Math.PI);
-    private static float MIN_COS_ANG = 0.85f;
+    private static float MIN_COS_ANG = .6f;
+	private static int 	 MIN_SIZE = 2;
+	private static float MIN_FUZZY_SCORE = .6f;
+	private static float SCATTER_D2 = 5;
+	private static boolean useMax = false; // to estimate theta (inupt to fuzzy)
 
 	public int setup(String s, ImagePlus imagePlus) {
 		if(imagePlus==null) return DONE;
@@ -81,29 +103,45 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 
 	public void run(ImageProcessor imageProcessor)
     {
+		/***********************************************************/
+		DateFormat dateFormat = new SimpleDateFormat("yyyy_MM_dd__HH_mm_ss");
+		timestamp =  dateFormat.format(new Date());
+		logFile = "JunctionDet_v11_" + timestamp + ".log";
 
-		int totalJobs; // used in paralelization lines
-		long t1, t2;
+		int 	totalJobs; // used in paralelization log
+		long 	t1, t2;
+		/***********************************************************/
 
-		neuronDiamMax       =  Prefs.get("advantra.critpoint.neuronDiamMax", 3);
-		scale               = (float) Prefs.get("advantra.critpoint.scale", 1.5);
+
+		/***********************************************************/
+		D       			=  			Prefs.get("advantra.critpoint.D", 		3);
+		scale               = (float) 	Prefs.get("advantra.critpoint.scale", 	1.5);
+		iDiff				= (float) 	Prefs.get("advantra.critpoint.iDiff", 	5);
 
 		GenericDialog gd = new GenericDialog("JUNCTION DET.");
-		gd.addNumericField("neuronD ",  neuronDiamMax, 0, 10, " MAX");
-		gd.addNumericField("scale ",  scale, 1, 10, " x(neuronD)");
+		gd.addNumericField("neuronD ",  D, 		0, 5, " pix.");
+		gd.addNumericField("scale ",  	scale, 	1, 5, " x(neuronD)");
+		gd.addNumericField("iDiff ",  	iDiff, 	1, 5, " ");
 
 		gd.showDialog();
 		if (gd.wasCanceled()) return;
 
-		neuronDiamMax       =  gd.getNextNumber();
-		Prefs.set("advantra.critpoint.neuronDiamMax",   neuronDiamMax);
+		D       =  gd.getNextNumber();
+		Prefs.set("advantra.critpoint.D",   D);
 
 		scale               = (float) gd.getNextNumber();
 		Prefs.set("advantra.critpoint.scale",   scale);
 
+		iDiff               = (float) gd.getNextNumber();
+		Prefs.set("advantra.critpoint.iDiff",   iDiff);
+
+		fz = new Fuzzy(iDiff, 0.4f);
+
 		CPU_NR = Runtime.getRuntime().availableProcessors();
 
-		logFile = "profile_v11_output.log";
+		r = (float) (scale * D);
+		resolDeg = Profiler.getResolDeg(scale);
+
 		// empty the log file
 		try {
 			PrintWriter writer = new PrintWriter(logFile);
@@ -111,22 +149,19 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 			writer.close();
 		}
 		catch (FileNotFoundException ex) {}
-//		try {
-//			//out = new PrintWriter(logFile);
-//		}
-//		catch (FileNotFoundException ex) {}
+		/***********************************************************/
 
-        /*
-        ***********************************************************
-         */
+        /***********************************************************/
+		//ImageProcessor nness = MyHessian.nness(imp, new double[]{D/2, D, 2*D});
+		//new ImagePlus("nness", nness).show();
+		/***********************************************************/
 
-		int neighbourhoodR = (int) Math.ceil(scale*neuronDiamMax);
-		IJ.log("extracting background... r = "+neighbourhoodR);
 
+		/***********************************************************/
+		int neighbourhoodR = (int) Math.ceil(scale*D);
+		IJ.log("extracting background... neigh. radius = "+neighbourhoodR + " pixels, iDiff = "+iDiff);
 		t1 = System.currentTimeMillis();
-
-		Masker.loadTemplate(imp.getProcessor(), neighbourhoodR);
-
+		Masker.loadTemplate(imp.getProcessor(), neighbourhoodR, iDiff);
 		totalJobs = imp.getHeight()*imp.getWidth();
 		Masker masker_jobs[] = new Masker[CPU_NR];
 		for (int i = 0; i < masker_jobs.length; i++) {
@@ -141,34 +176,31 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 			}
 		}
 		t2 = System.currentTimeMillis();
+		ImagePlus inmask = new ImagePlus("inmask", Masker.mask);
+		inmask.show();
+			//imp.show();
+			//IJ.selectWindow("inimg");
+        	//IJ.run("Add Image...", "image=inmask x="+0+" y="+0+" opacity=30");  detectionOverlay = imp.getOverlay();
+			//inmask.close();
+		int nr = Masker.getMaskLocationsTotal();
+		float ratio = 100*(float)nr/(totalJobs);
+		IJ.log("done "+((t2-t1)/1000f)+" sec. total "+nr+" given by Masker ("+ratio+" % kept) "+Profiler.getProfilerLocationsTotal());
+		GenericDialog cont = new GenericDialog("Continue?");
+		cont.addMessage("Is background eliminated? ("+ratio+" % kept)");
+		cont.enableYesNoCancel();
+		cont.showDialog();
+		if (cont.wasCanceled()||!cont.wasOKed()) {inmask.close(); return; }
+		inmask.close();
+		/***********************************************************/
 
-//		ImagePlus inmask = new ImagePlus("inmask", Masker.mask);
-//		inmask.show();
 
-		int nr = 0;
-		for (int i=0; i<totalJobs; i++) if (Masker.mask.getf(i)==255) nr++;
-
-		IJ.log("done "+((t2-t1)/1000f)+" sec. total "+nr+" check locations given by mask ("+(100*(float)nr/(totalJobs))+" % kept)");
-
-		/*
-        ***********************************************************
-         */
-
+		/***********************************************************/
 		IJ.log("calculating profiles... ");
 		t1 = System.currentTimeMillis();
-
 		// set the template first
-		Profiler.loadTemplate(imp.getProcessor(), Masker.mask);
-
-		// radiuses and scales for rings
-		scale_A = scale;
-		scale_B = scale_A + 1;
-
-		Profiler.loadParams(neuronDiamMax, scale_A, true);
+		Profiler.loadTemplate(imp.getProcessor(), Masker.mask, D, scale, false);
 		totalJobs = Profiler.offsets.size();
-
 		Profiler[] profiler_jobs;
-		profiles     	= new ArrayList<ArrayList<float[]>>(Profiler.locations.length);
 
 		profiler_jobs = new Profiler[CPU_NR];
 		for (int i = 0; i < profiler_jobs.length; i++) {
@@ -182,34 +214,17 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 				e.printStackTrace();
 			}
 		}
-
+		profiles     	= new ArrayList<ArrayList<float[]>>(nr);
 		addProfilerList(profiles, Profiler.profiles);
-
-		Profiler.loadParams(neuronDiamMax, scale_B, true);
-		totalJobs = Profiler.offsets.size();
-		profiler_jobs = new Profiler[CPU_NR];
-		for (int i = 0; i < profiler_jobs.length; i++) {
-			profiler_jobs[i] = new Profiler(i*totalJobs/CPU_NR,  (i+1)*totalJobs/CPU_NR);
-			profiler_jobs[i].start();
-		}
-		for (int i = 0; i < profiler_jobs.length; i++) {
-			try {
-				profiler_jobs[i].join();
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
-		}
-
-		addProfilerList(profiles, Profiler.profiles);
-
 		t2 = System.currentTimeMillis();
 		IJ.log("done "+((t2-t1)/1000f)+" sec.");
+		//Profiler.getLocation2IndexMapping().show(); don't show index mapping
+		/***********************************************************/
 
-        /*
-        ***********************************************************
-         */
 
-		IJ.log("calculating peaks for selected locations...");
+
+		/***********************************************************/
+		IJ.log("calculating peaks for selected location profiles...");
 		t1 = System.currentTimeMillis();
 
 		Analyzer.loadProfiles(profiles);
@@ -230,89 +245,350 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 
 		t2 = System.currentTimeMillis();
 		IJ.log("done extracting peaks "+((t2-t1)/1000f)+" sec.");
-
-		// loop once again and extract scores
-		IJ.log("logging scores...");
-
-		// initialize file
-		try {
-			logWriter = new PrintWriter(new BufferedWriter(new FileWriter(logFile, true)));
-			DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
-			Date date = new Date();
-			logWriter.println("BIFURCATION DETECTION LOG\n"+dateFormat.format(date));
-		} catch (IOException e) {}
-
-		ByteProcessor scoreimg = new ByteProcessor(imp.getWidth(), imp.getHeight());
-        detectionOverlay = new Overlay();
-		for (int locIdx=0; locIdx<Profiler.locations.length; locIdx++) {
-			int sc =
-					score(
-                    	Profiler.locations[locIdx][0], Profiler.locations[locIdx][1],
-                    	(FloatProcessor) imp.getProcessor(),
-						Masker.backgr,
-						Masker.margin,
-                    	Analyzer.peakIdx.get(locIdx),
-						scale_A, scale_B);
+		/***********************************************************/
 
 
-			scoreimg.set(Profiler.locations[locIdx][0], Profiler.locations[locIdx][1], sc);
-            if (sc>0) {
-                detectionOverlay.add(new PointRoi(Profiler.locations[locIdx][0]+.5, Profiler.locations[locIdx][1]+.5));
-            }
 
+		/***********************************************************/
+		IJ.log("detection...");
+		fuzzyScores = new FloatProcessor(imp.getWidth(), imp.getHeight());
+		t1 = System.currentTimeMillis();
+
+		centersXY 	= new ArrayList<int[]>(nr); // from Profiler
+		for (int qq=0; qq<nr; qq++) centersXY.add(qq, new int[]{Profiler.locations[qq][0], Profiler.locations[qq][1]});
+
+		anglesRad = Analyzer.exportPeakIdx();
+		for (int ii=0; ii<anglesRad.size(); ii++) {
+			for (int jj=0; jj<anglesRad.get(ii).size(); jj++) {
+				for (int kk=0; kk<anglesRad.get(ii).get(jj).size(); kk++) {
+					float newValue = anglesRad.get(ii).get(jj).get(kk) * resolDeg * Deg2Rad;
+					anglesRad.get(ii).get(jj).set(kk, newValue);
+				}
+			}
 		}
 
-        /*
-        -----------------------------------------------
-         */
+		peaksXY		= new ArrayList<ArrayList<ArrayList<float[]>>>(nr);
+		for (int ii=0; ii<nr; ii++) {
+			ArrayList<ArrayList<float[]>> peaksXY1 = new ArrayList<ArrayList<float[]>>(anglesRad.get(ii).size());
+			for (int jj=0; jj<anglesRad.get(ii).size(); jj++) {
+				ArrayList<float[]> peaksXY2 = new ArrayList<float[]>(anglesRad.get(ii).get(jj).size());
+				for (int kk=0; kk<anglesRad.get(ii).get(jj).size(); kk++){
+					float[] pkXY = new float[2];
+					// use anglesDeg.get(ii).get(jj).get(kk), centersXY.get(ii)
+					float currAngle = anglesRad.get(ii).get(jj).get(kk);
+					pkXY[0] = (float) (centersXY.get(ii)[0] + r * Math.cos( currAngle ));
+					pkXY[1] = (float) (centersXY.get(ii)[1] - r * Math.sin( currAngle ));
+					peaksXY2.add(kk, pkXY);
+				}
+				peaksXY1.add(jj, peaksXY2);
+			}
+			peaksXY.add(ii, peaksXY1);
+		}
+
+		// initialize detection log file
+		try {
+			logWriter = new PrintWriter(new BufferedWriter(new FileWriter(logFile, true)));
+			logWriter.println("BIFURCATION DETECTION LOG\n"+timestamp); // dateFormat.format(date)
+		} catch (IOException e) {}
+
+
+		// extract locations and fuzzy scores
+
+		topologyXY	= new ArrayList<ArrayList<ArrayList<ArrayList<float[]>>>>(nr);
+		theta		= new ArrayList<float[][]>(nr);   							// parameters describing intensity
+		int[][] currentPeakPoint  	= new int[4][2];
+		float[]	currentPeakVals		= new float[4];
+		float[] nextPeakPoint		= new float[2];
+
+		for (int ii=0; ii<nr; ii++) { // peaksXY.size()
+
+			int[] currentCenter = centersXY.get(ii);
+			float iBackgC = Masker.backgr.getf(currentCenter[0], currentCenter[1]);
+
+
+			logWriter.println(IJ.d2s(ii,0)+": ("+IJ.d2s(currentCenter[0], 0)+","+IJ.d2s(currentCenter[1], 0)+") -> ");
+
+			// check how many clusters there could be
+			ArrayList<ArrayList<ArrayList<float[]>>> locationTopology = new ArrayList<ArrayList<ArrayList<float[]>>>(4);
+			// 4 clusters max. : clusters(1-4) X thread points (1-4) X points in line (1-2)
+
+			float[][] thetaArray        = new float[4][2]; // with parameters
+			boolean[] scattered = new boolean[peaksXY.get(ii).get(0).size()]; // per location, in amount of peaks detected
+			for (int chkPeak=0; chkPeak<peaksXY.get(ii).get(0).size(); chkPeak++) {
+
+				// 4 points around the peak
+				currentPeakPoint[0][0] 	= (int) Math.floor(peaksXY.get(ii).get(0).get(chkPeak)[0]);
+				currentPeakPoint[0][1] 	= (int) Math.floor(peaksXY.get(ii).get(0).get(chkPeak)[1]);
+				currentPeakVals[0] 		=       imp.getProcessor().getf(currentPeakPoint[0][0], currentPeakPoint[0][1]);
+
+				currentPeakPoint[1][0] = (int) Math.floor(peaksXY.get(ii).get(0).get(chkPeak)[0]);
+				currentPeakPoint[1][1] = (int) Math.ceil (peaksXY.get(ii).get(0).get(chkPeak)[1]);
+				currentPeakVals[1] 		=       imp.getProcessor().getf(currentPeakPoint[1][0], currentPeakPoint[1][1]);
+
+				currentPeakPoint[2][0] = (int) Math.ceil (peaksXY.get(ii).get(0).get(chkPeak)[0]);
+				currentPeakPoint[2][1] = (int) Math.floor(peaksXY.get(ii).get(0).get(chkPeak)[1]);
+				currentPeakVals[2] 		=       imp.getProcessor().getf(currentPeakPoint[2][0], currentPeakPoint[2][1]);
+
+				currentPeakPoint[3][0] = (int) Math.ceil (peaksXY.get(ii).get(0).get(chkPeak)[0]);
+				currentPeakPoint[3][1] = (int) Math.ceil (peaksXY.get(ii).get(0).get(chkPeak)[1]);
+				currentPeakVals[3] 		=       imp.getProcessor().getf(currentPeakPoint[3][0], currentPeakPoint[3][1]);
+
+				// thetaArray[chkPeak][0] is max here
+				/****/
+				if (useMax)
+					thetaArray[chkPeak][0] = maxArray(currentPeakVals);
+				else
+					thetaArray[chkPeak][0] = _NthLowest(currentPeakVals, 3); // N lowest out of 4
+
+				ArrayList<ArrayList<float[]>> locationCluster = new ArrayList<ArrayList<float[]>>(4); // thread points (1-4) X points in line (1-2)
+				for (int kk=0; kk<4; kk++) {  // check every point
+
+					int findInList = Profiler.indexInList(currentPeakPoint[kk]); // check if it is in location list
+
+					if (findInList >= 0) { // was in the mask (got it's peaks)
+                    	ArrayList<float[]> locationThread = new ArrayList<float[]>();
+
+						// point 1
+						locationThread.add(0, new float[]{currentPeakPoint[kk][0], currentPeakPoint[kk][1]});
+						// point 2
+						if (nextPeakLoc(peaksXY.get(findInList).get(0), currentCenter, currentPeakPoint[kk], nextPeakPoint)) { // peaksXY.get(ii) would be for current
+
+							locationThread.add(1, new float[]{nextPeakPoint[0], nextPeakPoint[1]});// nextPeakPoint.clone()
+
+							// thetaArray[chkPeak][1] is max here  // median will be used in case there was more than 2, later re-assigned
+							thetaArray[chkPeak][1] = Math.max(thetaArray[chkPeak][1],
+																	 Interpolator.interpolateAt(nextPeakPoint[0], nextPeakPoint[1], (FloatProcessor) imp.getProcessor()));
+
+						}
+						locationCluster.add(locationThread);
+
+					}
+
+				}
+
+				locationTopology.add(locationCluster);
+
+				// check the topology for this peak, how scattered they are at second ring, use locationCluster
+				// in case locationCluster has >=3 samples => 6 or 3 combinations inside
+
+					if (locationCluster.size()>=2) {
+
+						ArrayList<Float> 	values2  	= new ArrayList<Float>(4);
+						ArrayList<float[]> 	locs2  		= new ArrayList<float[]>(4);
+
+						for (int aa=0; aa<locationCluster.size(); aa++) {
+							if (locationCluster.get(aa).size()>1) {
+								// there is 2nd point, add it
+								float[] loc2 = new float[2];
+								loc2[0] = locationCluster.get(aa).get(1)[0];
+								loc2[1] = locationCluster.get(aa).get(1)[1];
+								values2.add(Interpolator.interpolateAt(loc2[0], loc2[1], (FloatProcessor) imp.getProcessor()));
+								locs2.add(loc2);
+							}
+						}
+						/****/
+						// USE values2 correct  thetaArray[chkPeak][1] - use median instead of previously obtained max
+						if (values2.size()>=2 && !useMax) {
+							if (values2.size()==2) thetaArray[chkPeak][1] = _NthLowest(values2, 1);
+							else if (values2.size()==3) thetaArray[chkPeak][1] = _NthLowest(values2, 2);
+							else if (values2.size()==4) thetaArray[chkPeak][1] = _NthLowest(values2, 2);
+							else {}
+						}
+
+						// USE locs2 check if it is scattered - find inter distance
+						if (locs2.size()==2) {
+							float interD = (float) (Math.pow(locs2.get(0)[0]-locs2.get(1)[0], 2) + Math.pow(locs2.get(0)[1] - locs2.get(1)[1], 2)); // 0 1
+							if (interD>SCATTER_D2) {
+								scattered[chkPeak] = true; // will stop fuzzification later
+							}
+						}
+						else if (locs2.size()==3){
+							float[] interD = new float[3];
+							interD[0] = (float) (Math.pow(locs2.get(0)[0]-locs2.get(1)[0], 2) + Math.pow(locs2.get(0)[1] - locs2.get(1)[1], 2)); // 0 1
+							interD[1] = (float) (Math.pow(locs2.get(1)[0]-locs2.get(2)[0], 2) + Math.pow(locs2.get(1)[1] - locs2.get(2)[1], 2)); // 1 2
+							interD[2] = (float) (Math.pow(locs2.get(0)[0]-locs2.get(2)[0], 2) + Math.pow(locs2.get(0)[1] - locs2.get(2)[1], 2)); // 0 2
+							if (_NthLowest(interD, 2)>SCATTER_D2) {
+								scattered[chkPeak] = true;  // will stop fuzzification later
+							}
+
+						}
+						else if (locs2.size()==4) {
+							float[] interD = new float[6];
+							interD[0] = (float) (Math.pow(locs2.get(0)[0]-locs2.get(1)[0], 2) + Math.pow(locs2.get(0)[1] - locs2.get(1)[1], 2)); // 0 1
+							interD[1] = (float) (Math.pow(locs2.get(0)[0]-locs2.get(2)[0], 2) + Math.pow(locs2.get(0)[1] - locs2.get(2)[1], 2)); // 0 2
+							interD[2] = (float) (Math.pow(locs2.get(0)[0]-locs2.get(3)[0], 2) + Math.pow(locs2.get(0)[1] - locs2.get(3)[1], 2)); // 0 3
+							interD[3] = (float) (Math.pow(locs2.get(1)[0]-locs2.get(2)[0], 2) + Math.pow(locs2.get(1)[1] - locs2.get(2)[1], 2)); // 1 2
+							interD[4] = (float) (Math.pow(locs2.get(1)[0]-locs2.get(3)[0], 2) + Math.pow(locs2.get(1)[1] - locs2.get(3)[1], 2)); // 1 3
+							interD[5] = (float) (Math.pow(locs2.get(2)[0]-locs2.get(3)[0], 2) + Math.pow(locs2.get(2)[1] - locs2.get(3)[1], 2)); // 2 3
+							if (_NthLowest(interD, 3)>SCATTER_D2) {
+								scattered[chkPeak] = true;  // will stop fuzzification later
+							}
+						}
+						else {
+							// nothing
+						}
+
+
+
+					}
+
+			} // thetaArray & locationTopology are done
+
+			logWriter.println("how scattered? "+Arrays.toString(scattered));
+			// at least 3 with false scattered[]
+
+
+			// FUZZY DETECTION (use peaksXY.get(ii).get(0) and thetaArray)
+			int nrPeaks = peaksXY.get(ii).get(0).size();
+			if (nrPeaks>=3 ) {
+
+				// count amount of "falses" in scattered[nrPeaks]
+				int cntNonScattered = 0;
+				for (int ee=0; ee<nrPeaks; ee++) if (scattered[ee]==false) cntNonScattered++;
+
+				if (cntNonScattered >=3) { // at least 3 with false in scattered[nrPeaks] is OK to proceed
+
+
+				// makes sense to carry out fuzzy decision
+				//read from peaksXY.get(ii).get(0) and thetaArray ---> form gg[][]
+				float[][] gg = new float[3][3]; // final input for Fuzzy 6 values + 3 backgrounds
+				for (int i=0; i<nrPeaks; i++) {  // peaksXY.get(ii).get(0).size()
+
+					float iBackgP = Interpolator.interpolateAt(peaksXY.get(ii).get(0).get(i)[0], peaksXY.get(ii).get(0).get(i)[1], Masker.backgr);
+
+					if (i<=2) { // take first three automatically  !!!! what if one is scattered
+						gg[i][0] = thetaArray[i][0]; 	// theta 1
+						gg[i][1] = thetaArray[i][1]; 	// theta 2
+						gg[i][2] = iBackgP; 			// bg
+					}
+					else {
+
+						boolean overW = false;
+
+						// first overwrite the one that was scattered in first 3  - there can be one such at max.
+						int scatteredIdx = -1;
+						if (scattered[0]==true) {overW = true; scatteredIdx = 0; }
+						if (scattered[1]==true) {overW = true; scatteredIdx = 1; }
+						if (scattered[2]==true) {overW = true; scatteredIdx = 2; }
+
+						if (overW) {
+
+							logWriter.println("substituting cluster idx: "+scatteredIdx+" it was scattered");
+
+							gg[scatteredIdx][0] = thetaArray[i][0];
+							gg[scatteredIdx][1] = thetaArray[i][1];
+							gg[scatteredIdx][2] = iBackgP;
+
+						}
+						else {
+
+							// overwrite lowest if necessary
+							int lowestIdx = -1;
+							if ( Math.min(gg[0][0], gg[0][1]) <= Math.min( Math.min(gg[1][0], gg[1][1]) , Math.min(gg[2][0], gg[2][1]) ) ) lowestIdx = 0;
+							if ( Math.min(gg[1][0], gg[1][1]) <= Math.min( Math.min(gg[0][0], gg[0][1]) , Math.min(gg[2][0], gg[2][1]) ) ) lowestIdx = 1;
+							if ( Math.min(gg[2][0], gg[2][1]) <= Math.min( Math.min(gg[0][0], gg[0][1]) , Math.min(gg[1][0], gg[1][1]) ) ) lowestIdx = 2;
+
+							logWriter.println("substituting cluster idx: "+lowestIdx+" it was smallest");
+
+							if ( Math.min( thetaArray[i][0] , thetaArray[i][1] ) > Math.min( gg[lowestIdx][0] , gg[lowestIdx][1] ) ) {
+								gg[lowestIdx][0] = thetaArray[i][0];
+								gg[lowestIdx][1] = thetaArray[i][1];
+								gg[lowestIdx][2] = iBackgP;
+							}
+
+						}
+
+					}
+					//float iBackg = Masker.backgr.getf(centersXY.get(where)[0], centersXY.get(where)[1]);
+				}
+
+				float centralValue = imp.getProcessor().getf(currentCenter[0], currentCenter[1]);
+
+				float fuzzyValue =
+						fz.bifurcationess(centralValue-iBackgC,
+												 gg[0][0] - gg[0][2], gg[0][1] - gg[0][2],
+												 gg[1][0] - gg[1][2], gg[1][1] - gg[1][2],
+												 gg[2][0] - gg[2][2], gg[2][1] - gg[2][2],
+												 false);
+
+				fuzzyScores.setf(centersXY.get(ii)[0], centersXY.get(ii)[1], fuzzyValue);
+
+				// log values
+				logWriter.println("fuzzy input: iDiff is "+iDiff);
+				logWriter.println("center fuzzy input pair:    "+centralValue+" , " + iBackgC + " -> "+(centralValue - iBackgC)+" : ");
+				for (int ee=0; ee<gg.length; ee++) {
+					logWriter.println(ee+". fuzzy input pair:    "+gg[ee][0]+" , "+gg[ee][1]+" , " + gg[ee][2]+" -> diffs versus background"+(gg[ee][0] - gg[ee][2])+" : "+(gg[ee][1] - gg[ee][2]));
+				}
+				logWriter.println("fuzzy score: "+fuzzyValue);
+
+				}
+			}
+			else {
+				// no need - peak detection said it is not!
+			}
+
+/*			// log locationTopology
+			logWriter.println("location topology:");
+			for (int ee=0; ee<locationTopology.size(); ee++) {
+				logWriter.println("cluster "+ee+" : ");
+				for (int ff=0; ff<locationTopology.get(ee).size(); ff++) {
+					logWriter.print("thread "+ff+" : ");
+					for (int gg=0; gg<locationTopology.get(ee).get(ff).size(); gg++) {
+						logWriter.print(locationTopology.get(ee).get(ff).get(gg)[0]+","+locationTopology.get(ee).get(ff).get(gg)[1]+"  ,  ");
+					}
+					logWriter.print(" | ");
+				}
+				logWriter.println();
+			}*/
+
+			// updates
+			topologyXY.add(locationTopology);
+			theta.add(thetaArray);
+
+		}
+		t2 = System.currentTimeMillis();
+		IJ.log("done "+((t2-t1)/1000f)+" sec.");IJ.log("done");
+		/***********************************************************/
 
 		logWriter.close();
-		IJ.log("log saved to "+new File(logFile).getAbsolutePath());
+		IJ.log("done, log saved to "+new File(logFile).getAbsolutePath());
 
-		ImagePlus scoreImagePlus = new ImagePlus("score", scoreimg);
-		//scoreImagePlus.show();
-		IJ.selectWindow(inimgTitle);
-        IJ.setTool("hand");
+		//ImagePlus fuzzyScoresImagePlus = new ImagePlus("fuzzyScores", fuzzyScores);
+		//fuzzyScoresImagePlus.show();
 
-        /*
-        -----------------------------------------------
-         */
-
+		/***********************************************************/
 		t1 = System.currentTimeMillis();
-		Find_Connected_Regions conn_reg = new Find_Connected_Regions(scoreImagePlus, true);
+		ByteProcessor score = new ByteProcessor(imp.getWidth(), imp.getHeight());
+		for (int ii=0; ii<imp.getWidth()*imp.getHeight(); ii++) if (fuzzyScores.getf(ii) >= MIN_FUZZY_SCORE) score.set(ii, 255);
+		Find_Connected_Regions conn_reg = new Find_Connected_Regions(new ImagePlus("", score), true);
 		conn_reg.run("");
-		t2 = System.currentTimeMillis();
-		int nr_regions = conn_reg.getNrConnectedRegions();
-		IJ.log(nr_regions+" connected regions extracted.\n" + "elapsed: "+((t2-t1)/1000f)+ " seconds.");
+		//int nr_regions = conn_reg.getNrConnectedRegions();
 
 		//ImagePlus imageLabels = conn_reg.showLabels();
 		//imageLabels.show();
 
-        /*
-        -----------------------------------------------
-         */
+		detectionOverlay = formPointOverlay(conn_reg.getConnectedRegions(), MIN_SIZE);
+		resTab = formResultsTable(conn_reg.getConnectedRegions(), fuzzyScores, MIN_SIZE);
+		resTab.show("BIFURCATIONS");
+		int nr_regions = detectionOverlay.size();
 
-        ringAip = new ByteProcessor(imp.getWidth(), imp.getHeight());
-        ringBip = new ByteProcessor(imp.getWidth(), imp.getHeight());
-        for (int ii=0; ii<imp.getWidth()*imp.getHeight(); ii++) ringAip.set(ii,99);
+		/*// add points used to create regions of connected components
+		for (int ii=0; ii<imp.getWidth()*imp.getHeight(); ii++) {
+			if (score.get(ii)>=255) detectionOverlay.add(new PointRoi(ii%imp.getWidth()+.5, ii/imp.getWidth()+.5));
+		}*/
 
-        for (int ii=0; ii<Profiler.locations.length; ii++) {
-            int x = Profiler.locations[ii][0];
-            int y = Profiler.locations[ii][1];
-            ringAip.set(x,y,Analyzer.peakIdx.get(ii).get(0).size());
-            ringBip.set(x,y,Analyzer.peakIdx.get(ii).get(1).size());
-        }
+		t2 = System.currentTimeMillis();
+		IJ.log(nr_regions+" regions extracted.\n" + "elapsed: "+((t2-t1)/1000f)+ " seconds.");
+		/***********************************************************/
 
-        //detectionOverlay = formOverlay(conn_reg.getConnectedRegions());
+
 		canvas.setOverlay(detectionOverlay);
 		canvas.addMouseListener(this);
 		canvas.addMouseMotionListener(this);
 		canvas.addKeyListener(this);
 
-		ImagePlus outIm1 = new ImagePlus("viz1", imp.getProcessor());
-		outIm1.setOverlay(formPointOverlay(conn_reg.getConnectedRegions(), 0));
-		outIm1.show();
-
+		//ImagePlus outIm1 = new ImagePlus("dets", imp.getProcessor());
+//		outIm1.show();
 
 //        ImagePlus outIm = new ImagePlus("viz", imp.getProcessor());
 //        outIm.setOverlay(formOverlay(conn_reg.getConnectedRegions()));
@@ -323,277 +599,202 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 
 	}
 
-    public void mouseClicked(MouseEvent e)
-    {
+	private float _NthLowest(float[] array, int N)
+	{
+		boolean[] checked = new boolean[array.length];
+		float minThisLoop = Float.MAX_VALUE;
+		int minIdxThisLoop;
 
-		// on mouse click extract locations, plot profile, intensities along profile and overlay points
-        currOvl.clear();
-        currOvl = detectionOverlay.duplicate();
+		for (int round=0;round<N;round++) {
 
-        int offscreenX = canvas.offScreenX(e.getX());
-        int offscreenY = canvas.offScreenY(e.getY());
+			// loop through each time
+			minThisLoop = Float.MAX_VALUE;
+			minIdxThisLoop = -1;
 
-        IJ.log(""+offscreenX+", "+offscreenY+" \n");
+			for (int i=0; i<array.length; i++) {
 
-        //float cI = Interpolator.interpolateAt(offscreenX, offscreenY, (FloatProcessor) imp.getProcessor());
-        //float cB = Interpolator.interpolateAt(offscreenX, offscreenY, (FloatProcessor) Masker.backgr);
-        PointRoi pt = new PointRoi(offscreenX+.5, offscreenY+.5);
-        currOvl.add(pt);
+				if (!checked[i]) {
+					if (array[i]<minThisLoop) {
+						minThisLoop = array[i];
+						minIdxThisLoop = i;
+					}
+				}
 
-        // define ring A
-        double rd_A = neuronDiamMax*scale_A;
-        OvalRoi ring_A = new OvalRoi(offscreenX-rd_A+.5, offscreenY-rd_A+.5, 2*rd_A, 2*rd_A);
-        currOvl.add(ring_A);
+			}
+			checked[minIdxThisLoop] = true;
 
-        profile_A = Profiler.extractProfile(neuronDiamMax, scale_A, offscreenX, offscreenY, (FloatProcessor) imp.getProcessor());
-        peakIdx_A = Analyzer.extractPeakIdxs(profile_A, true); // MS returns values range [0, length)
+		}
 
-        ArrayList<Float> A_Ang  = new ArrayList<Float>(4); // store those that were selected as ok
-        ArrayList<Float> A_x    = new ArrayList<Float>(4);
-        ArrayList<Float> A_y    = new ArrayList<Float>(4);
+		return minThisLoop;
+	}
 
-		peakAng_A   = null;
-        if (peakIdx_A!=null) {
-            float[] peakX_A, peakY_A, peakI_A, peakB_A;
-            peakAng_A = new float[peakIdx_A.length];
-                    peakX_A = new float[peakIdx_A.length];
-                            peakY_A = new float[peakIdx_A.length];
-                                    peakI_A = new float[peakIdx_A.length];
-                                            peakB_A = new float[peakIdx_A.length];
+	private float _NthLowest(ArrayList<Float> array, int N)
+	{
+		boolean[] checked = new boolean[array.size()];
+		float minThisLoop = Float.MAX_VALUE;
+		int minIdxThisLoop;
 
-            for (int i=0; i<peakIdx_A.length; i++) {
-                peakAng_A[i] = peakIdx_A[i] * Profiler.getResolDeg(scale_A) * Deg2Rad;
-                peakX_A[i] = (float) (offscreenX + rd_A * Math.cos( peakAng_A[i] ));
-                peakY_A[i] = (float) (offscreenY - rd_A * Math.sin( peakAng_A[i] ));
-                peakI_A[i] = Interpolator.interpolateAt(peakX_A[i], peakY_A[i], (FloatProcessor) imp.getProcessor());
-                peakB_A[i] = Interpolator.interpolateAt(peakX_A[i], peakY_A[i], Masker.backgr);
+		for (int round=0;round<N;round++) {
 
-//					PointRoi pt = new PointRoi(peakX_A[i]+.5, peakY_A[i]+.5);
-//                  pt.setStrokeColor(getColor(i));
-//                  currOvl.add(pt);
+			// loop through each time
+			minThisLoop = Float.MAX_VALUE;
+			minIdxThisLoop = -1;
 
-				A_Ang.add(peakIdx_A[i] * Profiler.getResolDeg(scale_A)); // because hungarian matching method will take angle differences in degrees
-                A_x.add(peakX_A[i]);
-                A_y.add(peakY_A[i]);
+			for (int i=0; i<array.size(); i++) {
 
-            }
-        }
+				if (!checked[i]) {
+					if (array.get(i)<minThisLoop) {
+						minThisLoop = array.get(i);
+						minIdxThisLoop = i;
+					}
+				}
 
-        /*
-        visualizations
-         */
+			}
+			checked[minIdxThisLoop] = true;
 
-		Plot chartP_A, chartI_A;
-        float[] profile_A_MinMax = Tools.getMinMax(profile_A);
+		}
 
-        if (pwI_A == null) {
-            ang_A   = new float[profile_A.length];
-            i_A     = new float[profile_A.length];
-            iTh_A   = new float[profile_A.length];
-        }
+		return minThisLoop;
+	}
 
-        for (int i = 1; i <= ang_A.length; i++) {
-            ang_A[i - 1] = (i-1)*Profiler.getResolDeg(scale_A);
-            float pX = (float) (offscreenX + rd_A * Math.cos( ang_A[i - 1] * Deg2Rad ));
-            float pY = (float) (offscreenY - rd_A * Math.sin( ang_A[i - 1] * Deg2Rad ));
-            i_A[i-1]    = Interpolator.interpolateAt(pX, pY, (FloatProcessor) imp.getProcessor());
-            iTh_A[i-1]  = Interpolator.interpolateAt(pX, pY, Masker.backgr);// + Interpolator.interpolateAt(pX, pY, Masker.margin);
-        }
+	private float maxArray(float[] inArray)
+	{
+		float maxValue = inArray[0];
+		for (int i=1; i<inArray.length; i++) {
+			if (inArray[i]>maxValue)
+				maxValue = inArray[i];
+		}
+		return maxValue;
+	}
 
-        chartP_A = new Plot("", "", "", ang_A, profile_A);
-        chartP_A.setSize(500, 250);
+	private static boolean nextPeakLoc(ArrayList<float[]> peakList, int[] center, int[] peakOrigin, float[] nextLocExtracted)
+	{
 
-/*        if (peakIdx_A!=null) {
-            float[] dummyX = new float[peakIdx_A.length];
-            for (int i=0; i<dummyX.length; i++) dummyX[i] = peakIdx_A[i] * Profiler.getResolDeg(scale_A);
-            float[] dummyY = new float[peakIdx_A.length];
-            for (int i=0; i<dummyY.length; i++) dummyY[i] = (float) Tools.interp1Darray(peakIdx_A[i], profile_A);// peakIdx_A[i] * Profiler.getResolDeg(scale_A);
-            chartP_A.addPoints(dummyX, dummyY, PlotWindow.BOX);
-        }*/
+		//float[] extLoc = new float[2];
+		float minAngDev = MIN_COS_ANG;
+		boolean found = false;
 
+		for (int chk=0; chk<peakList.size(); chk++) {    // loops all detected by Profiler-Analyzer
 
-        chartP_A.addPoints(ang_A, profile_A, PlotWindow.CIRCLE);
-        chartP_A.draw();  chartP_A.setColor(Color.RED);
-        // draw peak detections
-        if (peakAng_A!=null)
-            for (int i = 0; i < peakIdx_A.length; i++) {
-                chartP_A.drawLine(peakAng_A[i] * Rad2Deg, profile_A_MinMax[0], peakAng_A[i] * Rad2Deg, Tools.interp1Darray(peakIdx_A[i], profile_A));
-            }
+			float[] currentPoint2 = peakList.get(chk);
 
-        chartI_A = new Plot("", "", "", ang_A, i_A);
-        chartI_A.setSize(500, 250);
-		chartI_A.addPoints(ang_A, i_A, PlotWindow.CIRCLE);
-        chartI_A.draw(); chartI_A.setColor(Color.BLUE);
-        chartI_A.addPoints(ang_A, iTh_A, PlotWindow.LINE);
-        chartI_A.draw();  chartI_A.setColor(Color.RED);
-        // draw peak detections
-        if (peakAng_A!=null)
-            for (int i = 0; i < peakIdx_A.length; i++)
-                chartI_A.drawLine(peakAng_A[i] * Rad2Deg, Tools.interp1Darray(peakIdx_A[i], iTh_A), peakAng_A[i] * Rad2Deg, Tools.interp1Darray(peakIdx_A[i], i_A));
+			//if (Profiler.indexInList(currentPoint2)>=0) { // check if it is not really background
 
-        if (pwP_A == null) pwP_A = chartP_A.show();
-        pwP_A.drawPlot(chartP_A);
-        pwP_A.setTitle("RING A: profile, x = " + offscreenX + ", y = " + offscreenY);
+				// if directionality ok - accept it
+				// use center here: centersXY, and addLoc
+				float angDev = Tools.angularDeviation(center[0], center[1], peakOrigin[0], peakOrigin[1], currentPoint2[0], currentPoint2[1]);
 
-        if (pwI_A == null) pwI_A = chartI_A.show();
-        pwI_A.drawPlot(chartI_A);
-        pwI_A.setTitle("RING A: intenst, x = " + offscreenX + ", y = " + offscreenY);
+				if (angDev > minAngDev) {
+					found = true;
+					nextLocExtracted[0] = currentPoint2[0];
+					nextLocExtracted[1] = currentPoint2[1];
+					minAngDev = angDev;
+				}
 
-        /*
-        **************************
-         */
+			//}
 
-        // define ring B, similarly as A
-//        scale_B = scale_A + 1;
-        double rd_B = neuronDiamMax*scale_B;
-        OvalRoi ringB = new OvalRoi(offscreenX-rd_B+.5, offscreenY-rd_B+.5, 2*rd_B, 2*rd_B);
-        currOvl.add(ringB);
+		}
 
-        profile_B = Profiler.extractProfile(neuronDiamMax, scale_B, offscreenX, offscreenY, (FloatProcessor) imp.getProcessor());
-        peakIdx_B = Analyzer.extractPeakIdxs(profile_B, false); // MS values range [0, length)
+		return found;
 
-        ArrayList<Float> B_Ang  = new ArrayList<Float>(4); // store those that were selected as ok
-        ArrayList<Float> B_x    = new ArrayList<Float>(4);
-        ArrayList<Float> B_y    = new ArrayList<Float>(4);
+	}
 
-        peakAng_B   = null;
-        if (peakIdx_B!=null) {
-            float[] peakX_B, peakY_B, peakI_B, peakB_B;
-            peakAng_B = new float[peakIdx_B.length];
-            peakX_B = new float[peakIdx_B.length];
-            peakY_B = new float[peakIdx_B.length];
-            peakI_B = new float[peakIdx_B.length];
-            peakB_B = new float[peakIdx_B.length];
+	public void mouseClicked(MouseEvent e)
+	{
 
-            for (int i=0; i<peakIdx_B.length; i++) {
-                peakAng_B[i] = peakIdx_B[i] * Profiler.getResolDeg(scale_B) * Deg2Rad;
-                peakX_B[i] = (float) (offscreenX + rd_B * Math.cos( peakAng_B[i] ));
-                peakY_B[i] = (float) (offscreenY - rd_B * Math.sin( peakAng_B[i] ));
-                peakI_B[i] = Interpolator.interpolateAt(peakX_B[i], peakY_B[i], (FloatProcessor) imp.getProcessor());
-                peakB_B[i] = Interpolator.interpolateAt(peakX_B[i], peakY_B[i], Masker.backgr);
+		int offscreenX = canvas.offScreenX(e.getX());
+		int offscreenY = canvas.offScreenY(e.getY());
 
-//				PointRoi pt = new PointRoi(peakX_B[i]+.5, peakY_B[i]+.5);
-//              pt.setStrokeColor(getColor(i));
-//              currOvl.add(pt);
+		int where = Profiler.indexInList(offscreenX, offscreenY);
 
-				B_Ang.add(peakIdx_B[i] * Profiler.getResolDeg(scale_B)); // because hungarian matching method will take angle differences in degrees
-                B_x.add(peakX_B[i]);
-                B_y.add(peakY_B[i]);
+		IJ.log(""+offscreenX+", "+offscreenY+" loc idx "+where+"\n");
 
-            }
-        }
+		if (where>=0) {
 
-        /*
-        visualizations
-         */
+			IJ.log(topologyXY.get(where).size()+" extracted clusters here\n");
+			IJ.log(peaksXY.get(where).get(0).size()+" peaks here\n");
 
-        Plot chartP_B, chartI_B;
-        float[] profile_B_MinMax = Tools.getMinMax(profile_B);
-
-        if (pwI_B == null) {
-            ang_B   = new float[profile_B.length];
-            i_B     = new float[profile_B.length];
-            iTh_B   = new float[profile_B.length];
-        }
-
-        for (int i = 1; i <= ang_B.length; i++) {
-            ang_B[i - 1] = (i-1)*Profiler.getResolDeg(scale_B);
-            float pX = (float) (offscreenX + rd_B * Math.cos( ang_B[i - 1] * Deg2Rad ));
-            float pY = (float) (offscreenY - rd_B * Math.sin( ang_B[i - 1] * Deg2Rad ));
-            i_B[i-1]  = Interpolator.interpolateAt(pX, pY, (FloatProcessor) imp.getProcessor());
-            iTh_B[i-1]  = Interpolator.interpolateAt(pX, pY, Masker.backgr);// + Interpolator.interpolateAt(pX, pY, Masker.margin);
-        }
-
-        chartP_B = new Plot("", "", "", ang_B, profile_B);
-        chartP_B.setSize(500, 250);
-        chartP_B.addPoints(ang_B, profile_B, PlotWindow.CIRCLE);
-        chartP_B.draw();  chartP_B.setColor(Color.RED);
-        // draw peak detections
-        if (peakAng_B!=null)
-            for (int i = 0; i < peakIdx_B.length; i++)
-                chartP_B.drawLine(peakAng_B[i] * Rad2Deg, profile_B_MinMax[0], peakAng_B[i] * Rad2Deg, Tools.interp1Darray(peakIdx_B[i], profile_B));
-
-        chartI_B = new Plot("", "", "", ang_B, i_B);
-        chartI_B.setSize(500, 250);
-		chartI_B.addPoints(ang_B, i_B, PlotWindow.CIRCLE);
-        chartI_B.draw(); chartI_B.setColor(Color.BLUE);
-        chartI_B.addPoints(ang_B, iTh_B, PlotWindow.LINE);
-        chartI_B.draw();  chartI_B.setColor(Color.RED); chartI_B.setLineWidth(3);
-        // draw peak detections
-        if (peakAng_B!=null)
-            for (int i = 0; i < peakIdx_B.length; i++) {
-                float low_B = (float) Tools.interp1Darray(peakIdx_B[i], iTh_B);
-                float hgh_B = (float) Tools.interp1Darray(peakIdx_B[i], i_B);
-                if(hgh_B>low_B) chartI_B.drawLine(peakAng_B[i] * Rad2Deg, low_B, peakAng_B[i] * Rad2Deg, hgh_B);
-            }
+			if (peaksXY.get(where).get(0).size()<3) {
+				IJ.log("not necessary to fuzzify, not enough points...");
+				return;
+			}
 
 
-        if (pwP_B == null) pwP_B = chartP_B.show();
-        pwP_B.drawPlot(chartP_B);
-        pwP_B.setTitle("RING B: profile, x = " + offscreenX + ", y = " + offscreenY);
+			IJ.log("**********");
+			float[][] gg = new float[3][3]; // final input for Fuzzy 6 values + 3 backgrounds
+			for (int i=0; i<peaksXY.get(where).get(0).size(); i++) {
 
-        if (pwI_B == null) pwI_B = chartI_B.show();
-        pwI_B.drawPlot(chartI_B);
-        pwI_B.setTitle("RING B: intenst, x = " + offscreenX + ", y = " + offscreenY);
+				float iBackgP = Interpolator.interpolateAt(peaksXY.get(where).get(0).get(i)[0], peaksXY.get(where).get(0).get(i)[1], Masker.backgr);
+				IJ.log("theta: " + theta.get(where)[i][0] + " && " + theta.get(where)[i][1] + " , b = " + iBackgP);
 
-        /*
-        **************************
-         */
+				if (i<=2) {
+					gg[i][0] = theta.get(where)[i][0]; 	// theta 1
+					gg[i][1] = theta.get(where)[i][1]; 	// theta 2
+					gg[i][2] = iBackgP; 				// bg
+				}
+				else {
 
-        int[][] map = Tools.hungarianMappingAnglesDeg(A_Ang, B_Ang); // map(A ring index, B ring index)
+					// substitute if necessary
+					int lowestIdx = -1;
+					if ( Math.min(gg[0][0], gg[0][1]) <= Math.min( Math.min(gg[1][0], gg[1][1]) , Math.min(gg[2][0], gg[2][1]) ) ) lowestIdx = 0;
+					if ( Math.min(gg[1][0], gg[1][1]) <= Math.min( Math.min(gg[0][0], gg[0][1]) , Math.min(gg[2][0], gg[2][1]) ) ) lowestIdx = 1;
+					if ( Math.min(gg[2][0], gg[2][1]) <= Math.min( Math.min(gg[0][0], gg[0][1]) , Math.min(gg[1][0], gg[1][1]) ) ) lowestIdx = 2;
 
-        // after mapping
-        float[] angDiv = new float[map.length];
 
-        for (int k=0; k<map.length; k++) {
+					IJ.log("lowest idx : "+lowestIdx);
 
-            // point in A : A_x.get(map[k][0], A_y.get(map[k][0])
-            float ax = A_x.get(map[k][0]);
-            float ay = A_y.get(map[k][0]);
-			// add it
-            pt = new PointRoi(ax+.5, ay+.5);
-            pt.setStrokeColor(getColor(k));
-            currOvl.add(pt);
+					if ( Math.min( theta.get(where)[i][0] , theta.get(where)[i][1] ) > Math.min( gg[lowestIdx][0] , gg[lowestIdx][1] ) ) {
+						gg[lowestIdx][0] = theta.get(where)[i][0];
+						gg[lowestIdx][1] = theta.get(where)[i][1];
+						gg[lowestIdx][2] = iBackgP;
+					}
 
-            // point in B : B_x.get(map[k][1]), B_y.get(map[k][1])
-            float bx = B_x.get(map[k][1]);
-            float by = B_y.get(map[k][1]);
-			// add it
-            pt = new PointRoi(bx+.5, by+.5);
-            pt.setStrokeColor(getColor(k));
-            currOvl.add(pt);
+				}
+				//float iBackg = Masker.backgr.getf(centersXY.get(where)[0], centersXY.get(where)[1]);
+			}
+			IJ.log("**********");
+			for (int i=0; i<gg.length; i++) IJ.log("theta -> " + gg[i][0] + " <-> " + gg[i][1] + " ----  " + gg[i][2]);
+			IJ.log("**********");
+			fz.bifurcationess(       imp.getProcessor().getf(offscreenX, offscreenY) - Masker.backgr.getf(offscreenX, offscreenY) ,
+									 gg[0][0] - gg[0][2], gg[0][1] - gg[0][2],
+									 gg[1][0] - gg[1][2], gg[1][1] - gg[1][2],
+									 gg[2][0] - gg[2][2], gg[2][1] - gg[2][2],
+									 false);
+			IJ.log("**********");
 
-			IJ.log("mapping # "+offscreenX+" , "+offscreenY+" , "+ax+" , "+ay+" , "+bx+" , "+by+"\n");
 
-            angDiv[k] = Tools.angularDeviation(offscreenX, offscreenY, ax, ay, bx, by);
 
-            IJ.log("mapping # "+k+" cos(ang) = "+angDiv[k]+" : "+A_Ang.get(map[k][0])+" \t "+B_Ang.get(map[k][1]));
+			// plot topology
+			currOvl.clear();
+			currOvl = detectionOverlay.duplicate();
 
-			if (angDiv[k]>MIN_COS_ANG) {
+			for (int ii=0; ii<topologyXY.get(where).size(); ii++) { // clusters
 
-				PolygonRoi pr = new PolygonRoi(
-													  new float[]{offscreenX+.5f, ax+.5f, bx+.5f},
-													  new float[]{offscreenY+.5f, ay+.5f, by+.5f},
-													  3,
-													  PolygonRoi.FREELINE
-													  );
-				currOvl.add(pr);
+				for (int jj=0; jj<topologyXY.get(where).get(ii).size(); jj++) { // threads
+
+					for (int kk=0; kk<topologyXY.get(where).get(ii).get(jj).size(); kk++) {
+
+						float x = topologyXY.get(where).get(ii).get(jj).get(kk)[0]  ;
+						float y = topologyXY.get(where).get(ii).get(jj).get(kk)[1];
+						PointRoi pt = new PointRoi(x+.5f, y+.5f);
+						pt.setStrokeColor(getColor(ii));
+						currOvl.add(pt);
+
+					}
+
+				}
 
 			}
 
-        }
-
-		//System.out.println("\nCLUSTER ANG DIVS "+Arrays.toString(angDiv));
-		//IJ.log("\nCLUSTER ANG DIVS "+Arrays.toString(angDiv));
-
-        /*
-        **************************
-         */
-
-        canvas.setOverlay(currOvl);
+		}
+		else {
+			IJ.log("nothing to do");
+		}
 
 
-    }
+		canvas.setOverlay(currOvl);
+
+	}
 
     private Overlay formOverlay(ArrayList<ArrayList<int[]>> regs)
     {
@@ -668,233 +869,40 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 
     }
 
-    private int score(
-							 float locX, float locY,
-							 FloatProcessor inip1,
-							 FloatProcessor backgr1,
-							 FloatProcessor margin1,
-							 ArrayList<ArrayList<Float>> peakIdxsAtLoc, //[2][nr. conv. points]
-							 float scale_A, float scale_B) 				// 2 rings specific
+	private ResultsTable formResultsTable(ArrayList<ArrayList<int[]>> regs, FloatProcessor fuzzyScores, int minSize)
 	{
-		logWriter.println(IJ.d2s(locX, 0) + "," + IJ.d2s(locY, 0) + " -> ");
+		ResultsTable rt = new ResultsTable();
 
-		/*******************/
+		for (int i=0; i<regs.size(); i++) {
+			if (regs.get(i).size()>minSize) {
 
-		// precheck
-		int nrPointsA = peakIdxsAtLoc.get(0).size();
-		if (nrPointsA < 3) {
-			logWriter.println("ring A : "+peakIdxsAtLoc.get(0).size()+" peaks => NO");
-			return 0;
-		}
+				float Cx=0, Cy=0, avgBifurcationess=0, minBifurcationess=Float.MAX_VALUE, maxBifurcationess=Float.MIN_VALUE;
 
-		int nrPointsB = peakIdxsAtLoc.get(1).size();
-		if (nrPointsB < 3) {
-			logWriter.println("ring B : "+peakIdxsAtLoc.get(1).size()+" peaks => NO");
-			return 0;
-		}
+				for (int aa=0; aa<regs.get(i).size(); aa++) {
+					Cx += regs.get(i).get(aa)[1];
+					Cy += regs.get(i).get(aa)[0];
+					float currBifurcationess = fuzzyScores.getf(regs.get(i).get(aa)[1], regs.get(i).get(aa)[0]);
+					avgBifurcationess += currBifurcationess;
+					if (currBifurcationess>maxBifurcationess) maxBifurcationess = currBifurcationess;
+					if (currBifurcationess<minBifurcationess) minBifurcationess = currBifurcationess;
+				}
 
-		// before mapping (need to have them as lists to match)
-		ArrayList<ArrayList<Float>> peakAngsAtLoc = new ArrayList<ArrayList<Float>>(2);
+				Cx /= regs.get(i).size();
+				Cy /= regs.get(i).size();
+				avgBifurcationess /= regs.get(i).size();
 
-		ArrayList<Float> peakAngA 	= new ArrayList<Float>(nrPointsA);
-		for (int ii=0; ii<nrPointsA; ii++)
-			peakAngA.add(ii, peakIdxsAtLoc.get(0).get(ii) * Profiler.getResolDeg(scale_A));
+				rt.incrementCounter();
+				rt.addValue("X", Cx);
+				rt.addValue("Y", Cy);
+				rt.addValue("size", regs.get(i).size());
+				rt.addValue("avg. bness.", avgBifurcationess);
+				rt.addValue("min. bness.", minBifurcationess);
+				rt.addValue("max. bness.", maxBifurcationess);
 
-		peakAngsAtLoc.add(peakAngA);
-
-		ArrayList<Float> peakAngB   = new ArrayList<Float>(nrPointsB);
-		for (int ii=0; ii<nrPointsB; ii++)
-			peakAngB.add(ii, peakIdxsAtLoc.get(1).get(ii) * Profiler.getResolDeg(scale_B));
-
-		peakAngsAtLoc.add(peakAngB);
-
-//		log += "ring angles: ";
-//		for (int i=0; i<peakAngsAtLoc.size(); i++) {
-//			log += "ring "+i+" : ";
-//			for (int j=0; j<peakAngsAtLoc.get(i).size(); j++) {
-//				log += peakAngsAtLoc.get(i).get(j)+" ";
-//			}
-//		}
-//		log += "\n";
-
-		// map[k][0] is index in peakAngsAtLoc.get(0), map[k][1] is index in peakAngsAtLoc.get(1)
-		int[][] map = Tools.hungarianMappingAnglesDeg(peakAngsAtLoc.get(0), peakAngsAtLoc.get(1));
-
-		logWriter.println(map.length + " matches"); // map.length >= 3
-
-		// remap points in arrays
-		float[][][] p = new float[2][map.length][2]; // [ring idx][cluster idx][xy]
-
-		for (int k=0; k<map.length; k++) { // k loops clusters
-				// ring A   take map[k][0] element
-				p[0][k][0] =
-				(float) (locX + neuronDiamMax * scale_A * Math.cos(peakAngsAtLoc.get(0).get(map[k][0]) * Deg2Rad));
-				p[0][k][1] =
-				(float) (locY - neuronDiamMax * scale_A * Math.sin(peakAngsAtLoc.get(0).get(map[k][0]) * Deg2Rad));
-				// ring B   take map[k][1] element
-				p[1][k][0] =
-				(float) (locX + neuronDiamMax * scale_B * Math.cos(peakAngsAtLoc.get(1).get(map[k][1]) * Deg2Rad));
-				p[1][k][1] =
-				(float) (locY - neuronDiamMax * scale_B * Math.sin(peakAngsAtLoc.get(1).get(map[k][1]) * Deg2Rad));
-		}
-
-		// check each cluster of the 2 ring combination for directionality ( mapping does not mean they're aligned)
-		ArrayList<Integer> idxDirectedClusters = new ArrayList<Integer>(map.length);
-		for (int k=0; k<map.length; k++) {  // 3 or 4 clusters
-
-			logWriter.println("mapping # "+locX+" , "+locY+" , "+p[0][k][0]+" , "+p[0][k][1]+" , "+p[1][k][0]+" , "+p[1][k][1]);
-			float cosAngle = Tools.angularDeviation(locX, locY, p[0][k][0], p[0][k][1], p[1][k][0], p[1][k][1]);
-			logWriter.println("mapping # "+k+" cos(ang) = "+cosAngle+" : "+peakAngsAtLoc.get(0).get(map[k][0])+" \t "+peakAngsAtLoc.get(1).get(map[k][1]));
-
-			if (cosAngle>MIN_COS_ANG &&
-						isForeground(p[0][k], inip1, backgr1) &&
-						isForeground(p[1][k], inip1, backgr1)) {
-				idxDirectedClusters.add(k); // contains mapping index k
 			}
 		}
 
-		logWriter.println("found "+idxDirectedClusters.size()+" aligned foreground clusters out of matched "+map.length+" ... ");
-
-		if (idxDirectedClusters.size()<3) {
-			return 0; // idxDirectedClusters.size() how many matched & directed
-		}
-
-		// check directions for each ring
-		float[][] directionsRad = new float[2][idxDirectedClusters.size()];  // at least 2x3, 2x4
-		for (int d=0; d<idxDirectedClusters.size(); d++) {
-				// ring A
-				int k = idxDirectedClusters.get(d); // map[k][0] is index in A, map[k][1] is index in B
-				directionsRad[0][d] = peakAngsAtLoc.get(0).get(map[k][0]) * Deg2Rad;
-				directionsRad[1][d] = peakAngsAtLoc.get(1).get(map[k][1]) * Deg2Rad;
-		}
-		// don't allow any inter-angle to be more than 180 deg.
-		Arrays.sort(directionsRad[0]);
-		Arrays.sort(directionsRad[1]);
-
-		logWriter.println("checked directions in [deg] : ");
-		for (int i=0; i< directionsRad.length; i++) {
-			logWriter.println("ring "+i+" : ");
-			for (int j=0; j< directionsRad[0].length; j++) {
-				logWriter.print( (directionsRad[i][j]*Rad2Deg)+" ");
-			}
-			logWriter.println();
-		}
-
-		if (!sortedDirectionsAnglesAreLessThanPI(directionsRad[0])) {
-			logWriter.println("ring A had two directions with illegal angle => NO");
-			return 0;
-		}
-		if (!sortedDirectionsAnglesAreLessThanPI(directionsRad[1])) {
-			logWriter.println("ring B had two directions with illegal angle => NO");
-			return 0;
-		}
-
-		// check each ring profile
-		boolean chk;
-		float r_A = (float) (neuronDiamMax*scale_A);
-		chk = profileOK(locX, locY, r_A, directionsRad[0], inip1, backgr1, margin1);
-//		if (!chk) {
-//			logWriter.println("profile A was illegal");
-//			return 0;
-//		}
-		float r_B = (float) (neuronDiamMax*scale_B);
-		chk = profileOK(locX, locY, r_B, directionsRad[1], inip1, backgr1, margin1);
-//		if (!chk) {
-//			logWriter.println("profile B was illegal");
-//			return 0;
-//		}
-
-		logWriter.println(" YES! \n");
-
-		/*******************/
-
-		return 255;
-
-    }
-
-	private boolean isForeground(float[] loc, FloatProcessor inip1, FloatProcessor back1, FloatProcessor marg1)
-	{
-		return Interpolator.interpolateAt(loc[0], loc[1], inip1) > Interpolator.interpolateAt(loc[0], loc[1], back1) + Interpolator.interpolateAt(loc[0], loc[1], marg1);
-	}
-
-    private boolean isForeground(float[] loc, FloatProcessor inip1, FloatProcessor back1)
-    {
-        return Interpolator.interpolateAt(loc[0], loc[1], inip1) > Interpolator.interpolateAt(loc[0], loc[1], back1);
-    }
-
-	private boolean profileOK(
-										float posx,
-										float posy,
-										float posr,
-										float[] dirAngRadSorted,
-										FloatProcessor inip1,
-										FloatProcessor backgr1,
-										FloatProcessor margin1)
-	{
-		float DF = 0.001f;
-		float oStep = (float) (2*Math.PI)/100f;
-		int totalPeaks = dirAngRadSorted.length;
-
-		boolean up, down; // check if it went below th. between peaks
-		float currX, currY, currI, currB, currM;
-
-		// directionAnglesRadSorted[0]
-		up = false;
-		down = true;
-		for (float aa=dirAngRadSorted[0]; aa>=dirAngRadSorted[dirAngRadSorted.length-1]-2*Math.PI+DF; aa-=oStep) {
-			currX = (float) (posx + posr * Math.cos(aa));
-			currY = (float) (posy - posr * Math.sin(aa));
-			currI = Interpolator.interpolateAt(currX, currY, inip1);
-			currB = Interpolator.interpolateAt(currX, currY, backgr1);
-			currM = Interpolator.interpolateAt(currX, currY, margin1);
-			up = up || (currI>currB);  //+currM
-			down = up && (currI<currB); //Masker.HYSTERESIS     +currM
-			if (down) break;
-		}
-		if (!down) {
-			logWriter.println("between "+(dirAngRadSorted[0]*Rad2Deg)+" and "+(dirAngRadSorted[dirAngRadSorted.length-1]*Rad2Deg));
-			return false; // don't go further
-		}
-
-		// the rest
-		for (int peakIdx=1; peakIdx<totalPeaks; peakIdx++) {
-			up = false;
-			down = true;
-			for (float aa=dirAngRadSorted[peakIdx]; aa>=dirAngRadSorted[peakIdx-1]+DF; aa-=oStep) {
-				currX = (float) (posx + posr * Math.cos(aa));
-				currY = (float) (posy - posr * Math.sin(aa));
-				currI = Interpolator.interpolateAt(currX, currY, inip1);
-				currB = Interpolator.interpolateAt(currX, currY, backgr1);
-				currM = Interpolator.interpolateAt(currX, currY, margin1);
-				up = up || (currI>currB);     //+currM
-				down = up && (currI<currB); // Masker.HYSTERESIS  +currM
-				if (down) break;
-			}
-			if (!down) {
-				logWriter.println("between "+(dirAngRadSorted[peakIdx]*Rad2Deg)+" and "+(dirAngRadSorted[peakIdx-1]*Rad2Deg));
-				return false; // don't go further
-			}
-		}
-
-		return true;
-
-	}
-
-	private boolean sortedDirectionsAnglesAreLessThanPI(float[] angsRad)
-	{
-
-		if (angsRad[0]-angsRad[angsRad.length-1]+(2*Math.PI)>Math.PI) {
-			return false;
-		}
-
-		for (int i=1; i<angsRad.length; i++) {
-			if (angsRad[i]-angsRad[i-1]>Math.PI) {
-				return false;
-			}
-		}
-
-		return true;
-
+		return rt;
 	}
 
     private void addProfilerList(ArrayList<ArrayList<float[]>> profileListToUpdate, float[][] profilesToAppend)
@@ -956,7 +964,7 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
             if (pwP_A!=null) {
 
                 // export to csv when clicked
-                String profileFile = "profile_v11.log";
+
 
                 // empty the file
                 PrintWriter writer = null;

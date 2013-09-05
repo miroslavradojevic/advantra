@@ -62,7 +62,8 @@ public class JunctionDet implements PlugInFilter, MouseListener {
     parameters
      */
     double neuronDiamMax, D;//, eps, dMin; // scaleMin, scaleMax, neuronDiamMin
-    int CPU_NR;//H, M, MaxIter;
+    float iDiff;
+	int CPU_NR;//H, M, MaxIter;
 
 	public int setup(String s, ImagePlus imagePlus) {
 
@@ -106,6 +107,7 @@ public class JunctionDet implements PlugInFilter, MouseListener {
 //        dMin       =       Prefs.get("advantra.critpoint.ms2d.d", 0.5);
 //        M       = (int) Prefs.get("advantra.critpoint.ms2d.M", 5);
 
+		iDiff = 5;
 
         CPU_NR              = (int) Prefs.get("advantra.critpoint.CPU_NR", 4);
 
@@ -140,7 +142,7 @@ public class JunctionDet implements PlugInFilter, MouseListener {
         IJ.log("extracting background...");
         t1 = System.currentTimeMillis();
         int neighbourhoodR = (int) Math.ceil(4*neuronDiamMax);
-        Masker.loadTemplate(inimg.getProcessor(), neighbourhoodR);
+        Masker.loadTemplate(inimg.getProcessor(), neighbourhoodR, iDiff);
         totalJobs = inimg.getHeight()*inimg.getWidth();
         Masker masker_jobs[] = new Masker[CPU_NR];
         for (int i = 0; i < masker_jobs.length; i++) {
@@ -170,9 +172,10 @@ public class JunctionDet implements PlugInFilter, MouseListener {
         score image initialize
          */
         scoreimg = new ByteProcessor(inimg.getWidth(), inimg.getHeight());
-		Profiler.loadTemplate(inimg.getProcessor(), Masker.mask);
+		//Profiler.loadTemplate(inimg.getProcessor(), Masker.mask);
         // can see the locations now
-        int totalLocations = Profiler.locations.length;
+
+        int totalLocations = Masker.getMaskLocationsTotal();
 
         IJ.log("total "+totalLocations+" locations given by mask ("+(100*(float)totalLocations/(inimg.getWidth()*inimg.getHeight()))+" percent kept)");
 
@@ -193,7 +196,7 @@ public class JunctionDet implements PlugInFilter, MouseListener {
             for (int scaleIdx=0; scaleIdx<totalCfgs; scaleIdx++) {
 
                 R[scaleIdx] = neuronDiamMax*scales[scaleIdx];
-                Profiler.loadParams(neuronDiamMax, scales[scaleIdx], false);
+                Profiler.loadTemplate(inimg.getProcessor(), Masker.mask, neuronDiamMax, scales[scaleIdx], false);
 
                 totalJobs = Profiler.offsets.size();
                 Profiler profiler_jobs[] = new Profiler[CPU_NR];
@@ -211,7 +214,7 @@ public class JunctionDet implements PlugInFilter, MouseListener {
                     }
                 }
 
-                updateList();
+                updateList(scales[scaleIdx]);
 
             }
 
@@ -665,7 +668,7 @@ public class JunctionDet implements PlugInFilter, MouseListener {
         return (pNew[0]*pPrev[0] + pNew[1]*pPrev[1]) / (pNewNorm*pPrevNorm) > pPrevNorm/pNewNorm;
     }
 
-    private void updateList() // uses Profiler to update  profiles, profilesName, angularRes
+    private void updateList(double currScale1) // uses Profiler to update  profiles, profilesName, angularRes
     {
         // store it in the list for each loc
         for (int loopLocations=0; loopLocations<Profiler.locations.length; loopLocations++) {
@@ -677,10 +680,10 @@ public class JunctionDet implements PlugInFilter, MouseListener {
             }
 
             // stringToAdd from Profiler.neuronDiam, Profiler.scale, Profiler.resolDeg
-            String stringToAdd = "nD_"+Profiler.neuronDiam+"_s_"+Profiler.scale+"_a_"+Profiler.resolDeg;
+            String stringToAdd = "nD_"+Profiler.neuronDiam+"_s_"+Profiler.scale+"_a_"+Profiler.getResolDeg(currScale1);
 
             // intToAdd from Profiler.resolDeg
-            int intToAdd = Profiler.resolDeg;
+            int intToAdd = Profiler.getResolDeg(currScale1);
 
             if (profiles.size()<Profiler.locations.length) {
 

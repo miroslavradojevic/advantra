@@ -316,7 +316,7 @@ public class Tools {
 
     }
 
-	public static double[] runMS(
+	public static double[] runMeanShift(
             double[] 	start,
             float[] 	inputProfile,
             int 		max_iter,
@@ -326,11 +326,12 @@ public class Tools {
     )
 	{
 
-        //double[] T = new double[start.length]; // slows down things...
-
         for (int i = 0; i < T.length; i++) {
             T[i] = start[i];
         }
+
+		// performance analysis
+		int countInterrupted = 0;
 
         for (int i = 0; i < T.length; i++) {
 
@@ -340,51 +341,110 @@ public class Tools {
             do{
 
                 double new_pos = runOne(T[i], h, inputProfile);
-                d = Math.abs(new_pos - T[i]);
+
+                d = Math.abs(new_pos - T[i]); // absolute diff - ok for images
+
+//				double new_value = interp1Darray((float) new_pos, 	inputProfile);
+//				double pre_value = interp1Darray((float) T[i], 		inputProfile);
+//				d = Math.abs(new_value - pre_value);
+
                 T[i] = new_pos;
                 iter++;
             }
             while(iter < max_iter && d > epsilon);
 
+			// performance analysis
+			if (iter==max_iter) countInterrupted++;
+
         }
+
+		System.out.println("MEAN-SHIFT: "+(countInterrupted*100f/T.length)+"% points stopped by MAX_ITER");
 
         return T;
 
     }
 
-//	public static double[] runMS(
-//            double[] 	start,
-//            float[] 	inputProfile,
-//            int 		max_iter,
-//            double 	    epsilon,
-//            int 		h
-//    ){
-//
-//        double[] T = new double[start.length]; // slows down things...
-//
-//        for (int i = 0; i < T.length; i++) {
-//            T[i] = start[i];
-//        }
-//
-//        for (int i = 0; i < T.length; i++) {
-//
-//            int iter = 0;
-//            double d;// = Double.MAX_VALUE;
-//
-//            do{
-//
-//                double new_pos = runOne(T[i], h, inputProfile);
-//                d = Math.abs(new_pos - T[i]);
-//                T[i] = new_pos;
-//                iter++;
-//            }
-//            while(iter < max_iter && d > epsilon);
-//
-//        }
-//
-//        return T;
-//
-//    }
+	public static void 	runMaxShift(
+										double[] 	start,
+										float[] 	inputProfile,
+										int 		max_iter,
+										double 	    epsilon,
+										int 		h,
+										double[] 	T // same length as start (this would be output)
+	)
+	{
+		for (int i = 0; i < T.length; i++) {
+			T[i] = start[i];
+		}
+
+//		// performance analysis
+//		int countInterrupted = 0;
+
+		for (int i = 0; i < T.length; i++) {
+
+			int iter = 0;
+			double d;
+
+			do{
+
+				double new_pos = runOneMax(T[i], h, inputProfile);
+
+//				d = Math.abs(new_pos - T[i]); // absolute diff - ok for images
+
+				double new_value = interp1Darray((float) new_pos, 	inputProfile);
+				double pre_value = interp1Darray((float) T[i], 		inputProfile);
+				d = Math.abs(new_value - pre_value);
+
+				T[i] = new_pos;
+				iter++;
+			}
+			while(iter < max_iter && d > epsilon);
+
+//			// performance analysis
+//			if (iter==max_iter) countInterrupted++;
+
+		}
+
+		//System.out.println("MAX-SHIFT: "+(countInterrupted*100f/T.length)+"% points stopped by MAX_ITER");
+
+		//return T;
+
+	}
+
+	private static double 	runOneMax(
+										   double  curr_pos,
+										   int     h,
+										   float[] inputProfile)
+	{
+		double 	    new_pos     = curr_pos;
+		double 		sum 		= 0;
+		double 		max	 		= Double.MIN_VALUE;
+
+		for (float x = -h; x <= h; x+=.5f) {
+			//if (true) {// ((  curr_pos + x >=0) && ( curr_pos + x <= inputProfile.length-1) ){
+			//    if (true) {
+			double value_read = interp1Darray((float)(curr_pos+x), inputProfile);
+			if (value_read>max) {
+				max = value_read;
+				new_pos = curr_pos+x;
+			}
+			//new_pos 	+= value_read * x;
+			//sum 		+= value_read 	 ;
+			//}
+			//}
+		}
+		//if(sum>0){
+		//	new_pos = new_pos/sum + curr_pos;
+//            new_pos[1] = new_pos[1]/sum + curr_pos[1];
+			// wrap it again, this time as a position
+			new_pos = (new_pos<-0.5)?(new_pos+inputProfile.length):((new_pos>=inputProfile.length-0.5)?(new_pos-inputProfile.length):new_pos);
+		//}
+		//else {
+		//	new_pos = curr_pos;
+		//}
+
+		return new_pos;
+	}
 
     private static double 	runOne(
             double  curr_pos,
@@ -394,14 +454,14 @@ public class Tools {
         double 	    new_pos     = 0;
         double 		sum 		= 0;
 
-        for (int x = -h; x <= h; x++) {
-            if (true) {// ((  curr_pos + x >=0) && ( curr_pos + x <= inputProfile.length-1) ){
-                if (true) {
+        for (float x = -h; x <= h; x+=.5f) {
+            //if (true) {// ((  curr_pos + x >=0) && ( curr_pos + x <= inputProfile.length-1) ){
+            //    if (true) {
                     double value_read = interp1Darray((float)(curr_pos+x), inputProfile);
                     new_pos 	+= value_read * x;
                     sum 		+= value_read 	 ;
-                }
-            }
+               //}
+            //}
         }
         if(sum>0){
             new_pos = new_pos/sum + curr_pos;

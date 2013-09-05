@@ -5,6 +5,8 @@ import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 
+import java.util.ArrayList;
+
 /**
  * Created with IntelliJ IDEA.
  * User: miroslav
@@ -18,27 +20,27 @@ public class Masker extends Thread {
     private static int 		image_width;
     private static int 		image_height;
 
-    public static FloatProcessor    inip;
+    private static FloatProcessor    inip;
 
-    public static FloatProcessor    backgr;    	// at one point
+    public static FloatProcessor    backgr;    		// at one point
     public static FloatProcessor    margin;    		// how much above background
-	public static ByteProcessor     mask;  			// refers to region around the location
+	public static ByteProcessor     mask;  		// refers to region around the location
 
-    public static int              	radius;
-	public static int				alloc;
+	private static int              	radius;
+	private static int					alloc;
 
 //    private static int              bgComputationMode;
 
-	public static   float I_DIFF = 20;
-	public static 	float HYSTERESIS = 1;
-    public static   float DECAY_STD = .25f*I_DIFF;
+	private static   float 			iDiff;
+//	public static 	float HYSTERESIS = 1;
+//    public static   float DECAY_STD = .25f*iDiff;
 
     public Masker (int n0, int n1) { // complete range would be image_width*image_height
         this.begN = n0;
         this.endN = n1;
     }
 
-    public static void loadTemplate(ImageProcessor inip1, float radius1) // , int bgComputationMode1, boolean localComputation1
+    public static void loadTemplate(ImageProcessor inip1, float radius1, float iDiff1)
     {
         /*
         set inip
@@ -51,7 +53,8 @@ public class Masker extends Thread {
         /*
         initialize mask
          */
-        mask = new ByteProcessor(inip1.getWidth(), inip1.getHeight()); // all zeros
+        mask = new ByteProcessor(inip1.getWidth(), inip1.getHeight());
+		//for (int mm=0; mm<inip1.getWidth() * inip1.getHeight(); mm++) mask.setf(mm, -1);
 
         /*
         initialize local average
@@ -63,6 +66,7 @@ public class Masker extends Thread {
         image_width 	= inip.getWidth();
         radius          = (int) Math.ceil(radius1);
 		alloc           = circleElements(radius);
+		iDiff			= iDiff1;
 
     }
 
@@ -79,14 +83,14 @@ public class Masker extends Thread {
 
 			float locStdXY 	= std(circNeigh, locAvgXY);
 
-			float locQ3XY 	= quartile3(circNeigh);
+			//float locQ3XY 	= quartile3(circNeigh);
 
             float locMedXY 	= median(circNeigh);   		// background
 
             float locIdiffXY= locAvgXY + 2 * locStdXY - locMedXY;
             //float locIdiffXY= locQ3XY - locMedXY;
 
-            float locMgnXY 	= (locIdiffXY<=I_DIFF)? I_DIFF : 0;// I_DIFF*(float)Math.exp(- (locIdiffXY-I_DIFF)*(locIdiffXY-I_DIFF) / (2*DECAY_STD*DECAY_STD) ) ;
+            float locMgnXY 	= (locIdiffXY<=iDiff)? iDiff : 0;// I_DIFF*(float)Math.exp(- (locIdiffXY-I_DIFF)*(locIdiffXY-I_DIFF) / (2*DECAY_STD*DECAY_STD) ) ;
 
 			backgr.setf(atX, atY, locMedXY);
 			margin.setf(atX, atY, locMgnXY);
@@ -99,6 +103,19 @@ public class Masker extends Thread {
 
         }
     }
+
+	public static int getMaskLocationsTotal() // makes sense after run()
+	{
+
+		int out = 0;
+		for (int a=0; a<mask.getWidth()*mask.getHeight(); a++) {
+			if (mask.get(a)==255) {
+				out++;
+			}
+		}
+		return out;
+
+	}
 
 	public static float[] extractCircleVals(int x, int y, int r, int alloc)
 	{
@@ -120,7 +137,7 @@ public class Masker extends Thread {
 		return out;
 	}
 
-	private static int circleElements(int r)
+	public static int circleElements(int r)
 	{
 		int cnt = 0;
 		for (int a=-r; a<=r; a++) {
@@ -279,7 +296,5 @@ public class Masker extends Thread {
 		std = (float) Math.sqrt(std);
 		return std;
 	}
-
-
 
 }
