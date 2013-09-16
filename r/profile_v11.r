@@ -1,18 +1,23 @@
 rm(list = ls())
 
 # input path
-fileName="~/ImageJ/profile_v11.log"
+fileName="~/ImageJ/JunctionDet_v11.log"
 
 conn=file(fileName, open="r")
 linn=readLines(conn)
-
-# line 1 profile angles in degrees
-# line 2 profile values at ring A
-# line 3 peak angles for A
-# line 4 peak values for A
+# contains membership functions that fuzzify input variables and the decision
+# results are fuzzy sets for each
+# line 1 theta
+# line 2 h_low[theta] 
+# line 3 h_mid[theta]
+# line 4 h_hgh[theta]
+# line 5 x ranging [0,1]
+# line 6 Q_YES
+# line 7 Q_MAYBE
+# line 8 Q_NO
 
 # export pdf
-pdf(file='~/ImageJ/profileA.pdf', width = 20, height = 8) # in cm
+pdf(file='~/ImageJ/h_LOW.pdf', width = 20, height = 8) # in cm
 
 # Trim off excess margin space (bottom, left, top, right)
 par(mar=c(4.2, 4.0, 0.5, 0.5))

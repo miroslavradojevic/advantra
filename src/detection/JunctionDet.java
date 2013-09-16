@@ -1,5 +1,6 @@
-package profile;
+package detection;
 
+import aux.Tools;
 import conn.Find_Connected_Regions;
 import ij.IJ;
 import ij.ImagePlus;
@@ -43,7 +44,7 @@ public class JunctionDet implements PlugInFilter, MouseListener {
 
 	// ms output
     ArrayList<ArrayList<float[]>>   angles;   	// 3 angles  (necessary for matching)
-    ArrayList<ArrayList<float[]>>   idxs;   	// 3 profile indexes
+    ArrayList<ArrayList<float[]>>   idxs;   	// 3 detection indexes
     ArrayList<ArrayList<float[]>>   peaks;      // each angle one peak score
 
     ArrayList<Float>   				bacgr;      // per loc
@@ -54,7 +55,7 @@ public class JunctionDet implements PlugInFilter, MouseListener {
     // values used to form the configuration
     // mean-shift will be supplying with these
     double[][][]    P; // point coordinates
-    double[][]      G; // peak values of the profile
+    double[][]      G; // peak values of the detection
     double[]        A; // angles (deg)
     double[]        R; // will hold radiuses for each configuration
 
@@ -446,6 +447,7 @@ public class JunctionDet implements PlugInFilter, MouseListener {
         imageLabels.show();
 
 		detections = new Overlay();
+		double VERY_SMALL_POSITIVE = 0.000001;
 
         for (int i=0; i<regs.size(); i++) {
             if (regs.get(i).size()>1) {
@@ -461,7 +463,7 @@ public class JunctionDet implements PlugInFilter, MouseListener {
                 float A =   (float)Math.sqrt(ellipseParams[3]);
                 float B =   (float)Math.sqrt(ellipseParams[2]);
 
-                if (!(B>Tools.VERY_SMALL_POSITIVE)) {
+                if (!(B>VERY_SMALL_POSITIVE)) {
 
                     // set B to 1 and A such that it covers the area
                     B = 1;
@@ -557,7 +559,7 @@ public class JunctionDet implements PlugInFilter, MouseListener {
 
 				//
 				if (cfgIdx>0 && !isProfileValid(sortedIdxs, profiles.get(locIdx).get(cfgIdx), bacgr.get(locIdx)+1)) { // +1 in case background was zero
-					if (printVals) IJ.log("profile not valid");
+					if (printVals) IJ.log("detection not valid");
 					break;
 				}
 
@@ -831,14 +833,14 @@ public class JunctionDet implements PlugInFilter, MouseListener {
                     float[] plotX = new float[plotPts];
                     for (int q=0; q<plotPts; q++) plotX[q] = q*((float)currProfileLen/plotPts);// * angularRes.get(i).get(g);
 
-                    // interpolate profile to be plotted
+                    // interpolate detection to be plotted
                     float[] plotY = new float[plotPts];
                     for (int q=0; q<plotPts; q++) plotY[q] = (float) (Tools.interp1Darray(plotX[q], profiles.get(i).get(g)));
 
                     // turn plotX to real angles for real plotting
                     for (int q=0; q<plotPts; q++) plotX[q] *= angularRes.get(i).get(g);
 
-                    // profile
+                    // detection
                     Plot p = new Plot("", "orient.[deg]", profilesName.get(i).get(g), plotX, plotY);
 					p.setSize(600, 300);
 					p.draw();

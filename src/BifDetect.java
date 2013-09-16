@@ -2,16 +2,12 @@ import ij.IJ;
 import ij.ImagePlus;
 import ij.Prefs;
 import ij.gui.GenericDialog;
-import ij.gui.OvalRoi;
-import ij.gui.Overlay;
-import ij.gui.PointRoi;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
-import profile.Tools;
+import aux.Tools;
 
-import java.awt.*;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.io.File;

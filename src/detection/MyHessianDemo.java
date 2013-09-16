@@ -1,8 +1,7 @@
-package profile;
+package detection;
 
 import ij.IJ;
 import ij.ImagePlus;
-import ij.ImageStack;
 import ij.Prefs;
 import ij.gui.GenericDialog;
 import ij.gui.Line;
@@ -10,7 +9,6 @@ import ij.gui.Overlay;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
 import imagescience.image.*;
-import profile.MyHessian;
 
 import java.util.Vector;
 

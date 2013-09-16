@@ -1,19 +1,17 @@
-package profile;
+package detection;
 
-import conn.Find_Connected_Regions;
+import aux.Tools;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.Prefs;
 import ij.gui.*;
 import ij.plugin.filter.PlugInFilter;
-import ij.process.ByteProcessor;
 import ij.process.ImageProcessor;
 
 import java.awt.*;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
-import java.util.ArrayList;
 import java.util.Arrays;
 
 /**

@@ -1,6 +1,6 @@
-package profile;
+package detection;
 
-import ij.gui.Plot;
+import aux.Tools;
 
 import java.util.ArrayList;
 import java.util.Vector;
@@ -21,7 +21,7 @@ public class Analyzer extends Thread  {
 	public static ArrayList<double[]> 				startIdx; 	// nr. scales
 	public static ArrayList<ArrayList<double[]>> 	finishIdx;  // nr. loc x nr.
     // output
-    public static ArrayList<ArrayList<ArrayList<Float>>> peakIdx; // one profile will give ArrayList<Float>, different number of peaks can be detected
+    public static ArrayList<ArrayList<ArrayList<Float>>> peakIdx; // one detection will give ArrayList<Float>, different number of peaks can be detected
 
     public static int       nrPoints 	= 150;
     public static int       maxIter 	= 20;
@@ -273,7 +273,7 @@ public class Analyzer extends Thread  {
 
             for (int profileIdx=0; profileIdx<profiles.get(locIdx).size(); profileIdx++) {
 
-                // access the profile
+                // access the detection
 //                int profileLength = profiles.get(locIdx).get(profileIdx).length;
 
                 // calculate peaks for the ring 'profileIdx'

@@ -1,6 +1,5 @@
-package profile;
+package aux;
 
-import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.PolygonRoi;
 import ij.gui.Roi;
@@ -1088,8 +1087,8 @@ public class Tools {
         return (profile[l]>profile[r])?
                 Math.min(profile[Math.round(pos)], profile[l]) :
                 Math.min(profile[Math.round(pos)], profile[r]) ;
-                //((profile[l]<profile[Math.round(pos)])?profile[l]:0)     :
-                //((profile[r]<profile[Math.round(pos)])?profile[r]:0)     ; // take the one that is closer to the profile[pos]
+                //((detection[l]<detection[Math.round(pos)])?detection[l]:0)     :
+                //((detection[r]<detection[Math.round(pos)])?detection[r]:0)     ; // take the one that is closer to the detection[pos]
 
     }
 

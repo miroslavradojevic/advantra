@@ -1,10 +1,11 @@
-package profile;
+package detection;
 
 import java.awt.*;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 
+import aux.Tools;
 import conn.Find_Connected_Regions;
 import ij.IJ;
 import ij.ImagePlus;

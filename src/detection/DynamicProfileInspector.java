@@ -1,21 +1,16 @@
-package profile;
+package detection;
 
+import aux.Tools;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.Prefs;
 import ij.gui.*;
 import ij.plugin.filter.PlugInFilter;
-import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 
-import javax.swing.*;
-import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.*;
-import java.io.*;
-import java.util.Arrays;
-import java.util.Random;
 
 import static ij.gui.Plot.*;
 
@@ -34,7 +29,7 @@ public class DynamicProfileInspector implements PlugInFilter, MouseListener, Mou
 
 	private double	D = 3;
 	private double	s = 1.5;
-	private float[] exProf = null; // profile
+	private float[] exProf = null; // detection
 
 	// MS
 	private int pointsMS = 200;
@@ -125,7 +120,7 @@ public class DynamicProfileInspector implements PlugInFilter, MouseListener, Mou
 //			if (pw!=null) {
 //
 //				// export to csv
-//				String fileName = "profile.csv";
+//				String fileName = "detection.csv";
 //
 //				// empty the file
 //				PrintWriter writer = null;

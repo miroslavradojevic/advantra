@@ -1,3 +1,5 @@
+package aux;
+
 import java.io.*;
 
 /**
@@ -49,13 +51,13 @@ public class AnalyzeCSV {
     /*
      * reads first col_nr columns of every line
      */
-    public double[][] readLn(int col_nr){
+    public float[][] readLn(int col_nr){
 
         if(col_nr>min_width){
             return null;
         }
 
-        double[][] cols = new double[file_length][col_nr];
+        float[][] cols = new float[file_length][col_nr];
         int read_line_number = 0;
 
         // scan the file
@@ -71,7 +73,7 @@ public class AnalyzeCSV {
                     String[] tokens = read_line.split( ",\\s*" );
 
                     for (int i = 0; i < col_nr; i++) {
-                        cols[read_line_number][i] = Double.valueOf(tokens[i].trim()).doubleValue();
+                        cols[read_line_number][i] = Float.valueOf(tokens[i].trim()).floatValue();
                     }
 
                     read_line_number++;

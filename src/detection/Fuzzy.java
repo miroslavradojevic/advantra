@@ -1,4 +1,4 @@
-package profile;
+package detection;
 
 import ij.IJ;
 import ij.ImagePlus;
@@ -18,9 +18,9 @@ import java.util.Arrays;
 public class Fuzzy {
 
 	// parameters
-	public float iDiff, ratio_iDiff, dDiff;
+	public float iDiff;//, ratio_iDiff, dDiff;
 
-	static int 		N = 100; 	// nr points covering out membership functions
+	static int 		N = 101; 	// nr points covering out membership functions
 	static float 	TRIANGLE_HALF_W = 0.5f;
 	static float[] 	x;      // serve as x axis for membership functions
 	static float[] 	agg;
@@ -39,14 +39,14 @@ public class Fuzzy {
 		there could be three categories "YES" "MAYBE" "NO" refering to input being a junction
 	 */
 
-	public Fuzzy(float iDiff1, float ratio_iDiff1)
+	public Fuzzy(float iDiff1) // , float ratio_iDiff1
 	{
 
 		iDiff = iDiff1;
-		ratio_iDiff = ratio_iDiff1;
-		dDiff = ratio_iDiff*iDiff;
-		dDiff = (dDiff<2)? 2 : dDiff ;
-		dDiff = (dDiff>=iDiff)? iDiff-1 : dDiff ;
+		//ratio_iDiff = ratio_iDiff1;
+		//dDiff = ratio_iDiff*iDiff;
+		//dDiff = (dDiff<2)? 2 : dDiff ;
+		//dDiff = (dDiff>=iDiff)? iDiff-1 : dDiff ;
 
 		x = new float[N];
 		for (int i=0; i<N; i++) x[i] = i * (1f / (N-1)); // -TRIANGLE_HALF_W + i * ((1f+2*TRIANGLE_HALF_W)/(N-1));
@@ -68,9 +68,11 @@ public class Fuzzy {
 		A = .5f - TRIANGLE_HALF_W;
 		B = .5f;
 		C = .5f + TRIANGLE_HALF_W;
+		boolean flag = false;
 		for (int i=0; i<N; i++) {
 			if (x[i]<=A) q_MAYBE[i] = 0;
 			else if (x[i]>A && x[i]<=B) q_MAYBE[i] = (x[i]-A) / TRIANGLE_HALF_W;
+			//else if (x[i]> B && !flag) { flag = true; q_MAYBE[i] = 1; }
 			else if (x[i]>B && x[i]<=C) q_MAYBE[i] = 1 - (x[i]-B) / TRIANGLE_HALF_W;
 			else q_MAYBE[i] = 0;
 		}
@@ -97,8 +99,6 @@ public class Fuzzy {
 		//M = 0;
 		//for (int i=1; i<N; i++) M += .5f*(Ma[i]+Ma[i-1]) * (x[i]-x[i-1]);
 
-		IJ.log("created Fuzzy");
-
 	}
 
 	/*
@@ -110,8 +110,8 @@ public class Fuzzy {
 	{
 		if (theta<=0)
 			return 1;
-		else if(theta>0 && theta<=dDiff)
-			return 1 - theta / dDiff;
+		else if(theta>0 && theta<=iDiff/2)
+			return 1 - theta / (iDiff/2);
 		else
 			return 0;
 	}
@@ -120,22 +120,22 @@ public class Fuzzy {
 	{
 		if (theta<=0)
 			return 0;
-		else if (theta>0 && theta<=dDiff)
-			return (theta) / dDiff;
-		else if (theta>dDiff && theta<=iDiff)
-			return 1;
-		else if (theta>iDiff && theta<=iDiff+dDiff)
-			return 1 - (theta-iDiff) / (dDiff);
+		else if (theta>0 && theta<=iDiff/2)
+			return (theta) / (iDiff/2);
+		//else if (theta>(dDiff/2) && theta<=iDiff)
+		//	return 1;
+		else if (theta>iDiff/2 && theta<=iDiff)
+			return 1 - (theta-iDiff/2) / (iDiff/2);
 		else
 			return 0;
 	}
 
 	private float h_hgh(float theta)
 	{
-		if (theta<=iDiff)
+		if (theta<=iDiff/2)
 			return 0;
-		else if (theta>iDiff && theta<=iDiff+dDiff)
-			return (theta-iDiff) / (dDiff);
+		else if (theta>iDiff/2 && theta<=iDiff)
+			return (theta-iDiff/2) / (iDiff/2);
 		else
 			return 1;
 
@@ -198,46 +198,59 @@ public class Fuzzy {
 	)
 	{
 
-/*		System.out.println("theta 1 : " + theta1);
-		System.out.println("theta 2 : " + theta2);
-		System.out.println("bg   12 : " + bg12);
-
-		System.out.println("theta 3 : " + theta3);
-		System.out.println("theta 4 : " + theta4);
-		System.out.println("bg 34   : " + bg34);
-
-
-		System.out.println("theta 5 : " + theta5);
-		System.out.println("theta 6 : " + theta6);
-		System.out.println("bg 56   : " + bg56);*/
-
-		//float[] acc = new float[N];
 		Arrays.fill(agg, 0);
 
 		float[] cur;
 		float mu;
 
-		/*
-		 RULE 1: (theta0=="HIGH")&&(theta1=="HIGH")&&(theta2=="HIGH")&&...&&(theta6=="HIGH") => J=="YES"
-		  */
-		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6));
-		cur = fi_YES(mu); 			// calculates v_YES
-		accumulate(cur, agg);   	// accumulate it
+		// all are high  => YES (theta0=="HIGH")&&(theta1=="HIGH")&&(theta2=="HIGH")&&...&&(theta6=="HIGH") => J=="YES"
+		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_YES(mu); accumulate(cur, agg);
 
-		// allow one to be mid => YES
-		mu = min (h_mid(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_YES(mu); accumulate(cur, agg);
-		mu = min (h_hgh(theta0), h_mid(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_YES(mu); accumulate(cur, agg);
-		mu = min (h_hgh(theta0), h_hgh(theta1), h_mid(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_YES(mu); accumulate(cur, agg);
-		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_mid(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_YES(mu); accumulate(cur, agg);
-		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_mid(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_YES(mu); accumulate(cur, agg);
-		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_mid(theta5), h_hgh(theta6)); cur = fi_YES(mu); accumulate(cur, agg);
-		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_mid(theta6)); cur = fi_YES(mu); accumulate(cur, agg);
-		// allow two to be mid => MAYBE
+		// allow one to be mid, rest are high => MAYBE
+		mu = min (h_mid(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_MAYBE(mu); accumulate(cur, agg);
+		mu = min (h_hgh(theta0), h_mid(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_MAYBE(mu); accumulate(cur, agg);
+		mu = min (h_hgh(theta0), h_hgh(theta1), h_mid(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_MAYBE(mu); accumulate(cur, agg);
+		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_mid(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_MAYBE(mu); accumulate(cur, agg);
+		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_mid(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_MAYBE(mu); accumulate(cur, agg);
+		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_mid(theta5), h_hgh(theta6)); cur = fi_MAYBE(mu); accumulate(cur, agg);
+		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_mid(theta6)); cur = fi_MAYBE(mu); accumulate(cur, agg);
 
+		// if one is low => NO - that means there is dissconntinuity between
+		mu = min (h_low(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
+		mu = min (h_hgh(theta0), h_low(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
+		mu = min (h_hgh(theta0), h_hgh(theta1), h_low(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
+		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_low(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
+		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_low(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
+		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_low(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
+		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_low(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
+
+		if(false) {
 		// allow two from different clusters to be mid => YES
-		mu = min (h_hgh(theta0), h_mid(theta1), h_hgh(theta2), h_mid(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_YES(mu); accumulate(cur, agg);
-		mu = min (h_hgh(theta0), h_mid(theta1), h_hgh(theta2), h_hgh(theta3), h_mid(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_YES(mu); accumulate(cur, agg);
+		mu = min (h_hgh(theta0), h_mid(theta1), h_hgh(theta2), h_mid(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_YES(mu); accumulate(cur, agg);// 1,3
+		mu = min (h_hgh(theta0), h_mid(theta1), h_hgh(theta2), h_hgh(theta3), h_mid(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_YES(mu); accumulate(cur, agg);// 1,4
+		mu = min (h_hgh(theta0), h_mid(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_mid(theta5), h_hgh(theta6)); cur = fi_YES(mu); accumulate(cur, agg);// 1,5
+		mu = min (h_hgh(theta0), h_mid(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_mid(theta6)); cur = fi_YES(mu); accumulate(cur, agg);// 1,6
 
+		mu = min (h_hgh(theta0), h_hgh(theta1), h_mid(theta2), h_mid(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_YES(mu); accumulate(cur, agg);// 2,3
+		mu = min (h_hgh(theta0), h_hgh(theta1), h_mid(theta2), h_hgh(theta3), h_mid(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_YES(mu); accumulate(cur, agg);// 2,4
+		mu = min (h_hgh(theta0), h_hgh(theta1), h_mid(theta2), h_hgh(theta3), h_hgh(theta4), h_mid(theta5), h_hgh(theta6)); cur = fi_YES(mu); accumulate(cur, agg);// 2,5
+		mu = min (h_hgh(theta0), h_hgh(theta1), h_mid(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_mid(theta6)); cur = fi_YES(mu); accumulate(cur, agg);// 2,6
+
+		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_mid(theta3), h_hgh(theta4), h_mid(theta5), h_hgh(theta6)); cur = fi_YES(mu); accumulate(cur, agg);// 3,5
+		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_mid(theta3), h_hgh(theta4), h_hgh(theta5), h_mid(theta6)); cur = fi_YES(mu); accumulate(cur, agg);// 3,6
+		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_mid(theta4), h_mid(theta5), h_hgh(theta6)); cur = fi_YES(mu); accumulate(cur, agg);// 4,5
+		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_mid(theta4), h_hgh(theta5), h_mid(theta6)); cur = fi_YES(mu); accumulate(cur, agg);// 4,6
+		}
+
+		// two from the same cluster mid => NO
+		mu = min (h_hgh(theta0), h_mid(theta1), h_mid(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
+		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_mid(theta3), h_mid(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
+		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_mid(theta5), h_mid(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
+
+		// two from the same cluster low => NO (this would cover the case when theyre all low as well)
+		mu = min (h_hgh(theta0), h_low(theta1), h_low(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
+		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_low(theta3), h_low(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
+		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_low(theta5), h_low(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
 
 		// find acc centroid (defuzzification)
 		float cx = 0;
@@ -250,7 +263,6 @@ public class Fuzzy {
 		if (cx_norm>Float.MIN_VALUE)
 			cx /= cx_norm;
 
-
 //		// Plot
 		if (plotIt) {
 			Plot p = new Plot("", "x", "acc", x, agg);
@@ -260,7 +272,6 @@ public class Fuzzy {
 			p.addPoints(new float[]{cx, cx}, new float[]{0f, 1f}, Plot.LINE);
 			p.show();
 		}
-
 
 		return cx;
 
@@ -375,9 +386,9 @@ public class Fuzzy {
 			out.print("h_hgh[theta]"); 	for (int idx=0; idx<demo_hgh_theta.length; idx++)   out.print(" " + demo_hgh_theta[idx]);  out.print("\n");
 			// fuzzy decision sets
 			out.print("x");				for (int idx=0; idx<x.length; idx++)    	out.print(" " + x[idx]);      		out.print("\n");
-			out.print("Q_veryhigh"); 	for (int idx=0; idx<q_YES.length; idx++)    out.print(" " + q_YES[idx]);  	out.print("\n");
-			out.print("Q_high"); 		for (int idx=0; idx<q_MAYBE.length; idx++)  out.print(" " + q_MAYBE[idx]);  		out.print("\n");
-			out.print("Q_moderate"); 	for (int idx=0; idx<q_NO.length; idx++)		out.print(" " + q_NO[idx]);  	out.print("\n");
+			out.print("Q_YES"); 		for (int idx=0; idx<q_YES.length; idx++)    out.print(" " + q_YES[idx]);  	out.print("\n");
+			out.print("Q_MAYBE"); 		for (int idx=0; idx<q_MAYBE.length; idx++)  out.print(" " + q_MAYBE[idx]);  		out.print("\n");
+			out.print("Q_NO"); 			for (int idx=0; idx<q_NO.length; idx++)		out.print(" " + q_NO[idx]);  	out.print("\n");
 			//
 			out.close();
 

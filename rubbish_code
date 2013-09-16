@@ -124,18 +124,18 @@
 			return 0;
 		}*/
 
-		// check each ring profile
+		// check each ring detection
 		boolean chk;
 		float r_A = (float) (D*scale_A);
 		chk = profileOK(locX, locY, r_A, directionsRad[0], inip1, backgr1, margin1);
 //		if (!chk) {
-//			logWriter.println("profile A was illegal");
+//			logWriter.println("detection A was illegal");
 //			return 0;
 //		}
 		float r_B = (float) (D*scale_B);
 		chk = profileOK(locX, locY, r_B, directionsRad[1], inip1, backgr1, margin1);
 //		if (!chk) {
-//			logWriter.println("profile B was illegal");
+//			logWriter.println("detection B was illegal");
 //			return 0;
 //		}
 
@@ -181,7 +181,7 @@
     //    public void mouseClicked(MouseEvent e)
     //    {
     //
-    //		// on mouse click extract locations, plot profile, intensities along profile and overlay points
+    //		// on mouse click extract locations, plot detection, intensities along detection and overlay points
     //        currOvl.clear();
     //        currOvl = detectionOverlay.duplicate();
     //
@@ -288,7 +288,7 @@
     //
     //        if (pwP_A == null) pwP_A = chartP_A.show();
     //        pwP_A.drawPlot(chartP_A);
-    //        pwP_A.setTitle("RING A: profile, x = " + offscreenX + ", y = " + offscreenY);
+    //        pwP_A.setTitle("RING A: detection, x = " + offscreenX + ", y = " + offscreenY);
     //
     //        if (pwI_A == null) pwI_A = chartI_A.show();
     //        pwI_A.drawPlot(chartI_A);

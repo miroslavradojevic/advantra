@@ -1,5 +1,6 @@
-package profile;
+package detection;
 
+import aux.Tools;
 import conn.Find_Connected_Regions;
 import ij.IJ;
 import ij.ImagePlus;
@@ -36,9 +37,8 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 
 	String 			timestamp = "";
 	String			logFile 	= "";
-	String 			profileFile = "profile_v11.log";
+	String 			profileFile = "JunctionDet_v11.log";
 	PrintWriter 	logWriter;
-
 
     float 	scale;
     double 	D;
@@ -52,11 +52,6 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 	ArrayList<ArrayList<ArrayList<float[]>>>				peaksXY;
     ArrayList<ArrayList<ArrayList<ArrayList<float[]>>>>   	topologyXY;
 	ArrayList<float[][]> 									theta;
-
-	// MS
-	private int pointsMS = 200;
-	private double[] startMS 	= new double[pointsMS];
-	private double[] finishMS 	= new double[pointsMS];
 
 	PlotWindow pwP_A;//, pwI_A;
 
@@ -82,9 +77,11 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 	private static int 	 MIN_SIZE = 2;
 	private static float MIN_FUZZY_SCORE = .6f;
 	private static float SCATTER_D2 = 5;
-	private static boolean useMax = false; // to estimate theta (inupt to fuzzy)
+	private static boolean useMax = true; // to estimate theta (inupt to fuzzy)
+	private static boolean showAll   = true;
 
-	public int setup(String s, ImagePlus imagePlus) {
+	public int setup(String s, ImagePlus imagePlus)
+	{
 		if(imagePlus==null) return DONE;
 		imp = Tools.convertToFloatImage(imagePlus);
 		imp.setTitle("inimg");
@@ -135,7 +132,7 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 		iDiff               = (float) gd.getNextNumber();
 		Prefs.set("advantra.critpoint.iDiff",   iDiff);
 
-		fz = new Fuzzy(iDiff, 0.4f);
+		fz = new Fuzzy(iDiff);
 
 		CPU_NR = Runtime.getRuntime().availableProcessors();
 
@@ -158,7 +155,7 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 
 
 		/***********************************************************/
-		int neighbourhoodR = (int) Math.ceil(scale*D);
+		int neighbourhoodR = (int) Math.ceil(2*scale*D);
 		IJ.log("extracting background... neigh. radius = "+neighbourhoodR + " pixels, iDiff = "+iDiff);
 		t1 = System.currentTimeMillis();
 		Masker.loadTemplate(imp.getProcessor(), neighbourhoodR, iDiff);
@@ -258,6 +255,18 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 		for (int qq=0; qq<nr; qq++) centersXY.add(qq, new int[]{Profiler.locations[qq][0], Profiler.locations[qq][1]});
 
 		anglesRad = Analyzer.exportPeakIdx();
+
+//		// DBG
+//		for (int q=0; q<Analyzer.peakIdx.size(); q++) {
+//			for (int q1=0; q1<Analyzer.peakIdx.get(q).size(); q1++) {
+//				for (int q2=0; q2<Analyzer.peakIdx.get(q).get(q1).size(); q2++) {
+//					System.out.print(" (" + Analyzer.peakIdx.get(q).get(q1).get(q2) + ", " +  ") "); // anglesRad.get(q).get(q1).get(q2)[1] +
+//				}
+//				System.out.print(" | ");
+//			}
+//			System.out.println();
+//		}
+
 		for (int ii=0; ii<anglesRad.size(); ii++) {
 			for (int jj=0; jj<anglesRad.get(ii).size(); jj++) {
 				for (int kk=0; kk<anglesRad.get(ii).get(jj).size(); kk++) {
@@ -266,6 +275,17 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 				}
 			}
 		}
+
+//		// DBG
+//		for (int q=0; q<anglesRad.size(); q++) {
+//			for (int q1=0; q1<anglesRad.get(q).size(); q1++) {
+//				for (int q2=0; q2<anglesRad.get(q).get(q1).size(); q2++) {
+//					System.out.print(" (" + anglesRad.get(q).get(q1).get(q2) + ", " +  ") "); // anglesRad.get(q).get(q1).get(q2)[1] +
+//				}
+//				System.out.print(" | ");
+//			}
+//			System.out.println();
+//		}
 
 		peaksXY		= new ArrayList<ArrayList<ArrayList<float[]>>>(nr);
 		for (int ii=0; ii<nr; ii++) {
@@ -278,12 +298,27 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 					float currAngle = anglesRad.get(ii).get(jj).get(kk);
 					pkXY[0] = (float) (centersXY.get(ii)[0] + r * Math.cos( currAngle ));
 					pkXY[1] = (float) (centersXY.get(ii)[1] - r * Math.sin( currAngle ));
+//					// DBG
+//					System.out.print(" (" + pkXY[0] + ", " + pkXY[1] + "):(" + centersXY.get(ii)[0] + ", " + centersXY.get(ii)[1] + "):(" + r + " )");
 					peaksXY2.add(kk, pkXY);
 				}
 				peaksXY1.add(jj, peaksXY2);
 			}
 			peaksXY.add(ii, peaksXY1);
+//			// DBG
+//			System.out.println();
 		}
+
+//		// DBG
+//		for (int q=0; q<peaksXY.size(); q++) {
+//			for (int q1=0; q1<peaksXY.get(q).size(); q1++) {
+//				for (int q2=0; q2<peaksXY.get(q).get(q1).size(); q2++) {
+//					System.out.print(" (" + peaksXY.get(q).get(q1).get(q2)[0] + ", " + peaksXY.get(q).get(q1).get(q2)[1] + ") "); //
+//				}
+//				System.out.print(" | ");
+//			}
+//			System.out.println();
+//		}
 
 		// initialize detection log file
 		try {
@@ -316,37 +351,53 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 			boolean[] scattered = new boolean[peaksXY.get(ii).get(0).size()]; // per location, in amount of peaks detected
 			for (int chkPeak=0; chkPeak<peaksXY.get(ii).get(0).size(); chkPeak++) {
 
+				float[] debug = new float[2];
+
 				// 4 points around the peak
 				currentPeakPoint[0][0] 	= (int) Math.floor(peaksXY.get(ii).get(0).get(chkPeak)[0]);
 				currentPeakPoint[0][1] 	= (int) Math.floor(peaksXY.get(ii).get(0).get(chkPeak)[1]);
-				currentPeakVals[0] 		=       imp.getProcessor().getf(currentPeakPoint[0][0], currentPeakPoint[0][1]);
-
+				//currentPeakVals[0] 		=       imp.getProcessor().getf(currentPeakPoint[0][0], currentPeakPoint[0][1]);
+				// TODO: substitute with line averages/median, maybe one line is enough instead of four!!!
+				currentPeakVals[0] 		=  avgAlongLine(currentCenter[0], currentCenter[1], currentPeakPoint[0][0], currentPeakPoint[0][1], imp.getProcessor());
+				//logWriter.println("what happened?  peak " + chkPeak + " : " + currentPeakVals[0]);
+				//logWriter.println("start (" + currentCenter[0] + "," + currentCenter[1] + ") -> " + currentPeakPoint[0][0] + "," + currentPeakPoint[0][1] + ")");
+				//logWriter.println("debug: "+Arrays.toString(debug));
 				currentPeakPoint[1][0] = (int) Math.floor(peaksXY.get(ii).get(0).get(chkPeak)[0]);
 				currentPeakPoint[1][1] = (int) Math.ceil (peaksXY.get(ii).get(0).get(chkPeak)[1]);
-				currentPeakVals[1] 		=       imp.getProcessor().getf(currentPeakPoint[1][0], currentPeakPoint[1][1]);
+				//currentPeakVals[1] 		=       imp.getProcessor().getf(currentPeakPoint[1][0], currentPeakPoint[1][1]);
+				// TODO
+				currentPeakVals[1]		=  avgAlongLine(currentCenter[0], currentCenter[1], currentPeakPoint[1][0], currentPeakPoint[1][1], imp.getProcessor());
 
 				currentPeakPoint[2][0] = (int) Math.ceil (peaksXY.get(ii).get(0).get(chkPeak)[0]);
 				currentPeakPoint[2][1] = (int) Math.floor(peaksXY.get(ii).get(0).get(chkPeak)[1]);
-				currentPeakVals[2] 		=       imp.getProcessor().getf(currentPeakPoint[2][0], currentPeakPoint[2][1]);
+				//currentPeakVals[2] 		=       imp.getProcessor().getf(currentPeakPoint[2][0], currentPeakPoint[2][1]);
+				// TODO
+				currentPeakVals[2]		=  avgAlongLine(currentCenter[0], currentCenter[1], currentPeakPoint[2][0], currentPeakPoint[2][1], imp.getProcessor());
 
 				currentPeakPoint[3][0] = (int) Math.ceil (peaksXY.get(ii).get(0).get(chkPeak)[0]);
 				currentPeakPoint[3][1] = (int) Math.ceil (peaksXY.get(ii).get(0).get(chkPeak)[1]);
-				currentPeakVals[3] 		=       imp.getProcessor().getf(currentPeakPoint[3][0], currentPeakPoint[3][1]);
+				//currentPeakVals[3] 		=       imp.getProcessor().getf(currentPeakPoint[3][0], currentPeakPoint[3][1]);
+				// TODO
+				currentPeakVals[3]		=  avgAlongLine(currentCenter[0], currentCenter[1], currentPeakPoint[3][0], currentPeakPoint[3][1], imp.getProcessor());
 
-				// thetaArray[chkPeak][0] is max here
+				// thetaArray[chkPeak][0]
 				/****/
 				if (useMax)
-					thetaArray[chkPeak][0] = maxArray(currentPeakVals);
+					thetaArray[chkPeak][0] = maxArray(currentPeakVals);// is max here
 				else
 					thetaArray[chkPeak][0] = _NthLowest(currentPeakVals, 3); // N lowest out of 4
 
+				//logWriter.println(" max " + thetaArray[chkPeak][0]);
+
 				ArrayList<ArrayList<float[]>> locationCluster = new ArrayList<ArrayList<float[]>>(4); // thread points (1-4) X points in line (1-2)
+
 				for (int kk=0; kk<4; kk++) {  // check every point
 
 					int findInList = Profiler.indexInList(currentPeakPoint[kk]); // check if it is in location list
 
 					if (findInList >= 0) { // was in the mask (got it's peaks)
-                    	ArrayList<float[]> locationThread = new ArrayList<float[]>();
+
+						ArrayList<float[]> locationThread = new ArrayList<float[]>();
 
 						// point 1
 						locationThread.add(0, new float[]{currentPeakPoint[kk][0], currentPeakPoint[kk][1]});
@@ -356,10 +407,20 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 							locationThread.add(1, new float[]{nextPeakPoint[0], nextPeakPoint[1]});// nextPeakPoint.clone()
 
 							// thetaArray[chkPeak][1] is max here  // median will be used in case there was more than 2, later re-assigned
+							//debug = new float[2];
 							thetaArray[chkPeak][1] = Math.max(thetaArray[chkPeak][1],
-																	 Interpolator.interpolateAt(nextPeakPoint[0], nextPeakPoint[1], (FloatProcessor) imp.getProcessor()));
+																	 //Interpolator.interpolateAt(nextPeakPoint[0], nextPeakPoint[1], (FloatProcessor) imp.getProcessor()));
+																	 avgAlongLine(
+																						 currentPeakPoint[kk][0],
+																						 currentPeakPoint[kk][1],
+																						 nextPeakPoint[0],
+																						 nextPeakPoint[1],
+																						 imp.getProcessor()
+																						 )
+							);
 
 						}
+
 						locationCluster.add(locationThread);
 
 					}
@@ -407,7 +468,7 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 							interD[0] = (float) (Math.pow(locs2.get(0)[0]-locs2.get(1)[0], 2) + Math.pow(locs2.get(0)[1] - locs2.get(1)[1], 2)); // 0 1
 							interD[1] = (float) (Math.pow(locs2.get(1)[0]-locs2.get(2)[0], 2) + Math.pow(locs2.get(1)[1] - locs2.get(2)[1], 2)); // 1 2
 							interD[2] = (float) (Math.pow(locs2.get(0)[0]-locs2.get(2)[0], 2) + Math.pow(locs2.get(0)[1] - locs2.get(2)[1], 2)); // 0 2
-							if (_NthLowest(interD, 2)>SCATTER_D2) {
+							if (_NthLowest(interD, 1)>SCATTER_D2) {
 								scattered[chkPeak] = true;  // will stop fuzzification later
 							}
 
@@ -514,12 +575,12 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 				fuzzyScores.setf(centersXY.get(ii)[0], centersXY.get(ii)[1], fuzzyValue);
 
 				// log values
-				logWriter.println("fuzzy input: iDiff is "+iDiff);
-				logWriter.println("center fuzzy input pair:    "+centralValue+" , " + iBackgC + " -> "+(centralValue - iBackgC)+" : ");
+				//logWriter.println("fuzzy input: iDiff is "+iDiff);
+				logWriter.println(		0+		". fuzzy pair -> "+(centralValue - iBackgC)+" : "); // :"+centralValue+" , " + iBackgC + "
 				for (int ee=0; ee<gg.length; ee++) {
-					logWriter.println(ee+". fuzzy input pair:    "+gg[ee][0]+" , "+gg[ee][1]+" , " + gg[ee][2]+" -> diffs versus background"+(gg[ee][0] - gg[ee][2])+" : "+(gg[ee][1] - gg[ee][2]));
+					logWriter.println(	(ee+1)+	". fuzzy pair -> "+(gg[ee][0] - gg[ee][2])+" : "+(gg[ee][1] - gg[ee][2])); // :"+gg[ee][0]+" , "+gg[ee][1]+" , " + gg[ee][2]+"
 				}
-				logWriter.println("fuzzy score: "+fuzzyValue);
+				logWriter.println("fuzzy sc: "+fuzzyValue);
 
 				}
 			}
@@ -572,10 +633,15 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 		resTab.show("BIFURCATIONS");
 		int nr_regions = detectionOverlay.size();
 
-		/*// add points used to create regions of connected components
+
+
+		if (showAll) {
+		// add points used to create regions of connected components
 		for (int ii=0; ii<imp.getWidth()*imp.getHeight(); ii++) {
 			if (score.get(ii)>=255) detectionOverlay.add(new PointRoi(ii%imp.getWidth()+.5, ii/imp.getWidth()+.5));
-		}*/
+		}
+		}
+
 
 		t2 = System.currentTimeMillis();
 		IJ.log(nr_regions+" regions extracted.\n" + "elapsed: "+((t2-t1)/1000f)+ " seconds.");
@@ -799,6 +865,7 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
     private Overlay formOverlay(ArrayList<ArrayList<int[]>> regs)
     {
 
+		double VERY_SMALL_POSITIVE = 0.000001;
         Overlay detections = new Overlay();
 
         for (int i=0; i<regs.size(); i++) {
@@ -815,7 +882,7 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
                 float A =   (float)Math.sqrt(ellipseParams[3]);
                 float B =   (float)Math.sqrt(ellipseParams[2]);
 
-                if (!(B>Tools.VERY_SMALL_POSITIVE)) {
+                if (!(B>VERY_SMALL_POSITIVE)) {
 
                     // set B to 1 and A such that it covers the area
                     B = 1;
@@ -905,6 +972,40 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 		return rt;
 	}
 
+	private static float avgAlongLine(float ox1, float oy1, float ox2, float oy2, ImageProcessor ipSource) // , float[] debug
+	{
+		float 	dl 	= 0.75f;
+		float 	l 	= (float) Math.sqrt(Math.pow(ox2 - ox1, 2) + Math.pow(oy2 - oy1, 2));
+
+		float 	avg = 0;
+		int 	cnt = 0;
+
+		int w = ipSource.getWidth();
+		int h = ipSource.getHeight();
+
+		if (ox1<0 || oy1<0)
+			return 0;
+
+//		debug[0] = ox1;
+//		debug[1] = oy1;
+
+		for (float x = ox1, y = oy1, ll = 0; ll<=l; x+=dl*(ox2-ox1)/l, y+=dl*(oy2-oy1)/l, ll+=dl) { // x <= ox2 && y <= oy2
+
+			if (x>=w-1 || y>=h-1){
+				break;
+			}
+
+			avg += Interpolator.interpolateAt(x, y, (FloatProcessor) ipSource);
+			cnt ++;
+
+		}
+
+
+
+		return (cnt>0)? avg/cnt : 0;
+
+	}
+
     private void addProfilerList(ArrayList<ArrayList<float[]>> profileListToUpdate, float[][] profilesToAppend)
     // uses Profiler to update  list of profiles
 	// rows correspond to locations, columns to different scale
@@ -957,7 +1058,7 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 
     public void keyPressed(KeyEvent e) {
 
-        // pressing key 'U' will export data to profile.log
+        // pressing key 'U' will export data to detection.log
 
         if (e.getKeyCode() == KeyEvent.VK_U) {
 
@@ -977,13 +1078,13 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 
                     out = new PrintWriter(new BufferedWriter(new FileWriter(profileFile, true)));
 
-                    // profile A
+                    // detection A
                     out.print("angle[deg]");for (int idx=0; idx<profile_A.length; idx++)    out.print(" " + ang_A[idx]);                out.print("\n");
                     out.print("profile_A"); for (int idx=0; idx<profile_A.length; idx++)    out.print(" " + profile_A[idx]);            out.print("\n");
                     out.print("peak_A_ang");for (int idx=0; idx<peakIdx_A.length; idx++)    out.print(" " + peakAng_A[idx] * Rad2Deg);  out.print("\n");
                     out.print("peak_A_val");for (int idx=0; idx<peakIdx_A.length; idx++)    out.print(" " + Tools.interp1Darray(peakIdx_A[idx], profile_A)); out.print("\n");
 
-                    // profile B
+                    // detection B
                     out.print("angle[deg]");for (int idx=0; idx<profile_B.length; idx++)    out.print(" " + ang_B[idx]);                out.print("\n");
                     out.print("profile_B"); for (int idx=0; idx<profile_B.length; idx++)    out.print(" " + profile_B[idx]);            out.print("\n");
                     out.print("peak_B_ang");for (int idx=0; idx<peakIdx_B.length; idx++)    out.print(" " + peakAng_B[idx] * Rad2Deg);  out.print("\n");

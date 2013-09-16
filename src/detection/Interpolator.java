@@ -1,4 +1,4 @@
-package profile;
+package detection;
 
 import ij.ImageStack;
 import ij.process.FloatProcessor;

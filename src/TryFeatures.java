@@ -5,7 +5,7 @@ import ij.gui.*;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
-import profile.Tools;
+import aux.Tools;
 
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
@@ -180,7 +180,7 @@ public class TryFeatures implements PlugInFilter, MouseListener {
 
             for (int dir=0; dir<3; dir++) {
 
-                profile.Tools.extractMoments2D(f.patches3[dir], c, th);
+                aux.Tools.extractMoments2D(f.patches3[dir], c, th);
                 IJ.log("cen: "+Arrays.toString(c)+" theta: "+Arrays.toString(th));
                 PointRoi p = new PointRoi(c[0]+0.5, c[1]+0.5);
                 p.setStrokeColor(Color.RED);

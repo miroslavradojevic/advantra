@@ -1,6 +1,5 @@
-package profile;
+package detection;
 
-import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.Overlay;
@@ -162,7 +161,7 @@ public class Profiler extends Thread {
 		resolDeg = (int) ( Math.round( ( 2*Math.atan(1f / (2 * scale)) * (1f/8) / TwoPI) * 360 ) );
 		resolDeg = (resolDeg>=1)? resolDeg : 1;
 
-        // define width & length of the rectangular profile, width = 2*neuronDiam, height = 2*neuronDiam
+        // define width & length of the rectangular detection, width = 2*neuronDiam, height = 2*neuronDiam
 		double r1 = neuronDiam * scale-neuronDiam;
 		double r2 = neuronDiam * scale+neuronDiam;
 		double r0 = neuronDiam * scale;
@@ -294,16 +293,16 @@ public class Profiler extends Thread {
     }
 
     /*
-    profile extractor per location coordinates (not index)
+    detection extractor per location coordinates (not index)
      */
-	public static float[] extractProfile(double neuronDiam1, double scale1, int atX, int atY, FloatProcessor inip1) // profile at one location
+	public static float[] extractProfile(double neuronDiam1, double scale1, int atX, int atY, FloatProcessor inip1) // detection at one location
     {
 
 		loadParams(neuronDiam1, scale1, false); // finished forming offsets, weights
 
         float[] profileOut = new float[offsets.size()];
 
-		// calculate profile
+		// calculate detection
 		for (int offsetIdx = 0; offsetIdx < offsets.size(); offsetIdx++) {
 
 			profileOut[offsetIdx] = 0;

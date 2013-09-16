@@ -1,11 +1,8 @@
-package profile;
+package detection;
 
-import ij.IJ;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
-
-import java.util.ArrayList;
 
 /**
  * Created with IntelliJ IDEA.

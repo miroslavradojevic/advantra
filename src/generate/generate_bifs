@@ -1,0 +1,6 @@
+#!/bin/bash
+# Script to generate bifurcations
+# args: minSNR  maxSNR  D1  D2  D3
+java -cp critpoint_.jar:ij.jar:imagescience.jar generate.GeneratorDemo   4   3 4 5    1
+ #echo "finished"
+exit

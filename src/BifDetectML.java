@@ -1,3 +1,4 @@
+import aux.AnalyzeCSV;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
@@ -9,7 +10,7 @@ import ij.gui.PointRoi;
 import ij.plugin.PlugIn;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
-import profile.Tools;
+import aux.Tools;
 
 /*
 import weka.classifiers.trees.RandomForest;

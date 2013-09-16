@@ -1,9 +1,8 @@
-package profile;
+package detection;
 
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
-import profile.Interpolator;
 
 import java.util.ArrayList;
 

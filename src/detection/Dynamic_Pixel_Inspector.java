@@ -1,4 +1,4 @@
-package profile;
+package detection;
 
 import java.awt.Color;
 import java.awt.Font;

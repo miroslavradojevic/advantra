@@ -5,7 +5,7 @@ import ij.gui.PointRoi;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
-import profile.Interpolator;
+import detection.Interpolator;
 
 import java.awt.*;
 import java.util.ArrayList;
@@ -194,7 +194,7 @@ public class Feat {
         boolean         print
     )
     {
-		// check if values can be taken for the profile
+		// check if values can be taken for the detection
 		int margin = d/2+1;
 		if ( atX<=margin || atX>=inip.getWidth()-margin ) {
 			return null;
@@ -609,7 +609,7 @@ public class Feat {
 //                            ov.add(new PointRoi(locX+0.5, locY+0.5));
 //                        }
 //
-//                        patches3[dir][row][col] = profile.Interpolator.interpolateAt(locX, locY, inip);
+//                        patches3[dir][row][col] = detection.Interpolator.interpolateAt(locX, locY, inip);
 //
 //                    }
 //                }

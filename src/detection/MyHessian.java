@@ -1,4 +1,4 @@
-package profile;
+package detection;
 /**
  * Created with IntelliJ IDEA.
  * User: miroslav
@@ -10,9 +10,7 @@ import java.util.Vector;
 import flanagan.math.Matrix;
 
 import ij.ImagePlus;
-import ij.ImageStack;
 import ij.process.FloatProcessor;
-import ij.process.ImageProcessor;
 import imagescience.feature.Hessian;
 import imagescience.image.Aspects;
 import imagescience.image.Axes;

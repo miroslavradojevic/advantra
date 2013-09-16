@@ -1,5 +1,6 @@
-package profile;
+package detection;
 
+import aux.Tools;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.Prefs;
@@ -43,7 +44,7 @@ public class MS2DDemo implements PlugInFilter {
             inmaskPath = null;
         }
         else {
-            inmaskPath = Tools.removeExtension(imagePlus.getOriginalFileInfo().directory+imagePlus.getOriginalFileInfo().fileName)+".mask";
+            inmaskPath = Tools.removeExtension(imagePlus.getOriginalFileInfo().directory + imagePlus.getOriginalFileInfo().fileName)+".mask";
         }
         return DOES_8G+DOES_32+NO_CHANGES;
     }
