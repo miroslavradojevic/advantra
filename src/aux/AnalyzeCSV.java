@@ -92,6 +92,47 @@ public class AnalyzeCSV {
         return cols;
     }
 
+	public double[][] readLnDouble(int col_nr){
+
+		if(col_nr>min_width){
+			return null;
+		}
+
+		double[][] cols = new double[file_length][col_nr];
+		int read_line_number = 0;
+
+		// scan the file
+		try {
+			FileInputStream fstream 	= new FileInputStream(file_path);
+			BufferedReader br 			= new BufferedReader(new InputStreamReader(new DataInputStream(fstream)));
+			String read_line;
+			// should loop again the same amount of times it did at the line count
+			while ((read_line = br.readLine()) != null) {
+
+				if(!read_line.trim().startsWith("#")){
+
+					String[] tokens = read_line.split( ",\\s*" );
+
+					for (int i = 0; i < col_nr; i++) {
+						cols[read_line_number][i] = Double.valueOf(tokens[i].trim()).doubleValue();
+					}
+
+					read_line_number++;
+
+				}
+			} // end looping the file
+
+			br.close();
+			fstream.close();
+
+		}
+		catch (Exception e){
+			System.err.println("Error: " + e.getMessage());
+		}
+
+		return cols;
+	}
+
     /*
      * read last column of every line
      */

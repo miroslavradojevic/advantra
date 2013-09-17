@@ -11,9 +11,15 @@
     <property name="build"  		location="build" />
     <property name="user" 		    value="miroslavR" />
 
+    <!-- clean build directory -->
+    <delete includeemptydirs="true">
+        <fileset dir="${build}">
+            <include name="**/*.*" />
+        </fileset>
+    </delete>
+
     <target name="main" depends="compress" description="main target">
     </target>
-
 
     <target name="compress" depends="compile" description="generate distribution">
 

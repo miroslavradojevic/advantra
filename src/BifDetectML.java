@@ -169,7 +169,7 @@ public class BifDetectML implements PlugIn {
                 files_pos[i] = check[0];
 
                 readCSV = new AnalyzeCSV(files_pos[i].getAbsolutePath());
-                double[][] A = readCSV.readLn(2);
+                double[][] A = readCSV.readLnDouble(2);
 
                 /*
                 readMask = new ImagePlus(files_pos[i].getAbsolutePath());
@@ -194,7 +194,7 @@ public class BifDetectML implements PlugIn {
                 files_neg[i] = check[0];
 
                 readCSV = new AnalyzeCSV(files_neg[i].getAbsolutePath());
-                double[][] B = readCSV.readLn(2);
+                double[][] B = readCSV.readLnDouble(2);
 
                 /*
                 readMask = new ImagePlus(files_neg[i].getAbsolutePath());
