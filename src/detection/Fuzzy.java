@@ -203,54 +203,118 @@ public class Fuzzy {
 		float[] cur;
 		float mu;
 
-		// all are high  => YES (theta0=="HIGH")&&(theta1=="HIGH")&&(theta2=="HIGH")&&...&&(theta6=="HIGH") => J=="YES"
+		// all are HIGH  => YES (theta0=="HIGH")&&(theta1=="HIGH")&&(theta2=="HIGH")&&...&&(theta6=="HIGH") => J=="YES"
 		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_YES(mu); accumulate(cur, agg);
 
-		// allow one to be mid, rest are high => MAYBE
-		mu = min (h_mid(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_MAYBE(mu); accumulate(cur, agg);
-		mu = min (h_hgh(theta0), h_mid(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_MAYBE(mu); accumulate(cur, agg);
-		mu = min (h_hgh(theta0), h_hgh(theta1), h_mid(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_MAYBE(mu); accumulate(cur, agg);
-		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_mid(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_MAYBE(mu); accumulate(cur, agg);
-		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_mid(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_MAYBE(mu); accumulate(cur, agg);
-		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_mid(theta5), h_hgh(theta6)); cur = fi_MAYBE(mu); accumulate(cur, agg);
-		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_mid(theta6)); cur = fi_MAYBE(mu); accumulate(cur, agg);
+		// allow one to be MID, the rest are HIGH => MAYBE
+		mu = max(
+						min (h_mid(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)),
+						min (h_hgh(theta0), h_mid(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)),
+						min (h_hgh(theta0), h_hgh(theta1), h_mid(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)),
+						min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_mid(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)),
+						min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_mid(theta4), h_hgh(theta5), h_hgh(theta6)),
+						min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_mid(theta5), h_hgh(theta6)),
+						min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_mid(theta6))
+		);
+		cur = fi_MAYBE(mu); accumulate(cur, agg);
 
-		// if one is low => NO - that means there is dissconntinuity between
-		mu = min (h_low(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
-		mu = min (h_hgh(theta0), h_low(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
-		mu = min (h_hgh(theta0), h_hgh(theta1), h_low(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
-		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_low(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
-		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_low(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
-		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_low(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
-		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_low(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
+		// allow two from different clusters to be MID while the rest are HIGH => MAYBE
+		mu = max(
+						max(
+								   min (h_hgh(theta0), h_mid(theta1), h_hgh(theta2), h_mid(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)), // 1,3
+								   min (h_hgh(theta0), h_mid(theta1), h_hgh(theta2), h_hgh(theta3), h_mid(theta4), h_hgh(theta5), h_hgh(theta6)), // 1,4
+								   min (h_hgh(theta0), h_mid(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_mid(theta5), h_hgh(theta6)), // 1,5
+								   min (h_hgh(theta0), h_mid(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_mid(theta6)), // 1,6
 
-		if(false) {
-		// allow two from different clusters to be mid => YES
-		mu = min (h_hgh(theta0), h_mid(theta1), h_hgh(theta2), h_mid(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_YES(mu); accumulate(cur, agg);// 1,3
-		mu = min (h_hgh(theta0), h_mid(theta1), h_hgh(theta2), h_hgh(theta3), h_mid(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_YES(mu); accumulate(cur, agg);// 1,4
-		mu = min (h_hgh(theta0), h_mid(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_mid(theta5), h_hgh(theta6)); cur = fi_YES(mu); accumulate(cur, agg);// 1,5
-		mu = min (h_hgh(theta0), h_mid(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_mid(theta6)); cur = fi_YES(mu); accumulate(cur, agg);// 1,6
+								   min (h_hgh(theta0), h_hgh(theta1), h_mid(theta2), h_mid(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)), // 2,3
+								   min (h_hgh(theta0), h_hgh(theta1), h_mid(theta2), h_hgh(theta3), h_mid(theta4), h_hgh(theta5), h_hgh(theta6)), // 2,4
+								   min (h_hgh(theta0), h_hgh(theta1), h_mid(theta2), h_hgh(theta3), h_hgh(theta4), h_mid(theta5), h_hgh(theta6))  // 2,5
+						),
+						max(
+								   min (h_hgh(theta0), h_hgh(theta1), h_mid(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_mid(theta6)), // 2,6
 
-		mu = min (h_hgh(theta0), h_hgh(theta1), h_mid(theta2), h_mid(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_YES(mu); accumulate(cur, agg);// 2,3
-		mu = min (h_hgh(theta0), h_hgh(theta1), h_mid(theta2), h_hgh(theta3), h_mid(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_YES(mu); accumulate(cur, agg);// 2,4
-		mu = min (h_hgh(theta0), h_hgh(theta1), h_mid(theta2), h_hgh(theta3), h_hgh(theta4), h_mid(theta5), h_hgh(theta6)); cur = fi_YES(mu); accumulate(cur, agg);// 2,5
-		mu = min (h_hgh(theta0), h_hgh(theta1), h_mid(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_mid(theta6)); cur = fi_YES(mu); accumulate(cur, agg);// 2,6
+								   min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_mid(theta3), h_hgh(theta4), h_mid(theta5), h_hgh(theta6)), // 3,5
+								   min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_mid(theta3), h_hgh(theta4), h_hgh(theta5), h_mid(theta6)), // 3,6
+								   min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_mid(theta4), h_mid(theta5), h_hgh(theta6)), // 4,5
+								   min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_mid(theta4), h_hgh(theta5), h_mid(theta6))  // 4,6
+						)
 
-		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_mid(theta3), h_hgh(theta4), h_mid(theta5), h_hgh(theta6)); cur = fi_YES(mu); accumulate(cur, agg);// 3,5
-		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_mid(theta3), h_hgh(theta4), h_hgh(theta5), h_mid(theta6)); cur = fi_YES(mu); accumulate(cur, agg);// 3,6
-		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_mid(theta4), h_mid(theta5), h_hgh(theta6)); cur = fi_YES(mu); accumulate(cur, agg);// 4,5
-		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_mid(theta4), h_hgh(theta5), h_mid(theta6)); cur = fi_YES(mu); accumulate(cur, agg);// 4,6
+		);
+		cur = fi_MAYBE(mu); accumulate(cur, agg);
+
+		// two from the same cluster MID, rest are HIGH => NO
+		mu = max(
+						min (h_hgh(theta0), h_mid(theta1), h_mid(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)), // cluster 1
+						min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_mid(theta3), h_mid(theta4), h_hgh(theta5), h_hgh(theta6)), // cluster 2
+						min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_mid(theta5), h_mid(theta6))  // cluster 3
+
+		);
+		cur = fi_NO(mu); accumulate(cur, agg);
+
+		// three are MID, regardless of the others => NO
+		mu = max(
+				max(
+						min (h_mid(theta1), h_mid(theta2), h_mid(theta3)), //		1   2   3
+						min (h_mid(theta1), h_mid(theta2), h_mid(theta4)), //		1   2   4
+						min (h_mid(theta1), h_mid(theta2), h_mid(theta5)), //		1   2   5
+						min (h_mid(theta1), h_mid(theta2), h_mid(theta6)), //		1   2   6
+						min (h_mid(theta1), h_mid(theta3), h_mid(theta4)), //		1   3   4
+						min (h_mid(theta1), h_mid(theta3), h_mid(theta5))  //		1   3   5
+				),
+		        max(
+						   min (h_mid(theta1), h_mid(theta3), h_mid(theta6)), //		1   3   6
+						   min (h_mid(theta1), h_mid(theta4), h_mid(theta5)), //		1   4   5
+						   min (h_mid(theta1), h_mid(theta4), h_mid(theta6)), //		1   4   6
+						   min (h_mid(theta1), h_mid(theta5), h_mid(theta6)), //		1   5   6
+						   min (h_mid(theta2), h_mid(theta3), h_mid(theta4)), //		2   3   4
+						   min (h_mid(theta2), h_mid(theta3), h_mid(theta5))  //		2   3   5
+				),
+				max(
+						   min (h_mid(theta2), h_mid(theta3), h_mid(theta5)), //		2   3   6
+						   min (h_mid(theta2), h_mid(theta4), h_mid(theta5)), //		2   4   5
+						   min (h_mid(theta2), h_mid(theta4), h_mid(theta6)), //		2   4   6
+						   min (h_mid(theta2), h_mid(theta5), h_mid(theta6)), //		2   5   6
+						   min (h_mid(theta3), h_mid(theta4), h_mid(theta5)), //		3   4   5
+						   min (h_mid(theta3), h_mid(theta4), h_mid(theta6))  //		3   4   6
+				),
+				max(
+						   min (h_mid(theta3), h_mid(theta5), h_mid(theta6)), //		3   5   6
+						   min (h_mid(theta4), h_mid(theta5), h_mid(theta6))  //		4   5   6
+				)
+		);
+
+		cur = fi_NO(mu); accumulate(cur, agg);
+
+		// if one of them is LOW, regardless of the others => NO
+		mu = max (
+						 h_low(theta0),
+						 h_low(theta1),
+						 h_low(theta2),
+						 h_low(theta3),
+						 h_low(theta4),
+						 h_low(theta5),
+						 h_low(theta6)
+		);
+
+		cur = fi_NO(mu); accumulate(cur, agg);
+
+		if (false) {
+			// TODO : redundant
+			// if one is LOW and all the others HIGH => NO - that means there is dissconntinuity between
+			mu = min (h_low(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
+			mu = min (h_hgh(theta0), h_low(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
+			mu = min (h_hgh(theta0), h_hgh(theta1), h_low(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
+			mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_low(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
+			mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_low(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
+			mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_low(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
+			mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_low(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
+
+			// TODO : redundant
+			// two from the same cluster LOW => NO (this would cover the case when theyre all low as well)
+			mu = min (h_hgh(theta0), h_low(theta1), h_low(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
+			mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_low(theta3), h_low(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
+			mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_low(theta5), h_low(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
 		}
-
-		// two from the same cluster mid => NO
-		mu = min (h_hgh(theta0), h_mid(theta1), h_mid(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
-		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_mid(theta3), h_mid(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
-		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_mid(theta5), h_mid(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
-
-		// two from the same cluster low => NO (this would cover the case when theyre all low as well)
-		mu = min (h_hgh(theta0), h_low(theta1), h_low(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
-		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_low(theta3), h_low(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
-		mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_low(theta5), h_low(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
 
 		// find acc centroid (defuzzification)
 		float cx = 0;
@@ -281,6 +345,38 @@ public class Fuzzy {
 	{
 		for (int i=0; i<N; i++) if (values[i]>accumulator[i]) accumulator[i] = values[i];
 	}
+
+	private float max(float in1, float in2)
+	{
+		return Math.max(in1, in2);
+	}
+
+	private float max(float in1, float in2, float in3)
+	{
+		return Math.max(in1, max(in2, in3));
+	}
+
+	private float max(float in1, float in2, float in3, float in4)
+	{
+		return Math.max(in1, max(in2, in3, in4));
+	}
+
+	private float max(float in1, float in2, float in3, float in4, float in5)
+	{
+		return Math.max(in1, max(in2, in3, in4, in5));
+	}
+
+	private float max(float in1, float in2, float in3, float in4, float in5, float in6)
+	{
+		return Math.max(in1, max(in2, in3, in4, in5, in6));
+	}
+
+	private float max(float in1, float in2, float in3, float in4, float in5, float in6, float in7)
+	{
+		return Math.max(in1, max(in2, in3, in4, in5, in6, in7));
+	}
+
+
 
 	private float min(float in1, float in2)
 	{
