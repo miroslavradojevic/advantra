@@ -67,7 +67,7 @@ for (imageIdx in 1:(nrImages+1)) {
     filename = paste("alltogether.pdf", sep="")
   }
 
-  pdf(file=filename, width = 20, height = 10) # in cm
+  pdf(file=filename, width = 10, height = 5) # in inches
   colors=c(rgb(0,0,1,0.3),rgb(1,0,0,0.3),rgb(0,1,0,0.3))
   bardensity <- t(t(c(15,15,0)))
   barangle <- t(t(c(45,135,0)))
