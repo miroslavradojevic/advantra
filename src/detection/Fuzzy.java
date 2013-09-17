@@ -298,23 +298,23 @@ public class Fuzzy {
 
 		cur = fi_NO(mu); accumulate(cur, agg);
 
-		if (false) {
-			// TODO : redundant
-			// if one is LOW and all the others HIGH => NO - that means there is dissconntinuity between
-			mu = min (h_low(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
-			mu = min (h_hgh(theta0), h_low(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
-			mu = min (h_hgh(theta0), h_hgh(theta1), h_low(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
-			mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_low(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
-			mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_low(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
-			mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_low(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
-			mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_low(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
-
-			// TODO : redundant
-			// two from the same cluster LOW => NO (this would cover the case when theyre all low as well)
-			mu = min (h_hgh(theta0), h_low(theta1), h_low(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
-			mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_low(theta3), h_low(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
-			mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_low(theta5), h_low(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
-		}
+//		if (false) {
+//			// TODO : redundant
+//			// if one is LOW and all the others HIGH => NO - that means there is dissconntinuity between
+//			mu = min (h_low(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
+//			mu = min (h_hgh(theta0), h_low(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
+//			mu = min (h_hgh(theta0), h_hgh(theta1), h_low(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
+//			mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_low(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
+//			mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_low(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
+//			mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_low(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
+//			mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_low(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
+//
+//			// TODO : redundant
+//			// two from the same cluster LOW => NO (this would cover the case when theyre all low as well)
+//			mu = min (h_hgh(theta0), h_low(theta1), h_low(theta2), h_hgh(theta3), h_hgh(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
+//			mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_low(theta3), h_low(theta4), h_hgh(theta5), h_hgh(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
+//			mu = min (h_hgh(theta0), h_hgh(theta1), h_hgh(theta2), h_hgh(theta3), h_hgh(theta4), h_low(theta5), h_low(theta6)); cur = fi_NO(mu); accumulate(cur, agg);
+//		}
 
 		// find acc centroid (defuzzification)
 		float cx = 0;

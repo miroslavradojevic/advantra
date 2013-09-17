@@ -1,6 +1,15 @@
 #!/bin/bash
 # Script to detect bifurcations
-# args: folderWithSyntheticBifurcationsPath
-echo "java -cp critpoint_.jar:ij.jar:imagescience.jar detection.DetectorDemo folderName neuronDiameter iDiff"
-#echo "finished"
+
+# arguments
+# $1 folder
+# $2 neuronDIameter
+# $3 iDiff
+
+java -cp critpoint_.jar:ij.jar:imagescience.jar detection.DetectorDemo $1 $2 $3
+echo "java -cp critpoint_.jar:ij.jar:imagescience.jar detection.DetectorDemo " $1 $2 $3
+
+cp DetectionDemo.r ./DET_$1
+echo "cp DetectionDemo.r ./DET_"$1
+
 exit
