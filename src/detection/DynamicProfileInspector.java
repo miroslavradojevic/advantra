@@ -11,6 +11,7 @@ import ij.process.ImageProcessor;
 
 import java.awt.*;
 import java.awt.event.*;
+import java.io.*;
 
 import static ij.gui.Plot.*;
 
@@ -29,6 +30,7 @@ public class DynamicProfileInspector implements PlugInFilter, MouseListener, Mou
 
 	private double	D = 3;
 	private double	s = 1.5;
+	private int		wStdRatioToD = 4;
 	private float[] exProf = null; // detection
 
 	// MS
@@ -109,79 +111,75 @@ public class DynamicProfileInspector implements PlugInFilter, MouseListener, Mou
 	public void keyPressed(KeyEvent e)
 	{
 
-		// Catch the event that enables or disables plot updating
-		if (e.getKeyCode() == KeyEvent.VK_Q) {
-			IJ.log("exporting ");
-
-		}
-
 		if (e.getKeyCode() == KeyEvent.VK_U) {
-//
-//			if (pw!=null) {
-//
-//				// export to csv
-//				String fileName = "detection.csv";
-//
-//				// empty the file
-//				PrintWriter writer = null;
-//				try {
-//					writer = new PrintWriter(fileName);
-//					writer.print("");
-//					writer.close();
-//				} catch (FileNotFoundException ex) {}
-//
-//				try {
-//					PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(fileName, true)));
-//
-//					out.println("Angle, Response");
-//
-//					int idx = 0;
-//					for (int aDeg = 0; aDeg<360; aDeg+=Profiler.resolDeg) {
-//
-//						out.println(aDeg+", "+exProf[idx++]);
-//
-//					}
-//
-//					out.close();
-//
-//				} catch (IOException e1) {}
-//
-//				IJ.showMessage("exported to : " + new File(fileName).getAbsolutePath());
-//
-//					/*
-//					for (int angleCnt=0; angleCnt<Profiler.offsets.size(); angleCnt++) {
-//
-//						out.print(""+Profiler.offsets.get(angleCnt).size()+", "+(angleCnt*Profiler.resolDeg)+", ");
-//
-//						for (int idx=0; idx<Profiler.offsets.get(angleCnt).size(); idx++) {
-//
-//							out.print(
-//											 IJ.d2s(Profiler.offsets.get(angleCnt).get(idx)[0], 	3)+", "+
-//													 IJ.d2s(Profiler.offsets.get(angleCnt).get(idx)[1], 	3)+", "+
-//													 IJ.d2s(Profiler.weights.get(angleCnt).get(idx), 	3)
-//							);
-//
-//							if (idx==Profiler.offsets.get(angleCnt).size()-1) {
-//								out.println("");
-//							}
-//							else {
-//								out.print(", ");
-//							}
-//
-//						}
-//
-//					}
-//					*/
-//
-//				//out.println("");
-//
-//			}
-//			else {
-//
-//				IJ.showMessage("no plot window opened");
-//
-//			}
-//
+
+			if (pw!=null) {
+
+				String fileName = System.getProperty("user.home")+File.separator+"DynamicProfileInspector.dat";
+				IJ.log("exporting " + fileName);
+
+				// empty file
+				PrintWriter writer = null;
+				try {
+					writer = new PrintWriter(fileName);
+					writer.print("");
+					writer.close();
+				} catch (FileNotFoundException ex) {}
+
+				// fill in the values
+				PrintWriter out = null;
+				try {
+					out = new PrintWriter(new BufferedWriter(new FileWriter(fileName, true)));
+				} catch (IOException e1) {}
+
+				/*
+				angle
+				*/
+				out.print("ang ");
+				for (int aDeg = 0; aDeg<360; aDeg+=Profiler.getResolDeg(s)) out.print(aDeg + " ");
+
+				/*
+				exProf
+				*/
+				out.print("\nprofile ");
+				for (int idx = 0; idx<exProf.length; idx++) out.print(exProf[idx] + " ");
+
+				/*
+				exProf, startMS, finishMS, pointsMS
+				*/
+				float[] tempx = new float[pointsMS]  ;
+				float[] tempy = new float[pointsMS]  ;
+
+				for (int yy=0; yy<pointsMS; yy++) {
+					tempx[yy] = (float) (startMS[yy] * Profiler.getResolDeg(s));
+					tempy[yy] = (float) Tools.interp1Darray((float) startMS[yy], exProf);
+				}
+				// export
+				out.print("\nstartX ");
+				for (int idx = 0; idx<pointsMS; idx++) out.print(tempx[idx] + " ");
+
+				out.print("\nstartY ");
+				for (int idx = 0; idx<pointsMS; idx++) out.print(tempy[idx] + " ");
+
+				/////
+				for (int yy=0; yy<pointsMS; yy++) {
+					tempx[yy] = (float) (finishMS[yy] * Profiler.getResolDeg(s));
+					tempy[yy] = (float) Tools.interp1Darray((float) finishMS[yy], exProf);
+				}
+
+				out.print("\nfinishX ");
+				for (int idx = 0; idx<pointsMS; idx++) out.print(tempx[idx] + " ");
+
+				out.print("\nfinishY ");
+				for (int idx = 0; idx<pointsMS; idx++) out.print(tempy[idx] + " ");
+
+				out.println();
+				out.close();
+
+				IJ.log("exported to : " + new File(fileName).getAbsolutePath());
+
+			}
+
 		}
 
 	}
@@ -196,10 +194,10 @@ public class DynamicProfileInspector implements PlugInFilter, MouseListener, Mou
 		long t1, t2;
 
 		t1 = System.currentTimeMillis();
-		exProf = Profiler.extractProfile(D, s, offscreenX, offscreenY, (FloatProcessor) imp.getProcessor());
+		exProf = Profiler.extractProfile(D, s, wStdRatioToD, offscreenX,  offscreenY, (FloatProcessor) imp.getProcessor());
         peakIdxs = Analyzer.extractPeakIdxs(exProf, startMS, finishMS);
 		t2 = System.currentTimeMillis();
-		IJ.log("found "+peakIdxs.length+" peaks, "+((t2-t1)/1000f)+" sec. elapsed");
+		IJ.log("found "+peakIdxs.length+" peaks, "+((t2-t1)/1000f)+" sec. elapsed, press U to export");
 
 		// Fill in X axis (frame number)
         float[] x = new float[exProf.length];
@@ -210,7 +208,7 @@ public class DynamicProfileInspector implements PlugInFilter, MouseListener, Mou
 
         // Prepare plot window
         Plot chart = new Plot("", "", "", x, exProf);
-		chart.setSize(800, 400);
+		chart.setSize(600, 300);
 		// Add the points for prettier plots
 		//chart.addPoints(x, exProf, Plot.CIRCLE);
         //chart.setLimits(0, 360, mm[0]-1, mm[1]+1);

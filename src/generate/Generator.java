@@ -409,7 +409,7 @@ public class Generator {
 
 					// apply gaussian profile -> assume diam==2*std
 
-					float std = diams[ptIdx-1]/2;
+					float std = diams[ptIdx-1]/2; //*** HERE IT RELATES DIAMETER WITH STANDARD DEVIATION  DIAMETER ~ 2 * std
 
 					if (dist<=3*std) {
 						float val = (float) (h * Math.exp(-(dist*dist)/(2*std*std))); // normalize height to h

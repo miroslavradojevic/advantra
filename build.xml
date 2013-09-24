@@ -34,12 +34,12 @@
         <copy file="./critpoint_.jar"  toDir="${env.HOME}/ImageJ/plugins/" />
 
         <!-- copy necessary libraries to folder where they can ce called in a command -->
-        <copy file="./critpoint_.jar"                       toDir="${env.HOME}/synth_bifs/" />
-        <copy file="${env.HOME}/jarlib/ij.jar"              toDir="${env.HOME}/synth_bifs/" />
-        <copy file="${env.HOME}/jarlib/imagescience.jar"    toDir="${env.HOME}/synth_bifs/" />
-        <copy file="./src/generate/generate_bifs"           toDir="${env.HOME}/synth_bifs/" />
-        <copy file="./src/detection/detect_bifs"            toDir="${env.HOME}/synth_bifs/" />
-        <copy file="./r/DetectionDemo.r"                toDir="${env.HOME}/synth_bifs/" />
+        <copy file="./critpoint_.jar"                       toDir="${env.HOME}/bif_det/" />
+        <copy file="${env.HOME}/jarlib/ij.jar"              toDir="${env.HOME}/bif_det/" />
+        <copy file="${env.HOME}/jarlib/imagescience.jar"    toDir="${env.HOME}/bif_det/" />
+        <copy file="./src/generate/generate_bifs"           toDir="${env.HOME}/bif_det/" />
+        <copy file="./src/detection/detect_bifs"            toDir="${env.HOME}/bif_det/" />
+        <copy file="./r/DetectionDemo.r"                    toDir="${env.HOME}/bif_det/" />
 
         <!-- <copy file="./critpoint_.jar"  toDir="/dev/shm/ImageJ/plugins/" /> -->
         <!-- <copy file="./critpoint_.jar"  toDir="${env.HOME}/Fiji.app/plugins/" /> -->

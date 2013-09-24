@@ -39,7 +39,9 @@ public class DetectorDemo implements PlugIn {
 	static float 		minFuzzyScore 		= .6f;
 	static float 		scatterDistSquared 	=  5f;
 
-	static int 	 		MIN_SIZE 			= 1;
+	static int 			wStdRatioToD 		= 3;
+	static int 	 		MIN_SIZE 			= 2;
+
 	static float 	 	LOCATION_TOLERANCE_SCALE 	= 1.5f;
 
 	static String 		logFile 	= "legend.dat"; // string (dir. name) for each category
@@ -251,7 +253,7 @@ public class DetectorDemo implements PlugIn {
 
 		/***** initialize Detector *****/
 		//Detector det = new Detector();    			// default
-		Detector det = new Detector(minCosAngle, minFuzzyScore, scatterDistSquared);    // with params
+		Detector det = new Detector(minCosAngle, minFuzzyScore, scatterDistSquared, wStdRatioToD);    // with params
 
 		/***** store legend ******/
 		for (int ii=0; ii<listDirs.length; ii++) {
@@ -323,9 +325,13 @@ public class DetectorDemo implements PlugIn {
 					 			*/
 
 								ArrayList<ArrayList<int[]>> detRegions = det.run(imp, neuronD, iDiff);  // connected regions
+
 								Vector<float[]> detList = det.formDetectionList(detRegions, MIN_SIZE);  // list of discs
+
 								int[] labels = det.clustering(detList, LOCATION_TOLERANCE_SCALE*neuronD);  								// prune detection list, list of discs
+
 								Vector<float[]> detLstPruned = Detector.groupClusters(labels, detList); // group clusters using labels
+
 								System.out.println(detList.size() + "detections, " + detLstPruned.size() + "pruned detections");
 
 								//Overlay overlayDet = det.formPointOverlay(detLstPruned, Color.YELLOW);

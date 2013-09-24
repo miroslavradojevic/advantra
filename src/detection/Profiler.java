@@ -24,6 +24,7 @@ public class Profiler extends Thread {
 	public static double 	neuronDiam;
 	public static double 	scale;
 	public static int 		outerRange;
+	public static int 		weightStdRatioToD;
 
 	private static int 		resolDeg;
 
@@ -49,7 +50,7 @@ public class Profiler extends Thread {
 		this.endN = n1;
 	}
 
-    public static void loadTemplate(ImageProcessor inip1, ByteProcessor maskip1, double neuronDiam1, double scale1, boolean showSampling)
+    public static void loadTemplate(ImageProcessor inip1, ByteProcessor maskip1, double neuronDiam1, double scale1, int weightStdRatioToD1, boolean showSampling)
     {
 
         /*
@@ -90,7 +91,7 @@ public class Profiler extends Thread {
 		/*
 		weights and offsets
 		 */
-		loadParams(neuronDiam1, scale1, showSampling);
+		loadParams(neuronDiam1, scale1, weightStdRatioToD1, showSampling);
 
 		/*
 		 allocate profiles container
@@ -143,12 +144,14 @@ public class Profiler extends Thread {
 		return new ImagePlus("loc2idx", maskip);
 	}
 
-	private static void loadParams(double neuronDiam1, double scale1, boolean showSampling)
+	private static void loadParams(double neuronDiam1, double scale1, int weightStdRatioToD1, boolean showSampling)
     {
 
 		neuronDiam 	= neuronDiam1;
 		scale 		= scale1;
+		weightStdRatioToD = weightStdRatioToD1;
 		outerRange 	= (int)Math.round(Math.sqrt(Math.pow(neuronDiam*scale+neuronDiam, 2) + Math.pow(neuronDiam, 2)));
+
 
         /*
         set offsets
@@ -224,7 +227,7 @@ public class Profiler extends Thread {
 
 					double dst = point2line(n1[0], n1[1], n2[0], n2[1], px, py);
 					offsetsAngleLoc.add(new double[]{px, py});
-					double weight = Math.exp(-(dst*dst)/(2*(neuronDiam/3)*(neuronDiam/3)));
+					double weight = Math.exp(-(dst*dst)/(2*(neuronDiam/weightStdRatioToD)*(neuronDiam/weightStdRatioToD))); //*** HERE IT DEFINES THE FILTER PROFILE WEIGHTS
 					offsetsAngleWgt.add(weight);
 					sumWgt += weight;
 
@@ -295,10 +298,10 @@ public class Profiler extends Thread {
     /*
     detection extractor per location coordinates (not index)
      */
-	public static float[] extractProfile(double neuronDiam1, double scale1, int atX, int atY, FloatProcessor inip1) // detection at one location
+	public static float[] extractProfile(double neuronDiam1, double scale1, int weightStdRatioToD1, int atX, int atY, FloatProcessor inip1) // detection at one location
     {
 
-		loadParams(neuronDiam1, scale1, false); // finished forming offsets, weights
+		loadParams(neuronDiam1, scale1, weightStdRatioToD1, false); // finished forming offsets, weights
 
         float[] profileOut = new float[offsets.size()];
 

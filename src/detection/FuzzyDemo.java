@@ -12,7 +12,6 @@ import ij.plugin.PlugIn;
  */
 public class FuzzyDemo implements PlugIn {
 
-
 	public void run(String s) {
 
 		float iDiff;
@@ -35,4 +34,5 @@ public class FuzzyDemo implements PlugIn {
 		f.demo();
 
 	}
+
 }

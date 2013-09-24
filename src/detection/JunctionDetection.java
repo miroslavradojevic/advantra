@@ -26,9 +26,16 @@ public class JunctionDetection implements PlugInFilter {
 	ImageCanvas cnv;
 
 	// parameters necessary for the detection
-	double 	D;
+	float 	D;
 	float 	iDiff;
-	static int 	 	MIN_SIZE 	= 3;
+	static int 	 		MIN_SIZE 	= 3;
+	static float 	 	LOCATION_TOLERANCE_SCALE 	= 1.5f;
+
+	static float 		minCosAngle 		= .8f;
+	static float 		minFuzzyScore 		= .6f;
+	static float 		scatterDistSquared 	=  5f;
+
+	static int 			wStdRatioToD		= 3;
 
 	public int setup(String s, ImagePlus imagePlus) {
 
@@ -39,7 +46,7 @@ public class JunctionDetection implements PlugInFilter {
 		cnv = imagePlus.getCanvas();
 
 		/***********************************************************/
-		D       			=  			Prefs.get("advantra.critpoint.D", 3);
+		D       			= (float)	Prefs.get("advantra.critpoint.D", 3);
 		iDiff				= (float) 	Prefs.get("advantra.critpoint.iDiff", 	5);
 
 		GenericDialog gd = new GenericDialog("JUNCTION DET.");
@@ -49,7 +56,7 @@ public class JunctionDetection implements PlugInFilter {
 		gd.showDialog();
 		if (gd.wasCanceled()) return DONE;
 
-		D       =  gd.getNextNumber();
+		D       = (float) gd.getNextNumber();
 		Prefs.set("advantra.critpoint.D",   D);
 
 		iDiff               = (float) gd.getNextNumber();
@@ -61,18 +68,20 @@ public class JunctionDetection implements PlugInFilter {
 
 	public void run(ImageProcessor imageProcessor) {
 
-		Detector det = new Detector();
+		//Detector det = new Detector();
+		Detector det = new Detector(minCosAngle, minFuzzyScore, scatterDistSquared, wStdRatioToD);
 
 		ArrayList<ArrayList<int[]>> detRegs = det.run(imp, D, iDiff);				// connected regions
 
 		Vector<float[]> detLst = det.formDetectionList(detRegs, MIN_SIZE);			// list of discs
 
-		int[] labels = det.clustering(detLst, Float.MAX_VALUE);  					// prune detection list, list of discs
+		int[] labels = det.clustering(detLst, LOCATION_TOLERANCE_SCALE*D);  		// prune detection list, list of discs
 
 		Vector<float[]> detLstPruned = Detector.groupClusters(labels, detLst);      // group clusters using labels
 
 		Overlay detOv = det.formPointOverlay(detLstPruned, Color.RED);
 
+		//System.out.println("### "+detLst.size() + "detections, " + detLstPruned.size() + "pruned detections");
 		IJ.log("NEW, found " + detLstPruned.size());
 
 		ImagePlus imNEW = new ImagePlus("NEW", imp.getProcessor());
@@ -84,7 +93,7 @@ public class JunctionDetection implements PlugInFilter {
 
 		Vector<float[]> detLst_OLD = det.formDetectionList(detRegs_OLD, MIN_SIZE);  // list of discs
 
-		int[] labels_OLD = det.clustering(detLst_OLD, Float.MAX_VALUE);  							// prune detection list, list of discs
+		int[] labels_OLD = det.clustering(detLst_OLD, LOCATION_TOLERANCE_SCALE*D);  							// prune detection list, list of discs
 
 		Vector<float[]> detLstPruned_OLD = Detector.groupClusters(labels_OLD, detLst_OLD);// group clusters using labels
 

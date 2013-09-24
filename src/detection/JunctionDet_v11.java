@@ -71,12 +71,13 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 
     int CPU_NR;
 
-    private static float Deg2Rad = (float) (Math.PI/180f);
-    private static float Rad2Deg = (float) (180f/Math.PI);
-    private static float MIN_COS_ANG = .6f;
-	private static int 	 MIN_SIZE = 2;
-	private static float MIN_FUZZY_SCORE = .6f;
-	private static float SCATTER_D2 = 5;
+    private static float 	Deg2Rad = (float) (Math.PI/180f);
+    private static float 	Rad2Deg = (float) (180f/Math.PI);
+    private static float 	MIN_COS_ANG = .6f;
+	private static int 	 	MIN_SIZE = 3;
+	private static float 	MIN_FUZZY_SCORE = .6f;
+	private static float 	SCATTER_D2 = 5;
+	private static int		PROFILE_STD_RATIO_TO_D = 3; // std = neuronDIam/PROFILE_W_STD
 	private static boolean useMax = true; // to estimate theta (inupt to fuzzy)
 	private static boolean showAll   = true;
 
@@ -155,7 +156,7 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 
 
 		/***********************************************************/
-		int neighbourhoodR = (int) Math.ceil(2*scale*D);
+		int neighbourhoodR = (int) Math.ceil(1.5f*scale*D);
 		IJ.log("extracting background... neigh. radius = "+neighbourhoodR + " pixels, iDiff = "+iDiff);
 		t1 = System.currentTimeMillis();
 		Masker.loadTemplate(imp.getProcessor(), neighbourhoodR, iDiff);
@@ -195,7 +196,7 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 		IJ.log("calculating profiles... ");
 		t1 = System.currentTimeMillis();
 		// set the template first
-		Profiler.loadTemplate(imp.getProcessor(), Masker.mask, D, scale, false);
+		Profiler.loadTemplate(imp.getProcessor(), Masker.mask, D, scale, PROFILE_STD_RATIO_TO_D, false);
 		totalJobs = Profiler.offsets.size();
 		Profiler[] profiler_jobs;
 
@@ -430,7 +431,8 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 				locationTopology.add(locationCluster);
 
 				// check the topology for this peak, how scattered they are at second ring, use locationCluster
-				// in case locationCluster has >=3 samples => 6 or 3 combinations inside
+				// check scattering (using positons)
+				// put constrain so that the last one has to have more than 1 following point (out of 4)
 
 					if (locationCluster.size()>=2) {
 
@@ -447,6 +449,7 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 								locs2.add(loc2);
 							}
 						}
+
 						/****/
 						// USE values2 correct  thetaArray[chkPeak][1] - use median instead of previously obtained max
 						if (values2.size()>=2 && !useMax) {
@@ -456,11 +459,16 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 							else {}
 						}
 
+						// assign as scattered if there was only one point at last stage
+						if (locs2.size()==1) {
+							scattered[chkPeak] = true; // will give a negative vote (exclude it) for this one when it comes to detection
+						}
+
 						// USE locs2 check if it is scattered - find inter distance
 						if (locs2.size()==2) {
 							float interD = (float) (Math.pow(locs2.get(0)[0]-locs2.get(1)[0], 2) + Math.pow(locs2.get(0)[1] - locs2.get(1)[1], 2)); // 0 1
 							if (interD>SCATTER_D2) {
-								scattered[chkPeak] = true; // will stop fuzzification later
+								scattered[chkPeak] = true; // will stop fuzzification/detection later
 							}
 						}
 						else if (locs2.size()==3){
@@ -576,9 +584,10 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 
 				// log values
 				//logWriter.println("fuzzy input: iDiff is "+iDiff);
-				logWriter.println(		0+		". fuzzy pair -> "+(centralValue - iBackgC)+" : "); // :"+centralValue+" , " + iBackgC + "
+				logWriter.println(	"central fuzzy pair -> "+(centralValue - iBackgC)+" : ("+centralValue+","+iBackgC+")"); // :"+centralValue+" , " + iBackgC + "
 				for (int ee=0; ee<gg.length; ee++) {
-					logWriter.println(	(ee+1)+	". fuzzy pair -> "+(gg[ee][0] - gg[ee][2])+" : "+(gg[ee][1] - gg[ee][2])); // :"+gg[ee][0]+" , "+gg[ee][1]+" , " + gg[ee][2]+"
+					logWriter.println(	(ee+1)+	". fuzzy pair -> "+(gg[ee][0] - gg[ee][2])+" ("+gg[ee][0]+","+gg[ee][2]+") : "+(gg[ee][1] - gg[ee][2])+" ("+gg[ee][1]+","+gg[ee][2]+")");
+					// :"+gg[ee][0]+" , "+gg[ee][1]+" , " + gg[ee][2]+"
 				}
 				logWriter.println("fuzzy sc: "+fuzzyValue);
 
@@ -632,7 +641,7 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
 		resTab = formResultsTable(conn_reg.getConnectedRegions(), fuzzyScores, MIN_SIZE);
 		resTab.show("BIFURCATIONS");
 		int nr_regions = detectionOverlay.size();
-
+		System.out.println("### "+detectionOverlay.size() + "detections, no prunning!");
 
 
 		if (showAll) {
@@ -926,7 +935,8 @@ public class JunctionDet_v11 implements PlugInFilter, MouseListener, MouseMotion
                 Cy /= regs.get(i).size();
 
                 OvalRoi ovroi = new OvalRoi(Cx-R+.5, Cy-R+.5, 2*R, 2*R);
-                ovroi.setStrokeWidth(3);
+                ovroi.setStrokeWidth(2);
+				ovroi.setStrokeColor(Color.YELLOW);
                 detections.add(ovroi);
 
             }

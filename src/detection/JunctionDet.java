@@ -65,6 +65,7 @@ public class JunctionDet implements PlugInFilter, MouseListener {
     double neuronDiamMax, D;//, eps, dMin; // scaleMin, scaleMax, neuronDiamMin
     float iDiff;
 	int CPU_NR;//H, M, MaxIter;
+	int weightStdRatioToD;
 
 	public int setup(String s, ImagePlus imagePlus) {
 
@@ -85,6 +86,9 @@ public class JunctionDet implements PlugInFilter, MouseListener {
 		scales[0] = 1.5;
 		scales[1] = 2.0;
 		scales[2] = 2.5;
+
+		// profile shape some middle bell
+		weightStdRatioToD = 4;
 
         totalCfgs = scales.length;
 
@@ -197,7 +201,7 @@ public class JunctionDet implements PlugInFilter, MouseListener {
             for (int scaleIdx=0; scaleIdx<totalCfgs; scaleIdx++) {
 
                 R[scaleIdx] = neuronDiamMax*scales[scaleIdx];
-                Profiler.loadTemplate(inimg.getProcessor(), Masker.mask, neuronDiamMax, scales[scaleIdx], false);
+                Profiler.loadTemplate(inimg.getProcessor(), Masker.mask, neuronDiamMax, scales[scaleIdx], weightStdRatioToD, false);
 
                 totalJobs = Profiler.offsets.size();
                 Profiler profiler_jobs[] = new Profiler[CPU_NR];

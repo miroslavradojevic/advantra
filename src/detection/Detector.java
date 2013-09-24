@@ -56,22 +56,25 @@ public class Detector {
 	public static float 	MIN_COS_ANG = .6f;
 	public static float 	MIN_FUZZY_SCORE = .6f;
 	public static float 	SCATTER_D2 	= 5;
+	public static int		W_STD_RATIO_WRT_TO_D = 3;
 	//private static int 	 	MIN_SIZE 	= 2;
 
-	private static float 	LOCAL_NBHOOD = 2;
+	private static float 	LOCAL_NBHOOD = 1.5f;
 	private static boolean 	useMax 		= true;
 	//private static boolean 	showAll   	= false;
 
 	public Detector(
 						   float minCosAng,
 						   float minFuzzyScore,
-						   float scatterDistance2
+						   float scatterDistance2,
+						   int 	 wStdRatioToD
 	)
 	{
 
 		MIN_COS_ANG = minCosAng;
 		MIN_FUZZY_SCORE = minFuzzyScore;
 		SCATTER_D2 = scatterDistance2;
+		W_STD_RATIO_WRT_TO_D = wStdRatioToD;
 
 		scale = 1.5f;
 		resolDeg = Profiler.getResolDeg(scale);
@@ -80,23 +83,23 @@ public class Detector {
 
 	}
 
-	public Detector()
-	{
-		MIN_COS_ANG = .6f;
-		MIN_FUZZY_SCORE = .6f;
-		SCATTER_D2 = 5;
-
-		scale = 1.5f;
-		resolDeg = Profiler.getResolDeg(scale);
-
-//		profiles.clear();
-//		centersXY.clear();
-//		anglesRad.clear();
-//		peaksXY.clear();
-//		topologyXY.clear();
-//		theta.clear();
-
-	}
+//	public Detector()
+//	{
+//		MIN_COS_ANG = .6f;
+//		MIN_FUZZY_SCORE = .6f;
+//		SCATTER_D2 = 5;
+//
+//		scale = 1.5f;
+//		resolDeg = Profiler.getResolDeg(scale);
+//
+////		profiles.clear();
+////		centersXY.clear();
+////		anglesRad.clear();
+////		peaksXY.clear();
+////		topologyXY.clear();
+////		theta.clear();
+//
+//	}
 
 	public ArrayList<ArrayList<int[]>> run(ImagePlus inimg, double neuronDiameter, float iDiff1)
 	{
@@ -159,7 +162,7 @@ public class Detector {
 		/***********************************************************/
 		System.out.print("calculating profiles... ");
 		// set the template first
-		Profiler.loadTemplate(imp.getProcessor(), Masker.mask, D, scale, false);
+		Profiler.loadTemplate(imp.getProcessor(), Masker.mask, D, scale, W_STD_RATIO_WRT_TO_D, false); // parameters for profile extraction
 		totalJobs = Profiler.offsets.size();
 		Profiler[] profiler_jobs;
 
@@ -379,6 +382,11 @@ public class Detector {
 //						else if (values2.size()==4) thetaArray[chkPeak][1] = _NthLowest(values2, 2);
 //						else {}
 //					}
+
+					// assign as scattered if there was only one point at last stage
+					if (locs2.size()==1) {
+						scattered[chkPeak] = true; // will give a negative vote (exclude it) for this one when it comes to detection
+					}
 
 					// USE locs2 check if it is scattered - find inter distance
 					if (locs2.size()==2) {
@@ -601,7 +609,7 @@ public class Detector {
 
 
 		/***********************************************************/
-		Profiler.loadTemplate(imp.getProcessor(), Masker.mask, D, scale, false); // set the template first
+		Profiler.loadTemplate(imp.getProcessor(), Masker.mask, D, scale, W_STD_RATIO_WRT_TO_D, false); // set the template first
 		totalJobs = Profiler.offsets.size();
 		Profiler[] profiler_jobs;
 

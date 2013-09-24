@@ -40,7 +40,7 @@ tableData = rbind(tableData, tableDataCum)
 plotData <- matrix(data=0,nrow=3,ncol=2*L)
 
 for (imageIdx in 1:(nrImages+1)) {
-  print(imageIdx)
+  #print(imageIdx)
 
   for (i in 1:L) {
     a = tableData[imageIdx, every1[i]]
@@ -67,22 +67,29 @@ for (imageIdx in 1:(nrImages+1)) {
     filename = paste("alltogether.pdf", sep="")
   }
 
-  pdf(file=filename, width = 10, height = 5) # in inches
+  pdf(file=filename, width = 5, height = 2) # in inches
+  # Trim off excess margin space (bottom, left, top, right)
+  # xpd=TRUE enable things to be drawn outside the plot region
+  par(mar=c(1.9, 3.5, 0.5, 1.5),mgp=c(2.4, 0.7, 0), xpd=TRUE)
+
   colors=c(rgb(0,0,1,0.3),rgb(1,0,0,0.3),rgb(0,1,0,0.3))
   bardensity <- t(t(c(15,15,0)))
   barangle <- t(t(c(45,135,0)))
+  spacing <-c(.75, .15) 
+  
   barplot(plotData,
-          space=c(.75,.25),
-          #xlab = "JUNCTION CONFIGURATION",
+          space=spacing,
+          #xlab = "CONFIGURATION",
           ylab = "TP/FP/FN RATE",
           names.arg = legendData2,
           #legend.text = c("TP", "FP","FN"),
           col = colors,
           beside=FALSE
+          
   )
   barplot(plotData,
-          space=c(.75,.25),
-          #xlab = "JUNCTION CONFIGURATION",
+          space=spacing,
+          #xlab = "CONFIGURATION",
           ylab = "TP/FP/FN RATE",
           names.arg = legendData2,
           #legend.text = c("TP", "FP","FN"),
@@ -92,7 +99,9 @@ for (imageIdx in 1:(nrImages+1)) {
 	  angle = barangle,
           add=T
   )
-  legend("topright", c("TP", "FN","FP"), fill= colors)
+  
+  # Add legend to top right, outside plot region
+  legend("topright", inset=c(-0.08,0), c("TP", "FN","FP"), fill= colors, bty = "n")
   dev.off()
 
 }

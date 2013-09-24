@@ -33,7 +33,7 @@ public class Fuzzy {
 	private static float[] q_MAYBE;
 	private static float[] q_NO;
 
-	String exportFile = "fuzzy.log";
+	String exportFile = System.getProperty("user.home")+File.separator+"fuzzy.dat";
 
 	/*
 		there could be three categories "YES" "MAYBE" "NO" refering to input being a junction
@@ -417,14 +417,14 @@ public class Fuzzy {
 
 		// will make plots and export variables for plotting in R
 
-		int demo_theta_size = (int) Math.round(3 * iDiff);
+		int demo_theta_size = (int) Math.round(2 * iDiff);
 		float[] demo_theta = new float[demo_theta_size];
 		float[] demo_low_theta = new float[demo_theta_size];
 		float[] demo_mid_theta = new float[demo_theta_size];
 		float[] demo_hgh_theta = new float[demo_theta_size];
 
 		for (int i=0; i<demo_theta_size; i++) {
-			demo_theta[i] 		= -iDiff+i;
+			demo_theta[i] 		= -(iDiff/2)+i;
 			demo_low_theta[i] 	= h_low(demo_theta[i]);
 			demo_mid_theta[i] 	= h_mid(demo_theta[i]);
 			demo_hgh_theta[i] 	= h_hgh(demo_theta[i]);

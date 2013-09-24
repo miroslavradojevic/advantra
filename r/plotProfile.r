@@ -1,39 +1,26 @@
 rm(list = ls())
 
-#cars <- c(1, 3, 6, 4, 9)
-#plot(cars, type="l")
+D     = 4         # neuron diameter
+sigma = D/4       # profile 
+td    = seq(-D/2, D/2,by=0.01)
+w     = exp(-(td*td) / (2*sigma*sigma)) 
 
-# CSV input path
-filePath = "~/ImageJ/profile.csv"
-msPath  = "~/ImageJ/ms.csv";
-csPath  = "~/ImageJ/cs.csv";
+#pdf(file="~/filter-cs.pdf", width = 5, height = 4)
 
-# read data
-dat <- read.csv(file=filePath, head=TRUE, sep=",")
-ms <- read.csv(file=msPath, head=TRUE, sep=",")
-cs <- read.csv(file=csPath, head=TRUE, sep=",")
-# Define colors
-#plot_colors <- c(rgb(r=0.0,g=0.0,b=0.9), "red", "forestgreen")
+par(mar=c(4.2, 4.2, 1.0, 1.0))
 
-# Start PDF device driver to save output to figure.pdf
-#pdf(file=pdfPath, height=3.5, width=5)
-
-# Trim off excess margin space (bottom, left, top, right)
-par(mar=c(4.2, 4.0, 0.2, 0.2))
-
-# Graph autos using a y axis that uses the full range of value
-# in autos_data. Label axes with smaller font and use larger 
-# line widths.
-plot(dat$Angle, dat$Response, type="l", ylim=range(dat$Response), 
-     axes=T, ann=T, xlab="orientation[deg]", ylab="profile response", las=1, 
-     cex.axis=0.8, lwd=2)
-
-lines(ms$Angle, ms$Response, type="p", col="green", pch=18)
-
-#segments(cs$Angle, cs$Lower, cs$Angle, cs$Higher, col="red", lwd="5") 
-
-# Create box around plot
+plot(td, w, 
+     type="l", 
+     ylim=range(w), 
+     #axes=T, 
+     #ann=T, 
+     xlab="d [pixels]", 
+     #ylab="weight", 
+     las=1, 
+     cex.axis=1.8,
+     cex.lab=2.5, 
+     lwd=3
+     )
 box()
-
-# add grid
 grid()
+#dev.off()

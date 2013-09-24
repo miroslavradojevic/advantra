@@ -1,7 +1,7 @@
 rm(list = ls())
 
 # input path
-fileName="~/ImageJ/fuzzy.log"
+fileName="~/fuzzy.dat"
 
 conn=file(fileName, open="r")
 linn=readLines(conn)
@@ -87,65 +87,216 @@ close(conn)
 ######### finished reading #########  
 
 #########  export pdf plot 2 vs. 1
-pdf(file='~/ImageJ/h_LOW.pdf', width = 20, height = 10) # in cm
+pdf(file='~/h_low.pdf', width = 10, height = 7)
 
 # Trim off excess margin space (bottom, left, top, right)
 par(mar=c(5.0, 6.5, 0.5, 0.5))
 
-plot(theta, h_low, xlab=theta_name, ylab=h_low_name, 
-     col="red", type="l", lwd=6, las=1, cex.axis=1.5, cex.lab=2.8, font = 1, family = "serif")
+plot(theta, h_low, 
+     xlab=theta_name, 
+     ylab=h_low_name, 
+     col="red", 
+     type="l", 
+     lwd=6, 
+     las=1, 
+     #font = 1, 
+     #family = "serif",
+     cex.axis=1.8, 
+     cex.lab=2.8 
+)
 box(); grid()
 dev.off()
 
 #########  export pdf plot 3 vs. 1
-pdf(file='~/ImageJ/h_MID.pdf', width = 20, height = 10) # in cm
+pdf(file='~/h_mid.pdf', width = 10, height = 7)
 
 # Trim off excess margin space (bottom, left, top, right)
 par(mar=c(5.0, 6.5, 0.5, 0.5))
 
-plot(theta, h_mid, xlab=theta_name, ylab=h_mid_name, 
-     col="blue", type="l", lwd=6, las=1, cex.axis=1.5, cex.lab=2.8, font = 1, family = "serif")
+plot(theta, h_mid, 
+     xlab=theta_name, 
+     ylab=h_mid_name, 
+     col="blue", 
+     type="l", 
+     lwd=6, 
+     las=1, 
+#      font = 1, 
+#      family = "serif",  
+     cex.axis=1.8, 
+     cex.lab=2.8 
+)
 box(); grid()
 dev.off()
 
 #########  export pdf plot 4 vs. 1
-pdf(file='~/ImageJ/h_HGH.pdf', width = 20, height = 10) # in cm
+pdf(file='~/h_hgh.pdf', width = 10, height = 7)
 
 # Trim off excess margin space (bottom, left, top, right)
 par(mar=c(5.0, 6.5, 0.5, 0.5))
 
-plot(theta, h_hgh, xlab=theta_name, ylab=h_hgh_name, 
-     col="blue", type="l", lwd=6, las=1, cex.axis=1.5, cex.lab=2.8, font = 1, family = "serif")
+plot(theta, h_hgh, 
+     xlab=theta_name, 
+     ylab=h_hgh_name, 
+     col="blue", 
+     type="l", 
+     lwd=6, 
+     las=1, 
+     #font = 1, 
+     #family = "serif",
+     cex.axis=1.8, 
+     cex.lab=2.8 
+)
 box(); grid()
 dev.off()
 
+
+#################################
+colors=c(rgb(1,0,0,1),rgb(0,1,0,1),rgb(0,0,1,1))
+
 #########  export pdf plot 2,3,4 vs. 1
-pdf(file='~/ImageJ/h.pdf', width = 20, height = 10) # in cm
+pdf(file='~/h.pdf', width = 5, height = 3)
 
 # Trim off excess margin space (bottom, left, top, right)
-par(mar=c(5.0, 6.5, 0.5, 0.5))
+par(mar=c(3.3, 4.5, 0.5, 0.5),mgp=c(2.4, 0.7, 0))
 
-plot(theta, h_hgh, xlab=theta_name, ylab=expression("h("*theta*")"), 
-     col="red", type="l", lwd=6, las=1, cex.axis=1.5, cex.lab=2.8, font = 1, family = "serif")
+plot(theta, h_hgh, 
+     xlab=theta_name, 
+     ylab=expression("h("*theta*")"), 
+     col=colors[1], 
+     type="l", 
+     lwd=5, 
+     las=1, 
+     #font = 1, 
+     #family = "serif",
+     cex.axis=1.5, 
+     cex.lab=2.1 ,
+     lty=5,
+     axes=F,
+     frame.plot=T
+)
 
-lines(theta, h_mid, xlab=theta_name, ylab=h_mid_name, col="green", type="l", lwd=5)
-lines(theta, h_low, xlab=theta_name, ylab=h_low_name, col="blue", type="l", lwd=4)
-legend(-20,0.8, c("HIGH","MID","LOW"), lty=c(1,1,1), lwd=c(4,4,4),col=c("red","green","blue"), cex=2.5) 
+axis(2, at=c(0, 0.5, 1.0),las=1,tck=-0.03,cex.axis=1.5)
+axis(1,,cex.axis=1.5,tck=-0.03)
+# points(theta, h_hgh, 
+#        xlab="", 
+#        ylab="", 
+#        col="black", 
+#        #type="o", 
+#        lwd=2,
+#        pch=20
+# )
+
+lines(theta, h_mid, 
+      xlab=theta_name, 
+      ylab=h_mid_name, 
+      col=colors[2], 
+      type="l", 
+      lwd=5,
+      lty=1
+)
+# points(theta, h_mid, 
+#        xlab="", 
+#        ylab="", 
+#        col="black", 
+#        #type="o", 
+#        lwd=2,
+#        pch=5
+# )
+
+lines(theta, h_low, 
+      xlab=theta_name, 
+      ylab=h_low_name,
+      col=colors[3], 
+      type="l", 
+      lwd=5,
+      lty=2
+)
+# points(theta, h_low, 
+#        xlab="", 
+#        ylab="", 
+#        col="black", 
+#        #type="o", 
+#        lwd=2,
+#        pch=12
+# )
+
+# plot on top again
+lines(theta, h_hgh, 
+     xlab=theta_name, 
+     ylab=expression("h("*theta*")"), 
+     col=colors[1], 
+     type="l", 
+     lwd=5, 
+     las=1, 
+     #font = 1, 
+     #family = "serif",
+     cex.axis=1.5, 
+     cex.lab=2.1 ,
+     lty=5
+)
+
+legend("left", 
+       c("HIGH","MID","LOW"), 
+       lty=c(1,1,1), 
+       lwd=c(4,4,4),
+       col=colors,
+       bty = "n",
+       cex=1.3
+)  #, 
 # places a legend at the appropriate place, puts text in the legend, gives the legend appropriate symbols (lines)
 # gives the legend lines the correct color and width
-box(); grid()
+box(); 
+#grid()
 dev.off()
 
 #########  export pdf plot 6,7,8 vs. 5
-pdf(file='~/ImageJ/q.pdf', width = 20, height = 10) # in cm
+pdf(file='~/q.pdf', width = 5, height = 3)
 
 # Trim off excess margin space (bottom, left, top, right)
-par(mar=c(5.0, 6.5, 0.5, 0.5))
+par(mar=c(3.3, 4.5, 0.5, 0.5),mgp=c(2.4, 0.7, 0))
 
-plot(x, q_yes, xlab=x_name, ylab=expression("q("*x*")"), 
-     col="red", type="l", lwd=6, las=1, cex.axis=1.5, cex.lab=2.8, font = 1, family = "serif")
-lines(x, q_maybe, xlab=x_name, ylab=q_maybe_name, col="green", type="l", lwd=5)
-lines(x, q_no, xlab=x_name, ylab=q_no_name, col="blue", type="l", lwd=4)
-legend(0,0.6, c("YES","MAY","NO"), lty=c(1,1,1), lwd=c(4,4,4),col=c("red","green","blue"), cex=2.5)
-box(); grid()
+plot(x, q_yes, 
+     xlab=x_name, 
+     ylab=expression("q("*x*")"), 
+     col=colors[1], 
+     type="l", 
+     lwd=5, 
+     las=1, 
+     #font = 1, 
+     #family = "serif",
+     cex.axis=1.5, 
+     cex.lab=2.1,
+     axes=F,
+     frame.plot=T,
+     lty=5
+)
+axis(2, at=c(0, 0.5, 1.0),las=1,tck=-0.03,cex.axis=1.5)
+axis(1,,cex.axis=1.5,tck=-0.03)
+
+lines(x, q_maybe, 
+      xlab=x_name, 
+      ylab=q_maybe_name, 
+      col=colors[2], 
+      type="l", 
+      lwd=5,
+      lty=1
+)
+lines(x, q_no, 
+      xlab=x_name, 
+      ylab=q_no_name, 
+      col=colors[3], 
+      type="l", 
+      lwd=5,
+      lty=2
+)
+legend("center", 
+       c("YES","MAY","NO"), 
+       lty=c(1,1,1), 
+       lwd=c(4,4,4),
+       col=colors,
+       cex=1.3,
+       bty = "n"
+) # , 
+#box(); 
+#grid()
 dev.off()
