@@ -137,5 +137,7 @@ for (i in 1:L) {
 
 }
 
-print("table data")
+print("table data TP (TPR);FP (FPR);FN in rows")
+print(legendData2)
 print(plotDataTable)
+
