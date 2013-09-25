@@ -54,7 +54,7 @@ public class Detector {
 	private static float 	Rad2Deg = (float) (180f/Math.PI);
 
 	public static float 	MIN_COS_ANG = .6f;
-	public static float 	MIN_FUZZY_SCORE = .6f;
+	public static float 	MIN_FUZZY_SCORE = .7f;
 	public static float 	SCATTER_D2 	= 5;
 	public static int		W_STD_RATIO_WRT_TO_D = 3;
 	//private static int 	 	MIN_SIZE 	= 2;
@@ -303,16 +303,24 @@ public class Detector {
 				// 4 points around the peak
 				currentPeakPoint[0][0] 	= (int) Math.floor(peaksXY.get(ii).get(0).get(chkPeak)[0]);
 				currentPeakPoint[0][1] 	= (int) Math.floor(peaksXY.get(ii).get(0).get(chkPeak)[1]);
-				currentPeakVals[0] 		=  avgAlongLine(currentCenter[0], currentCenter[1], currentPeakPoint[0][0], currentPeakPoint[0][1], imp.getProcessor());
+				//currentPeakVals[0] 		=  avgAlongLine(currentCenter[0], currentCenter[1], currentPeakPoint[0][0], currentPeakPoint[0][1], imp.getProcessor());
+				currentPeakVals[0] 		=  medAlongLine(currentCenter[0], currentCenter[1], currentPeakPoint[0][0], currentPeakPoint[0][1], imp.getProcessor());
+
 				currentPeakPoint[1][0] = (int) Math.floor(peaksXY.get(ii).get(0).get(chkPeak)[0]);
 				currentPeakPoint[1][1] = (int) Math.ceil (peaksXY.get(ii).get(0).get(chkPeak)[1]);
-				currentPeakVals[1]		=  avgAlongLine(currentCenter[0], currentCenter[1], currentPeakPoint[1][0], currentPeakPoint[1][1], imp.getProcessor());
+				//currentPeakVals[1]		=  avgAlongLine(currentCenter[0], currentCenter[1], currentPeakPoint[1][0], currentPeakPoint[1][1], imp.getProcessor());
+				currentPeakVals[1]		=  medAlongLine(currentCenter[0], currentCenter[1], currentPeakPoint[1][0], currentPeakPoint[1][1], imp.getProcessor());
+
+
 				currentPeakPoint[2][0] = (int) Math.ceil (peaksXY.get(ii).get(0).get(chkPeak)[0]);
 				currentPeakPoint[2][1] = (int) Math.floor(peaksXY.get(ii).get(0).get(chkPeak)[1]);
-				currentPeakVals[2]		=  avgAlongLine(currentCenter[0], currentCenter[1], currentPeakPoint[2][0], currentPeakPoint[2][1], imp.getProcessor());
+				//currentPeakVals[2]		=  avgAlongLine(currentCenter[0], currentCenter[1], currentPeakPoint[2][0], currentPeakPoint[2][1], imp.getProcessor());
+				currentPeakVals[2]		=  medAlongLine(currentCenter[0], currentCenter[1], currentPeakPoint[2][0], currentPeakPoint[2][1], imp.getProcessor());
+
 				currentPeakPoint[3][0] = (int) Math.ceil (peaksXY.get(ii).get(0).get(chkPeak)[0]);
 				currentPeakPoint[3][1] = (int) Math.ceil (peaksXY.get(ii).get(0).get(chkPeak)[1]);
-				currentPeakVals[3]		=  avgAlongLine(currentCenter[0], currentCenter[1], currentPeakPoint[3][0], currentPeakPoint[3][1], imp.getProcessor());
+				//currentPeakVals[3]		=  avgAlongLine(currentCenter[0], currentCenter[1], currentPeakPoint[3][0], currentPeakPoint[3][1], imp.getProcessor());
+				currentPeakVals[3]		=  medAlongLine(currentCenter[0], currentCenter[1], currentPeakPoint[3][0], currentPeakPoint[3][1], imp.getProcessor());
 
 				// thetaArray[chkPeak][0] calculation
 				thetaArray[chkPeak][0] = maxArray(currentPeakVals);			// is max here
@@ -337,13 +345,8 @@ public class Detector {
 
 							// thetaArray[chkPeak][1] is calculated here
 							thetaArray[chkPeak][1] = Math.max(thetaArray[chkPeak][1],
-																	 avgAlongLine(
-																						 currentPeakPoint[kk][0],
-																						 currentPeakPoint[kk][1],
-																						 nextPeakPoint[0],
-																						 nextPeakPoint[1],
-																						 imp.getProcessor()
-																	 )
+							//avgAlongLine(currentPeakPoint[kk][0],currentPeakPoint[kk][1],nextPeakPoint[0],nextPeakPoint[1],imp.getProcessor())
+							medAlongLine(currentPeakPoint[kk][0],currentPeakPoint[kk][1],nextPeakPoint[0],nextPeakPoint[1],imp.getProcessor())
 							);
 
 						}
@@ -1001,6 +1004,52 @@ public class Detector {
 
 
 		return (cnt>0)? avg/cnt : 0;
+
+	}
+
+	private static float medAlongLine(float ox1, float oy1, float ox2, float oy2, ImageProcessor ipSource) // , float[] debug
+	{
+		float 	dl 	= 0.50f;
+		float 	l 	= (float) Math.sqrt(Math.pow(ox2 - ox1, 2) + Math.pow(oy2 - oy1, 2));
+
+		float 	avg = 0;
+		int 	cnt = 0;
+
+		int w = ipSource.getWidth();
+		int h = ipSource.getHeight();
+
+		if (ox1<0 || oy1<0)
+			return 0;
+
+//		debug[0] = ox1;
+//		debug[1] = oy1;
+
+		// count them first
+		for (float x = ox1, y = oy1, ll = 0; ll<=l; x+=dl*(ox2-ox1)/l, y+=dl*(oy2-oy1)/l, ll+=dl) {
+			if (x>=w-1 || y>=h-1){
+				break;
+			}
+			cnt++;
+		}
+
+		// alloc array
+		float[] valsAlongLine = new float[cnt];
+
+		cnt=0;
+		for (float x = ox1, y = oy1, ll = 0; ll<=l; x+=dl*(ox2-ox1)/l, y+=dl*(oy2-oy1)/l, ll+=dl) { // x <= ox2 && y <= oy2
+
+			if (x>=w-1 || y>=h-1){
+				break;
+			}
+			valsAlongLine[cnt] = Interpolator.interpolateAt(x, y, (FloatProcessor) ipSource);
+//			avg += Interpolator.interpolateAt(x, y, (FloatProcessor) ipSource);
+			cnt ++;
+
+		}
+
+		return (float) Tools.median_Wirth(valsAlongLine);
+
+		//return (cnt>0)? avg/cnt : 0;
 
 	}
 
