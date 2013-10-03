@@ -34,7 +34,7 @@ public class DetectorDemo implements PlugIn {
 	static float		neuronD;
 	static float		iDiff;
 
-
+	// TODO make these params
 	static float 		minCosAngle 		= .8f;
 	static float 		minFuzzyScore 		= .6f;
 	static float 		scatterDistSquared 	=  5f;

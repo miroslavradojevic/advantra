@@ -28,14 +28,16 @@ public class JunctionDetection implements PlugInFilter {
 	// parameters necessary for the detection
 	float 	D;
 	float 	iDiff;
-	static int 	 		MIN_SIZE 	= 3;
-	static float 	 	LOCATION_TOLERANCE_SCALE 	= 1.5f;
 
+	// TODO make these params
 	static float 		minCosAngle 		= .8f;
 	static float 		minFuzzyScore 		= .6f;
 	static float 		scatterDistSquared 	=  5f;
 
 	static int 			wStdRatioToD		= 3;
+	static int 	 		MIN_SIZE 	= 1;
+
+	static float 	 	LOCATION_TOLERANCE_SCALE 	= 1.5f;
 
 	public int setup(String s, ImagePlus imagePlus) {
 

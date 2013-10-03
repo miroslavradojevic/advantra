@@ -66,7 +66,8 @@ for (j in 2:length(t)){
 }
 
 colors=c("black", "red", "green")
-
+# change angle to radians
+angA = (angA/180)*pi
 plot(angA, profile, 
      xlab=expression(alpha), 
      #axes=T,
@@ -83,8 +84,10 @@ plot(angA, profile,
      frame.plot=T
 )
 axis(2, at=c(floor(min(profile)), ceiling(0.95*max(profile))), las=1, tck=-0.03, cex.axis=1.5)
-axis(1, cex.axis=1.5,tck=-0.03)
+axis(1, at=c(0, pi, 2*pi), labels = expression(0, pi, 2*pi), cex.axis=1.5, tck=-0.03) # at = c(-pi, -pi/2, 0, pi/2, pi), labels = expression(-pi, -pi/2, 0, pi/2, pi))
 
+# change abscissa to radians
+finishX = (finishX/180)*pi
 points(finishX, finishY, 
        #xlab="", 
        #ylab="", 
