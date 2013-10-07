@@ -548,7 +548,7 @@ public class Detector {
 
 		//  EXTRACT CONNECTED REGIONS WITH HIGH RESPONSE
 		/***********************************************************/
-		System.out.print("extract regions... ");
+		System.out.print("extract regions (connected components grouping)... ");
 		ByteProcessor score = new ByteProcessor(imp.getWidth(), imp.getHeight());
 		for (int ii=0; ii<imp.getWidth()*imp.getHeight(); ii++) if (fuzzyScores.getf(ii) >= MIN_FUZZY_SCORE) score.set(ii, 255);
 		Find_Connected_Regions conn_reg = new Find_Connected_Regions(new ImagePlus("", score), true);  // true means save locations
