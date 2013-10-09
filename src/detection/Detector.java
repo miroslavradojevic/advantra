@@ -2,6 +2,7 @@ package detection;
 
 import aux.Tools;
 import conn.Find_Connected_Regions;
+import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.OvalRoi;
 import ij.gui.Overlay;
@@ -12,6 +13,7 @@ import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 
 import java.awt.*;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.Vector;
 
@@ -1208,6 +1210,58 @@ public class Detector {
 
 		return rt;
 	}
+
+    public void formChimeraScript(ArrayList<ArrayList<int[]>> regs, FloatProcessor fuzzyScores, int minSize){
+    // will output UCSF Chimera .com file that can be loaded with image for visuelization
+
+        PrintWriter outWriter   = null;
+        String      outName     = "chimeraList"+".com"; // imp.getTitle()
+
+
+
+        // initialize detection log file
+        try {
+            outWriter = new PrintWriter(new BufferedWriter(new FileWriter(outName, true)));
+            // // dateFormat.format(date)
+        } catch (IOException e) {}
+
+
+        for (int i=0; i<regs.size(); i++) {
+            if (regs.get(i).size()>minSize) {
+
+                float Cx=0, Cy=0, avgBifurcationess=0, minBifurcationess=Float.MAX_VALUE, maxBifurcationess=Float.MIN_VALUE;
+
+                for (int aa=0; aa<regs.get(i).size(); aa++) {
+                    Cx += regs.get(i).get(aa)[1];
+                    Cy += regs.get(i).get(aa)[0];
+                    float currBifurcationess = fuzzyScores.getf(regs.get(i).get(aa)[1], regs.get(i).get(aa)[0]);
+                    avgBifurcationess += currBifurcationess;
+                    if (currBifurcationess>maxBifurcationess) maxBifurcationess = currBifurcationess;
+                    if (currBifurcationess<minBifurcationess) minBifurcationess = currBifurcationess;
+                }
+
+                Cx /= regs.get(i).size();
+                Cy /= regs.get(i).size();
+                avgBifurcationess /= regs.get(i).size();
+                // (int)Math.round()
+                outWriter.println("shape sphere radius "+Math.sqrt(regs.get(i).size() / Math.PI)+" center "+IJ.d2s(Cx, 3, 5)+","+IJ.d2s(Cy, 3, 5)+",0 color red");
+
+//                rt.incrementCounter();
+//                rt.addValue("X", Cx);
+//                rt.addValue("Y", Cy);
+//                rt.addValue("size", regs.get(i).size());
+//                rt.addValue("avg. bness.", avgBifurcationess);
+//                rt.addValue("min. bness.", minBifurcationess);
+//                rt.addValue("max. bness.", maxBifurcationess);
+
+            }
+        }
+
+
+        System.out.println(new File(outName).getAbsolutePath()+" is exported");
+        outWriter.close();
+
+    }
 
 	public static int[] clustering(Vector<float[]> disks, float tolerance) //list with [x, y, r]
 	{

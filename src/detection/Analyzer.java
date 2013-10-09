@@ -23,7 +23,7 @@ public class Analyzer extends Thread  {
     // output
     public static ArrayList<ArrayList<ArrayList<Float>>> peakIdx; // one detection will give ArrayList<Float>, different number of peaks can be detected
 
-    public static int       nrPoints 	= 150;
+    public static int       nrPoints 	= 200;
     public static int       maxIter 	= 20;
     public static double    epsilon 	= 1e-8;
     public static int       h 			= 2;              						// in indexes

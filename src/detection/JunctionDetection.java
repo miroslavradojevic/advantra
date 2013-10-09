@@ -35,7 +35,7 @@ public class JunctionDetection implements PlugInFilter {
     int 	MIN_SIZE;
     float 	scatterDistSquared = 5f;
 
-	static int 			wStdRatioToD		= 4;
+	static int 			wStdRatioToD		= 6;
     static float 	 	LOCATION_TOLERANCE_SCALE 	= 1.8f;
 
     private static float 	Deg2Rad = (float) (Math.PI/180f);
@@ -137,6 +137,8 @@ public class JunctionDetection implements PlugInFilter {
         ResultsTable resTab = det.formResultsTable(detRegs, det.fuzzyScores, MIN_SIZE);
 
         resTab.show("BIFURCATIONS");
+
+        det.formChimeraScript(detRegs, det.fuzzyScores, MIN_SIZE);
 
 		//System.out.println("### "+detLst.size() + "detections, " + detLstPruned.size() + "pruned detections");
 		//IJ.log("NEW, found " + detLstPruned.size());
