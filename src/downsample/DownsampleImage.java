@@ -19,7 +19,16 @@ import java.util.Vector;
  */
 public class DownsampleImage implements PlugInFilter {      // , TextListener
 
-    static int MIN_W=0, MIN_H=0;
+	/*
+	plugin that downsamples the image with given parameters
+	- new width in pixels (height is scaled respectively)
+	- sourceSigma
+	- targetSigma
+	-
+	 */
+
+    static int MIN_W=10, MIN_H=10;
+	static int NR_PIX_PER_DIAM = 4;
 
     int     width, height;
     int     newWidth, newHeight;
@@ -33,7 +42,7 @@ public class DownsampleImage implements PlugInFilter {      // , TextListener
             System.out.println("changed!");
 
 
-            if(false){
+            if(true){
 
             TextField tf = (TextField)e.getSource();
 
@@ -51,57 +60,57 @@ public class DownsampleImage implements PlugInFilter {      // , TextListener
                     // set height accordingly
                     if (newWidth<width && newWidth>MIN_W) {
                         newHeight   = Math.round( newWidth * height / width );
-                        vc = (TextField)gd.getNumericFields().get(1);
-                        vc.setText(String.valueOf(newHeight));
-                        gd.getNumericFields().set(1, vc);
+//                        vc = (TextField)gd.getNumericFields().get(1);
+//                        vc.setText(String.valueOf(newHeight));
+//                        gd.getNumericFields().set(1, vc);
                     }
                     else {
                         // reset, fake values at the input
                         newHeight = height;
                         newWidth = width;
 
-                        vc = (TextField)gd.getNumericFields().get(0);
-                        vc.setText(String.valueOf(width));
-                        gd.getNumericFields().set(0, vc);
+//                        vc = (TextField)gd.getNumericFields().get(0);
+//                        vc.setText(String.valueOf(width));
+//                        gd.getNumericFields().set(0, vc);
 
-                        vc = (TextField)gd.getNumericFields().get(1);
-                        vc.setText(String.valueOf(height));
-                        gd.getNumericFields().set(1, vc);
-
-                    }
-
-                }
-
-                if ( tf.getName().equals("heightPrompt") ) {
-
-                    System.out.println("height changed!");
-
-                    newHeight    = Integer.valueOf(tf.getText());
-                    TextField vc;
-
-                    // set width accordingly
-                    if (newHeight<height && newHeight>MIN_H) {
-                        newWidth   = Math.round( newHeight * width / height );
-                        vc = (TextField)gd.getNumericFields().get(1);
-                        vc.setText(String.valueOf(newWidth));
-                        gd.getNumericFields().set(0, vc);
-                    }
-                    else {
-                        // reset, fake values at the input
-                        newHeight = height;
-                        newWidth = width;
-
-                        vc = (TextField)gd.getNumericFields().get(0);
-                        vc.setText(String.valueOf(width));
-                        gd.getNumericFields().set(0, vc);
-
-                        vc = (TextField)gd.getNumericFields().get(1);
-                        vc.setText(String.valueOf(height));
-                        gd.getNumericFields().set(1, vc);
+//                        vc = (TextField)gd.getNumericFields().get(1);
+//                        vc.setText(String.valueOf(height));
+//                        gd.getNumericFields().set(1, vc);
 
                     }
 
                 }
+
+//                if ( tf.getName().equals("heightPrompt") ) {
+//
+//                    System.out.println("height changed!");
+//
+//                    newHeight    = Integer.valueOf(tf.getText());
+//                    TextField vc;
+//
+//                    // set width accordingly
+//                    if (newHeight<height && newHeight>MIN_H) {
+//                        newWidth   = Math.round( newHeight * width / height );
+//                        vc = (TextField)gd.getNumericFields().get(1);
+//                        vc.setText(String.valueOf(newWidth));
+//                        gd.getNumericFields().set(0, vc);
+//                    }
+//                    else {
+//                        // reset, fake values at the input
+//                        newHeight = height;
+//                        newWidth = width;
+//
+//                        vc = (TextField)gd.getNumericFields().get(0);
+//                        vc.setText(String.valueOf(width));
+//                        gd.getNumericFields().set(0, vc);
+//
+//                        vc = (TextField)gd.getNumericFields().get(1);
+//                        vc.setText(String.valueOf(height));
+//                        gd.getNumericFields().set(1, vc);
+//
+//                    }
+//
+//                }
 
             }
             else {
@@ -111,13 +120,13 @@ public class DownsampleImage implements PlugInFilter {      // , TextListener
                 newWidth = width;
                 newHeight = height;
 
-                TextField vc;
-                vc = (TextField)gd.getNumericFields().get(0);
-                vc.setText("");
-                gd.getNumericFields().set(0, vc);
-                vc = (TextField)gd.getNumericFields().get(1);
-                vc.setText("");
-                gd.getNumericFields().set(1, vc);
+//                TextField vc;
+//                vc = (TextField)gd.getNumericFields().get(0);
+//                vc.setText("");
+//                gd.getNumericFields().set(0, vc);
+//                vc = (TextField)gd.getNumericFields().get(1);
+//                vc.setText("");
+//                gd.getNumericFields().set(1, vc);
 
             }
 
@@ -134,25 +143,33 @@ public class DownsampleImage implements PlugInFilter {      // , TextListener
     public int setup(String s, ImagePlus imagePlus) {
 
         width = imagePlus.getWidth();
-        newWidth = width;
         height = imagePlus.getHeight();
-        newHeight = height;
+
+		newWidth = width;
+		newHeight = height;
+
         sourceSigma = .5f;
         targetSigma = .5f;
 
-        gd = new GenericDialog("Downsample Image");
+		System.out.println("pixel = \n" + imagePlus.getCalibration().pixelWidth + " x " + imagePlus.getCalibration().pixelHeight +"  ["+ imagePlus.getCalibration().getUnit()+"]");
 
-        gd.addNumericField("width ",        width,  0, 5, " pix.");
-        // add listener to this field
+        gd = new GenericDialog("DOWNSAMPLE IMAGE");
+		gd.addMessage("W x H = "+width+" x "+height);
+		gd.addMessage("--------");
+		gd.addNumericField(	"width  :",  newWidth,  0, 5, " pix.");
+        gd.addMessage( 		"height :" + newHeight);
+		gd.addTextAreas("t1", "t2", 1, 1);
+
+        // add listener to width field
         TextField promptWidth = (TextField)gd.getNumericFields().get(0);
         promptWidth.setName("widthPrompt");
         promptWidth.addTextListener(tl);
 
-        gd.addNumericField("height",        height, 0, 5, " pix.");
+        //gd.addNumericField("height",        height, 0, 5, " pix.");
         // add listener to this field
-        TextField promptHeight = (TextField)gd.getNumericFields().get(1);
-        promptHeight.setName("heightPrompt");
-        promptHeight.addTextListener(tl);
+        //TextField promptHeight = (TextField)gd.getNumericFields().get(1);
+        //promptHeight.setName("heightPrompt");
+        //promptHeight.addTextListener(tl);
 
         gd.showDialog();
 
