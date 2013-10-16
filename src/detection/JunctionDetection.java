@@ -1,6 +1,7 @@
 package detection;
 
 import aux.Tools;
+import downsample.Downsampler;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.Prefs;
@@ -41,11 +42,21 @@ public class JunctionDetection implements PlugInFilter {
     private static float 	Deg2Rad = (float) (Math.PI/180f);
     private static float 	Rad2Deg = (float) (180f/Math.PI);
 
+    // in case it is necessary to downsample
+    boolean downsample = false;
+    float   neuriteDiameter = Float.NaN;
+
+
 	public int setup(String s, ImagePlus imagePlus) {
 
 		if(imagePlus==null) return DONE;
 		imp = Tools.convertToFloatImage(imagePlus);
 		imp.setTitle("inimg");
+        // inherit calibration
+        imp.setCalibration(imagePlus.getCalibration());
+        //imp.getCalibration().pixelHeight    = imagePlus.getCalibration().pixelHeight;
+        //imp.getCalibration().pixelWidth     = imagePlus.getCalibration().pixelWidth;
+        //imp.getCalibration().setUnit(imagePlus.getC);
 
 		cnv = imagePlus.getCanvas();
 
@@ -86,6 +97,10 @@ public class JunctionDetection implements PlugInFilter {
 		gd.addChoice("min fuzzy ",  minFuzzyScoreOptions,   MENU_minFuzzyScore);
 		gd.addChoice("min size ",   min_sizeOptions,        MENU_min_size);
 
+        gd.addCheckbox("downsample?", false);
+        gd.addNumericField("neurite diameter ", neuriteDiameter, 2, 5, "microns");
+        gd.addMessage(""+IJ.d2s(imp.getCalibration().pixelWidth,4)+" x "+IJ.d2s(imp.getCalibration().pixelHeight,4)+" "+imp.getCalibration().getUnit());
+
 		gd.showDialog();
 		if (gd.wasCanceled()) return DONE;
 
@@ -107,19 +122,39 @@ public class JunctionDetection implements PlugInFilter {
         MIN_SIZE = Integer.valueOf(MENU_min_size);
         Prefs.set("advantra.critpoint.MIN_SIZE", MENU_min_size);
 
+        downsample = gd.getNextBoolean();
+        neuriteDiameter = (float) gd.getNextNumber();
+
         IJ.log("loading parameters...");
-        IJ.log("neuron diameter \t\t"+D);
-        IJ.log("intensity difference \t\t"+iDiff);
-        IJ.log("max. divergence angle [deg] \t\t"+MENU_minCosAngle+", "+"cos(angle) \t\t"+minCosAngle);
-        IJ.log("min fuzzy score \t\t"+minFuzzyScore);
-        IJ.log("min size \t\t"+MIN_SIZE);
+        IJ.log("neuron diameter \t\t\t"+D);
+        IJ.log("intensity difference \t\t\t"+iDiff);
+        IJ.log("max. divergence angle [deg] \t\t\t"+MENU_minCosAngle+", "+"cos(angle) \t\t"+minCosAngle);
+        IJ.log("min fuzzy score \t\t\t"+minFuzzyScore);
+        IJ.log("min size \t\t\t"+MIN_SIZE);
+        IJ.log("downsample?\t\t\t"+downsample);
+        IJ.log("neurite diameter \t\t\t"+neuriteDiameter);
         IJ.log("-------------------------------");
         /***********************************************************/
+
+        // in case downsampling needs to be done  - change imp before the start
+        if(downsample) {
+
+            // define new width
+            int newWidth = (int) Math.round(((imp.getWidth() * imp.getCalibration().pixelWidth * D) / neuriteDiameter));
+            Downsampler ds = new Downsampler();
+            imp = ds.run(imp, newWidth, 0.5f, 0.5f); // sigmas can be added to generic dialog as downsampling parameters
+
+        }
 
 		return DOES_8G+DOES_32+NO_CHANGES;
 	}
 
 	public void run(ImageProcessor imageProcessor) {
+
+        if(false) {
+            imp.show();
+            return;
+        }
 
         //Detector det = new Detector();
 		Detector det = new Detector(minCosAngle, minFuzzyScore, scatterDistSquared, wStdRatioToD);
@@ -138,7 +173,8 @@ public class JunctionDetection implements PlugInFilter {
 
         resTab.show("BIFURCATIONS");
 
-        det.formChimeraScript(detRegs, det.fuzzyScores, MIN_SIZE);
+        // for chimera output
+        //det.formChimeraScript(detRegs, det.fuzzyScores, MIN_SIZE);
 
 		//System.out.println("### "+detLst.size() + "detections, " + detLstPruned.size() + "pruned detections");
 		//IJ.log("NEW, found " + detLstPruned.size());
@@ -147,6 +183,7 @@ public class JunctionDetection implements PlugInFilter {
 		imNEW.setOverlay(detOv);
 		imNEW.show();
 
+        // don't execute the old algorithm
 		//***************************************************
         if (false) {
             ArrayList<ArrayList<int[]>> detRegs_OLD = det.run_old(imp, D, iDiff);     	// connected regions
