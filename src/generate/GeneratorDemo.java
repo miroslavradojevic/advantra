@@ -1,7 +1,6 @@
 package generate;
 
 import ij.ImagePlus;
-import ij.Prefs;
 import ij.gui.GenericDialog;
 import ij.io.FileSaver;
 import ij.plugin.PlugIn;
@@ -22,6 +21,8 @@ import java.util.Date;
 public class GeneratorDemo implements PlugIn {
 
 	// java -cp critpoint_.jar:/home/miroslav/jarlib/ij.jar generate.GeneratorDemo arguments (will be called from generate_bifs)
+    // generates 2D images with synthetic bifurcations using given parameters
+    // images and annotations are stored in separate Ci folders where i marks one configuration
 
 	public static void main(String args[]){
 
@@ -35,17 +36,13 @@ public class GeneratorDemo implements PlugIn {
 			return;
 		}
 
-		int min_SNR = Integer.valueOf(args[0]);
-//		int max_SNR = Integer.valueOf(args[1]);
-		float D1 	= Float.valueOf(args[1]);
-		float D2 	= Float.valueOf(args[2]);
-		float D3 	= Float.valueOf(args[3]);
-		int	  N     = Integer.valueOf(args[4]);
+		int     SNR     = Integer.valueOf(args[0]);
+		float   D1 	    = Float.valueOf(args[1]);
+		float   D2 	    = Float.valueOf(args[2]);
+		float   D3 	    = Float.valueOf(args[3]);
+		int	    N       = Integer.valueOf(args[4]);
 
-//		float[] snr = new float[max_SNR-min_SNR+1];
-//		for (int i = 0; i < snr.length; i++) snr[i] = min_SNR + i;
-
-		float[] snr = new float[]{min_SNR};
+		float[] snr = new float[]{SNR};
 
 		synthetize(snr, D1, D2, D3, N);
 
@@ -54,8 +51,7 @@ public class GeneratorDemo implements PlugIn {
 	public void run(String s) {
 
 		GenericDialog gd = new GenericDialog("Generate bifurcations");
-		gd.addNumericField("min SNR ", 2, 1);
-//		gd.addNumericField("max SNR ", 2, 1);
+		gd.addNumericField("SNR ", 2, 1);
 		gd.addNumericField("D1 ", 2, 1);
 		gd.addNumericField("D2 ", 2, 1);
 		gd.addNumericField("D3 ", 2, 1);
@@ -64,16 +60,13 @@ public class GeneratorDemo implements PlugIn {
 		gd.showDialog();
 		if (gd.wasCanceled()) return;
 
-		int min_SNR = (int) gd.getNextNumber();
-//		int max_SNR = (int) gd.getNextNumber();
-		float D1 	= (float) gd.getNextNumber();
-		float D2 	= (float) gd.getNextNumber();
-		float D3 	= (float) gd.getNextNumber();
-		int N 		= (int) gd.getNextNumber();
+		int     SNR     = (int) gd.getNextNumber();
+		float   D1 	    = (float) gd.getNextNumber();
+		float   D2 	    = (float) gd.getNextNumber();
+		float   D3 	    = (float) gd.getNextNumber();
+		int     N 		= (int) gd.getNextNumber();
 
-//		float[] snr = new float[max_SNR-min_SNR+1];
-//		for (int i = 0; i < snr.length; i++) snr[i] = min_SNR + i;
-		float[] snr = new float[]{min_SNR};
+		float[] snr = new float[]{SNR};
 
 		synthetize(snr, D1, D2, D3, N);
 
