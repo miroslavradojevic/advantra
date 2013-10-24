@@ -8,12 +8,12 @@ import java.io.*;
  * Date: 10/23/13
  * Time: 5:02 PM
  */
-public class AnalyzeSWC {
+public class ReadSWC {
 
     private String  swcFilePath = "";
     private int     fileLength  = 0;
 
-    public AnalyzeSWC(String swcFilePath) {
+    public ReadSWC(String swcFilePath) {
 
         swcFilePath = new File(swcFilePath).getAbsolutePath();
 
@@ -23,6 +23,7 @@ public class AnalyzeSWC {
         }
 
         this.swcFilePath = swcFilePath;
+        this.fileLength = 0;
 
         // scan the file
         try {
@@ -30,9 +31,12 @@ public class AnalyzeSWC {
             BufferedReader br 			= new BufferedReader(new InputStreamReader(new DataInputStream(fstream)));
             String read_line;
             // check the length of the reconstruction first
-            System.out.println("loading SWC...");
+            System.out.print("loading SWC...");
             while ( (read_line = br.readLine()) != null ) {
-                if(!read_line.trim().startsWith("#")) fileLength++; // # are comments
+                if(!read_line.trim().startsWith("#")) {
+
+                    fileLength++; // # are comments
+                }
             }
             br.close();
             fstream.close();
