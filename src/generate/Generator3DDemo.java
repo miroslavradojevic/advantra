@@ -1,6 +1,7 @@
 package generate;
 
 import ij.ImagePlus;
+import ij.plugin.PlugIn;
 
 import java.io.File;
 
@@ -10,7 +11,7 @@ import java.io.File;
  * Date: 10/23/13
  * Time: 4:49 PM
  */
-public class Generator3DDemo {
+public class Generator3DDemo implements PlugIn {
 
     public static void main(String args[]){
 
@@ -41,9 +42,22 @@ public class Generator3DDemo {
 
         Generator3D g3D = new Generator3D();
         ImagePlus formedImage = g3D.fromSWC(pathSWC, k, snr);
-
 		formedImage.show();
 
     }
 
+    public void run(String s) {
+
+        // parameters
+
+        String  pathSWC = "/home/miroslav/Copy/set3d/opf/OP_1/OP_1.swc";
+        float   k       = 1;
+        float   snr     = 3;
+
+        Generator3D g3D = new Generator3D();
+        ImagePlus formedImage = g3D.fromSWC(pathSWC, k, snr);
+        formedImage.show();
+
+
+    }
 }
