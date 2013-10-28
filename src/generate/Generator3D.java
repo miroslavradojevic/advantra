@@ -1,6 +1,7 @@
 package generate;
 
-import aux.AnalyzeSWC;
+import aux.ReadSWC;
+import aux.ReadSWC;
 import ij.ImagePlus;
 
 /**
@@ -14,13 +15,30 @@ public class Generator3D {
 
     private static int margin = 10;
 
-    public static ImagePlus runFromSWC(String swcPath, float k, float snr) {
+    public static ImagePlus fromSWC(String swcPath, float k, float snr) {
 
         // read swc
-        AnalyzeSWC aSWC = new AnalyzeSWC(swcPath);
+        ReadSWC readerSWC = new ReadSWC(swcPath);   // read file into list
 
-        return new ImagePlus();
+		//System.out.println(readerSWC.nodes.size()+" ELEMENTS");
+
+		// determine boundaries
+		int xMin, xMax, yMin, yMax, zMin, zMax, rMax;
+
+
+		// allocate 8bit image
+
+		// loop through the list to form cones,
+
+
+		return new ImagePlus();
 
     }
+
+	private void drawCone(float x, float y, float z, float r, float xPrev, float yPrev, float zPrev, float rPrev, byte[] image3d) {
+
+
+
+	}
 
 }

@@ -1,5 +1,7 @@
 package generate;
 
+import ij.ImagePlus;
+
 import java.io.File;
 
 /**
@@ -35,10 +37,12 @@ public class Generator3DDemo {
         snr     = Float.valueOf(args[2]);
 
         System.out.println("loaded: \n"+pathSWC+"\n"+k+"\n"+snr);
-        
+        System.out.println("creating image...");
+
         Generator3D g3D = new Generator3D();
-        g3D.runFromSWC(pathSWC, k, snr);
-        
+        ImagePlus formedImage = g3D.fromSWC(pathSWC, k, snr);
+
+		formedImage.show();
 
     }
 
