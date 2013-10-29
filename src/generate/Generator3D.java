@@ -136,13 +136,14 @@ public class Generator3D {
         // loop
         for (int xLoop=xMin; xLoop<=xMax; xLoop++) {
             for (int yLoop=yMin; yLoop<=yMax;yLoop++) {
-                for (int zLoop=0; zLoop<=zMax; zLoop++) {
+                for (int zLoop=zMin; zLoop<=zMax; zLoop++) {
                     if (isCone(
                             xLoop,  yLoop,  zLoop,
                             x,      y,      z,      r,
                             xPrev,  yPrev,  zPrev,  rPrev
 
                     )) {
+                        System.out.println("x: "+xLoop+" y: "+yLoop+" z: "+zLoop);
                         image3d[xyz2ind(xLoop, yLoop, zLoop, W, H)] = (byte)255;
                     }
                 }

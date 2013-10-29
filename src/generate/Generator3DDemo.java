@@ -50,7 +50,7 @@ public class Generator3DDemo implements PlugIn {
 
         // parameters
 
-        String  pathSWC = "/home/miroslav/Copy/set3d/opf/OP_1/OP_1.swc";
+        String  pathSWC = "/home/miroslav/Copy/set3d/nmorpho/hippoc1.swc";
         float   k       = 1;
         float   snr     = 3;
 
