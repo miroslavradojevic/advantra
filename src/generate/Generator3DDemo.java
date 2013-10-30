@@ -1,6 +1,7 @@
 package generate;
 
 import ij.ImagePlus;
+import ij.gui.GenericDialog;
 import ij.plugin.PlugIn;
 
 import java.io.File;
@@ -49,6 +50,9 @@ public class Generator3DDemo implements PlugIn {
     public void run(String s) {
 
         // parameters
+		GenericDialog gd = new GenericDialog("GENERATE 3D NEURON");
+
+
 
         String  pathSWC = "/home/miroslav/Copy/set3d/nmorpho/hippoc1.swc";
         float   k       = 1;

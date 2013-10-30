@@ -15,8 +15,6 @@ import ij.process.ByteProcessor;
 public class Generator3D {
     // will be used to generate 3D image stacks
 
-//    private static int margin = 10;
-
     public static ImagePlus fromSWC(String swcPath, float k, float snr) {
 
         // read swc
@@ -24,8 +22,9 @@ public class Generator3D {
 
 		System.out.println(readerSWC.nodes.size()+" ELEMENTS");
 
-		// determine boundaries based on the swc locations
-		int xMin=Integer.MAX_VALUE, xMax=Integer.MIN_VALUE,
+		// determine boundaries based on the swc node coordinates
+		float
+				xMin=Integer.MAX_VALUE, xMax=Integer.MIN_VALUE,
                 yMin=Integer.MAX_VALUE, yMax=Integer.MIN_VALUE,
                 zMin=Integer.MAX_VALUE, zMax=Integer.MIN_VALUE,
                 rMax=Integer.MIN_VALUE;
@@ -33,41 +32,38 @@ public class Generator3D {
 
         for (int ii=0; ii<readerSWC.nodes.size(); ii++) {
 
-            double readX, readY, readZ, readR;
+            double readVal;//, readY, readZ, readR;
 
-            readX = Math.round(Math.ceil(readerSWC.nodes.get(ii)[0]));
-            if (readX>xMax) xMax = (int)readX;
-            readX = Math.round(Math.floor(readerSWC.nodes.get(ii)[0]));
-            if (readX<xMin) xMin = (int)readX;
+			readVal = Math.round(Math.ceil(readerSWC.nodes.get(ii)[0]));
+            if (readVal>xMax) xMax = (int)readVal;
+			readVal = Math.round(Math.floor(readerSWC.nodes.get(ii)[0]));
+            if (readVal<xMin) xMin = (int)readVal;
 
-            readY = Math.round(Math.ceil(readerSWC.nodes.get(ii)[1]));
-            if (readY>yMax) yMax = (int)readY;
-            readY = Math.round(Math.floor(readerSWC.nodes.get(ii)[1]));
-            if (readY<yMin) yMin = (int)readY;
+			readVal = Math.round(Math.ceil(readerSWC.nodes.get(ii)[1]));
+            if (readVal>yMax) yMax = (int)readVal;
+			readVal = Math.round(Math.floor(readerSWC.nodes.get(ii)[1]));
+            if (readVal<yMin) yMin = (int)readVal;
 
-            readZ = Math.round(Math.ceil(readerSWC.nodes.get(ii)[2]));
-            if (readZ>zMax) zMax = (int)readZ;
-            readZ = Math.round(Math.floor(readerSWC.nodes.get(ii)[2]));
-            if (readZ<zMin) zMin = (int)readZ;
+			readVal = Math.round(Math.ceil(readerSWC.nodes.get(ii)[2]));
+            if (readVal>zMax) zMax = (int)readVal;
+			readVal = Math.round(Math.floor(readerSWC.nodes.get(ii)[2]));
+            if (readVal<zMin) zMin = (int)readVal;
 
-            readR = Math.round(Math.ceil(readerSWC.nodes.get(ii)[3]));
-            if (readR>rMax) rMax = (int)readR;
+			readVal = Math.round(Math.ceil(readerSWC.nodes.get(ii)[3]));
+            if (readVal>rMax) rMax = (int)readVal;
 
         }
 
-        System.out.println("X "+xMin+" -- "+xMax);
-        System.out.println("Y "+yMin+" -- "+yMax);
-        System.out.println("Z "+zMin+" -- "+zMax);
-        System.out.println("R "+rMax);
+		// xMin + margin will correspond to start (index 0)
+		float margin = rMax + 1;
 
-        int shiftX = -xMin + rMax;
-        int shiftY = -yMin + rMax;
-        int shiftZ = -zMin + rMax;
+        float dX = -xMin + margin;
+        float dY = -yMin + margin;
+        float dZ = -zMin + margin;
 
-        int W = xMax + rMax + shiftX + 1;
-        int H = yMax + rMax + shiftY + 1;
-        int L = zMax + rMax + shiftZ + 1;
-
+        int W = (int)Math.ceil(xMax + dX + margin);
+        int H = (int)Math.ceil(yMax + dY + margin);
+        int L = (int)Math.ceil(zMax + dZ + margin);
 
 //        System.out.println(""+sizeX+" , "+sizeY+" , "+sizeZ);
 //        for (int z=0; z<3; z++) {
@@ -90,16 +86,16 @@ public class Generator3D {
 //            System.out.println(locX+", "+locY+", "+locZ);
 //            outIm[xyz2ind(locX, locY, locZ, W, H)] = (byte)255;
 
-            float x = readerSWC.nodes.get(coneId)[0] - rMax + shiftX;
-            float y = readerSWC.nodes.get(coneId)[1] - rMax + shiftY;
-            float z = readerSWC.nodes.get(coneId)[2] - rMax + shiftZ;
-            float r = readerSWC.nodes.get(coneId)[3];// - rMax + shiftZ;
+            float x = readerSWC.nodes.get(coneId)[0] + dX; //- rMax + shiftX;
+            float y = readerSWC.nodes.get(coneId)[1] + dY; //- rMax + shiftY;
+            float z = readerSWC.nodes.get(coneId)[2] + dZ; //- rMax + shiftZ;
+            float r = readerSWC.nodes.get(coneId)[3]; 	   //- rMax + shiftZ;
 
-            int indexPrev = (int)Math.round(readerSWC.nodes.get(coneId)[4]);
+            int indexPrev = Math.round(readerSWC.nodes.get(coneId)[4]);
 
-            float xPrev = readerSWC.nodes.get(indexPrev)[0] - rMax + shiftX;
-            float yPrev = readerSWC.nodes.get(indexPrev)[1] - rMax + shiftY;
-            float zPrev = readerSWC.nodes.get(indexPrev)[2] - rMax + shiftZ;
+            float xPrev = readerSWC.nodes.get(indexPrev)[0] + dX; //- rMax + shiftX;
+            float yPrev = readerSWC.nodes.get(indexPrev)[1] + dY; //- rMax + shiftY;
+            float zPrev = readerSWC.nodes.get(indexPrev)[2] + dZ; //- rMax + shiftZ;
             float rPrev = readerSWC.nodes.get(indexPrev)[3];// - rMax + shiftZ;
 
             drawCone(x,y,z,r,   xPrev,yPrev,zPrev,rPrev, outIm, W, H);
@@ -121,6 +117,8 @@ public class Generator3D {
         // x,y,z are expected to be valid 3d coordinates of the image stack
         // cone defined with (x1,y1,z1,r1),(x2,y2,z2,r2) should not be out of image (but that's taken care of when defining the size)
 
+		int L = image3d.length / (W*H);
+
         // range in x
         int xMin = (int)Math.floor(Math.min(x-r, xPrev-rPrev));
         int xMax = (int)Math.ceil(Math.max(x+r, xPrev+rPrev));
@@ -137,15 +135,17 @@ public class Generator3D {
         for (int xLoop=xMin; xLoop<=xMax; xLoop++) {
             for (int yLoop=yMin; yLoop<=yMax;yLoop++) {
                 for (int zLoop=zMin; zLoop<=zMax; zLoop++) {
-                    if (isCone(
-                            xLoop,  yLoop,  zLoop,
-                            x,      y,      z,      r,
-                            xPrev,  yPrev,  zPrev,  rPrev
+					if ((xLoop>=0 && xLoop<W) && (yLoop>=0 && yLoop<H) && (zLoop>=0 && zLoop<L)) {
+						if (isCone(
+										  xLoop,  yLoop,  zLoop,
+										  x,      y,      z,      r,
+										  xPrev,  yPrev,  zPrev,  rPrev
 
-                    )) {
-                        System.out.println("x: "+xLoop+" y: "+yLoop+" z: "+zLoop);
-                        image3d[xyz2ind(xLoop, yLoop, zLoop, W, H)] = (byte)255;
-                    }
+						)) {
+							//System.out.println("x: "+xLoop+" y: "+yLoop+" z: "+zLoop);
+							image3d[xyz2ind(xLoop, yLoop, zLoop, W, H)] = (byte)255;
+						}
+					}
                 }
             }
         }
