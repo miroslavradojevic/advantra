@@ -16,15 +16,14 @@ public class ReadSWC {
     // counter
 	private int     fileLength  = 0;
 	// list with nodes
-	public ArrayList<float[]> nodes = new ArrayList<float[]>(); // 4x1 rows
-
+	public ArrayList<float[]> nodes = new ArrayList<float[]>(); // 1x7 rows (swc format)
 
     public ReadSWC(String swcFilePath) {
 
         swcFilePath = new File(swcFilePath).getAbsolutePath();
 
         if (!(new File(swcFilePath).exists())) {
-            System.err.println(swcFilePath+" does not exist!");
+            System.err.println(swcFilePath+" does not exist! class not initialized...");
             return;
         }
 
@@ -37,8 +36,6 @@ public class ReadSWC {
 			FileInputStream fstream 	= new FileInputStream(swcFilePath);
             BufferedReader br 			= new BufferedReader(new InputStreamReader(new DataInputStream(fstream)));
             String read_line;
-            // check the length of the reconstruction first
-//            System.out.print("loading SWC...");
 
 			while ( (read_line = br.readLine()) != null ) {
                 if(!read_line.trim().startsWith("#")) { // # are comments
@@ -48,21 +45,31 @@ public class ReadSWC {
 					// split values
 					String[] 	readLn = 	read_line.trim().split("\\s+");
 
+					float[] 	valsLn = 	new float[7]; // x, y, z, mother_index
 
-					//System.out.println("line:         "+read_line);
-					//System.out.println("trimmed line: "+read_line.trim());
-					//System.out.println("elements:     "+readLn.length);
+                    valsLn[0] = Float.valueOf(readLn[0].trim()).floatValue();  // kept for consistency
+                    valsLn[1] = Float.valueOf(readLn[1].trim()).floatValue();
+                    valsLn[2] = Float.valueOf(readLn[2].trim()).floatValue();
+					valsLn[3] = Float.valueOf(readLn[3].trim()).floatValue();
+					valsLn[4] = Float.valueOf(readLn[4].trim()).floatValue();
+					valsLn[5] = Float.valueOf(readLn[5].trim()).floatValue();
+					valsLn[6] = Float.valueOf(readLn[6].trim()).floatValue();
 
+//					valsLn[6] = Float.valueOf(readLn[6].trim()).floatValue();
 
-					float[] 	valsLn = 	new float[5]; // x, y, z, mother_index
+                    // decrease them so that they refer to index instead of the line #
+                    valsLn[6] = (valsLn[6]!=-1)?  valsLn[6]-1 : valsLn[6];
+                    valsLn[0] = valsLn[0]-1;
 
-					valsLn[0] = Float.valueOf(readLn[2].trim()).floatValue();
-					valsLn[1] = Float.valueOf(readLn[3].trim()).floatValue();
-					valsLn[2] = Float.valueOf(readLn[4].trim()).floatValue();
-					valsLn[3] = Float.valueOf(readLn[5].trim()).floatValue();
+                    // this way :
+                    // 1 ..... -1
+                    // 2 ..... 1
+                    // 3 ..... 2
 
-					valsLn[4] = Float.valueOf(readLn[6].trim()).floatValue();
-					valsLn[4] = (valsLn[4]!=-1)?  valsLn[4]-1 : valsLn[4]  ; // decrease them so that they refer to index instead of the line
+                    // becomes :
+                    // 0 ..... -1
+                    // 1 ..... 0
+                    // 2 ..... 1
 
 					nodes.add(valsLn);
 
@@ -76,11 +83,13 @@ public class ReadSWC {
         catch (Exception e) {
             System.err.println("Error: " + e.getMessage());
         }
-//        System.out.println(nodes.size()+" lines (nodes) found.");
 
-//		for (int ii=0; ii<nodes.size(); ii++) {
-//			System.out.print(nodes.get(ii)[4]+", ");
-//		}
+		for (int ii=0; ii<nodes.size(); ii++) {
+            for (int jj=0; jj<7; jj++) {
+                System.out.print(nodes.get(ii)[jj]+"\t");
+            }
+            System.out.println();
+		}
 
     }
 

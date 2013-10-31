@@ -2,8 +2,10 @@ package generate;
 
 import aux.ReadSWC;
 import aux.ReadSWC;
+import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
+import ij.io.FileSaver;
 import ij.process.ByteProcessor;
 
 import java.io.*;
@@ -41,9 +43,7 @@ public class Generator3D {
     /*
     generate ImageStack from swc & export corresponding swc
      */
-    public static ImageStack Swc2Stack(String inSwc, float k, float snr, String outSwc) {
-
-        // outSwc will be recorded
+    public static ImageStack Swc2Stack(String inSwc, float k, float snr, String outSwc, String outTif) {
 
         /*
             initialize writer
@@ -65,14 +65,13 @@ public class Generator3D {
          */
         try {
             logWriter = new PrintWriter(new BufferedWriter(new FileWriter(outSwc, true)));
-            logWriter.println("# "+ inSwc + " reconstruction");
+            logWriter.println("# source "+ inSwc);
         } catch (IOException e) {}
-
 
         // read swc
         ReadSWC readerSWC = new ReadSWC(inSwc);
 
-		System.out.println(readerSWC.nodes.size()+" nodes in SWC");
+		System.out.println(readerSWC.nodes.size()+" nodes found in " + inSwc);
 
 		// determine boundaries based on the swc node coordinates
 		float
@@ -84,7 +83,7 @@ public class Generator3D {
 
         for (int ii=0; ii<readerSWC.nodes.size(); ii++) {
 
-            double readVal;//, readY, readZ, readR;
+            double readVal; //, readY, readZ, readR;
 
             // 2 -> x
 			readVal = Math.round(Math.ceil(readerSWC.nodes.get(ii)[0]));
@@ -108,7 +107,7 @@ public class Generator3D {
         }
 
 		// xMin + margin will correspond to start (index 0)
-		float margin = rMax + 10;
+		float margin = rMax + 5;
 
         System.out.println("margin: "+margin);
 
@@ -128,7 +127,11 @@ public class Generator3D {
 
         System.out.println("foreground set to: "+fg);
 
-        logWriter.println("first line");
+        // first line
+        logWriter.println(
+                        IJ.d2s(readerSWC.nodes.get(0)[0], 0) + " " +
+                        IJ.d2s(readerSWC.nodes.get(0)[1], 0) + " "
+        );
 
 		// loop through the list to form cones
         for (int coneId=1; coneId<readerSWC.nodes.size(); coneId++) {
@@ -141,23 +144,26 @@ public class Generator3D {
 //            int locZ = (int)Math.round(readerSWC.nodes.get(coneId)[2] - rMax + shiftZ);
 //            outIm[xyz2ind(locX, locY, locZ, W, H)] = (byte)255;
 
-            float x = readerSWC.nodes.get(coneId)[0] + dX; //- rMax + shiftX;
-            float y = readerSWC.nodes.get(coneId)[1] + dY; //- rMax + shiftY;
-            float z = readerSWC.nodes.get(coneId)[2] + dZ; //- rMax + shiftZ;
-            float r = readerSWC.nodes.get(coneId)[3]; 	   //- rMax + shiftZ;
+            float x = readerSWC.nodes.get(coneId)[2] + dX; //- rMax + shiftX;
+            float y = readerSWC.nodes.get(coneId)[3] + dY; //- rMax + shiftY;
+            float z = readerSWC.nodes.get(coneId)[4] + dZ; //- rMax + shiftZ;
+            float r = readerSWC.nodes.get(coneId)[5]; 	   //- rMax + shiftZ;
 
-            int indexPrev = Math.round(readerSWC.nodes.get(coneId)[4]);
+            int indexPrev = Math.round(readerSWC.nodes.get(coneId)[6]);
 
-            float xPrev = readerSWC.nodes.get(indexPrev)[0] + dX; //- rMax + shiftX;
-            float yPrev = readerSWC.nodes.get(indexPrev)[1] + dY; //- rMax + shiftY;
-            float zPrev = readerSWC.nodes.get(indexPrev)[2] + dZ; //- rMax + shiftZ;
-            float rPrev = readerSWC.nodes.get(indexPrev)[3];// - rMax + shiftZ;
+            float xPrev = readerSWC.nodes.get(indexPrev)[2] + dX;   //- rMax + shiftX;
+            float yPrev = readerSWC.nodes.get(indexPrev)[3] + dY;   //- rMax + shiftY;
+            float zPrev = readerSWC.nodes.get(indexPrev)[4] + dZ;   //- rMax + shiftZ;
+            float rPrev = readerSWC.nodes.get(indexPrev)[5];        //- rMax + shiftZ;
 
             int countElements = drawCone(x,y,z,r,   xPrev,yPrev,zPrev,rPrev, outIm, W, H, k, fg);
 
             System.out.println(" done. "+countElements+" pixels added");
 
-            logWriter.println("modified line...");
+            logWriter.println(
+                        IJ.d2s(readerSWC.nodes.get(coneId)[0], 0) + " " +
+                        IJ.d2s(readerSWC.nodes.get(coneId)[1], 0) + " "
+            );
 
         }
 
@@ -165,9 +171,14 @@ public class Generator3D {
 
         System.out.println(outSwc+" exported");
 
+        ImageStack  isOut       = toImageStack(outIm, W, H);
 
-        // draw the cone
-		return toImageStack(outIm, W, H);//new ImagePlus("out", );
+        FileSaver fs = new FileSaver(new ImagePlus("", isOut));
+        fs.saveAsTiffStack(outTif);
+
+        System.out.println(outTif+" exported");
+
+		return isOut;
 
     }
 
@@ -176,104 +187,105 @@ public class Generator3D {
 //        return 1;
 //    }
 
-	private static int drawCone(float x, float y, float z, float r, float xPrev, float yPrev, float zPrev, float rPrev, byte[] image3d, int W, int H, float k, float fg) {
+	private static int drawCone(float x, float y, float z, float r, float xPrev, float yPrev, float zPrev, float rPrev, byte[] image3d, int W, int H, float k, float fg)
 
 
-        // aux
-        int currentIndex        = xyz2ind((int)Math.round(x), (int)Math.round(y), (int)Math.round(z), W, H);
-        int currentValue        = (image3d[currentIndex] & 0xff);           // byte to int
-        int calculatedValue     = 255;
-        if (calculatedValue>currentValue)
-            image3d[currentIndex] = (byte)calculatedValue;
-
-        System.out.println("at "+x+" , "+y+" , "+z);
-        System.out.println("at "+xPrev+" , "+yPrev+" , "+zPrev);
 
 
-        currentIndex        = xyz2ind((int)Math.round(xPrev), (int)Math.round(yPrev), (int)Math.round(zPrev), W, H);
-        currentValue        = (image3d[currentIndex] & 0xff);           // byte to int
-        calculatedValue     = 255;
-        if (calculatedValue>currentValue)
-            image3d[currentIndex] = (byte)calculatedValue;
+//        // aux
+//        int currentIndex        = xyz2ind((int)Math.round(x), (int)Math.round(y), (int)Math.round(z), W, H);
+//        int currentValue        = (image3d[currentIndex] & 0xff);           // byte to int
+//        int calculatedValue     = 255;
+//        if (calculatedValue>currentValue)
+//            image3d[currentIndex] = (byte)calculatedValue;
+//
+//        //System.out.println("at "+x+" , "+y+" , "+z);
+//        //System.out.println("at "+xPrev+" , "+yPrev+" , "+zPrev);
+//
+//        currentIndex        = xyz2ind((int)Math.round(xPrev), (int)Math.round(yPrev), (int)Math.round(zPrev), W, H);
+//        currentValue        = (image3d[currentIndex] & 0xff);           // byte to int
+//        calculatedValue     = 255;
+//        if (calculatedValue>currentValue)
+//            image3d[currentIndex] = (byte)calculatedValue;
+//
+//        return 1;
 
-        return 1;
+
+        {
 
 
+        // define the range to loop for plotting
+        // x,y,z are expected to be valid 3d coordinates of the image stack
+        // cone defined with (x1,y1,z1,r1),(x2,y2,z2,r2) should not be out of image (but that's taken care of when defining the size)
+
+		int L = image3d.length / (W*H);
+
+        // count how many values were added
+        int count = 0;
+
+        // range in x
+        //int xMin = (int)Math.floor(Math.min(x-r, xPrev-rPrev));
+        int xMin = (int)Math.floor(Math.min(x, xPrev));
+        //int xMax = (int)Math.ceil(Math.max(x+r, xPrev+rPrev));
+        int xMax = (int)Math.ceil(Math.max(x, xPrev));
+
+        // range in y
+        //int yMin = (int)Math.floor(Math.min(y-r, yPrev-rPrev));
+        int yMin = (int)Math.floor(Math.min(y, yPrev));
+        //int yMax = (int)Math.ceil(Math.max(y+r, yPrev+rPrev));
+        int yMax = (int)Math.ceil(Math.max(y, yPrev));
+
+        // range in z
+        //int zMin = (int)Math.floor(Math.min(z-r, zPrev-rPrev));
+        int zMin = (int)Math.floor(Math.min(z, zPrev));
+        //int zMax = (int)Math.ceil(Math.max(z+r, zPrev+rPrev));
+        int zMax = (int)Math.ceil(Math.max(z, zPrev));
+
+        System.out.println("\n" + "x range: "+xMin+" -- "+xMax);
+        System.out.println("\n" + "y range: "+yMin+" -- "+yMax);
+        System.out.println("\n" + "z range: "+zMin+" -- "+zMax);
+
+        // loop
+        for (int xLoop=xMin; xLoop<=xMax; xLoop++) {
+            for (int yLoop=yMin; yLoop<=yMax;yLoop++) {
+                for (int zLoop=zMin; zLoop<=zMax; zLoop++) {
+					if ((xLoop>=0 && xLoop<W) && (yLoop>=0 && yLoop<H) && (zLoop>=0 && zLoop<L)) { // is inside the image
+
+                        int currentIndex        = xyz2ind(xLoop, yLoop, zLoop, W, H);
+                        int currentValue        = (image3d[currentIndex] & 0xff);           // byte to int
+                        int calculatedValue     = 255;
+//                                coneIntensity(
+//                                xLoop, yLoop, zLoop,
+//                                x, y, z, r,
+//                                xPrev, yPrev, zPrev, rPrev,
+//                                k, fg
+//                                );
+
+                        if (true || calculatedValue>currentValue) {
+                            image3d[currentIndex] = (byte)calculatedValue;
+                            //System.out.print(" im["+currentIndex+"] "+calculatedValue+" byte: "+image3d[currentIndex]+"");
+                            count++;
+                        }
+
+//						if (isCone(
+//										  xLoop,  yLoop,  zLoop,
+//										  x,      y,      z,      r,
+//										  xPrev,  yPrev,  zPrev,  rPrev
+//
+//						)) {
+//							//System.out.println("x: "+xLoop+" y: "+yLoop+" z: "+zLoop);
+//							image3d[xyz2ind(xLoop, yLoop, zLoop, W, H)] = (byte)255;
+//						}
+
+
+					}
+                }
+            }
         }
-//        {
-//
-//
-//        // define the range to loop for plotting
-//        // x,y,z are expected to be valid 3d coordinates of the image stack
-//        // cone defined with (x1,y1,z1,r1),(x2,y2,z2,r2) should not be out of image (but that's taken care of when defining the size)
-//
-//		int L = image3d.length / (W*H);
-//
-//        // count how many values were added
-//        int count = 0;
-//
-//        // range in x
-//        int xMin = (int)Math.floor(Math.min(x-r, xPrev-rPrev));
-//        int xMax = (int)Math.ceil(Math.max(x+r, xPrev+rPrev));
-//
-//        // range in y
-//        int yMin = (int)Math.floor(Math.min(y-r, yPrev-rPrev));
-//        int yMax = (int)Math.ceil(Math.max(y+r, yPrev+rPrev));
-//
-//        // range in z
-//        int zMin = (int)Math.floor(Math.min(z-r, zPrev-rPrev));
-//        int zMax = (int)Math.ceil(Math.max(z+r, zPrev+rPrev));
-//
-//        System.out.println(xPrev+" , "+x+ "    x range: "+xMin+" -- "+xMax);
-//
-//        // loop
-//        for (int xLoop=xMin; xLoop<=xMax; xLoop++) {
-//            for (int yLoop=yMin; yLoop<=yMax;yLoop++) {
-//                for (int zLoop=zMin; zLoop<=zMax; zLoop++) {
-//					if ((xLoop>=0 && xLoop<W) && (yLoop>=0 && yLoop<H) && (zLoop>=0 && zLoop<L)) { // is inside the image
-//
-//
-//
-//
-//
-//                        int currentIndex        = xyz2ind(xLoop, yLoop, zLoop, W, H);
-//                        int currentValue        = (image3d[currentIndex] & 0xff);           // byte to int
-//                        int calculatedValue     = 255;
-////                                coneIntensity(
-////                                xLoop, yLoop, zLoop,
-////                                x, y, z, r,
-////                                xPrev, yPrev, zPrev, rPrev,
-////                                k, fg
-////                                );
-//
-//                        if (calculatedValue>currentValue) {
-//                            image3d[currentIndex] = (byte)calculatedValue;
-//                            //System.out.print(" im["+currentIndex+"] "+calculatedValue+" byte: "+image3d[currentIndex]+"");
-//                            count++;
-//                        }
-//
-//
-//
-//
-////						if (isCone(
-////										  xLoop,  yLoop,  zLoop,
-////										  x,      y,      z,      r,
-////										  xPrev,  yPrev,  zPrev,  rPrev
-////
-////						)) {
-////							//System.out.println("x: "+xLoop+" y: "+yLoop+" z: "+zLoop);
-////							image3d[xyz2ind(xLoop, yLoop, zLoop, W, H)] = (byte)255;
-////						}
-//
-//
-//					}
-//                }
-//            }
-//        }
-//
-//        return count;
-//
-//	}
+
+        return count;
+
+	}
 
     private static int coneIntensity( // will output value at xyzLoc based on cone geometry and gaussian cross-profile outputs -1 in case it is out of the cone
         int xLoc, int yLoc, int zLoc,

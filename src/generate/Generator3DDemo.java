@@ -68,7 +68,7 @@ public class Generator3DDemo implements PlugIn {
         generate image
          */
         Generator3D g3D = new Generator3D();
-        ImageStack isOut = g3D.Swc2Stack(pathInSwc, k, snr, pathOutSwc);
+        ImageStack isOut = g3D.Swc2Stack(pathInSwc, k, snr, pathOutSwc, pathOutTif);
 
         FileSaver fs = new FileSaver(new ImagePlus(name, isOut));
         fs.saveAsTiffStack(pathOutTif);
@@ -92,7 +92,7 @@ public class Generator3DDemo implements PlugIn {
         String  pathOutTif="";
 
         Generator3D g3D = new Generator3D();
-        ImageStack isOut = g3D.Swc2Stack(pathInSwc, k, snr, pathOutSwc);
+        ImageStack isOut = g3D.Swc2Stack(pathInSwc, k, snr, pathOutSwc, pathOutTif);
 
         String outName = new File(pathInSwc).getName();
         outName = outName.substring(outName.length()-4);
