@@ -86,22 +86,22 @@ public class Generator3D {
             double readVal; //, readY, readZ, readR;
 
             // 2 -> x
-			readVal = Math.round(Math.ceil(readerSWC.nodes.get(ii)[0]));
+			readVal = Math.round(Math.ceil(readerSWC.nodes.get(ii)[2]));
             if (readVal>xMax) xMax = (int)readVal;
-			readVal = Math.round(Math.floor(readerSWC.nodes.get(ii)[0]));
+			readVal = Math.round(Math.floor(readerSWC.nodes.get(ii)[2]));
             if (readVal<xMin) xMin = (int)readVal;
             // 3 -> y
-			readVal = Math.round(Math.ceil(readerSWC.nodes.get(ii)[1]));
+			readVal = Math.round(Math.ceil(readerSWC.nodes.get(ii)[3]));
             if (readVal>yMax) yMax = (int)readVal;
-			readVal = Math.round(Math.floor(readerSWC.nodes.get(ii)[1]));
+			readVal = Math.round(Math.floor(readerSWC.nodes.get(ii)[3]));
             if (readVal<yMin) yMin = (int)readVal;
             // 4 -> z
-			readVal = Math.round(Math.ceil(readerSWC.nodes.get(ii)[2]));
+			readVal = Math.round(Math.ceil(readerSWC.nodes.get(ii)[4]));
             if (readVal>zMax) zMax = (int)readVal;
-			readVal = Math.round(Math.floor(readerSWC.nodes.get(ii)[2]));
+			readVal = Math.round(Math.floor(readerSWC.nodes.get(ii)[4]));
             if (readVal<zMin) zMin = (int)readVal;
             // 5 -> r
-			readVal = Math.round(Math.ceil(readerSWC.nodes.get(ii)[3]));
+			readVal = Math.round(Math.ceil(readerSWC.nodes.get(ii)[5]));
             if (readVal>rMax) rMax = (int)readVal;
 
         }
@@ -110,6 +110,11 @@ public class Generator3D {
 		float margin = rMax + 5;
 
         System.out.println("margin: "+margin);
+        System.out.println(""+xMin+", "+xMax);
+        System.out.println(""+yMin+", "+yMax);
+        System.out.println(""+zMin+", "+zMax);
+        System.out.println(""+rMax);
+
 
         float dX = -xMin + margin;
         float dY = -yMin + margin;
@@ -129,8 +134,13 @@ public class Generator3D {
 
         // first line
         logWriter.println(
-                        IJ.d2s(readerSWC.nodes.get(0)[0], 0) + " " +
-                        IJ.d2s(readerSWC.nodes.get(0)[1], 0) + " "
+                        IJ.d2s(readerSWC.nodes.get(0)[0]+1, 0)    + " " +
+                        IJ.d2s(readerSWC.nodes.get(0)[1], 0)    + " " +
+                        IJ.d2s(readerSWC.nodes.get(0)[2]+dX, 3) + " " +
+                        IJ.d2s(readerSWC.nodes.get(0)[3]+dY, 3) + " " +
+                        IJ.d2s(readerSWC.nodes.get(0)[4]+dZ, 3) + " " +
+                        IJ.d2s(readerSWC.nodes.get(0)[5], 3) + " " +
+                        IJ.d2s(-1, 0)
         );
 
 		// loop through the list to form cones
@@ -161,8 +171,14 @@ public class Generator3D {
             System.out.println(" done. "+countElements+" pixels added");
 
             logWriter.println(
-                        IJ.d2s(readerSWC.nodes.get(coneId)[0], 0) + " " +
-                        IJ.d2s(readerSWC.nodes.get(coneId)[1], 0) + " "
+                        IJ.d2s(readerSWC.nodes.get(coneId)[0]+1, 0) + " " +
+                        IJ.d2s(readerSWC.nodes.get(coneId)[1], 0) + " " +
+                        IJ.d2s(x, 3)                              + " " +
+                        IJ.d2s(y, 3)                              + " " +
+                        IJ.d2s(z, 3)                              + " " +
+                        IJ.d2s(r, 3)                              + " " +
+                        IJ.d2s(indexPrev+1, 0)
+
             );
 
         }
@@ -241,9 +257,9 @@ public class Generator3D {
         //int zMax = (int)Math.ceil(Math.max(z+r, zPrev+rPrev));
         int zMax = (int)Math.ceil(Math.max(z, zPrev));
 
-        System.out.println("\n" + "x range: "+xMin+" -- "+xMax);
-        System.out.println("\n" + "y range: "+yMin+" -- "+yMax);
-        System.out.println("\n" + "z range: "+zMin+" -- "+zMax);
+//        System.out.println("x range: "+xMin+" -- "+xMax + " width: " + W);
+//        System.out.println("y range: "+yMin+" -- "+yMax + " height:" + H);
+//        System.out.println("z range: "+zMin+" -- "+zMax + " size:  " + L);
 
         // loop
         for (int xLoop=xMin; xLoop<=xMax; xLoop++) {
@@ -263,7 +279,7 @@ public class Generator3D {
 
                         if (true || calculatedValue>currentValue) {
                             image3d[currentIndex] = (byte)calculatedValue;
-                            //System.out.print(" im["+currentIndex+"] "+calculatedValue+" byte: "+image3d[currentIndex]+"");
+                            //System.out.println(" im["+currentIndex+"] = "+calculatedValue+" ( byte: "+image3d[currentIndex]+" ) (x,y,z) = " + xLoop + "," + yLoop + " , " + zLoop);
                             count++;
                         }
 
