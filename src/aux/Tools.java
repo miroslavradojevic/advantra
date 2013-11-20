@@ -1,6 +1,7 @@
 package aux;
 
 import ij.ImagePlus;
+import ij.ImageStack;
 import ij.gui.PolygonRoi;
 import ij.gui.Roi;
 import ij.process.FloatProcessor;

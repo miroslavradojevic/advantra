@@ -1,10 +1,12 @@
 package detection3d;
 
-import ij.ImagePlus;
+import detection.Interpolator;
+import ij.ImageStack;
 import ij.process.ByteProcessor;
 
 import java.io.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 /**
  * Created with IntelliJ IDEA.
@@ -18,29 +20,30 @@ public class Sphere3D {
 	// azimuth 		theta [0, 2PI)
 	// polar angle  phi [PI/2(top), -PI/2(bottom)]
 
-	private static float arcRes 	= 1.5f;
+	private static float arcRes 	= 1.0f;
 	private static float PI 		= (float) Math.PI;
 	private static float TwoPI 		= (float) (2*Math.PI);
 	private static float HalfPI 	= (float) (Math.PI/2);
 	private static float samplingStep = 1.0f;
 	public static float     R_FULL 	= 1.00f;
 	public static float     T_HALF 	= 0.50f;
-	public static int 		weightStdRatioToD = 3; // could be a parameter
+	public static int 		weightStdRatioToD = 4;  // could be a parameter
 
-	private float 	radius; 	// sphere radius
-	private static 	float 	arcNbhood = 2 * arcRes;
-	private int 	N, W, H;
+	private float 	radius;                         // sphere radius
+	private static 	float 	arcNbhood = 1.5f;         // 2 * arcRes;
+	private int 	W, H, N;                        // W,H are width and height of the 2d profile, N defines optimal sampling
 	private int 	limR, limT;
 
-	ArrayList<int[]>		vizXY = new ArrayList<int[]>();     // XY
+	ArrayList<int[]>		vizXY = new ArrayList<int[]>();         // XY
 
-	ArrayList<float[]> 		elems = new ArrayList<float[]>(); 	// list of elements (phi, theta) covering the sphere
+	ArrayList<float[]> 		elems = new ArrayList<float[]>(); 	    // list of elements (phi, theta) covering the sphere
 
-	ArrayList<int[]> 		masks = new ArrayList<int[]>(); 	// list of list indexes of the neighbours for each list element
+	ArrayList<int[]> 		masks = new ArrayList<int[]>(); 	    // list of list indexes of the neighbours for each list element
 
 	ArrayList<float[][]> 	offstXYZ = new ArrayList<float[][]>(); 	// list of filter offsets for each direction
 
-	ArrayList<float[]> 		weights = new ArrayList<float[]>();
+	//ArrayList<float[]> 		weights = new ArrayList<float[]>();     // wiefght used for filtering // TODO: one block from the list is necessary others are just the same
+    float[] weights;
 
 	public Sphere3D(float neuronDiam, float scale) {
 
@@ -96,7 +99,7 @@ public class Sphere3D {
 						nbrs.add(jj);
 					}
 
-				}
+                }
 
 			}
 
@@ -111,7 +114,10 @@ public class Sphere3D {
 
 		// define coordinates for each direction
 		offstXYZ.clear();
-		weights.clear();
+		//weights.clear();
+        // weights define only once
+        weights = new float[(2*limT+1)*(2*limT+1)*(limR+1)];
+        float sumWgt = 0;
 
 		for (int ii = 0; ii<elems.size(); ii++) {
 
@@ -123,9 +129,8 @@ public class Sphere3D {
 			 */
 
 			float[][] offsetsPerDirection = new float[(2*limT+1)*(2*limT+1)*(limR+1)][3];
-			float[] weightsArray = new float[(2*limT+1)*(2*limT+1)*(limR+1)];
+
 			int cnt = 0;
-			float sumWgt = 0;
 
 			for (int k=-limR; k<=0; k++) {
 
@@ -141,10 +146,12 @@ public class Sphere3D {
 						offsetsPerDirection[cnt][1] = py;
 						offsetsPerDirection[cnt][2] = pz;
 
-						float dstAxis = point2line(0, 0, 0, 0, 0, -1, px, py, pz);
-						//*** HERE IT DEFINES THE FILTER PROFILE WEIGHTS
-						weightsArray[cnt] = (float) Math.exp(-(dstAxis*dstAxis)/(2*(neuronDiam/weightStdRatioToD)*(neuronDiam/weightStdRatioToD)));
-						sumWgt += weightsArray[cnt];
+						//*** HERE IT DEFINES THE FILTER PROFILE WEIGHTS (only in first iteration, the rest are the same)
+						if (ii==0) {
+                            float dstAxis = point2line(0, 0, 0, 0, 0, -1, px, py, pz);
+                            weights[cnt] = (float) Math.exp(-(dstAxis*dstAxis)/(2*(neuronDiam/weightStdRatioToD)*(neuronDiam/weightStdRatioToD)));
+                            sumWgt += weights[cnt];
+                        }
 
 						cnt++;
 
@@ -162,15 +169,17 @@ public class Sphere3D {
 			rotZ(theta, offsetsPerDirection);
 			offstXYZ.add(offsetsPerDirection); //store
 
-			/*
-				normalize weights before adding
-			 */
-			for (int iii=0; iii<weightsArray.length; iii++) {
-				weightsArray[iii] /= sumWgt;
-			}
-			weights.add(weightsArray);
+
 
 		}
+
+        /*
+				normalize weights
+			 */
+        for (int iii=0; iii<weights.length; iii++) {
+            weights[iii] /= sumWgt;
+        }
+        // weights.add(weights);
 
 	}
 
@@ -252,7 +261,7 @@ public class Sphere3D {
 		return (angRad/PI)*180f;
 	}
 
-	public ByteProcessor getProfile(float[] profile) {
+	public ByteProcessor drawProfile(float[] profile) {
 
 		// loops vizXY and corresponding profile values
 		ByteProcessor outIp = new ByteProcessor(W, H);
@@ -278,8 +287,8 @@ public class Sphere3D {
 				float y_offs_pix = offstXYZ.get(profleIdx)[offsetIdx][1];
 				float z_offs_lay = offstXYZ.get(profleIdx)[offsetIdx][2] / zDist; // convert to layers
 
-				float imgVal = Interpolator.interpolateAt(x_offs_pix, y_offs_pix, z_offs_lay, img3d_zxy, zDist);
-				value += weights.get(profleIdx)[offsetIdx] * imgVal;
+                float imgVal = Interpolator.interpolateAt(atX+x_offs_pix, atY+y_offs_pix, atZ+z_offs_lay, img3d_zxy);
+				value += weights[offsetIdx] * imgVal;
 
 			}
 
@@ -574,5 +583,40 @@ public class Sphere3D {
 		System.out.println(fileName+ "\t saved.");
 
 	}
+
+    public ImageStack visualizeMasks() {
+
+        // stacked profiles with neighbourhood masks
+        ImageStack isMasks = new ImageStack(W, H);
+
+        // dummy profile with all values set to 255
+        float[] profile = new float[W*H];
+        Arrays.fill(profile, 100f);
+
+        // every 3d direction will have its layer
+        for (int ii=0; ii<masks.size(); ii++) {
+
+            ByteProcessor layerMask = drawProfile(profile); // flat profile
+
+            // central location
+            int centerXplot = vizXY.get(ii)[0];
+            int centerYplot = vizXY.get(ii)[1];
+            layerMask.setf(centerXplot, centerYplot, 255f);
+
+            // fill the location and its neighbours with 255
+            for (int jj = 0; jj<masks.get(ii).length; jj++) {
+                int neighbourIdx = masks.get(ii)[jj];
+                int neighbourXplot = vizXY.get(neighbourIdx)[0];
+                int neighbourYplot = vizXY.get(neighbourIdx)[1];
+                layerMask.setf(neighbourXplot, neighbourYplot, 255f);
+            }
+
+            isMasks.addSlice(layerMask);
+
+        }
+
+        return isMasks;
+
+    }
 
 }

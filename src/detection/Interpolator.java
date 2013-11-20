@@ -1,5 +1,6 @@
 package detection;
 
+import ij.IJ;
 import ij.ImageStack;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
@@ -168,49 +169,48 @@ public class Interpolator {
 
 	}
 
-	public static float interpolateAt(float atX, float atY, float atZ_layer, float[][][] img3d_z_x_y) {
+	public static float interpolateAt(float atX, float atY, float atZ_layer, float[][][] img3d_zxy) {
 
 		float value = 0;
-		int L = img3d.length;
-		int W = img3d[0].length;
-		int H = img3d[0][0].length;
+		int L = img3d_zxy.length;
+		int W = img3d_zxy[0].length;
+		int H = img3d_zxy[0][0].length;
 
-		boolean isIn =
-						atY>=0 && atY<H &&
-						atX>=0 && atX<W &&
-						atZ_layer>=0 && atZ_layer<L;
+        int x1 = (int) Math.floor(atX);
+        int x2 = (int) Math.ceil(atX);
+
+        int y1 = (int) Math.floor(atY);
+        int y2 = (int) Math.ceil(atY);
+
+        int z1 = (int) Math.floor(atZ_layer);
+        int z2 = (int) Math.ceil(atZ_layer);
+
+        boolean isIn =
+						y1>=0 && y2<H &&
+						x1>=0 && x2<W &&
+						z1>=0 && z2<L;
 
 		if(isIn){
 
 			// take neighbourhood
-			int[] p11 = {(int)Math.floor(atY),	}; // y->row, x->col upper left
-			int[] p12 = {(int)Math.floor(atY), 	(int)Math.ceil(atX)};  // upper right
-			int[] p21 = {(int)Math.ceil(atY), 	(int)Math.floor(atX)}; // bottom left
-			int[] p22 = {(int)Math.ceil(atY), 	(int)Math.ceil(atX)};  // bottom right
+			float I11_1 = img3d_zxy[ z1 ][ (int)Math.floor(atX) ][ (int)Math.floor(atY) ]; // upper left
+			float I12_1 = img3d_zxy[ z1 ][ (int)Math.ceil(atX)  ][ (int)Math.floor(atY) ]; // upper right
+			float I21_1 = img3d_zxy[ (int)Math.floor(atZ_layer) ][ (int)Math.floor(atX) ][ (int)Math.ceil(atY)  ]; // bottom left
+			float I22_1 = img3d_zxy[ (int)Math.floor(atZ_layer) ][ (int)Math.ceil(atX)  ][ (int)Math.ceil(atY)  ]; // bottom right
 
-			int		l1 = (int)Math.floor(	atZ_layer);
-			int		l2 = (int)Math.ceil(	atZ_layer);
+			float I11_2 = img3d_zxy[ (int)Math.ceil(atZ_layer)  ][ (int)Math.floor(atX) ][ (int)Math.floor(atY) ]; // upper left
+			float I12_2 = img3d_zxy[ (int)Math.ceil(atZ_layer)  ][ (int)Math.ceil(atX)  ][ (int)Math.floor(atY) ]; // upper right
+			float I21_2 = img3d_zxy[ (int)Math.ceil(atZ_layer)  ][ (int)Math.floor(atX) ][ (int)Math.ceil(atY)  ]; // bottom left
+			float I22_2 = img3d_zxy[ (int)Math.ceil(atZ_layer)  ][ (int)Math.ceil(atX)  ][ (int)Math.ceil(atY)  ]; // bottom right
 
-			float I11_1 = img3d[ l1 ][ (int)Math.floor(atX) ][ p11[1] ]; // upper left
-			float I12_1 = img3d[ l1 ][ p12[0] ][ p12[1] ]; // upper right
-			float I21_1 = img_array[l1][p21[0]*W+p21[1]];
-			float I22_1 = img_array[l1][p22[0]*W+p22[1]];
-
-			float I11_2 = img_array[l2][p11[0]*W+p11[1]];
-			float I12_2 = img_array[l2][p12[0]*W+p12[1]];
-			float I21_2 = img_array[l2][p21[0]*W+p21[1]];
-			float I22_2 = img_array[l2][p22[0]*W+p22[1]];
-
-			float a = (p12[1]!=p11[1])?(x-p11[1])/(p12[1]-p11[1]) : 0.5f;	//col
-			float b = (p21[0]!=p11[0])?(y-p11[0])/(p21[0]-p11[0]) : 0.5f;	//row
-			float c = (l1!=l2)?(z-l1)/(l2-l1) : 0.5f;						//lay
+			float a = ( (int)Math.floor(atX) != (int)Math.ceil(atX) )?( atX - (int)Math.floor(atX) ) / ( (int)Math.ceil(atX) - (int)Math.floor(atX) ) : 0.5f;	// col
+			float b = ( (int)Math.floor(atY) != (int)Math.ceil(atY) )?( atY - (int)Math.floor(atY) ) / ( (int)Math.ceil(atY) - (int)Math.floor(atY) ) : 0.5f;	//row
+			float c = ( (int)Math.floor(atZ_layer) != (int)Math.ceil(atZ_layer) )?( atZ_layer - (int)Math.floor(atZ_layer) )/( (int)Math.ceil(atZ_layer) - (int)Math.floor(atZ_layer) ) : 0.5f; // lay
 
 			float I_1 = (1-a)*(1-b)*I11_1 + (1-a)*b*I21_1 + a*(1-b)*I12_1 + a*b*I22_1;
 			float I_2 = (1-a)*(1-b)*I11_2 + (1-a)*b*I21_2 + a*(1-b)*I12_2 + a*b*I22_2;
 
 			value = (1-c)*I_1+c*I_2;
-
-
 
 		}
 
