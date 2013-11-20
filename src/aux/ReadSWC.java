@@ -17,6 +17,7 @@ public class ReadSWC {
 	private int     fileLength  = 0;
 	// list with nodes
 	public ArrayList<float[]> nodes = new ArrayList<float[]>(); // 1x7 rows (swc format)
+	public float minR = Float.MAX_VALUE, maxR = Float.MIN_VALUE;
 
     public ReadSWC(String swcFilePath) {
 
@@ -49,11 +50,14 @@ public class ReadSWC {
 
                     valsLn[0] = Float.valueOf(readLn[0].trim()).floatValue();  // kept for consistency
                     valsLn[1] = Float.valueOf(readLn[1].trim()).floatValue();
-                    valsLn[2] = Float.valueOf(readLn[2].trim()).floatValue();
+
+					valsLn[2] = Float.valueOf(readLn[2].trim()).floatValue();  // x, y, z
 					valsLn[3] = Float.valueOf(readLn[3].trim()).floatValue();
 					valsLn[4] = Float.valueOf(readLn[4].trim()).floatValue();
-					valsLn[5] = Float.valueOf(readLn[5].trim()).floatValue();
-					valsLn[6] = Float.valueOf(readLn[6].trim()).floatValue();
+
+					valsLn[5] = Float.valueOf(readLn[5].trim()).floatValue();  // radius
+
+					valsLn[6] = Float.valueOf(readLn[6].trim()).floatValue();  // mother idx
 
 //					valsLn[6] = Float.valueOf(readLn[6].trim()).floatValue();
 
@@ -71,7 +75,11 @@ public class ReadSWC {
                     // 1 ..... 0
                     // 2 ..... 1
 
+
 					nodes.add(valsLn);
+
+					minR = (valsLn[5]<minR)? minR=valsLn[5] : minR ;
+					maxR = (valsLn[5]>maxR)? maxR=valsLn[5] : maxR ;
 
                 }
             }
@@ -84,13 +92,112 @@ public class ReadSWC {
             System.err.println("Error: " + e.getMessage());
         }
 
-		for (int ii=0; ii<nodes.size(); ii++) {
-            for (int jj=0; jj<7; jj++) {
-                System.out.print(nodes.get(ii)[jj]+"\t");
-            }
-            System.out.println();
-		}
+//		// print the output
+//		for (int ii=0; ii<nodes.size(); ii++) {
+//            for (int jj=0; jj<7; jj++) {
+//                System.out.print(nodes.get(ii)[jj]+"\t");
+//            }
+//            System.out.println();
+//		}
 
     }
+
+	public void exportBifurcations(String swcBifExportPath){
+
+		/*
+            initialize writer
+         */
+		PrintWriter logWriter = null;
+
+		/*
+			empty swc bif file
+		 */
+		try {
+			logWriter = new PrintWriter(swcBifExportPath);
+			logWriter.print("");
+			logWriter.close();
+		} catch (FileNotFoundException ex) {}
+
+		/*
+            initialize bif swc file
+         */
+		try {
+			logWriter = new PrintWriter(new BufferedWriter(new FileWriter(swcBifExportPath, true)));
+			//logWriter.println("# source "+ inSwc);
+		} catch (IOException e) {}
+
+		// will take current swc file and create a new one that marks the bifurcation points
+		for (int ii=1; ii<nodes.size(); ii++) {
+			// check whether it is a bifurcation (at least two other rows refer to it)
+
+			int count = 0;
+			int id_curr = Math.round(nodes.get(ii)[0]);
+			for (int jj=ii+1; jj<nodes.size(); jj++) {
+				int id_loop = Math.round(nodes.get(jj)[6]);
+				if (id_loop==id_curr) {
+					count++;
+				}
+			}
+
+			if (count>=2) {
+				// add the line for bifurcation point  (T=5 in swc format)
+				logWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1", Math.round(nodes.get(ii)[0]+1), 5, nodes.get(ii)[2], nodes.get(ii)[3], nodes.get(ii)[4], nodes.get(ii)[5]));
+			}
+		}
+
+		logWriter.close();
+
+		System.out.println(swcBifExportPath + " exported.");
+
+	}
+
+	public void exportEndpoints(String swcEndExportPath){
+
+		/*
+            initialize writer
+         */
+		PrintWriter logWriter = null;
+
+		/*
+			empty swc bif file
+		 */
+		try {
+			logWriter = new PrintWriter(swcEndExportPath);
+			logWriter.print("");
+			logWriter.close();
+		} catch (FileNotFoundException ex) {}
+
+		/*
+            initialize bif swc file
+         */
+		try {
+			logWriter = new PrintWriter(new BufferedWriter(new FileWriter(swcEndExportPath, true)));
+			//logWriter.println("# source "+ inSwc);
+		} catch (IOException e) {}
+
+		// will take current swc file and create a new one that marks the bifurcation points
+		for (int ii=1; ii<nodes.size(); ii++) {
+			// check whether it is a endpoint (zero other rows refer to it)
+
+			int count = 0;
+			int id_curr = Math.round(nodes.get(ii)[0]);
+			for (int jj=ii+1; jj<nodes.size(); jj++) {
+				int id_loop = Math.round(nodes.get(jj)[6]);
+				if (id_loop==id_curr) {
+					count++;
+				}
+			}
+
+			if (count==0) {
+				// add the line for endpoint  (T=6 in swc format)
+				logWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1", Math.round(nodes.get(ii)[0]+1), 6, nodes.get(ii)[2], nodes.get(ii)[3], nodes.get(ii)[4], nodes.get(ii)[5]));
+			}
+		}
+
+		logWriter.close();
+
+		System.out.println(swcEndExportPath + " exported.");
+
+	}
 
 }

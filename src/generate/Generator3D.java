@@ -1,12 +1,12 @@
 package generate;
 
 import aux.ReadSWC;
-import aux.ReadSWC;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.io.FileSaver;
 import ij.process.ByteProcessor;
+import imagescience.random.PoissonGenerator;
 
 import java.io.*;
 
@@ -19,31 +19,15 @@ import java.io.*;
 public class Generator3D {
     // will be used to generate 3D image stacks
 
-    private static int bg = 20; // background level
-
-    public static double Swc2MinRadius(
-            String swcPath
-    )
-    {
-        // read swc
-        ReadSWC readerSWC = new ReadSWC(swcPath);   // read file into list
-
-        double rMin = Double.MAX_VALUE;
-
-        for (int ii=0; ii<readerSWC.nodes.size(); ii++) {
-            double readR = Math.round(Math.ceil(readerSWC.nodes.get(ii)[3])); // 3rd is the radius
-            if (readR<rMin)
-                rMin = readR;
-        }
-
-        return rMin;
-
-    }
+    private static int bg = 20; // background level  (used when defining snr)
 
     /*
-    generate ImageStack from swc & export corresponding swc
+    	generate ImageStack from swc & export corresponding swc
      */
-    public static ImageStack Swc2Stack(String inSwc, float k, float snr, String outSwc, String outTif) {
+    public static ImageStack swc2Stack(String inSwc, float k, float snr, String outSwc, String outBif, String outEnd, String outTif)
+	{
+
+		// TODO fix cases when there are several root locations (with -1) - it considers only one now
 
         /*
             initialize writer
@@ -58,7 +42,6 @@ public class Generator3D {
             logWriter.print("");
             logWriter.close();
         } catch (FileNotFoundException ex) {}
-
 
         /*
             initialize detection log file
@@ -79,7 +62,6 @@ public class Generator3D {
                 yMin=Float.MAX_VALUE, yMax=Float.MIN_VALUE,
                 zMin=Float.MAX_VALUE, zMax=Float.MIN_VALUE,
                 rMax=Float.MIN_VALUE;
-
 
         for (int ii=0; ii<readerSWC.nodes.size(); ii++) {
 
@@ -109,13 +91,6 @@ public class Generator3D {
 		// xMin + margin will correspond to start (index 0)
 		float margin = rMax + 5;
 
-        System.out.println("margin: "+margin);
-        System.out.println(""+xMin+", "+xMax);
-        System.out.println(""+yMin+", "+yMax);
-        System.out.println(""+zMin+", "+zMax);
-        System.out.println(""+rMax);
-
-
         float dX = -xMin + margin;
         float dY = -yMin + margin;
         float dZ = -zMin + margin;
@@ -130,29 +105,19 @@ public class Generator3D {
 
         float fg = foregroundLevel(bg, snr);
 
-        System.out.println("foreground set to: "+fg);
-
         // first line
-        logWriter.println(
-                        IJ.d2s(readerSWC.nodes.get(0)[0]+1, 0)    + " " +
-                        IJ.d2s(readerSWC.nodes.get(0)[1], 0)    + " " +
-                        IJ.d2s(readerSWC.nodes.get(0)[2]+dX, 3) + " " +
-                        IJ.d2s(readerSWC.nodes.get(0)[3]+dY, 3) + " " +
-                        IJ.d2s(readerSWC.nodes.get(0)[4]+dZ, 3) + " " +
-                        IJ.d2s(readerSWC.nodes.get(0)[5], 3) + " " +
-                        IJ.d2s(-1, 0)
-        );
+		logWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1",
+											   Math.round(readerSWC.nodes.get(0)[0]+1),
+											   Math.round(readerSWC.nodes.get(0)[1]),
+											   readerSWC.nodes.get(0)[2]+dX,
+											   readerSWC.nodes.get(0)[3]+dY,
+											   readerSWC.nodes.get(0)[4]+dZ,
+											   readerSWC.nodes.get(0)[5],
+											   -1)
+		);
 
 		// loop through the list to form cones
         for (int coneId=1; coneId<readerSWC.nodes.size(); coneId++) {
-
-            System.out.print("drawing cone "+coneId+"/"+(readerSWC.nodes.size()-1));
-
-            // set value at the node center location to 255
-//            int locX = (int)Math.round(readerSWC.nodes.get(coneId)[0] - rMax + shiftX);
-//            int locY = (int)Math.round(readerSWC.nodes.get(coneId)[1] - rMax + shiftY);
-//            int locZ = (int)Math.round(readerSWC.nodes.get(coneId)[2] - rMax + shiftZ);
-//            outIm[xyz2ind(locX, locY, locZ, W, H)] = (byte)255;
 
             float x = readerSWC.nodes.get(coneId)[2] + dX; //- rMax + shiftX;
             float y = readerSWC.nodes.get(coneId)[3] + dY; //- rMax + shiftY;
@@ -166,11 +131,18 @@ public class Generator3D {
             float zPrev = readerSWC.nodes.get(indexPrev)[4] + dZ;   //- rMax + shiftZ;
             float rPrev = readerSWC.nodes.get(indexPrev)[5];        //- rMax + shiftZ;
 
+			// clamp th radius values to be minimum 1 when generating and storing the output
+			r = 1 + (r-readerSWC.minR);
+			rPrev = 1 + (rPrev-readerSWC.minR);
+
             int countElements = drawCone(x,y,z,r,   xPrev,yPrev,zPrev,rPrev, outIm, W, H, k, fg);
 
-            System.out.println(" done. "+countElements+" pixels added");
+            //System.out.println(" done. "+countElements+" pixels added");
 
-            logWriter.println(
+			/*
+            	add corresponding swc
+			 */
+            logWriter.println( // TODO String.format
                         IJ.d2s(readerSWC.nodes.get(coneId)[0]+1, 0) + " " +
                         IJ.d2s(readerSWC.nodes.get(coneId)[1], 0) + " " +
                         IJ.d2s(x, 3)                              + " " +
@@ -181,11 +153,40 @@ public class Generator3D {
 
             );
 
+
+
         }
+
+		/*
+			add poisson noise
+		*/
+
+		System.out.print("adding poisson noise... ");
+
+		PoissonGenerator poiss 	= new PoissonGenerator();
+
+		for (int j=0; j<W*H*L; j++) {
+
+			// add background to be able to emulate poisson noise everywhere
+			int currVal = (int)(outIm[j] & 0xff);
+			currVal += bg;
+			// poisson
+			outIm[j] = (byte) ((int) Math.round(poiss.next(currVal)));
+
+		}
+
+		System.out.println("done");
 
         logWriter.close();
 
         System.out.println(outSwc+" exported");
+
+		/*
+			critical points
+		 */
+		ReadSWC readNewSwc = new ReadSWC(outSwc);
+		readNewSwc.exportBifurcations(outBif);   	// extract bifurcations
+		readNewSwc.exportEndpoints(outEnd);         // extract endpoints
 
         ImageStack  isOut       = toImageStack(outIm, W, H);
 
@@ -198,37 +199,19 @@ public class Generator3D {
 
     }
 
-//    private static int drawCone(float x, float y, float z, float r, float xPrev, float yPrev, float zPrev, float rPrev, byte[] image3d, int W, int H, float k, float fg) {
-//        image3d[10] = (byte) 18;
-//        return 1;
-//    }
+	public static ImageStack yjunctions2Stack(float snr, float diam1, float diam2, float diam3, String outSwc, String outBif, String outEnd, String outTif)
+	{
+
+		// generate y juctions with branches of different scales in 3d
+		return new ImageStack();
+
+	}
+
+
+
 
 	private static int drawCone(float x, float y, float z, float r, float xPrev, float yPrev, float zPrev, float rPrev, byte[] image3d, int W, int H, float k, float fg)
-
-
-
-
-//        // aux
-//        int currentIndex        = xyz2ind((int)Math.round(x), (int)Math.round(y), (int)Math.round(z), W, H);
-//        int currentValue        = (image3d[currentIndex] & 0xff);           // byte to int
-//        int calculatedValue     = 255;
-//        if (calculatedValue>currentValue)
-//            image3d[currentIndex] = (byte)calculatedValue;
-//
-//        //System.out.println("at "+x+" , "+y+" , "+z);
-//        //System.out.println("at "+xPrev+" , "+yPrev+" , "+zPrev);
-//
-//        currentIndex        = xyz2ind((int)Math.round(xPrev), (int)Math.round(yPrev), (int)Math.round(zPrev), W, H);
-//        currentValue        = (image3d[currentIndex] & 0xff);           // byte to int
-//        calculatedValue     = 255;
-//        if (calculatedValue>currentValue)
-//            image3d[currentIndex] = (byte)calculatedValue;
-//
-//        return 1;
-
-
-        {
-
+    {
 
         // define the range to loop for plotting
         // x,y,z are expected to be valid 3d coordinates of the image stack
@@ -240,26 +223,16 @@ public class Generator3D {
         int count = 0;
 
         // range in x
-        //int xMin = (int)Math.floor(Math.min(x-r, xPrev-rPrev));
-        int xMin = (int)Math.floor(Math.min(x, xPrev));
-        //int xMax = (int)Math.ceil(Math.max(x+r, xPrev+rPrev));
-        int xMax = (int)Math.ceil(Math.max(x, xPrev));
+        int xMin = (int)Math.floor(Math.min(x-r, xPrev-rPrev));
+        int xMax = (int)Math.ceil(Math.max(x+r, xPrev+rPrev));
 
         // range in y
-        //int yMin = (int)Math.floor(Math.min(y-r, yPrev-rPrev));
-        int yMin = (int)Math.floor(Math.min(y, yPrev));
-        //int yMax = (int)Math.ceil(Math.max(y+r, yPrev+rPrev));
-        int yMax = (int)Math.ceil(Math.max(y, yPrev));
+        int yMin = (int)Math.floor(Math.min(y-r, yPrev-rPrev));
+        int yMax = (int)Math.ceil(Math.max(y+r, yPrev+rPrev));
 
         // range in z
-        //int zMin = (int)Math.floor(Math.min(z-r, zPrev-rPrev));
-        int zMin = (int)Math.floor(Math.min(z, zPrev));
-        //int zMax = (int)Math.ceil(Math.max(z+r, zPrev+rPrev));
-        int zMax = (int)Math.ceil(Math.max(z, zPrev));
-
-//        System.out.println("x range: "+xMin+" -- "+xMax + " width: " + W);
-//        System.out.println("y range: "+yMin+" -- "+yMax + " height:" + H);
-//        System.out.println("z range: "+zMin+" -- "+zMax + " size:  " + L);
+        int zMin = (int)Math.floor(Math.min(z-r, zPrev-rPrev));
+        int zMax = (int)Math.ceil(Math.max(z+r, zPrev+rPrev));
 
         // loop
         for (int xLoop=xMin; xLoop<=xMax; xLoop++) {
@@ -269,30 +242,18 @@ public class Generator3D {
 
                         int currentIndex        = xyz2ind(xLoop, yLoop, zLoop, W, H);
                         int currentValue        = (image3d[currentIndex] & 0xff);           // byte to int
-                        int calculatedValue     = 255;
-//                                coneIntensity(
-//                                xLoop, yLoop, zLoop,
-//                                x, y, z, r,
-//                                xPrev, yPrev, zPrev, rPrev,
-//                                k, fg
-//                                );
+                        int calculatedValue     = //255;
+                                coneIntensity(
+                                xLoop, yLoop, zLoop,
+                                x, y, z, r,
+                                xPrev, yPrev, zPrev, rPrev,
+                                k, fg
+                                );
 
-                        if (true || calculatedValue>currentValue) {
+                        if (calculatedValue>currentValue) {
                             image3d[currentIndex] = (byte)calculatedValue;
-                            //System.out.println(" im["+currentIndex+"] = "+calculatedValue+" ( byte: "+image3d[currentIndex]+" ) (x,y,z) = " + xLoop + "," + yLoop + " , " + zLoop);
                             count++;
                         }
-
-//						if (isCone(
-//										  xLoop,  yLoop,  zLoop,
-//										  x,      y,      z,      r,
-//										  xPrev,  yPrev,  zPrev,  rPrev
-//
-//						)) {
-//							//System.out.println("x: "+xLoop+" y: "+yLoop+" z: "+zLoop);
-//							image3d[xyz2ind(xLoop, yLoop, zLoop, W, H)] = (byte)255;
-//						}
-
 
 					}
                 }
@@ -310,9 +271,6 @@ public class Generator3D {
         float k, // scales the gaussian sigma
         float fg // foreground scaled wrt snr and chosen background
     )
-
-
-
     {
         // returns 0-255 value for gaussian cross-profile
         // of the cone based on the normal distance from the axis
@@ -323,7 +281,7 @@ public class Generator3D {
 
         double P12 = Math.sqrt(p21_x*p21_x + p21_y*p21_y + p21_z*p21_z);
 
-        if (P12>0.1) {// don't check below some small distance
+        if (P12>0.0001) {// don't check below some small distance
             p21_x /= P12;   // normalize
             p21_y /= P12;
             p21_z /= P12;
@@ -343,25 +301,47 @@ public class Generator3D {
         float c2_y = yLoc - y2;
         float c2_z = zLoc - z2;
 
-        if ( p21_x * c1_x + p21_y * c1_y + p21_z * c1_z < 0 )   return 0;
-        if ( p12_x * c2_x + p12_y * c2_y + p12_z * c2_z < 0 )  return 0; // no need to calculate the value
+        if ( p21_x * c1_x + p21_y * c1_y + p21_z * c1_z < 0 ) {
+			// take the spherical distance from (x1,y1,z1)
 
-        return 255;
+			double d1 		= Math.sqrt( Math.pow(c1_x, 2) + Math.pow(c1_y, 2) + Math.pow(c1_z, 2) );
+			double sigma1 	= r1 * k;
 
-//        float d2 = (c2_x * p12_x) + (c2_y * p12_y) + (c2_z * p12_z); // projection c2 on p12
-//
-//        double d = Math.sqrt( Math.pow(-p12_x * d2 + c2_x, 2) + Math.pow(-p12_y * d2 + c2_y, 2) + Math.pow(-p12_z * d2 + c2_z, 2) );
-//
-//        // interpolate radius based on r1 and r2
-//        double r = (d2*r1 + (P12-d2)*r2)/P12;
-//        double sigma =  r * k;
-//
-//        // use d, sigma to calculate the value and scale it with fg
-//        int val = 0;
-//        if (d<=1*sigma)
-//            //val = (int) (fg * Math.exp(-(d * d) / (2 * sigma * sigma)));
-//            val = 255;// (int) (fg * Math.exp(-(d * d) / (2 * sigma * sigma)));
-//        return val;
+			int val = 0;
+			if (d1<=3*sigma1)
+				val =  (int) (fg * Math.exp(-(d1 * d1) / (2 * sigma1 * sigma1)));
+
+			return val;
+		}
+        if ( p12_x * c2_x + p12_y * c2_y + p12_z * c2_z < 0 ) {
+			// take the spherical distance from (x2,y2,z2)
+
+			double d2 		= Math.sqrt( Math.pow(c2_x, 2) + Math.pow(c2_y, 2) + Math.pow(c2_z, 2) );
+			double sigma2 	= r2 * k;
+
+			int val = 0;
+			if (d2<=3*sigma2)
+				val =  (int) (fg * Math.exp(-(d2 * d2) / (2 * sigma2 * sigma2)));
+
+			return val;
+		}
+
+
+        float d2 = (c2_x * p12_x) + (c2_y * p12_y) + (c2_z * p12_z); // projection c2 on p12
+
+        double d = Math.sqrt( Math.pow(-p12_x * d2 + c2_x, 2) + Math.pow(-p12_y * d2 + c2_y, 2) + Math.pow(-p12_z * d2 + c2_z, 2) );
+
+        // interpolate radius based on r1 and r2
+        double r = (d2*r1 + (P12-d2)*r2)/P12;
+        double sigma =  r * k;
+
+        // use d, sigma to calculate the value and scale it with fg
+        int val = 0;
+        if (d<=3*sigma)
+            //val = (int) (fg * Math.exp(-(d * d) / (2 * sigma * sigma)));
+            //val =  (int) (fg * Math.exp(-(d * d) / (2 * sigma * sigma)));
+            val =  (int) (fg * Math.exp(-(d * d) / (2 * sigma * sigma)));
+        return val;
 
     }
 
@@ -381,7 +361,6 @@ public class Generator3D {
     }
 
     private static boolean isCone(
-
             int xLoc,
             int yLoc,
             int zLoc,
@@ -395,8 +374,8 @@ public class Generator3D {
             float y2,
             float z2,
             float r2
-
-    ) {
+    )
+	{
 
         float p21_x = x2 - x1;
         float p21_y = y2 - y1;
@@ -453,8 +432,6 @@ public class Generator3D {
         }
 
     }
-
-
 
     private static int[] idx2xyz(int idx, int W, int H){  // will contain the allocation inside
         int[] xyz = new int[3];

@@ -25,8 +25,6 @@ public class Generator3DDemo implements PlugIn {
         float   snr;
         File    fileSWC;
         String  pathInSwc;
-        String  pathOutSwc="";
-        String  pathOutTif="";
 
         /*
             check argument nr.
@@ -51,30 +49,28 @@ public class Generator3DDemo implements PlugIn {
         k       = Float.valueOf(args[1]);
         snr     = Float.valueOf(args[2]);
 
-        System.out.println("loaded: \n"+pathInSwc+"\n"+k+"\n"+snr);
-
-
         /*
          set paths to outputs, same folder, keep the name with prefixes added
          */
         String parentDir = fileSWC.getParent() + File.separator;
         String name = fileSWC.getName().substring(0, fileSWC.getName().length()-4);
+
         // new names for outputs
-        pathOutSwc = parentDir + "REC_" + name + ".swc";
-        pathOutTif = parentDir + "IMG_" + name + ".tif";
-        //System.out.println("outputs = \n" + pathOutSwc + "\n" + pathOutTif);
+		String pathOutSwc = parentDir + "REC_" + name + ".swc";
+		String pathOutTif = parentDir + "IMG_" + name + ".tif";
+		String pathOutBif = parentDir + "BIF_" + name + ".swc";
+		String pathOutEnd = parentDir + "END_" + name + ".swc";
 
         /*
         generate image
          */
         Generator3D g3D = new Generator3D();
-        ImageStack isOut = g3D.Swc2Stack(pathInSwc, k, snr, pathOutSwc, pathOutTif);
+        ImageStack isOut = g3D.swc2Stack(pathInSwc, k, snr, pathOutSwc, pathOutBif, pathOutEnd, pathOutTif);
 
         FileSaver fs = new FileSaver(new ImagePlus(name, isOut));
         fs.saveAsTiffStack(pathOutTif);
 
     }
-
 
     /*
         IJ call
@@ -82,31 +78,56 @@ public class Generator3DDemo implements PlugIn {
     public void run(String s) {
 
         // parameters
-		//GenericDialog gd = new GenericDialog("GENERATE 3D NEURON");
+		GenericDialog gd = new GenericDialog("GENERATE 3D NEURON");
+		gd.addStringField("swc                  :", "path-to-swc", 50);
+		gd.addNumericField("k (gauss sigma=k*r) :", 1, 1);
+		gd.addNumericField("snr                 :", 3,  1);
 
-        float   k       = 1;
-        float   snr     = 3;
-        File    fileSWC;
-        String  pathInSwc = "/home/miroslav/test.swc";
-        String  pathOutSwc="";
-        String  pathOutTif="";
+		gd.showDialog();
+		if (gd.wasCanceled()) return;
 
+		String pathInSwc 	= gd.getNextString();
+        float   k       	= (float) gd.getNextNumber();
+        float   snr     	= (float) gd.getNextNumber();
+
+		/*
+            check if the swc input file exists
+         */
+		pathInSwc = new File(pathInSwc).getAbsolutePath();
+		File fileSWC = new File(pathInSwc);
+
+		if (!fileSWC.exists()) {
+			System.out.println("file "+pathInSwc+" does not exist!");
+			return;
+		}
+
+		/*
+         set paths to outputs, same folder, keep the name with prefixes added
+         */
+		String parentDir = fileSWC.getParent() + File.separator;
+		String name = fileSWC.getName().substring(0, fileSWC.getName().length()-4);
+
+		// new names for outputs
+		String pathOutSwc = parentDir + "REC_" + name + ".swc";
+		String pathOutTif = parentDir + "IMG_" + name + ".tif";
+		String pathOutBif = parentDir + "BIF_" + name + ".swc";
+		String pathOutEnd = parentDir + "END_" + name + ".swc";
+
+		/*
+        generate image
+         */
         Generator3D g3D = new Generator3D();
-        ImageStack isOut = g3D.Swc2Stack(pathInSwc, k, snr, pathOutSwc, pathOutTif);
+        ImageStack isOut = g3D.swc2Stack(pathInSwc, k, snr, pathOutSwc, pathOutBif, pathOutEnd, pathOutTif);
 
-        String outName = new File(pathInSwc).getName();
-        outName = outName.substring(outName.length()-4);
 
-        System.out.println(" file name: "+outName);
+		FileSaver fs = new FileSaver(new ImagePlus(name, isOut));
+		fs.saveAsTiffStack(pathOutTif);
 
-        ImagePlus imOut = new ImagePlus(outName, isOut);
-
-        // save with appropriate name and export cooresponding swc
-        FileSaver fs = new FileSaver(imOut);
-        String outPath = System.getProperty("user.home")+File.separator+"test.tif";
-        fs.saveAsTiffStack(outPath);
-        System.out.println(outPath+" saved.");
-
+//        String outName = new File(pathInSwc).getName();
+//        outName = outName.substring(outName.length()-4);
+//        FileSaver fs = new FileSaver(imOut);
+//        String outPath = System.getProperty("user.home")+File.separator+"test.tif";
+//        fs.saveAsTiffStack(outPath);
 
     }
 }

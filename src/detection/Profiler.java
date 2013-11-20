@@ -152,7 +152,6 @@ public class Profiler extends Thread {
 		weightStdRatioToD = weightStdRatioToD1;
 		outerRange 	= (int)Math.round(Math.sqrt(Math.pow(neuronDiam*scale+neuronDiam, 2) + Math.pow(neuronDiam, 2)));
 
-
         /*
         set offsets
          */

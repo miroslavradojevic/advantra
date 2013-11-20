@@ -12,24 +12,21 @@ import ij.process.ImageProcessor;
  */
 public class Masker extends Thread {
 
-    private int begN, endN; // range of locations to work on
+    private int begN, endN; 						// range of locations to work on
 
-    private static int 		image_width;
-    private static int 		image_height;
+    private static int 				image_width;
+    private static int 				image_height;
 
-    private static FloatProcessor    inip;
+    private static FloatProcessor   inip;
 
     public static FloatProcessor    backgr;    		// at one point
     public static FloatProcessor    margin;    		// how much above background
-	public static ByteProcessor     mask;  		// refers to region around the location
+	public static ByteProcessor     mask;  			// refers to region around the location
 
-	private static int              	radius;
-	private static int					alloc;
-
-//    private static int              bgComputationMode;
+	private static int              	radius;     //
+	private static int					alloc;      //
 
 	private static   float 			iDiff;
-//	public static 	float HYSTERESIS = 1;
 //    public static   float DECAY_STD = .25f*iDiff;
 
     public Masker (int n0, int n1) { // complete range would be image_width*image_height
@@ -90,7 +87,7 @@ public class Masker extends Thread {
             float locMgnXY 	= (locIdiffXY<=iDiff)? iDiff : 0;// I_DIFF*(float)Math.exp(- (locIdiffXY-I_DIFF)*(locIdiffXY-I_DIFF) / (2*DECAY_STD*DECAY_STD) ) ;
 
 			backgr.setf(atX, atY, locMedXY);
-			margin.setf(atX, atY, locMgnXY);
+			margin.setf(atX, atY, locMgnXY);     // TODO margin seems to be not used
 
 			//create mask (these locations will be considered in detection)
 			if (atX>radius && atY>radius && atX<inip.getWidth()-radius && atY<inip.getHeight()-radius) { // is in the image
