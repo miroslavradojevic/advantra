@@ -7,6 +7,7 @@ import ij.process.ByteProcessor;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * Created with IntelliJ IDEA.
@@ -30,7 +31,7 @@ public class Sphere3D {
 	public static int 		weightStdRatioToD = 4;  // could be a parameter
 
 	private float 	radius;                         // sphere radius
-	private static 	float 	arcNbhood = 1.5f;         // 2 * arcRes;
+	private static 	float 	arcNbhood = 1.5f;       // 2 * arcRes;
 	private int 	W, H, N;                        // W,H are width and height of the 2d profile, N defines optimal sampling
 	private int 	limR, limT;
 
@@ -42,7 +43,6 @@ public class Sphere3D {
 
 	ArrayList<float[][]> 	offstXYZ = new ArrayList<float[][]>(); 	// list of filter offsets for each direction
 
-	//ArrayList<float[]> 		weights = new ArrayList<float[]>();     // wiefght used for filtering // TODO: one block from the list is necessary others are just the same
     float[] weights;
 
 	public Sphere3D(float neuronDiam, float scale) {
@@ -114,7 +114,6 @@ public class Sphere3D {
 
 		// define coordinates for each direction
 		offstXYZ.clear();
-		//weights.clear();
         // weights define only once
         weights = new float[(2*limT+1)*(2*limT+1)*(limR+1)];
         float sumWgt = 0;
@@ -169,13 +168,11 @@ public class Sphere3D {
 			rotZ(theta, offsetsPerDirection);
 			offstXYZ.add(offsetsPerDirection); //store
 
-
-
 		}
 
         /*
 				normalize weights
-			 */
+	    */
         for (int iii=0; iii<weights.length; iii++) {
             weights[iii] /= sumWgt;
         }
@@ -299,38 +296,82 @@ public class Sphere3D {
 		return out;
 	}
 
-	public void printFilterDirections(String fileName){
+    private ArrayList<Integer> profilePeaks(float[] profile) {   // phi, theta
 
-		PrintWriter logWriter = null;
+        // search for local maxima and corresponding (phi, theta)
+        ArrayList<Integer> peaks = new ArrayList<Integer>();
 
-		try {
-			logWriter = new PrintWriter(fileName);
-			logWriter.print("");
-			logWriter.close();
-		} catch (FileNotFoundException ex) {}
+        for (int direcIdx=0; direcIdx<profile.length; direcIdx++) {
+            // calculate the index of local nbhood max for this profile sample
 
-		try {
-			logWriter = new PrintWriter(new BufferedWriter(new FileWriter(fileName, true)));
-			logWriter.println("# filter directions");
-		} catch (IOException e) {}
+            boolean isLocMax = true;
 
-		for (int ii=0; ii<elems.size(); ii++) {
+            // check neighbours for this one
+            for (int nbrLoop=0; nbrLoop<masks.get(direcIdx).length; nbrLoop++) {
 
-			float phi 	= elems.get(ii)[0];
-			float theta = elems.get(ii)[1];
+                int nbrIdx = masks.get(direcIdx)[nbrLoop];
+                if (profile[nbrIdx]>profile[direcIdx]) {
+                    isLocMax = false;// check the profile value at the index
+                }
 
-			logWriter.println(String.format("%d 2 %4.2f %4.2f %4.2f 0.1 -1",
-													(ii + 1),
-													getX(radius, phi, theta),
-													getY(radius, phi, theta),
-													getZ(radius, phi)));
+            }
 
-		}
+            if (isLocMax) {
+                peaks.add(direcIdx); //new float[]{elems.get(direcIdx)[0], elems.get(direcIdx)[1]});
+            }
 
-		logWriter.println(String.format("%d 1 %4.2f %4.2f %4.2f 1.0 -1", (elems.size() + 1), 0f, 0f, 0f));
-		logWriter.close();
+        }
 
-	}
+        return peaks;
+
+    }
+
+    public ArrayList<int[]> profilePeaksXY(float[] profile){ // profile peaks as planisphere image coordinates
+
+        // indexes of peaks
+        ArrayList<Integer> peakIdxs = profilePeaks(profile);
+        // 2d coordinates of the peaks in planisphere representation
+        ArrayList<int[]> out = new ArrayList<int[]>(peakIdxs.size());
+
+        for (int t=0; t<peakIdxs.size(); t++) {
+            out.add(vizXY.get(peakIdxs.get(t)));
+        }
+
+        return out;
+
+    }
+
+    public ArrayList<int[]> profilePeaksXYZ(float[] profile, float zDistImage) { // profile peaks as locations in 3d image (stacked set of 2d images)
+
+        // indexes of peaks
+        ArrayList<Integer> peakIdxs = profilePeaks(profile);
+
+        // index can be automatically mapped to (x,y,z) coordinate
+
+        // 3d coordinates (x[px],y[px],z[lay])
+        ArrayList<int[]> out = new ArrayList<int[]>(peakIdxs.size());
+
+        for (int t=0; t<peakIdxs.size(); t++) {
+
+            // convert to xyz
+            int indexOfPeakDirection = peakIdxs.get(t);
+
+            int[] peaksXYZ = new int[3];
+
+            float phi       = elems.get(indexOfPeakDirection)[0]; // position 0 iz marked as phi
+            float theta     = elems.get(indexOfPeakDirection)[1]; // position 1 iz marked as phi
+
+            // extract values in pixels
+            peaksXYZ[0] = Math.round( getX(radius, phi, theta) );                 // x
+            peaksXYZ[1] = Math.round( getY(radius, phi, theta) );                 // y
+            peaksXYZ[2] = Math.round( getZ(radius, phi       ) / zDistImage );    // layer
+
+            out.add(peaksXYZ);
+        }
+
+        return out;
+
+    }
 
 	private float getX(float r, float phi, float theta){return r * (float) Math.cos(phi) * (float) Math.cos(theta);}
 
@@ -486,7 +527,41 @@ public class Sphere3D {
 
 	}
 
-	public void printFilterOffsets(String dirPath){
+    public void printFilterDirections(String fileName){
+
+        PrintWriter logWriter = null;
+
+        try {
+            logWriter = new PrintWriter(fileName);
+            logWriter.print("");
+            logWriter.close();
+        } catch (FileNotFoundException ex) {}
+
+        try {
+            logWriter = new PrintWriter(new BufferedWriter(new FileWriter(fileName, true)));
+            logWriter.println("# filter directions");
+        } catch (IOException e) {}
+
+        for (int ii=0; ii<elems.size(); ii++) {
+
+            float phi 	= elems.get(ii)[0];
+            float theta = elems.get(ii)[1];
+
+            logWriter.println(String.format("%d 2 %4.2f %4.2f %4.2f 0.1 -1",
+                    (ii + 1),
+                    getX(radius, phi, theta),
+                    getY(radius, phi, theta),
+                    getZ(radius, phi)));
+
+        }
+
+        logWriter.println(String.format("%d 1 %4.2f %4.2f %4.2f 1.0 -1", (elems.size() + 1), 0f, 0f, 0f));
+        logWriter.close();
+
+    }
+
+
+    public void printFilterOffsets(String dirPath){
 
 		String fileName = dirPath+File.separator+"S3D_filter_sampling_all.swc";
 

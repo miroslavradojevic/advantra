@@ -5,6 +5,8 @@ import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.GenericDialog;
 import ij.gui.ImageCanvas;
+import ij.gui.Overlay;
+import ij.gui.PointRoi;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ByteProcessor;
 import ij.process.ImageProcessor;
@@ -12,6 +14,7 @@ import ij.process.ImageProcessor;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.io.File;
+import java.util.ArrayList;
 
 /**
  * Created with IntelliJ IDEA.
@@ -55,7 +58,6 @@ public class Sphere3DTest implements PlugInFilter, MouseListener {
 		}
 
 		// this is the demo on Sphere3D class
-		//Sphere3D s3 = new Sphere3D(neuronDiameter, scale);
 		System.out.println("Sphere3D with neuron diameter "+neuronDiameter+" and scale "+scale+ " formed.");
 
 		/*
@@ -91,21 +93,14 @@ public class Sphere3DTest implements PlugInFilter, MouseListener {
         imMasks.getCanvas().zoomIn(0, 0);
         imMasks.getCanvas().zoomIn(0, 0);
         imMasks.getCanvas().zoomIn(0, 0);
-
+        imMasks.getCanvas().zoomIn(0, 0);
+        imMasks.getCanvas().zoomIn(0, 0);
 
         /*
             3d stack with filter weights used to filter out one direction in 3d
          */
 
-
-
-
-		/*
-			detect peaks on selected profile
-		 */
-
-
-
+//        sphere.
 
 	}
 
@@ -115,8 +110,7 @@ public class Sphere3DTest implements PlugInFilter, MouseListener {
         int clickY = canv.offScreenY(e.getY());
         int clickZ = canv.getImage().getCurrentSlice()-1;
 
-        IJ.log("click: "+ clickX +" : "+ clickY +" : "+ clickZ);
-        showProfile(clickX, clickY, clickZ);
+        showProfile(clickX, clickY, clickZ); // detect peaks on selected profile
 
     }
 
@@ -147,6 +141,12 @@ public class Sphere3DTest implements PlugInFilter, MouseListener {
         if (gd.wasCanceled()) return DONE;
         zDist = (float) gd.getNextNumber();
 
+        /*
+            take into account the fact that the structures are elongated in z 3x
+         */
+        zDist = zDist/3;
+
+
         return DOES_32+DOES_8G+NO_CHANGES;
 
     }
@@ -157,10 +157,27 @@ public class Sphere3DTest implements PlugInFilter, MouseListener {
 
     private void showProfile(int clickX, int clickY, int clickZ) {
 
+        // find indexes
         float[] profile = sphere.extractProfile(clickX, clickY, clickZ, img3d_zxy, zDist);
+
+        // find planisphere profile
         ByteProcessor profileProc = sphere.drawProfile(profile);
-        new ImagePlus("profile", profileProc).show();
-        //IJ.log("profile extracted");
+        ImagePlus profileImage = new ImagePlus("profile", profileProc);
+
+        // mark the peaks
+        ArrayList<int[]> pks = sphere.profilePeaksXY(profile);
+        Overlay ov = new Overlay();
+        for (int tt=0; tt<pks.size(); tt++) {
+            ov.add(new PointRoi(pks.get(tt)[0], pks.get(tt)[1]));
+        }
+        profileImage.setOverlay(ov);
+        profileImage.show();
+
+        // plot neighbouring [x,y,z] coordinates
+        ArrayList<int[]> pks_xyz = sphere.profilePeaksXYZ(profile, zDist);
+        for (int tt=0; tt<pks_xyz.size(); tt++) {
+            IJ.log("peak "+tt+" : x="+pks_xyz.get(tt)[0]+"[px], y="+pks_xyz.get(tt)[1]+"[px], z="+pks_xyz.get(tt)[2]+"[lay]");
+        }
 
     }
 
