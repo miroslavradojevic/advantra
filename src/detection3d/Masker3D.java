@@ -1,9 +1,7 @@
 package detection3d;
 
-import ij.ImagePlus;
 import ij.ImageStack;
 import ij.process.ByteProcessor;
-import ij.process.FloatProcessor;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -306,6 +304,5 @@ public class Masker3D extends Thread {
 		return locs;
 
 	}
-
 
 }

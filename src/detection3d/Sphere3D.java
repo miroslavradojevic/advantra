@@ -270,6 +270,9 @@ public class Sphere3D {
 
 	}
 
+	/*
+		whole profile
+	 */
 	public float[] extractProfile(float atX, float atY, float atZ, float[][][] img3d_zxy, float zDist) {
 		// loops all elements and calculates filter outputs -> profile
 		float[] out = new float[offstXYZ.size()];
@@ -294,6 +297,28 @@ public class Sphere3D {
 		}
 
 		return out;
+	}
+
+	/*
+		profile component (for paralellization)
+	 */
+	public float extractProfile(int profileIdx, float atX, float atY, float atZ, float[][][] img3d_zxy, float zDist) {
+		// one element filter output (indexed with profileIdx)
+		float value = 0;
+
+		for (int offsetIdx=0; offsetIdx<offstXYZ.get(profileIdx).length; offsetIdx++) {
+
+			float x_offs_pix = offstXYZ.get(profileIdx)[offsetIdx][0];
+			float y_offs_pix = offstXYZ.get(profileIdx)[offsetIdx][1];
+			float z_offs_lay = offstXYZ.get(profileIdx)[offsetIdx][2] / zDist; // convert to layers
+
+			float imgVal = Interpolator.interpolateAt(atX+x_offs_pix, atY+y_offs_pix, atZ+z_offs_lay, img3d_zxy);
+			value += weights[offsetIdx] * imgVal;
+
+		}
+
+		return value;
+
 	}
 
     private ArrayList<Integer> profilePeaks(float[] profile) {   // phi, theta
@@ -559,7 +584,6 @@ public class Sphere3D {
         logWriter.close();
 
     }
-
 
     public void printFilterOffsets(String dirPath){
 

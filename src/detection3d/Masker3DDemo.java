@@ -1,12 +1,10 @@
 package detection3d;
 
-import detection.Masker;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.Prefs;
 import ij.gui.GenericDialog;
-import ij.plugin.PlugIn;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
@@ -42,17 +40,6 @@ public class Masker3DDemo implements PlugInFilter {
 
 		return DOES_8G+DOES_32+NO_CHANGES;
 	}
-
-//	public void run (ImageProcessor imageProcessor) {
-//		for (int i=0; i<100; i++) {
-//			IJ.log("\\Update:"+"line "+IJ.d2s(i, 0));
-//			try {
-//				Thread.sleep(1000);
-//			} catch (InterruptedException e) {
-//				e.printStackTrace();
-//			}
-//		}
-//	}
 
 	public void run(ImageProcessor imageProcessor) {
 

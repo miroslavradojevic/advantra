@@ -85,24 +85,6 @@ public class Detector {
 
 	}
 
-//	public Detector()
-//	{
-//		MIN_COS_ANG = .6f;
-//		MIN_FUZZY_SCORE = .6f;
-//		SCATTER_D2 = 5;
-//
-//		scale = 1.5f;
-//		resolDeg = Profiler.getResolDeg(scale);
-//
-////		profiles.clear();
-////		centersXY.clear();
-////		anglesRad.clear();
-////		peaksXY.clear();
-////		topologyXY.clear();
-////		theta.clear();
-//
-//	}
-
 	public ArrayList<ArrayList<int[]>> run(ImagePlus inimg, double neuronDiameter, float iDiff1)
 	{
 		// load image
