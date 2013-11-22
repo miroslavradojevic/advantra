@@ -75,30 +75,30 @@ public class Masker3DDemo implements PlugInFilter {
 
 		IJ.log("extracting background...    ");
 
-		long t1 = System.currentTimeMillis();
-
-		Masker3D.loadTemplate(inimg.getStack(), zDist, nhoodRadius, iDiff);
-
-		int totalJobs = inimg.getHeight()*inimg.getWidth()*inimg.getStackSize();
-
-		Masker3D ms_jobs[] = new Masker3D[CPU_NR];
-		for (int i = 0; i < ms_jobs.length; i++) {
-			ms_jobs[i] = new Masker3D(i*totalJobs/CPU_NR,  (i+1)*totalJobs/CPU_NR);
-			ms_jobs[i].start();
-		}
-		for (int i = 0; i < ms_jobs.length; i++) {
-			try {
-				ms_jobs[i].join();
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
-		}
-		long t2 = System.currentTimeMillis();
-		int fgLocations = Masker3D.getNrLocations();
-		IJ.log("done "+fgLocations+" locations ("+((float)fgLocations/(Masker3D.image_width*Masker3D.image_height*Masker3D.image_length))+" %) found in "+((t2-t1)/1000f)+" sec.");
-
-		inmask = new ImagePlus("inmask", Masker3D.getMask());
-		inmask.show();
+//		long t1 = System.currentTimeMillis();
+//
+//		Masker3D.loadTemplate(inimg.getStack(), zDist, nhoodRadius, iDiff);
+//
+//		int totalJobs = inimg.getHeight()*inimg.getWidth()*inimg.getStackSize();
+//
+//		Masker3D ms_jobs[] = new Masker3D[CPU_NR];
+//		for (int i = 0; i < ms_jobs.length; i++) {
+//			ms_jobs[i] = new Masker3D(i*totalJobs/CPU_NR,  (i+1)*totalJobs/CPU_NR);
+//			ms_jobs[i].start();
+//		}
+//		for (int i = 0; i < ms_jobs.length; i++) {
+//			try {
+//				ms_jobs[i].join();
+//			} catch (InterruptedException e) {
+//				e.printStackTrace();
+//			}
+//		}
+//		long t2 = System.currentTimeMillis();
+//		int fgLocations = Masker3D.getNrLocations();
+//		IJ.log("done "+fgLocations+" locations ("+((float)fgLocations/(Masker3D.image_width*Masker3D.image_height*Masker3D.image_length))+" %) found in "+((t2-t1)/1000f)+" sec.");
+//
+//		inmask = new ImagePlus("inmask", Masker3D.getMask());
+//		inmask.show();
 
 
 //		int size = Masker3D.sizeCircularNbhood(nhoodRadius);

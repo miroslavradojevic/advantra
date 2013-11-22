@@ -81,8 +81,6 @@ public class Detector {
 		scale = 1.5f;
 		resolDeg = Profiler.getResolDeg(scale);
 
-
-
 	}
 
 	public ArrayList<ArrayList<int[]>> run(ImagePlus inimg, double neuronDiameter, float iDiff1)

@@ -2,6 +2,8 @@ package detection3d;
 
 import ij.ImagePlus;
 import ij.gui.ImageCanvas;
+import ij.plugin.filter.PlugInFilter;
+import ij.process.ImageProcessor;
 
 /**
  * Created with IntelliJ IDEA.
@@ -9,7 +11,7 @@ import ij.gui.ImageCanvas;
  * Date: 11/22/13
  * Time: 6:03 AM
  */
-public class JunctionDetection3D {
+public class JunctionDetection3D implements PlugInFilter {
 
 	ImagePlus imp;
 	ImageCanvas cnv;
@@ -33,11 +35,29 @@ public class JunctionDetection3D {
 	boolean downsample = false;
 	float   neuriteDiameter = Float.NaN;
 
+    public int setup(String s, ImagePlus imagePlus) {
+        return 0;
+    }
+
+    public void run(ImageProcessor imageProcessor) {
+        //
+    }
+
+    public static void main(String[] args){
+
+        ImagePlus inimg  = new ImagePlus("/home/miroslav/mosaic.tif");
+        float zDist     = 3.03f;
+        float D         = 5;
+        float iDiff     = 10;
+
+        // detector parameters
 
 
-	// uses Detector3D class for the detection
+        // uses Detector3D
+        Detector3D det3D = new Detector3D();
+        det3D.run(inimg, zDist, D, iDiff);
 
 
-
+    }
 
 }
