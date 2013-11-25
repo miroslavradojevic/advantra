@@ -46,12 +46,11 @@ public class JunctionDetection3D implements PlugInFilter {
     public static void main(String[] args){
 
         ImagePlus inimg  = new ImagePlus("/home/miroslav/mosaic.tif");
-        float zDist     = 3.03f;
+        float zDist     = 3.4f;
         float D         = 5;
         float iDiff     = 10;
 
         // detector parameters
-
 
         // uses Detector3D
         Detector3D det3D = new Detector3D();

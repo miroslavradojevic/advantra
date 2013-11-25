@@ -15,18 +15,21 @@ import java.util.Arrays;
 public class Masker3D extends Thread {
 
 	private int begN, endN; 						// range of locations to work on
+	public static int JumpN = 3; 					// calculate every JumpN location (speed up reasons) and vote in between and interpolate background value
 
 	public static int 				image_width;
 	public static int 				image_height;
 	public static int 				image_length;
 
-	public static float[][][]		instack3;
-	public static float[][][]		back3;
-	public static byte[][][]		mask3;
+	public static float[][][]		instack3;       // input reference
 
-	private static int              	radius;
+	private static float              	radius;
 	private static float				zDist;
 	private static   float 				iDiff;
+
+	// outputs
+	public static float[][][]		back3;
+	public static boolean[][][]		mask3;
 
 	public Masker3D (int n0, int n1) {
 		// complete range would be image_width*image_height*image_length
@@ -35,14 +38,14 @@ public class Masker3D extends Thread {
 	}
 
 	public static void loadTemplate(float[][][] inimg3d_zxy, float zDist1, float radius1, float iDiff1)
-			// inis1 is a FloatProcessor stack
-			// zDist1 is ia z distance between layers in pixels
 	{
+		// inis1 is a FloatProcessor stack
+		// zDist1 is ia z distance between layers in pixels
 
-		image_height 	= inimg3d_zxy[0][0].length; // inis1.getHeight();
-		image_width 	= inimg3d_zxy[0].length; // inis1.getWidth();
-		image_length 	= inimg3d_zxy.length; // inis1.getSize();
-		radius          = (int) Math.ceil(radius1);
+		image_height 	= inimg3d_zxy[0][0].length;
+		image_width 	= inimg3d_zxy[0].length;
+		image_length 	= inimg3d_zxy.length;
+		radius          = radius1;//(int) Math.ceil(radius1);
 		iDiff			= iDiff1;
 		zDist			= zDist1;
 
@@ -60,7 +63,7 @@ public class Masker3D extends Thread {
 		/*
 			initialize mask3
 		 */
-		mask3 = new byte[image_length][image_width][image_height];
+		mask3 = new boolean[image_length][image_width][image_height];
 
 	}
 
@@ -69,7 +72,7 @@ public class Masker3D extends Thread {
             ArrayList<int[]> positions = extractCircularNbhoodIndexes(atX, atY, atZ, sphereRadius);
             for (int tt=0; tt<positions.size(); tt++) {
                 System.out.println(positions.get(tt)[0]+" , "+positions.get(tt)[1]+" , "+positions.get(tt)[2]);  // zxy
-                mask3[positions.get(tt)[0]][positions.get(tt)[1]][positions.get(tt)[2]] = (byte) 255;
+                mask3[positions.get(tt)[0]][positions.get(tt)[1]][positions.get(tt)[2]] = true;
             }
 
 
@@ -139,7 +142,6 @@ public class Masker3D extends Thread {
 	public static int sizeCircularNbhood(float sphereRadius)
 	{
 
-		// define how many layers will be captured by the radius
 		int rLayers 	= Math.round(sphereRadius / zDist);
 		int rPix 		= Math.round(sphereRadius);
 
@@ -207,6 +209,52 @@ public class Masker3D extends Thread {
 		return std;
 	}
 
+	public static void fill() {
+
+		for (int locIdx=0; locIdx<image_width*image_height*image_length; locIdx++) {
+
+			int atX = idx2x(locIdx, image_width, image_height);
+			int atY = idx2y(locIdx, image_width, image_height);
+			int atZ = idx2z(locIdx, image_width, image_height);
+
+			if (atX>=JumpN && atY>=JumpN && atX<image_width-JumpN && atY<image_height-JumpN) {
+
+				int modX = atX % JumpN;
+				int modY = atY % JumpN;
+
+
+				if (modX!=0 && modY==0) {
+
+					back3[atZ][atX][atY] = back3[atZ][atX-modX][atY] * ((float)(JumpN-modX)/JumpN) + back3[atZ][atX+(JumpN-modX)][atY] * ((float)(modX)/JumpN);
+					mask3[atZ][atX][atY] = mask3[atZ][atX-modX][atY] && mask3[atZ][atX+(JumpN-modX)][atY];
+
+				}
+				else if (modX==0 && modY!=0) {
+
+					back3[atZ][atX][atY] = back3[atZ][atX][atY-modY] * ((float)()/) + back3[][][] * ();
+					mask3[atZ][atX][atY] = mask3[atZ][atX][atY-modY] && mask3[atZ][atX][atY+(JumpN-modY)];
+
+
+				}
+				else if (modX!=0 && modY!=0) {
+
+					back3[atZ][atX][atY] = ;
+					mask3[atZ][atX][atY] = ;
+
+				}
+
+
+
+			}
+
+
+
+
+
+
+		}
+	}
+
 	public void run()
 	{
 
@@ -219,25 +267,37 @@ public class Masker3D extends Thread {
 			int atY = idx2y(locIdx, image_width, image_height);
 			int atZ = idx2z(locIdx, image_width, image_height);
 
-			//extractCircularNbhood(atX, atY, atZ, radius, circNeigh);
+			boolean processIt = (atX % JumpN == 0) && (atY % JumpN == 0); // to speed up the calculation
 
-			float locAvgXYZ 	= average(circNeigh);
+			if (processIt) {
 
-			float locStdXYZ 	= std(circNeigh, locAvgXYZ);
+				extractCircularNbhood(atX, atY, atZ, radius, circNeigh); // extract values from circular neighbourhood, will assign zeros to circNeigh if it is out
 
-			float locMedXYZ 	= locAvgXYZ;//median(circNeigh);   		// background
+				float locAvgXYZ 	= average(circNeigh);
 
-			float locIdiffXYZ= locAvgXYZ + 2 * locStdXYZ - locMedXYZ;
+				float locStdXYZ 	= std(circNeigh, locAvgXYZ);
 
-			float locMgnXYZ 	= (locIdiffXYZ<=iDiff)? iDiff : 0;
+				float locMedXYZ 	= median(circNeigh);
 
-			back3[atZ][atX][atY] = locMedXYZ; // backgr.setf(atX, atY, locMedXY);
+				float locMgnXYZ 	= (locAvgXYZ + 2 * locStdXYZ - locMedXYZ > iDiff)? 0 : iDiff;
 
-			if (atX>0 && atY>0 && atZ>0 && atX<(image_width-radius-1) && atY<(image_height-radius-1) && atZ<(image_length-radius-1)) {
+				back3[atZ][atX][atY] = locMedXYZ;
 
-				float Ixy = (instack3[atZ][atX][atY] + instack3[atZ][atX-1][atY] + instack3[atZ][atX+1][atY] + instack3[atZ][atX][atY-1] + instack3[atZ][atX][atY+1]) / 5f;
+				float Ixy;
+				if (
+						(atX-1>=0 && atX+1<image_width) 	&&
+						(atY-1>=0 && atY+1<image_height) 	&&
+						(atZ-1>=0 && atZ+1<image_length)
+				)
+				{
+					Ixy = (instack3[atZ][atX][atY] + instack3[atZ][atX-1][atY] + instack3[atZ][atX+1][atY] + instack3[atZ][atX][atY-1] + instack3[atZ][atX][atY+1]) / 5f;
+				}
+				else {
+					Ixy = instack3[atZ][atX][atY];
+				}
+
 				if (Ixy > locMedXYZ + locMgnXYZ) {
-					mask3[atZ][atX][atY] = (byte) 255;
+					mask3[atZ][atX][atY] = true;
                 }
 
 			}
@@ -247,14 +307,12 @@ public class Masker3D extends Thread {
 
 	private static int[] idx2xyz(int idx, int W, int H){
 		int[] xyz = new int[3];
-
 		// z = layer
 		xyz[2] = idx / (W*H);
 		// x ~ width
 		xyz[0] = (idx - xyz[2] * H * W) % W;
 		// y ~ height
 		xyz[1] = (idx - xyz[2] * H * W) / W;
-
 		return xyz;
 	}
 
@@ -288,7 +346,10 @@ public class Masker3D extends Thread {
 			int cnt = 0;
 			for (int y=0; y<image_height; y++) {
 				for (int x=0; x<image_width; x++) {
-					byteArray[cnt] = mask3[l][x][y];
+					if (mask3[l][x][y]) {
+						byteArray[cnt] = (byte)255;
+
+					}
 					cnt++;
 				}
 			}
@@ -302,14 +363,12 @@ public class Masker3D extends Thread {
 		return isOut;
 	}
 
-
-
 	public static int getNrLocations() {
 		int cnt = 0;
 		for (int l=0; l<image_length; l++) {
 			for (int x=0; x<image_width; x++) {
 				for (int y=0; y<image_height; y++) {
-					if (mask3[l][x][y]==(byte)255)
+					if (mask3[l][x][y])
 						cnt++;
 				}
 			}
@@ -325,7 +384,7 @@ public class Masker3D extends Thread {
 		for (int l=0; l<image_length; l++) {
 			for (int x=0; x<image_width; x++) {
 				for (int y=0; y<image_height; y++) {
-					if (mask3[l][x][y]==(byte)255)
+					if (mask3[l][x][y])
 						locs.add(new int[]{x, y, l});
 				}
 			}
