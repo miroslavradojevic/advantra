@@ -15,7 +15,7 @@ import java.util.Arrays;
 public class Masker3D extends Thread {
 
 	private int begN, endN; 						// range of locations to work on
-	public static int JumpN = 3; 					// calculate every JumpN location (speed up reasons) and vote in between and interpolate background value
+	public static int JumpN = 1; 					// calculate every JumpN location (speed up reasons) and vote in between and interpolate background value
 
 	public static int 				image_width;
 	public static int 				image_height;
@@ -67,69 +67,67 @@ public class Masker3D extends Thread {
 
 	}
 
-    public static void setMaskAtPos(int atX, int atY, int atZ, float sphereRadius) {
+//    public static void setMaskAtPos(int atX, int atY, int atZ, float sphereRadius) {
+//
+//        ArrayList<int[]> positions = extractCircularNbhoodIndexes(atX, atY, atZ, sphereRadius);
+//            for (int tt=0; tt<positions.size(); tt++) {
+//                System.out.println(positions.get(tt)[0]+" , "+positions.get(tt)[1]+" , "+positions.get(tt)[2]);  // zxy
+//                mask3[positions.get(tt)[0]][positions.get(tt)[1]][positions.get(tt)[2]] = true;
+//            }
+//
+//    }
 
-            ArrayList<int[]> positions = extractCircularNbhoodIndexes(atX, atY, atZ, sphereRadius);
-            for (int tt=0; tt<positions.size(); tt++) {
-                System.out.println(positions.get(tt)[0]+" , "+positions.get(tt)[1]+" , "+positions.get(tt)[2]);  // zxy
-                mask3[positions.get(tt)[0]][positions.get(tt)[1]][positions.get(tt)[2]] = true;
-            }
-
-
-    }
-
-    private static ArrayList<int[]> extractCircularNbhoodIndexes(int atX, int atY, int atZ, float sphereRadius) {
-
-        ArrayList<int[]> out = new ArrayList<int[]>();
-
-        int rPix = Math.round(sphereRadius);
-        int rLay = Math.round(sphereRadius / zDist);
-
-        if (atX-rPix>=0 && atY-rPix>=0 && atZ-rLay>=0 && atX+rPix<image_width && atY+rPix<image_height && atZ+rLay<image_length) {
-
-            int cnt = 0;
-
-            for (int xLoc=atX-rPix; xLoc<=atX+rPix; xLoc++) {
-                for (int yLoc=atY-rPix; yLoc<=atY+rPix; yLoc++) {
-                    for (int zLoc=atZ-rLay; zLoc<=atZ+rLay; zLoc++) { // loop in layers
-
-                        float c = (zLoc-atZ) * zDist;   // back to pixels
-                        if ( (xLoc-atX)*(xLoc-atX)+(yLoc-atY)*(yLoc-atY)+c*c <= rPix*rPix ) {
-
-                            out.add(new int[]{zLoc, xLoc, yLoc});
-
-                        }
-                    }
-                }
-            }
-        }
-
-        return out;
-
-    }
+//    private static ArrayList<int[]> extractCircularNbhoodIndexes(int atX, int atY, int atZ, float sphereRadius) {
+//
+//        ArrayList<int[]> out = new ArrayList<int[]>();
+//
+//        int rPix = Math.round(sphereRadius);
+//        int rLay = Math.round(sphereRadius / zDist);
+//
+//        if (atX-rPix>=0 && atY-rPix>=0 && atZ-rLay>=0 && atX+rPix<image_width && atY+rPix<image_height && atZ+rLay<image_length) {
+//
+//            int cnt = 0;
+//
+//            for (int xLoc=atX-rPix; xLoc<=atX+rPix; xLoc++) {
+//                for (int yLoc=atY-rPix; yLoc<=atY+rPix; yLoc++) {
+//                    for (int zLoc=atZ-rLay; zLoc<=atZ+rLay; zLoc++) { // loop in layers
+//
+//                        float c = (zLoc-atZ) * zDist;   // back to pixels
+//                        if ( (xLoc-atX)*(xLoc-atX)+(yLoc-atY)*(yLoc-atY)+c*c <= rPix*rPix ) {
+//
+//                            out.add(new int[]{zLoc, xLoc, yLoc});
+//
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//
+//        return out;
+//
+//    }
 
 	public static void extractCircularNbhood(int atX, int atY, int atZ, float sphereRadius, float[] values)
 	{
 
 		int rPix = Math.round(sphereRadius);
-		int rLay = Math.round(sphereRadius / zDist);
+		//int rLay = Math.round(sphereRadius / zDist);
 
-		if (atX-rPix>=0 && atY-rPix>=0 && atZ-rLay>=0 && atX+rPix<image_width && atY+rPix<image_height && atZ+rLay<image_length) {
+		if (atX-rPix>=0 && atY-rPix>=0 && atX+rPix<image_width && atY+rPix<image_height) {  // && atZ-rLay>=0  // && atZ+rLay < image_length
 
 			int cnt = 0;
 
 			for (int xLoc=atX-rPix; xLoc<=atX+rPix; xLoc++) {
 				for (int yLoc=atY-rPix; yLoc<=atY+rPix; yLoc++) {
-					for (int zLoc=atZ-rLay; zLoc<=atZ+rLay; zLoc++) { // loop in layers
+					//for (int zLoc=atZ-rLay; zLoc<=atZ+rLay; zLoc++) { // loop in layers
+						//float c = (zLoc-atZ) * zDist;   // back to pixels
+						if ( (xLoc-atX)*(xLoc-atX)+(yLoc-atY)*(yLoc-atY) <= rPix*rPix ) { // +c*c
 
-						float c = (zLoc-atZ) * zDist;   // back to pixels
-						if ( (xLoc-atX)*(xLoc-atX)+(yLoc-atY)*(yLoc-atY)+c*c <= rPix*rPix ) {
-
-							values[cnt] = instack3[zLoc][xLoc][yLoc];
+							values[cnt] = instack3[atZ][xLoc][yLoc];
 							cnt++;
 
 						}
-					}
+					//}
 				}
 			}
 		}
@@ -142,17 +140,17 @@ public class Masker3D extends Thread {
 	public static int sizeCircularNbhood(float sphereRadius)
 	{
 
-		int rLayers 	= Math.round(sphereRadius / zDist);
+		//int rLayers 	= Math.round(sphereRadius / zDist);
 		int rPix 		= Math.round(sphereRadius);
 
 		int cnt = 0;
 
 		for (int a=-rPix; a<=rPix; a++) {
 			for (int b=-rPix; b<=rPix; b++) {
-				for (int cLayers=-rLayers; cLayers<=rLayers; cLayers++) { // loop in layers
-					float c = cLayers * zDist;   // back to pixels
-					if ( a*a+b*b+c*c <= rPix*rPix ) cnt++;
-				}
+				//for (int cLayers=-rLayers; cLayers<=rLayers; cLayers++) { // loop in layers
+					//float c = cLayers * zDist;   // back to pixels
+					if ( a*a+b*b <= rPix*rPix ) cnt++; // +c*c
+				//}
 			}
 		}
 
@@ -231,26 +229,28 @@ public class Masker3D extends Thread {
 				}
 				else if (modX==0 && modY!=0) {
 
-					back3[atZ][atX][atY] = back3[atZ][atX][atY-modY] * ((float)()/) + back3[][][] * ();
+					back3[atZ][atX][atY] = back3[atZ][atX][atY-modY] * ((float)(JumpN-modY)/JumpN) + back3[atZ][atX][atY+(JumpN-modY)] * ((float)(modY)/JumpN);
 					mask3[atZ][atX][atY] = mask3[atZ][atX][atY-modY] && mask3[atZ][atX][atY+(JumpN-modY)];
 
 
 				}
 				else if (modX!=0 && modY!=0) {
 
-					back3[atZ][atX][atY] = ;
-					mask3[atZ][atX][atY] = ;
+					back3[atZ][atX][atY] =
+                            (1f/(JumpN*JumpN)) * (
+                                    back3[atZ][atX-modX][atY-modY] *                    ((float)(JumpN-modX)*(JumpN-modY)) +
+                                            back3[atZ][atX+(JumpN-modX)][atY-modY] *            ((float)(JumpN-modY)*(modX))       +
+                                            back3[atZ][atX-modX][atY+(JumpN-modY)] *            ((float)(JumpN-modX)*(modY))       +
+                                            back3[atZ][atX+(JumpN-modX)][atY+(JumpN-modY)] *    ((float)(modX)*(modY))
+                                    ); // bilinear
+					mask3[atZ][atX][atY] =  (mask3[atZ][atX-modX][atY-modY]                 && mask3[atZ][atX+(JumpN-modX)][atY-modY])          ||
+                                            (mask3[atZ][atX-modX][atY+(JumpN-modY)]         && mask3[atZ][atX+(JumpN-modX)][atY+(JumpN-modY)])  ||
+                                            (mask3[atZ][atX-modX][atY-modY]                 && mask3[atZ][atX-modX][atY+(JumpN-modY)])          ||
+                                            (mask3[atZ][atX+(JumpN-modX)][atY-modY]         && mask3[atZ][atX+(JumpN-modX)][atY+(JumpN-modY)]);
 
 				}
 
-
-
 			}
-
-
-
-
-
 
 		}
 	}
@@ -273,13 +273,15 @@ public class Masker3D extends Thread {
 
 				extractCircularNbhood(atX, atY, atZ, radius, circNeigh); // extract values from circular neighbourhood, will assign zeros to circNeigh if it is out
 
-				float locAvgXYZ 	= average(circNeigh);
+				//float locAvgXYZ 	= average(circNeigh);
 
-				float locStdXYZ 	= std(circNeigh, locAvgXYZ);
+				//float locStdXYZ 	= std(circNeigh, locAvgXYZ);
 
 				float locMedXYZ 	= median(circNeigh);
 
-				float locMgnXYZ 	= (locAvgXYZ + 2 * locStdXYZ - locMedXYZ > iDiff)? 0 : iDiff;
+                // calculate 95% median here or take median of smaller circle
+
+				float locMgnXYZ 	= iDiff;//(locAvgXYZ + 2 * locStdXYZ - locMedXYZ > iDiff)? 0 : iDiff;
 
 				back3[atZ][atX][atY] = locMedXYZ;
 

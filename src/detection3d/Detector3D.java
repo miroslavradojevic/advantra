@@ -18,9 +18,7 @@ public class Detector3D {
     float zDist;
 
 	Sphere3D sph3D;         // will be tool of thread classes - used to make geometric computations
-
-//    byte [][][] foregroundLocations_zxy;    // = new byte[1][1][1];         // runMasker() output
-//    float[][][] backgroundEst_zxy;          // = new float[1][1][1];        // runMasker() output
+    MaskerOutput mo = new MaskerOutput(); // output is stored here
 
     double 	D;
     float 	iDiff;
@@ -33,6 +31,7 @@ public class Detector3D {
     public static int		W_STD_RATIO_WRT_TO_D = 3;
 
     int CPU_NR;
+    float NBHOOD_SCALE;
 
     public Detector3D() {
         System.out.println("loading default parameters...");
@@ -59,14 +58,14 @@ public class Detector3D {
         if(inimg==null || inimg.getStackSize()<=1) return ;
 
         this.img3d_zxy = stackToZxyArray(inimg.getStack());
-        this.zDist = zDist1;
+        this.zDist = zDist1 / 3;                                    // correct for the spreading through slices
         this.D = neuronDiameter;
         this.iDiff = iDiff1;
         this.r = (float) (scale * D);
 
-        // some important parameters
+        // some parameters
         this.CPU_NR = Runtime.getRuntime().availableProcessors();
-
+        this.NBHOOD_SCALE = 1.5f;
 
         /*
             general pipeline is:
@@ -80,20 +79,25 @@ public class Detector3D {
             4 analyze recursive lists starting from each location
          */
 
+        long t1, t2;
+
         // 1. MASK
-        System.out.print("separating foreground... ");
-		long t1 = System.currentTimeMillis();
+        System.out.println("separating foreground... "+(1.5f * r));
+		t1 = System.currentTimeMillis();
 
-		MaskerOutput mo = new MaskerOutput(); // output is stored here
+		runMasker(img3d_zxy, zDist, NBHOOD_SCALE * r, iDiff, mo);
 
-		runMasker(img3d_zxy, zDist, 1.5f * r, iDiff, mo);
-
-		long t2 = System.currentTimeMillis();
-
+		t2 = System.currentTimeMillis();
 		System.out.println("done. " + ((t2 - t1) / 1000f) + " sec.");
 
 		// 2. PROFILE
+        System.out.println("separating foreground... "+(1.5f * r));
+        t1 = System.currentTimeMillis();
 
+
+
+        t2 = System.currentTimeMillis();
+        System.out.println("done. " + ((t2 - t1) / 1000f) + " sec.");
 
 		// 3. PROFILE PEAK(S)
 
@@ -139,6 +143,7 @@ public class Detector3D {
 		 	skipped locations are filled,
 		  */
 		Masker3D.fill();
+        System.out.println("done with fill()");
 
 		/*
 		 	store locations, estimated background and binary mask them in output class (take from Masker3D into MaskerOutput instance
@@ -163,9 +168,23 @@ public class Detector3D {
 				}
 			}
 		}
+
+        System.out.println("found "+cnt+" foreground locations ");
+
+        float perc = (cnt*100f) / (Xdim*Ydim*Zdim);
+
+        System.out.println(perc+" %");
+
+        if (perc > 40) {// more than 40 percent is wrong
+            System.out.println("too many foreground points, stop...");
+            //return;
+        }
+
 		// align
 		mo.foregroundLocsZXY = new int[cnt][3];
 		mo.backgroundEst = new float[cnt];
+
+        System.out.println("allocated");
 
 		cnt =0;
 		for (int zz=0; zz<Zdim; zz++) {
@@ -188,9 +207,7 @@ public class Detector3D {
 			}
 		}
 
-
 		new ImagePlus("", Masker3D.getMask()).show();
-
 
 	}
 
