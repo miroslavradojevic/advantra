@@ -270,6 +270,11 @@ public class Sphere3D {
 
 	}
 
+	public int getProfileLength()
+	{
+		return offstXYZ.size();
+	}
+
 	/*
 		whole profile
 	 */

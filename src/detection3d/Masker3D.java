@@ -15,7 +15,7 @@ import java.util.Arrays;
 public class Masker3D extends Thread {
 
 	private int begN, endN; 						// range of locations to work on
-	public static int JumpN = 1; 					// calculate every JumpN location (speed up reasons) and vote in between and interpolate background value
+	public static int JumpN = 2; 					// calculate every JumpN location (speed up reasons) and vote in between and interpolate background value
 
 	public static int 				image_width;
 	public static int 				image_height;
@@ -28,7 +28,7 @@ public class Masker3D extends Thread {
 	private static   float 				iDiff;
 
 	// outputs
-	public static float[][][]		back3;
+	public static byte[][][]		back3;
 	public static boolean[][][]		mask3;
 
 	public Masker3D (int n0, int n1) {
@@ -58,7 +58,7 @@ public class Masker3D extends Thread {
 			initialize back3
 		 */
 
-		back3 = new float[image_length][image_width][image_height];
+		back3 = new byte[image_length][image_width][image_height];
 
 		/*
 			initialize mask3
@@ -187,6 +187,42 @@ public class Masker3D extends Thread {
 		return a[k] ;
 	}
 
+	public static float quantile(float[] a, int ratioNum, int ratioDen) // ratioNum/ratioDen first ones
+	{
+		int n = a.length;
+		int i, j, l, m, k;
+		double x;
+
+//		if (n % 2 == 0) k = ((3*n)/4)-1;
+//		else k = ((3*n)/4);
+
+		if ((ratioNum*n) % ratioDen == 0) k = ((ratioNum*n)/ratioDen)-1;
+		else k = (ratioNum*n)/ratioDen;
+
+		l=0 ; m=n-1 ;
+		while (l < m)
+		{
+			x=a[k] ;
+			i = l ;
+			j = m ;
+			do
+			{
+				while (a[i] < x) i++ ;
+				while (x < a[j]) j-- ;
+				if (i <= j) {
+					float temp = a[i];
+					a[i] = a[j];
+					a[j] = temp;
+					i++ ; j-- ;
+				}
+			} while (i <= j) ;
+			if (j < k) l = i ;
+			if (k < i) m = j ;
+		}
+		return a[k] ;
+	}
+
+
 	public static float average(float[] a)
 	{
 		float meanVal = 0;
@@ -223,26 +259,35 @@ public class Masker3D extends Thread {
 
 				if (modX!=0 && modY==0) {
 
-					back3[atZ][atX][atY] = back3[atZ][atX-modX][atY] * ((float)(JumpN-modX)/JumpN) + back3[atZ][atX+(JumpN-modX)][atY] * ((float)(modX)/JumpN);
+					back3[atZ][atX][atY] = (byte)Math.round(
+							(back3[atZ][atX-modX][atY]      	&0xff) * ((float)(JumpN-modX)/JumpN) +
+							(back3[atZ][atX+(JumpN-modX)][atY]	&0xff) * ((float)(modX)      /JumpN)
+					);
 					mask3[atZ][atX][atY] = mask3[atZ][atX-modX][atY] && mask3[atZ][atX+(JumpN-modX)][atY];
 
 				}
 				else if (modX==0 && modY!=0) {
 
-					back3[atZ][atX][atY] = back3[atZ][atX][atY-modY] * ((float)(JumpN-modY)/JumpN) + back3[atZ][atX][atY+(JumpN-modY)] * ((float)(modY)/JumpN);
+					back3[atZ][atX][atY] = (byte)Math.round(
+							(back3[atZ][atX][atY-modY] 		   &0xff) * ((float)(JumpN-modY)/JumpN) +
+							(back3[atZ][atX][atY+(JumpN-modY)] &0xff) * ((float)(modY)      /JumpN)
+					);
 					mask3[atZ][atX][atY] = mask3[atZ][atX][atY-modY] && mask3[atZ][atX][atY+(JumpN-modY)];
 
 
 				}
 				else if (modX!=0 && modY!=0) {
 
-					back3[atZ][atX][atY] =
-                            (1f/(JumpN*JumpN)) * (
-                                    back3[atZ][atX-modX][atY-modY] *                    ((float)(JumpN-modX)*(JumpN-modY)) +
-                                            back3[atZ][atX+(JumpN-modX)][atY-modY] *            ((float)(JumpN-modY)*(modX))       +
-                                            back3[atZ][atX-modX][atY+(JumpN-modY)] *            ((float)(JumpN-modX)*(modY))       +
-                                            back3[atZ][atX+(JumpN-modX)][atY+(JumpN-modY)] *    ((float)(modX)*(modY))
-                                    ); // bilinear
+					back3[atZ][atX][atY] = (byte)Math.round(
+                            (1f/(JumpN*JumpN)) *
+						    (
+							(back3[atZ][atX-modX][atY-modY]&0xff) *                    ((float)(JumpN-modX)*(JumpN-modY)) +
+							(back3[atZ][atX+(JumpN-modX)][atY-modY]&0xff) *            ((float)(JumpN-modY)*(modX))       +
+							(back3[atZ][atX-modX][atY+(JumpN-modY)]&0xff) *            ((float)(JumpN-modX)*(modY))       +
+							(back3[atZ][atX+(JumpN-modX)][atY+(JumpN-modY)]&0xff) *    ((float)(modX)*(modY))
+                            )
+					); // bilinear
+
 					mask3[atZ][atX][atY] =  (mask3[atZ][atX-modX][atY-modY]                 && mask3[atZ][atX+(JumpN-modX)][atY-modY])          ||
                                             (mask3[atZ][atX-modX][atY+(JumpN-modY)]         && mask3[atZ][atX+(JumpN-modX)][atY+(JumpN-modY)])  ||
                                             (mask3[atZ][atX-modX][atY-modY]                 && mask3[atZ][atX-modX][atY+(JumpN-modY)])          ||
@@ -274,31 +319,31 @@ public class Masker3D extends Thread {
 				extractCircularNbhood(atX, atY, atZ, radius, circNeigh); // extract values from circular neighbourhood, will assign zeros to circNeigh if it is out
 
 				//float locAvgXYZ 	= average(circNeigh);
-
 				//float locStdXYZ 	= std(circNeigh, locAvgXYZ);
 
 				float locMedXYZ 	= median(circNeigh);
 
                 // calculate 95% median here or take median of smaller circle
 
-				float locMgnXYZ 	= iDiff;//(locAvgXYZ + 2 * locStdXYZ - locMedXYZ > iDiff)? 0 : iDiff;
+				//float locMgnXYZ 	= iDiff; // (locAvgXYZ + 2 * locStdXYZ - locMedXYZ > iDiff)? 0 : iDiff;
 
-				back3[atZ][atX][atY] = locMedXYZ;
+				back3[atZ][atX][atY] = (byte)Math.round(locMedXYZ);
 
-				float Ixy;
-				if (
-						(atX-1>=0 && atX+1<image_width) 	&&
-						(atY-1>=0 && atY+1<image_height) 	&&
-						(atZ-1>=0 && atZ+1<image_length)
-				)
-				{
-					Ixy = (instack3[atZ][atX][atY] + instack3[atZ][atX-1][atY] + instack3[atZ][atX+1][atY] + instack3[atZ][atX][atY-1] + instack3[atZ][atX][atY+1]) / 5f;
-				}
-				else {
-					Ixy = instack3[atZ][atX][atY];
-				}
+				float Ixy = quantile(circNeigh, 15, 20);
 
-				if (Ixy > locMedXYZ + locMgnXYZ) {
+//				if (
+//						(atX-1>=0 && atX+1<image_width) 	&&
+//						(atY-1>=0 && atY+1<image_height) 	&&
+//						(atZ-1>=0 && atZ+1<image_length)
+//				)
+//				{
+//					Ixy = (instack3[atZ][atX][atY] + instack3[atZ][atX-1][atY] + instack3[atZ][atX+1][atY] + instack3[atZ][atX][atY-1] + instack3[atZ][atX][atY+1]) / 5f;
+//				}
+//				else {
+//					Ixy = instack3[atZ][atX][atY];
+//				}
+
+				if (Ixy > locMedXYZ + iDiff) {
 					mask3[atZ][atX][atY] = true;
                 }
 

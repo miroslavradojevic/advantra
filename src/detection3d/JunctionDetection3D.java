@@ -20,13 +20,11 @@ public class JunctionDetection3D implements PlugInFilter {
 	float 	D;
 	float 	iDiff;
 
-	float 	minCosAngle;
-	float 	minFuzzyScore;
-	int 	MIN_SIZE;
-	float 	scatterDistSquared = 5f;
-
-	static int 			wStdRatioToD		= 6;
-	static float 	 	LOCATION_TOLERANCE_SCALE 	= 1.8f;
+//	float 	minCosAngle;
+//	float 	minFuzzyScore;
+//	int 	MIN_SIZE;
+//	float 	scatterDistSquared = 5f;
+//	static float 	 	LOCATION_TOLERANCE_SCALE 	= 1.8f;
 
 	private static float 	Deg2Rad = (float) (Math.PI/180f);
 	private static float 	Rad2Deg = (float) (180f/Math.PI);

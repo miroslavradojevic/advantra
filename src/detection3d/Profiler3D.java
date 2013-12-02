@@ -12,31 +12,35 @@ public class Profiler3D extends Thread {
 
 	private int begN, endN;
 
-	public static double 	neuronDiam;
-	public static double 	scale;
-	public static int 		outerRange;
-	public static int 		weightStdRatioToD;
+	public static Sphere3D 	sph3;
+	public static int[][] 	listLocs3D;
+	public static short[][]	prof3;
 
-	private static int 		resolDegTheta;
-	private static int 		resolDegPhi;
-
-	//public static ArrayList<ArrayList<double[]>> 	offsets;
-	//public static ArrayList<ArrayList<Double>> 		weights;
-
-	// profile resolution (4N+1) x (2N+1)  4N+1 cover 360 deg, 2N+1 cover 180 deg.
-	public int 				N;
-	public int[]			indexMap;
-	public float[] 			theta; 			// azimuth - horizontal   -PI, +PI
-	public float[] 			phi;    		// inclination - vertical -PI/2, +PI/2
-
-	public Profiler3D(int n0, int n1){
-
+	public Profiler3D(int n0, int n1)
+	{
 		this.begN = n0; // split oriented filters
 		this.endN = n1;
+	}
+
+	public static void loadTemplate(Sphere3D sph3_init, int[][] listLocs3D_init){
+
+		sph3 = sph3_init; // just assign link, no allocation necessary since there will be one Sphere3D instance for all
+		listLocs3D = listLocs3D_init;
+
+		/*
+			set prof3
+		 */
+		System.out.println("allocated for profiles: "+listLocs3D.length+" locations x "+sph3.getProfileLength()+" (profile length)");
+
+		prof3 = new short[listLocs3D.length][sph3.getProfileLength()];
+
+		System.out.println("input "+listLocs3D.length+" locations x "+listLocs3D[0].length+" coordinates");
+
 
 	}
 
-	public static void loadTemplate(){
+	public void run()
+	{
 
 	}
 
