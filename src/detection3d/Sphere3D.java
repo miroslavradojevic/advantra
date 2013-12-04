@@ -275,12 +275,38 @@ public class Sphere3D {
 		return offstXYZ.size();
 	}
 
+    /*
+        whole profile, procedure, integer locations
+     */
+    public void extractProfile(int atX, int atY, int atZ, float[][][] img3d_zxy, float zDist, float[] outProfile) { // outProfile has to have exact length as expected profile length
+
+        for (int profileIdx=0; profileIdx<offstXYZ.size(); profileIdx++) {
+
+            float value = 0;
+
+            for (int offsetIdx = 0; offsetIdx<offstXYZ.get(profileIdx).length; offsetIdx++) {
+
+                float x_offs_pix = offstXYZ.get(profileIdx)[offsetIdx][0];
+                float y_offs_pix = offstXYZ.get(profileIdx)[offsetIdx][1];
+                float z_offs_lay = offstXYZ.get(profileIdx)[offsetIdx][2];
+
+                float imgVal = Interpolator.interpolateAt(atX+x_offs_pix, atY+y_offs_pix, atZ+z_offs_lay, img3d_zxy);
+                value += weights[offsetIdx] * imgVal;
+
+            }
+
+            outProfile[profileIdx] = value;
+
+        }
+
+    }
+
 	/*
-		whole profile
+		whole profile, function, float locations
 	 */
 	public float[] extractProfile(float atX, float atY, float atZ, float[][][] img3d_zxy, float zDist) {
 		// loops all elements and calculates filter outputs -> profile
-		float[] out = new float[offstXYZ.size()];
+		float[] out = new float[offstXYZ.size()];    // equivalent to getProfileLength() output
 
 		for (int profleIdx=0; profleIdx<offstXYZ.size(); profleIdx++) {
 
@@ -400,6 +426,108 @@ public class Sphere3D {
         }
 
         return out;
+
+    }
+
+    public void peakCoords_4xXYZ(
+            float[] profile,          // already calculated
+            int     profileCenterX,   // already calculated
+            int     profileCenterY,   // already calculated
+            int     profileCenterZ,   // already calculated
+
+            float[][][] img3d_zxy,      // input
+            float zDistImage,           // input
+
+            int[][] _4xXYZ            // output
+    )
+    {
+    // output is stored in 4x3 integer array
+
+        ArrayList<Integer> peakIdxs = profilePeaks(profile); // list indexes of peaks
+
+        // take top 4 and store them according to the importance (criteria: median along the connecting line, since we don't do the iterations any more)
+        float[] medAlongLin = new float[4]; // allocate for each detected peak to compare
+        Arrays.fill(medAlongLin, -1f);
+
+        for (int t = 0; t<peakIdxs.size(); t++) { // check every peak
+
+            int indexOfPeakDirection = peakIdxs.get(t);
+
+            float phi       = elems.get(indexOfPeakDirection)[0];
+            float theta     = elems.get(indexOfPeakDirection)[1];
+
+            float x_peak_pix = profileCenterX + getX(radius, phi, theta);
+            float y_peak_pix = profileCenterY + getY(radius, phi, theta);
+            float z_peak_lay = profileCenterZ + getZ(radius, phi) / zDistImage; // convert pix to lay first
+
+            int x_peak_pix_base = (int) Math.floor(x_peak_pix);
+            int y_peak_pix_base = (int) Math.floor(y_peak_pix);
+            int z_peak_lay_base = (int) Math.round(z_peak_lay);
+
+            /*
+                pick the best out of 4-neighbours from the same plane - for more robustness, 4 neighbourhood around subpixel x,y,z_peak_pix,lay
+             */
+
+            float maxMedian = Float.MIN_VALUE;
+            int[] currentPeaksXYZ  = new int[3];
+
+            for (int ii = 0; ii <= 1; ii++) { // check around peak
+                for (int jj = 0; jj <= 1; jj++) {
+
+                    float currMedian = medianAlongLine(
+                            profileCenterX,
+                            profileCenterY,
+                            profileCenterZ,
+                            x_peak_pix_base + ii,
+                            y_peak_pix_base + jj,
+                            z_peak_lay_base,
+                            img3d_zxy);
+
+                    if (currMedian>maxMedian) {
+                        // set this one as peak
+
+                        // update maxMedian
+                        maxMedian = currMedian;
+                    }
+
+                }
+            }
+
+
+            // insert maxMedian and currentPeaksXYZ to the list of 4
+
+
+
+        }
+
+
+
+
+
+    }
+
+    private float medianAlongLine(float x1, float y1, float z1lay, float x2, float y2, float z2lay, float[][][] img3d_zxy) {
+
+        int elementsInLine = Math.round(radius / 0.7f);
+        float[] valuesAlongLine = new float[elementsInLine];
+
+        float dist = (float) Math.sqrt(Math.pow(x2-x1, 2) + Math.pow(y2-y1, 2) + Math.pow(z2lay-z1lay, 2));
+
+        float dx = (x2 - x1) / dist;
+        float dy = (y2 - y1) / dist;
+        float dz = (z2lay - z1lay) / dist;
+
+        for (int cc = 0; cc<elementsInLine; cc++) {
+
+            float atX = x1      + cc * dx;
+            float atY = y1      + cc * dy;
+            float atZ = z1lay   + cc * dz;
+
+            valuesAlongLine[cc] = Interpolator.interpolateAt(atX, atY, atZ, img3d_zxy);
+
+        }
+
+        return Stat.median(valuesAlongLine);
 
     }
 

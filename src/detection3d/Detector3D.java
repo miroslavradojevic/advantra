@@ -213,7 +213,7 @@ public class Detector3D {
 	}
 
 	/*
-		run threaded profile extraction
+		run threaded profile (peak really) extraction
 	 */
 	private void runProfiler()
 	{

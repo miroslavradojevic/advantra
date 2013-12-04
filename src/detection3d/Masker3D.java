@@ -157,91 +157,9 @@ public class Masker3D extends Thread {
 		return cnt;
 	}
 
-	public static float median(float[] a)
-	{
-		int n = a.length;
-		int i, j, l, m, k;
-		double x;
-		if (n % 2 == 0) k = (n/2)-1;
-		else k = (n/2);
-		l=0 ; m=n-1 ;
-		while (l < m)
-		{
-			x=a[k] ;
-			i = l ;
-			j = m ;
-			do
-			{
-				while (a[i] < x) i++ ;
-				while (x < a[j]) j-- ;
-				if (i <= j) {
-					float temp = a[i];
-					a[i] = a[j];
-					a[j] = temp;
-					i++ ; j-- ;
-				}
-			} while (i <= j) ;
-			if (j < k) l = i ;
-			if (k < i) m = j ;
-		}
-		return a[k] ;
-	}
-
-	public static float quantile(float[] a, int ratioNum, int ratioDen) // ratioNum/ratioDen first ones
-	{
-		int n = a.length;
-		int i, j, l, m, k;
-		double x;
-
-//		if (n % 2 == 0) k = ((3*n)/4)-1;
-//		else k = ((3*n)/4);
-
-		if ((ratioNum*n) % ratioDen == 0) k = ((ratioNum*n)/ratioDen)-1;
-		else k = (ratioNum*n)/ratioDen;
-
-		l=0 ; m=n-1 ;
-		while (l < m)
-		{
-			x=a[k] ;
-			i = l ;
-			j = m ;
-			do
-			{
-				while (a[i] < x) i++ ;
-				while (x < a[j]) j-- ;
-				if (i <= j) {
-					float temp = a[i];
-					a[i] = a[j];
-					a[j] = temp;
-					i++ ; j-- ;
-				}
-			} while (i <= j) ;
-			if (j < k) l = i ;
-			if (k < i) m = j ;
-		}
-		return a[k] ;
-	}
-
-
-	public static float average(float[] a)
-	{
-		float meanVal = 0;
-		for (int i=0; i<a.length; i++)
-			meanVal += a[i];
-		return meanVal/a.length;
-
-	}
-
-	public static float std(float[] in, float avg)
-	{
-		float std = 0;
-		for (int i=0; i<in.length; i++) {
-			std += (in[i]-avg)*(in[i]-avg);
-		}
-		std /= in.length;
-		std = (float) Math.sqrt(std);
-		return std;
-	}
+    /*
+        following statistical measures will be used in ranking the peaks (e.g. median along line)
+     */
 
 	public static void fill() {
 
@@ -321,7 +239,7 @@ public class Masker3D extends Thread {
 				//float locAvgXYZ 	= average(circNeigh);
 				//float locStdXYZ 	= std(circNeigh, locAvgXYZ);
 
-				float locMedXYZ 	= median(circNeigh);
+				float locMedXYZ 	= Stat.median(circNeigh);
 
                 // calculate 95% median here or take median of smaller circle
 
@@ -329,7 +247,7 @@ public class Masker3D extends Thread {
 
 				back3[atZ][atX][atY] = (byte)Math.round(locMedXYZ);
 
-				float Ixy = quantile(circNeigh, 15, 20);
+				float Ixy = Stat.quantile(circNeigh, 15, 20); // 95%
 
 //				if (
 //						(atX-1>=0 && atX+1<image_width) 	&&
