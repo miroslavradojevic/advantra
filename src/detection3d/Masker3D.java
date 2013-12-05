@@ -23,9 +23,10 @@ public class Masker3D extends Thread {
 
 	public static float[][][]		instack3;       // input reference
 
-	private static float              	radius;
-	private static float				zDist;
-	private static   float 				iDiff;
+	private static float            radiusCheck;
+	private static   float 			iDiff;
+    private static int              marginPix;
+    private static int              marginLay;
 
 	// outputs
 	public static byte[][][]		back3;
@@ -37,17 +38,22 @@ public class Masker3D extends Thread {
 		this.endN = n1;
 	}
 
-	public static void loadTemplate(float[][][] inimg3d_zxy, float zDist1, float radius1, float iDiff1)
+	public static void loadTemplate(float[][][] inimg3d_zxy, int margin1, float radiusNbhoodCheck1, float zDist1, float iDiff1)
 	{
 		// inis1 is a FloatProcessor stack
 		// zDist1 is ia z distance between layers in pixels
+        // set radiusCheck at least the outer radius of the sampling points of the sphere, scaled outer radius
 
 		image_height 	= inimg3d_zxy[0][0].length;
 		image_width 	= inimg3d_zxy[0].length;
 		image_length 	= inimg3d_zxy.length;
-		radius          = radius1;//(int) Math.ceil(radius1);
+		radiusCheck     = radiusNbhoodCheck1;
 		iDiff			= iDiff1;
-		zDist			= zDist1;
+
+        marginPix       = (int) Math.ceil(radiusCheck);
+        marginLay       = (int) Math.ceil(radiusCheck/zDist1);
+        // correct margins in case given margin was higher
+        marginPix = (margin1>marginPix)? margin1 : marginPix ;  // narrow down selection in XY plane
 
 		/*
 			set instack3
@@ -221,7 +227,7 @@ public class Masker3D extends Thread {
 	public void run()
 	{
 
-        int circNeighSize = sizeCircularNbhood(radius);
+        int circNeighSize = sizeCircularNbhood(radiusCheck);
         float[] circNeigh = new float[circNeighSize];                   // allocate array where circular neighbourhood values will be stored
 
 		for (int locIdx=begN; locIdx<endN; locIdx++) {
@@ -231,10 +237,13 @@ public class Masker3D extends Thread {
 			int atZ = idx2z(locIdx, image_width, image_height);
 
 			boolean processIt = (atX % JumpN == 0) && (atY % JumpN == 0); // to speed up the calculation
+            // exclude those that fit the radius margin
+            processIt = processIt && (atX>=marginPix) && (atY>=marginPix) && (atZ>=marginLay) && (atX<image_width-marginPix-1) && (atY<image_height-marginPix-1) && (atZ<image_length-marginLay);
+
 
 			if (processIt) {
 
-				extractCircularNbhood(atX, atY, atZ, radius, circNeigh); // extract values from circular neighbourhood, will assign zeros to circNeigh if it is out
+				extractCircularNbhood(atX, atY, atZ, radiusCheck, circNeigh); // extract values from circular neighbourhood, will assign zeros to circNeigh if it is out
 
 				//float locAvgXYZ 	= average(circNeigh);
 				//float locStdXYZ 	= std(circNeigh, locAvgXYZ);

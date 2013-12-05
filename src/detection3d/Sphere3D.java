@@ -21,17 +21,19 @@ public class Sphere3D {
 	// azimuth 		theta [0, 2PI)
 	// polar angle  phi [PI/2(top), -PI/2(bottom)]
 
-	private static float arcRes 	= 1.0f;
+	private static float arcRes 	= 1.5f;
 	private static float PI 		= (float) Math.PI;
 	private static float TwoPI 		= (float) (2*Math.PI);
 	private static float HalfPI 	= (float) (Math.PI/2);
-	private static float samplingStep = 1.0f;
+	private static float samplingStep = 1.5f;
 	public static float     R_FULL 	= 1.00f;
 	public static float     T_HALF 	= 0.50f;
 	public static int 		weightStdRatioToD = 4;  // could be a parameter
 
 	private float 	radius;                         // sphere radius
-	private static 	float 	arcNbhood = 1.5f;       // 2 * arcRes;
+	private float   scale;
+    private float   neuronDiameter;
+    private static 	float 	arcNbhood = 1.5f;       // 2 * arcRes;
 	private int 	W, H, N;                        // W,H are width and height of the 2d profile, N defines optimal sampling
 	private int 	limR, limT;
 
@@ -48,12 +50,14 @@ public class Sphere3D {
 	public Sphere3D(float neuronDiam, float scale) {
 
 		this.radius 	= scale * neuronDiam;
+        this.scale      = scale;
+        this.neuronDiameter = neuronDiam;
 		this.N 	= (int) Math.ceil( ( (2 * Math.PI * radius) / arcRes - 1 ) / 4 );
 		this.W  = 4*N + 1;
 		this.H  = 2*N + 1;
 
-		this.limR = (int) Math.ceil(R_FULL*neuronDiam/samplingStep);   // how many to take radially with given sampling step
-		this.limT = (int) Math.ceil(T_HALF*neuronDiam/samplingStep);
+		this.limR = (int) Math.ceil(R_FULL*neuronDiameter/samplingStep);   // how many to take radially with given sampling step
+		this.limT = (int) Math.ceil(T_HALF*neuronDiameter/samplingStep);
 
 		vizXY.clear();
 		elems.clear();
@@ -275,6 +279,12 @@ public class Sphere3D {
 		return offstXYZ.size();
 	}
 
+    public float getOuterSamplingRadius(){
+
+        return (float) Math.sqrt( Math.pow(radius, 2) + Math.pow(T_HALF*neuronDiameter, 2) );
+
+    }
+
     /*
         whole profile, procedure, integer locations
      */
@@ -288,7 +298,7 @@ public class Sphere3D {
 
                 float x_offs_pix = offstXYZ.get(profileIdx)[offsetIdx][0];
                 float y_offs_pix = offstXYZ.get(profileIdx)[offsetIdx][1];
-                float z_offs_lay = offstXYZ.get(profileIdx)[offsetIdx][2];
+                float z_offs_lay = offstXYZ.get(profileIdx)[offsetIdx][2] / zDist; // convert ot layers
 
                 float imgVal = Interpolator.interpolateAt(atX+x_offs_pix, atY+y_offs_pix, atZ+z_offs_lay, img3d_zxy);
                 value += weights[offsetIdx] * imgVal;
@@ -331,9 +341,9 @@ public class Sphere3D {
 	}
 
 	/*
-		profile component (for paralellization)
+		profile component (for paralellization) - will be reduced to short for memory storage reasons
 	 */
-	public float extractProfile(int profileIdx, float atX, float atY, float atZ, float[][][] img3d_zxy, float zDist) {
+	public short extractProfile(int profileIdx, float atX, float atY, float atZ, float[][][] img3d_zxy, float zDist) {
 		// one element filter output (indexed with profileIdx)
 		float value = 0;
 
@@ -348,9 +358,17 @@ public class Sphere3D {
 
 		}
 
-		return value;
+		return  (short) ((int) ((value/255f)*65535f) &  0xffff);  // TODO set that it works with 8 bit only because 255f means we expect to have values from that range in the image
 
 	}
+
+
+    private ArrayList<Integer> profilePeaks(short[] profile) {
+
+        ArrayList<Integer> peaks = new ArrayList<Integer>();
+        return  peaks;
+
+    }
 
     private ArrayList<Integer> profilePeaks(float[] profile) {   // phi, theta
 
@@ -509,9 +527,12 @@ public class Sphere3D {
 				else if (maxMedian>medAlongLin[k]) {
 
 					// shift the rest first
-					for (int kk = k; kk<3; kk++) { // shift them from k to k+1
-						//
-
+					for (int kk = 4-2; kk>=k; kk--) { // shift them from the one before last
+						// shift starting from the back (last one dissapears)
+                        _4xXYZ[kk+1][0] = _4xXYZ[kk][0];
+                        _4xXYZ[kk+1][1] = _4xXYZ[kk][1];
+                        _4xXYZ[kk+1][2] = _4xXYZ[kk][2];
+                        medAlongLin[kk+1] = medAlongLin[kk];
 					}
 
 					// store it at k
@@ -524,7 +545,7 @@ public class Sphere3D {
 				}
 				else {
 
-					// if smaller,
+					// if smaller, loop further
 
 				}
 

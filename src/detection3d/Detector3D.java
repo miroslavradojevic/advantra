@@ -86,13 +86,13 @@ public class Detector3D {
         System.out.println("separating foreground... ");
 		t1 = System.currentTimeMillis();
 
-		runMasker(img3d_zxy, zDist, NBHOOD_SCALE * r, iDiff, mo);
+		runMasker(img3d_zxy, zDist, sph3D.getOuterSamplingRadius(), iDiff, mo);
 
 		t2 = System.currentTimeMillis();
 		System.out.println("done. " + ((t2 - t1) / 1000f) + " sec.");
 
 		// 2. PROFILE
-        System.out.println("extracting profiles... ");
+        System.out.println("extracting peaks... ");
         t1 = System.currentTimeMillis();
 
 		runProfiler();
@@ -120,7 +120,7 @@ public class Detector3D {
 			following bit will execute run() in parallel
 		 */
 
-        Masker3D.loadTemplate(img3d_zxy, zDist, radiusMask, iDiff);
+        Masker3D.loadTemplate(img3d_zxy, 0, radiusMask, zDist, iDiff);
 
 		int Zdim = img3d_zxy.length;
 		int Xdim = img3d_zxy[0].length;
@@ -219,22 +219,22 @@ public class Detector3D {
 	{
 
 		/*
-			run profiler in parallel
+			run profiler in parallel - extract peaks
 		 */
-		Profiler3D.loadTemplate(sph3D, mo.foregroundLocsZXY);
-		int totalJobs = mo.foregroundLocsZXY.length;
-//		Profiler3D ms_jobs[] = new Profiler3D[CPU_NR];
-//		for (int i = 0; i < ms_jobs.length; i++) {
-//			ms_jobs[i] = new Masker3D(i*totalJobs/CPU_NR,  (i+1)*totalJobs/CPU_NR);
-//			ms_jobs[i].start();
-//		}
-//		for (int i = 0; i < ms_jobs.length; i++) {
-//			try {
-//				ms_jobs[i].join();
-//			} catch (InterruptedException e) {
-//				e.printStackTrace();
-//			}
-//		}
+		Profiler3D.loadTemplate(sph3D, mo.foregroundLocsZXY, img3d_zxy, zDist);
+		int totalJobs = sph3D.getProfileLength(); //mo.foregroundLocsZXY.length;
+		Profiler3D ms_jobs[] = new Profiler3D[CPU_NR];
+		for (int i = 0; i < ms_jobs.length; i++) {
+			ms_jobs[i] = new Profiler3D(i*totalJobs/CPU_NR,  (i+1)*totalJobs/CPU_NR);
+			ms_jobs[i].start();
+		}
+		for (int i = 0; i < ms_jobs.length; i++) {
+			try {
+				ms_jobs[i].join();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
 
 
 	}
