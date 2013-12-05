@@ -438,7 +438,7 @@ public class Sphere3D {
             float[][][] img3d_zxy,      // input
             float zDistImage,           // input
 
-            int[][] _4xXYZ            // output
+            int[][] _4xXYZ            // output (will refer to a static part)
     )
     {
     // output is stored in 4x3 integer array
@@ -485,7 +485,9 @@ public class Sphere3D {
 
                     if (currMedian>maxMedian) {
                         // set this one as peak
-
+						currentPeaksXYZ[0] = x_peak_pix_base + ii;
+						currentPeaksXYZ[1] = y_peak_pix_base + jj;
+						currentPeaksXYZ[2] = z_peak_lay_base;
                         // update maxMedian
                         maxMedian = currMedian;
                     }
@@ -493,9 +495,40 @@ public class Sphere3D {
                 }
             }
 
+            // insert maxMedian and currentPeaksXYZ to the list of 4 _4xXYZ
+			for (int k = 0; k < 4; k++) {
 
-            // insert maxMedian and currentPeaksXYZ to the list of 4
+				if (medAlongLin[k] == -1f) {
+					_4xXYZ[k][0] = currentPeaksXYZ[0];
+					_4xXYZ[k][1] = currentPeaksXYZ[1];
+					_4xXYZ[k][2] = currentPeaksXYZ[2];
+					medAlongLin[k] = maxMedian;
+					break;
 
+				}
+				else if (maxMedian>medAlongLin[k]) {
+
+					// shift the rest first
+					for (int kk = k; kk<3; kk++) { // shift them from k to k+1
+						//
+
+					}
+
+					// store it at k
+					_4xXYZ[k][0] = currentPeaksXYZ[0];
+					_4xXYZ[k][1] = currentPeaksXYZ[1];
+					_4xXYZ[k][2] = currentPeaksXYZ[2];
+					medAlongLin[k] = maxMedian;
+					break;
+
+				}
+				else {
+
+					// if smaller,
+
+				}
+
+			}
 
 
         }
