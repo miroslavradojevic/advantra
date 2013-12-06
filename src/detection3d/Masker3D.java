@@ -368,4 +368,75 @@ public class Masker3D extends Thread {
 
 	}
 
+    public static MaskerOutput getMaskerOutput(){
+
+        // will output rearranged values in such form that Profiler can use them further, locations stacked together
+        MaskerOutput mo = new MaskerOutput();
+
+        // component: lookup table
+        mo.locIndexZXY = new int[image_length][image_width][image_height];
+        int cnt = 0;
+        for (int zz=0; zz<image_length; zz++) {
+            for (int xx=0; xx<image_width; xx++) {
+                for (int yy=0; yy<image_height; yy++) {
+
+                    if (Masker3D.mask3[zz][xx][yy]) {
+                        mo.locIndexZXY[zz][xx][yy] = cnt;
+                        cnt++;
+                    }
+                    else {
+                        mo.locIndexZXY[zz][xx][yy] = -1;
+                    }
+
+                }
+            }
+        }
+
+        float perc = (cnt*100f) / (image_length*image_width*image_height);
+
+        System.out.println(perc+"returning % vol. foreground");
+
+        if (perc > 40) {// more than 40 percent is wrong
+            System.out.println("too many foreground points, stopping...");
+            return mo; // return just the lookup table
+        }
+
+        // component: foreground point list: locations and background estimates
+        mo.foregroundLocsZXY = new int[cnt][3];
+        mo.backgroundEst = new byte[cnt];
+
+        cnt =0;
+        for (int zz=0; zz<image_length; zz++) {
+            for (int xx=0; xx<image_width; xx++) {
+                for (int yy=0; yy<image_height; yy++) {
+
+                    if (Masker3D.mask3[zz][xx][yy]) {
+
+                        mo.foregroundLocsZXY[cnt][0] = zz;
+                        mo.foregroundLocsZXY[cnt][1] = xx;
+                        mo.foregroundLocsZXY[cnt][2] = yy;
+
+                        mo.backgroundEst[cnt] = Masker3D.back3[zz][xx][yy];
+
+                        cnt++;
+
+                    }
+
+                }
+            }
+        }
+
+        return mo;
+
+    }
+
+}
+
+class MaskerOutput { // passed as an argument to void method
+
+    int[][] 		foregroundLocsZXY 		= null; // nr loc x 3  (list of foreground locations, for paralellization later)
+    byte[] 			backgroundEst	        = null; // nr. loc x 1, list of background estimates at foreground locations
+//    boolean[][][] 	isForeground 		    = null; // for easier access when checking whether the location belongs to foreground
+    int[][][]       locIndexZXY                = null; // for easier access when finding an index of some location or background value (lookup table)
+
 }

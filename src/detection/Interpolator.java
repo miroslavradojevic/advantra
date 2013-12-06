@@ -171,7 +171,7 @@ public final class Interpolator {
 
 	public static final float interpolateAt(float atX, float atY, float atZ_layer, float[][][] img3d_zxy) {
 
-		float value;
+//		float value;
 
         int x1 = (int) atX;//Math.floor(atX);
         int x2 = x1 + 1;//(int) Math.ceil(atX);
@@ -225,6 +225,5 @@ public final class Interpolator {
 		return I_1;
 
 	}
-
 
 }

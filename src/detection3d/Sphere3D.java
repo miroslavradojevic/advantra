@@ -366,17 +366,8 @@ public class Sphere3D {
     private ArrayList<Integer> profilePeaks(short[] profile) {
 
         ArrayList<Integer> peaks = new ArrayList<Integer>();
-        return  peaks;
-
-    }
-
-    private ArrayList<Integer> profilePeaks(float[] profile) {   // phi, theta
-
-        // search for local maxima and corresponding (phi, theta)
-        ArrayList<Integer> peaks = new ArrayList<Integer>();
 
         for (int direcIdx=0; direcIdx<profile.length; direcIdx++) {
-            // calculate the index of local nbhood max for this profile sample
 
             boolean isLocMax = true;
 
@@ -384,14 +375,42 @@ public class Sphere3D {
             for (int nbrLoop=0; nbrLoop<masks.get(direcIdx).length; nbrLoop++) {
 
                 int nbrIdx = masks.get(direcIdx)[nbrLoop];
-                if (profile[nbrIdx]>profile[direcIdx]) {
-                    isLocMax = false;// check the profile value at the index
+                if ((profile[nbrIdx] & 0xffff) > (profile[direcIdx] & 0xffff)) {        // compare two short numbers
+                    isLocMax = false;
                 }
 
             }
 
             if (isLocMax) {
-                peaks.add(direcIdx); //new float[]{elems.get(direcIdx)[0], elems.get(direcIdx)[1]});
+                peaks.add(direcIdx);
+            }
+
+        }
+
+        return  peaks;
+
+    }
+
+    private ArrayList<Integer> profilePeaks(float[] profile) {
+
+        ArrayList<Integer> peaks = new ArrayList<Integer>();
+
+        for (int direcIdx=0; direcIdx<profile.length; direcIdx++) {
+
+            boolean isLocMax = true;
+
+            // check neighbours for this one
+            for (int nbrLoop=0; nbrLoop<masks.get(direcIdx).length; nbrLoop++) {
+
+                int nbrIdx = masks.get(direcIdx)[nbrLoop];
+                if (profile[nbrIdx]>profile[direcIdx]) {                                // compare two float numbers
+                    isLocMax = false;
+                }
+
+            }
+
+            if (isLocMax) {
+                peaks.add(direcIdx);
             }
 
         }
@@ -448,15 +467,15 @@ public class Sphere3D {
     }
 
     public void peakCoords_4xXYZ(
-            float[] profile,          // already calculated
-            int     profileCenterX,   // already calculated
-            int     profileCenterY,   // already calculated
-            int     profileCenterZ,   // already calculated
+            short[] profile,            // already calculated
+            int     profileCenterX,     // already calculated
+            int     profileCenterY,     // already calculated
+            int     profileCenterZ,     // already calculated
 
-            float[][][] img3d_zxy,      // input
-            float zDistImage,           // input
+            float[][][] img3d_zxy,      // input (need it for ranking the peaks)
+            float       zDistImage,     // input
 
-            int[][] _4xXYZ            // output (will refer to a static part)
+            int[][] _4xXYZ              // output (will refer to a static part)
     )
     {
     // output is stored in 4x3 integer array

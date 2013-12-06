@@ -17,8 +17,6 @@ public class Detector3D {
     float zDist;
 
 	Sphere3D sph3D;         // will be tool for thread classes - used to make geometric computations
-    MaskerOutput mo = new MaskerOutput(); 	// foreground extraction is stored here
-
 
     float 	D;
     float 	iDiff;
@@ -31,7 +29,13 @@ public class Detector3D {
     public static int		W_STD_RATIO_WRT_TO_D = 3;
 
     int CPU_NR;
-    float NBHOOD_SCALE = 1.0f;
+//    float NBHOOD_SCALE = 1.0f;
+
+    // static classes used for parallel processing
+    Masker3D[]      masker_jobs     = null;
+    MaskerOutput masker_output      = new MaskerOutput(); 	// foreground extraction is stored here
+    Profiler3D[]    profiler_jobs   = null;
+    PeakExtractor3D[] peak_extractor_jobs = null;
 
     public Detector3D() {
         System.out.println("loading default parameters...");
@@ -82,29 +86,93 @@ public class Detector3D {
 
         long t1, t2;
 
-        // 1. MASK
+
+
+
+        //// 1. MASK
         System.out.println("separating foreground... ");
 		t1 = System.currentTimeMillis();
+        int margin = 0;
+        Masker3D.loadTemplate(img3d_zxy, margin, sph3D.getOuterSamplingRadius(), zDist, iDiff);
+        int totalMaskerJobs = img3d_zxy.length * img3d_zxy[0].length * img3d_zxy[0][0].length;
+        masker_jobs = new Masker3D[CPU_NR];
+        for (int i = 0; i < masker_jobs.length; i++) {
+            masker_jobs[i] = new Masker3D(i*totalMaskerJobs/CPU_NR,  (i+1)*totalMaskerJobs/CPU_NR);
+            masker_jobs[i].start();
+        }
+        for (int i = 0; i < masker_jobs.length; i++) {
+            try {
+                masker_jobs[i].join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
 
-		runMasker(img3d_zxy, zDist, sph3D.getOuterSamplingRadius(), iDiff, mo);
-
-		t2 = System.currentTimeMillis();
+		/*
+		 	skipped locations are filled,
+		*/
+        Masker3D.fill();
+        masker_output = Masker3D.getMaskerOutput();
+        t2 = System.currentTimeMillis();
 		System.out.println("done. " + ((t2 - t1) / 1000f) + " sec.");
 
-		// 2. PROFILE
+
+
+
+
+
+
+
+
+
+
+		//// 2. PROFILE
+        System.out.println("extracting profiles... ");
+        t1 = System.currentTimeMillis();
+        Profiler3D.loadTemplate(sph3D, masker_output.foregroundLocsZXY, img3d_zxy, zDist);
+        int totalProfilerJobs = sph3D.getProfileLength();
+        profiler_jobs = new Profiler3D[CPU_NR];
+        for (int i = 0; i < profiler_jobs.length; i++) {
+            profiler_jobs[i] = new Profiler3D(i*totalProfilerJobs/CPU_NR,  (i+1)*totalProfilerJobs/CPU_NR);
+            profiler_jobs[i].start();
+        }
+        for (int i = 0; i < profiler_jobs.length; i++) {
+            try {
+                profiler_jobs[i].join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        t2 = System.currentTimeMillis();
+        System.out.println("done. " + ((t2 - t1) / 1000f) + " sec.");
+
+
+
+
+
+
+
+
+		//// 3. PROFILE PEAK(S)
         System.out.println("extracting peaks... ");
         t1 = System.currentTimeMillis();
 
-		runProfiler();
+        PeakExtractor3D.loadTemplate(sph3D, masker_output.foregroundLocsZXY, Profiler3D.prof3, img3d_zxy, zDist);
+        int totalPeakExtractorJobs = masker_output.foregroundLocsZXY.length;
+        peak_extractor_jobs = new PeakExtractor3D[CPU_NR];
+        for (int i=0; i < peak_extractor_jobs.length; i++) {
+            // TODO continue here
+        }
 
         t2 = System.currentTimeMillis();
         System.out.println("done. " + ((t2 - t1) / 1000f) + " sec.");
 
-		// 3. PROFILE PEAK(S)
 
 
 
-		// 4. ASSOCIATE PEAKS
+
+
+        // 4. ASSOCIATE PEAKS
 
 
 
@@ -113,131 +181,33 @@ public class Detector3D {
     /*
         run threaded masker within the method
      */
-    private void runMasker(float[][][] img3d_zxy, float zDist, float radiusMask, float iDiff, MaskerOutput mo)
-    {
-
-		/*
-			following bit will execute run() in parallel
-		 */
-
-        Masker3D.loadTemplate(img3d_zxy, 0, radiusMask, zDist, iDiff);
-
-		int Zdim = img3d_zxy.length;
-		int Xdim = img3d_zxy[0].length;
-		int Ydim = img3d_zxy[0][0].length;
-
-        int totalJobs = Zdim * Xdim * Ydim;
-        Masker3D ms_jobs[] = new Masker3D[CPU_NR];
-        for (int i = 0; i < ms_jobs.length; i++) {
-            ms_jobs[i] = new Masker3D(i*totalJobs/CPU_NR,  (i+1)*totalJobs/CPU_NR);
-            ms_jobs[i].start();
-        }
-        for (int i = 0; i < ms_jobs.length; i++) {
-            try {
-                ms_jobs[i].join();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-
-		/*
-		 	skipped locations are filled,
-		  */
-		Masker3D.fill();
-        System.out.println("done with fill()");
-
-		/*
-		 	store locations, estimated background and binary mask them in output class (take from Masker3D into MaskerOutput instance
-		  */
-		mo.isForeground = new boolean[Zdim][Xdim][Ydim];
-		mo.locIndex = new int[Zdim][Xdim][Ydim];
-		int cnt = 0;
-		for (int zz=0; zz<Zdim; zz++) {
-			for (int xx=0; xx<Xdim; xx++) {
-				for (int yy=0; yy<Ydim; yy++) {
-
-					mo.isForeground[zz][xx][yy] = Masker3D.mask3[zz][xx][yy];
-
-					if (Masker3D.mask3[zz][xx][yy]) {
-						mo.locIndex[zz][xx][yy] = cnt;
-						cnt++;
-					}
-					else {
-						mo.locIndex[zz][xx][yy] = -1;
-					}
-
-				}
-			}
-		}
-
-//        System.out.println("found "+cnt+" foreground locations ");
-
-        float perc = (cnt*100f) / (Xdim*Ydim*Zdim);
-
-        System.out.println(perc+" % vol. foreground");
-
-        if (perc > 40) {// more than 40 percent is wrong
-            System.out.println("too many foreground points, stopping...");
-            return; //
-        }
-
-		// stack them together for threading
-		mo.foregroundLocsZXY = new int[cnt][3];
-		mo.backgroundEst = new byte[cnt];
-
-        //System.out.println("allocated");
-
-		cnt =0;
-		for (int zz=0; zz<Zdim; zz++) {
-			for (int xx=0; xx<Xdim; xx++) {
-				for (int yy=0; yy<Ydim; yy++) {
-
-					if (Masker3D.mask3[zz][xx][yy]) {
-
-						mo.foregroundLocsZXY[cnt][0] = zz;
-						mo.foregroundLocsZXY[cnt][1] = xx;
-						mo.foregroundLocsZXY[cnt][2] = yy;
-
-						mo.backgroundEst[cnt] = Masker3D.back3[zz][xx][yy];
-
-						cnt++;
-
-					}
-
-				}
-			}
-		}
-
-		new ImagePlus("", Masker3D.getMask()).show();
-
-	}
+//    private void runMasker(float[][][] img3d_zxy, float zDist, float radiusMask, float iDiff, MaskerOutput mo)
+//    {
+//		/*
+//			following bit will execute run() in parallel
+//		 */
+////		int Zdim = img3d_zxy.length;
+////		int Xdim = img3d_zxy[0].length;
+////		int Ydim = img3d_zxy[0][0].length;
+////        System.out.println("done with fill()");
+//		/*
+//		 	store locations, estimated background and binary mask them in output class (take from Masker3D into MaskerOutput instance
+//		  */
+////		mo.isForeground = new boolean[Zdim][Xdim][Ydim];
+////		new ImagePlus("", Masker3D.getMask()).show();
+//	}
 
 	/*
 		run threaded profile (peak really) extraction
 	 */
-	private void runProfiler()
-	{
-
-		/*
-			run profiler in parallel - extract peaks
-		 */
-		Profiler3D.loadTemplate(sph3D, mo.foregroundLocsZXY, img3d_zxy, zDist);
-		int totalJobs = sph3D.getProfileLength(); //mo.foregroundLocsZXY.length;
-		Profiler3D ms_jobs[] = new Profiler3D[CPU_NR];
-		for (int i = 0; i < ms_jobs.length; i++) {
-			ms_jobs[i] = new Profiler3D(i*totalJobs/CPU_NR,  (i+1)*totalJobs/CPU_NR);
-			ms_jobs[i].start();
-		}
-		for (int i = 0; i < ms_jobs.length; i++) {
-			try {
-				ms_jobs[i].join();
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
-		}
-
-
-	}
+//	private void runProfiler()
+//	{
+//
+//		/*
+//			run profiler in parallel - extract peaks
+//		 */
+//
+//	}
 
 	/*
 		convert image to the array form (float[][][]) that will be used by all thread classes (Masker3D, Profiler3D, PeakExtractor, Analyzer3D) in run()
@@ -268,13 +238,6 @@ public class Detector3D {
 
     // TODO add method that converts opposite way float[][][] to ImageStack
 
-}
-
-class MaskerOutput { // passed as an argument to void method
-
-	int[][] 		foregroundLocsZXY 		= null; // nr loc x 3  (list of foreground locations, for paralellization later)
-	byte[] 			backgroundEst	= null; 		// nr. loc x 1, list of background estimates at foreground locations
-	boolean[][][] 	isForeground 		= null; 	// for easier access when checking whether the location belongs to foreground
-	int[][][]       locIndex = null; 				// for easier access when finding an index of some location or background value
+    // TODO add method to export mask, background  as ImageStack, or ImagePlus
 
 }
