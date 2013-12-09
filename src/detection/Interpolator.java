@@ -187,12 +187,17 @@ public final class Interpolator {
 
 
         // technically this check should be there but is skipped to make things faster
-//        boolean isIn =
-//						y1>=0 && y2<img3d_zxy[0][0].length &&
-//						x1>=0 && x1+1<img3d_zxy[0].length &&
-//						z1>=0 && z2<img3d_zxy.length;
+        boolean isIn =
+						y1>=0 && y1<img3d_zxy[0][0].length &&
+						y2>=0 && y2<img3d_zxy[0][0].length &&
+						x1>=0 && x1<img3d_zxy[0].length &&
+						x2>=0 && x2<img3d_zxy[0].length &&
+						z1>=0 && z1<img3d_zxy.length &&
+						z2>=0 && z2<img3d_zxy.length;
 
-		//if(isIn){
+		if(!isIn){
+			System.out.println(atX+" , "+atY+" , "+atZ_layer+" -> "+x1+", "+x2+" | "+y1+", "+y2+", "+z1+", "+z2);
+		}
 
 			// take neighbourhood
 			float I11_1 = img3d_zxy[ z1 ][ x1  ][ y1 ];  // upper left

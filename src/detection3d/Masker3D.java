@@ -237,9 +237,9 @@ public class Masker3D extends Thread {
 			int atZ = idx2z(locIdx, image_width, image_height);
 
 			boolean processIt = (atX % JumpN == 0) && (atY % JumpN == 0); // to speed up the calculation
-            // exclude those that fit the radius margin
-            processIt = processIt && (atX>=marginPix) && (atY>=marginPix) && (atZ>=marginLay) && (atX<image_width-marginPix-1) && (atY<image_height-marginPix-1) && (atZ<image_length-marginLay);
-
+            // exclude those that fit the radius margin (include shift 1 for the interpolation - to avoid out of array error)
+            processIt = processIt && (atX>=marginPix) && (atY>=marginPix) && (atZ>=marginLay) &&
+								(atX<image_width-marginPix-1) && (atY<image_height-marginPix-1) && (atZ<image_length-marginLay-1);
 
 			if (processIt) {
 

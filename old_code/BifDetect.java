@@ -8,8 +8,6 @@ import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 import aux.Tools;
 
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
 import java.io.File;
 import java.util.ArrayList;
 
@@ -19,7 +17,8 @@ import java.util.ArrayList;
  * Date: 6/22/13
  * Time: 12:21 PM
  */
-public class BifDetect implements PlugInFilter, MouseListener {
+
+public class BifDetect implements PlugInFilter {
 
 	ImagePlus 	inimg;
 	String      inimgPath;
@@ -112,30 +111,30 @@ public class BifDetect implements PlugInFilter, MouseListener {
         score.show();
 		IJ.log("done. "+((t2-t1)/1000f)+" sec.");
 
-/*        IJ.log("MS detection");
-        t1 = System.currentTimeMillis();
-        MeanShift2D ms2d = new MeanShift2D((FloatProcessor) score.getProcessor(), 6);
-        ms2d.run(200, 0.0001);
-        t2 = System.currentTimeMillis();
-        IJ.log("done. "+((t2-t1)/1000f)+" sec.");
-
-        // show
-        Overlay ov = new Overlay();
-        for (int i = 0; i < ms2d.S.length; i++) {
-            PointRoi p = new PointRoi(ms2d.T[i][1]+0.5, ms2d.T[i][0]+0.5);
-            p.setStrokeColor(Color.RED);
-            ov.add(p);
-        }
-
-        IJ.log("Extract clusters...");
-        double[][] clust1 = ms2d.extractConvPoints(1.0, 5);
-        //ov = new Overlay();
-        for (int i = 0; i < clust1.length; i++) {
-            OvalRoi or = new OvalRoi(clust1[i][1]+0.5-3, clust1[i][0]+0.5-3, 7, 7);
-            ov.add(or);
-        }
-        inimg.setOverlay(ov);
-        IJ.log("done");*/
+//        IJ.log("MS detection");
+//        t1 = System.currentTimeMillis();
+//        MeanShift2D ms2d = new MeanShift2D((FloatProcessor) score.getProcessor(), 6);
+//        ms2d.run(200, 0.0001);
+//        t2 = System.currentTimeMillis();
+//        IJ.log("done. "+((t2-t1)/1000f)+" sec.");
+//
+//        // show
+//        Overlay ov = new Overlay();
+//        for (int i = 0; i < ms2d.S.length; i++) {
+//            PointRoi p = new PointRoi(ms2d.T[i][1]+0.5, ms2d.T[i][0]+0.5);
+//            p.setStrokeColor(Color.RED);
+//            ov.add(p);
+//        }
+//
+//        IJ.log("Extract clusters...");
+//        double[][] clust1 = ms2d.extractConvPoints(1.0, 5);
+//        //ov = new Overlay();
+//        for (int i = 0; i < clust1.length; i++) {
+//            OvalRoi or = new OvalRoi(clust1[i][1]+0.5-3, clust1[i][0]+0.5-3, 7, 7);
+//            ov.add(or);
+//        }
+//        inimg.setOverlay(ov);
+//        IJ.log("done");
 
 	}
 
@@ -207,9 +206,7 @@ public class BifDetect implements PlugInFilter, MouseListener {
 
                             if (first) {   // no need to match them
 
-                                /*
-                                    form the matching map
-                                 */
+                                //form the matching map
 								map[0][q] = 0;
 								map[1][q] = 1;
 								map[2][q] = 2;
@@ -310,23 +307,5 @@ public class BifDetect implements PlugInFilter, MouseListener {
 		return ipOut;
 
 	}
-
-    public void mouseClicked(MouseEvent e) {
-
-
-
-    }
-
-    public void mousePressed(MouseEvent e) {
-    }
-
-    public void mouseReleased(MouseEvent e) {
-    }
-
-    public void mouseEntered(MouseEvent e) {
-    }
-
-    public void mouseExited(MouseEvent e) {
-    }
 
 }

@@ -3,6 +3,7 @@ package detection3d;
 import detection.Interpolator;
 import ij.ImageStack;
 import ij.process.ByteProcessor;
+import ij.process.ShortProcessor;
 
 import java.io.*;
 import java.util.ArrayList;
@@ -21,7 +22,7 @@ public class Sphere3D {
 	// azimuth 		theta [0, 2PI)
 	// polar angle  phi [PI/2(top), -PI/2(bottom)]
 
-	private static float arcRes 	= 1.5f;
+	private static float arcRes 	= 1.0f;
 	private static float PI 		= (float) Math.PI;
 	private static float TwoPI 		= (float) (2*Math.PI);
 	private static float HalfPI 	= (float) (Math.PI/2);
@@ -33,7 +34,7 @@ public class Sphere3D {
 	private float 	radius;                         // sphere radius
 	private float   scale;
     private float   neuronDiameter;
-    private static 	float 	arcNbhood = 1.5f;       // 2 * arcRes;
+    private static 	float 	arcNbhood = 1.5f;       // try to see the mask looks after setting this one (important to tune for peak detection)
 	private int 	W, H, N;                        // W,H are width and height of the 2d profile, N defines optimal sampling
 	private int 	limR, limT;
 
@@ -274,6 +275,18 @@ public class Sphere3D {
 
 	}
 
+	public ShortProcessor drawProfile(short[] profile) {
+
+		// loops vizXY elements and attaches them corresponding profile values
+		ShortProcessor outIp = new ShortProcessor(W, H);
+		for (int ii=0; ii<elems.size(); ii++) {
+			outIp.set(vizXY.get(ii)[0], vizXY.get(ii)[1], profile[ii]);
+		}
+
+		return outIp;
+
+	}
+
 	public int getProfileLength()
 	{
 		return offstXYZ.size();
@@ -363,29 +376,43 @@ public class Sphere3D {
 	}
 
 
-    private ArrayList<Integer> profilePeaks(short[] profile) {
+    public ArrayList<Integer> profilePeaks(short[] profile) {
 
         ArrayList<Integer> peaks = new ArrayList<Integer>();
+		boolean[] isLocMax = new boolean[profile.length];
+		Arrays.fill(isLocMax, true);
 
         for (int direcIdx=0; direcIdx<profile.length; direcIdx++) {
 
-            boolean isLocMax = true;
+//            boolean isLocMax = true;
 
-            // check neighbours for this one
-            for (int nbrLoop=0; nbrLoop<masks.get(direcIdx).length; nbrLoop++) {
+			if (isLocMax[direcIdx]) {
 
-                int nbrIdx = masks.get(direcIdx)[nbrLoop];
-                if ((profile[nbrIdx] & 0xffff) > (profile[direcIdx] & 0xffff)) {        // compare two short numbers
-                    isLocMax = false;
-                }
+				// check neighbours for this one
+				for (int nbrLoop=0; nbrLoop<masks.get(direcIdx).length; nbrLoop++) {
 
-            }
+					int nbrIdx = masks.get(direcIdx)[nbrLoop];
+					if ((profile[nbrIdx] & 0xffff) > (profile[direcIdx] & 0xffff)) {        // compare two short numbers
+						isLocMax[direcIdx] = false;
+						break;  // stop looping neighbours further
+					}
+					else if ((profile[nbrIdx] & 0xffff) == (profile[direcIdx] & 0xffff)) {
+						// keep it as local max but disable the other one from checking
+						isLocMax[nbrIdx] = false;
+					}
 
-            if (isLocMax) {
-                peaks.add(direcIdx);
-            }
+
+				}
+
+			}
 
         }
+
+		for (int direcIdx=0; direcIdx<profile.length; direcIdx++) {
+			if (isLocMax[direcIdx]) {
+				peaks.add(direcIdx);
+			}
+		}
 
         return  peaks;
 
@@ -419,7 +446,8 @@ public class Sphere3D {
 
     }
 
-    public ArrayList<int[]> profilePeaksXY(float[] profile){ // profile peaks as planisphere image coordinates
+    public ArrayList<int[]> profilePeaksXY(float[] profile){
+    // profile peaks as planisphere image coordinates
 
         // indexes of peaks
         ArrayList<Integer> peakIdxs = profilePeaks(profile);
@@ -433,6 +461,20 @@ public class Sphere3D {
         return out;
 
     }
+
+	public ArrayList<int[]> profilePeaksXY(short[] profile) {
+
+		ArrayList<Integer> peakIdxs = profilePeaks(profile);
+		// profile peaks as planisphere image coordinates
+		ArrayList<int[]> out = new ArrayList<int[]>(peakIdxs.size());
+
+		for (int t=0; t<peakIdxs.size(); t++) {
+			out.add(vizXY.get(peakIdxs.get(t)));
+		}
+
+		return out;
+
+	}
 
     public ArrayList<int[]> profilePeaksXYZ(float[] profile, float zDistImage) { // profile peaks as locations in 3d image (stacked set of 2d images)
 
@@ -511,6 +553,8 @@ public class Sphere3D {
             for (int ii = 0; ii <= 1; ii++) { // check around peak
                 for (int jj = 0; jj <= 1; jj++) {
 
+					//System.out.println("from: "+profileCenterX+" , "+profileCenterY+" , "+profileCenterZ+" -> "+(x_peak_pix_base + ii)+" , "+(y_peak_pix_base + jj)+" , "+(z_peak_lay_base));
+
                     float currMedian = medianAlongLine(
                             profileCenterX,
                             profileCenterY,
@@ -547,7 +591,7 @@ public class Sphere3D {
 
 					// shift the rest first
 					for (int kk = 4-2; kk>=k; kk--) { // shift them from the one before last
-						// shift starting from the back (last one dissapears)
+						// shift starting from the back (last one disappears)
                         _4xXYZ[kk+1][0] = _4xXYZ[kk][0];
                         _4xXYZ[kk+1][1] = _4xXYZ[kk][1];
                         _4xXYZ[kk+1][2] = _4xXYZ[kk][2];
@@ -595,6 +639,12 @@ public class Sphere3D {
             float atX = x1      + cc * dx;
             float atY = y1      + cc * dy;
             float atZ = z1lay   + cc * dz;
+
+			// DEBUG
+			boolean isIn = true;//atX>=0 &&
+			if (!isIn) {
+
+			}
 
             valuesAlongLine[cc] = Interpolator.interpolateAt(atX, atY, atZ, img3d_zxy);
 

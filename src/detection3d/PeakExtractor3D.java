@@ -1,5 +1,7 @@
 package detection3d;
 
+import java.util.ArrayList;
+
 /**
  * Created with IntelliJ IDEA.
  * User: miroslav
@@ -63,11 +65,22 @@ public class PeakExtractor3D extends Thread {
 
     }
 
-    public static int[][] getPeakCoords(int atX, int atY, int atZ, int[][][] indexTableZXY) {
+    public static ArrayList<int[]> getPeaksXYZ(int atX, int atY, int atZ, int[][][] indexTableZXY) {
 
         int locationIndex = indexTableZXY[atZ][atX][atY];
 
-        return  peaks3[locationIndex]; // will return only reference
+		ArrayList<int[]> out = new ArrayList<int[]>(4);
+
+		if (locationIndex != -1) {
+		for (int cc = 0; cc < 4; cc++) {
+			if (peaks3[locationIndex][cc][0]!=-1) { // value was filled
+				out.add(peaks3[locationIndex][cc]);
+			}
+
+		}
+		}
+
+        return  out; // will return only reference
     }
 
 }

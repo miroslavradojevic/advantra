@@ -1,5 +1,3 @@
-import ij.IJ;
-import ij.ImagePlus;
 import ij.ImageStack;
 import ij.plugin.filter.Convolver;
 import ij.process.FloatProcessor;

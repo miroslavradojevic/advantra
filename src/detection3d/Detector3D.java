@@ -2,7 +2,11 @@ package detection3d;
 
 import ij.ImagePlus;
 import ij.ImageStack;
+import ij.gui.Overlay;
+import ij.gui.PointRoi;
 
+import java.awt.*;
+import java.util.ArrayList;
 import java.util.Arrays;
 
 /**
@@ -93,7 +97,7 @@ public class Detector3D {
         System.out.println("separating foreground... ");
 		t1 = System.currentTimeMillis();
         int margin = 0;
-        Masker3D.loadTemplate(img3d_zxy, margin, sph3D.getOuterSamplingRadius(), zDist, iDiff);
+        Masker3D.loadTemplate(img3d_zxy, margin, sph3D.getOuterSamplingRadius()+2, zDist, iDiff);// (include shift 2 for the 4-neighbourhood check - to avoid out of array error)
         int totalMaskerJobs = img3d_zxy.length * img3d_zxy[0].length * img3d_zxy[0][0].length;
         masker_jobs = new Masker3D[CPU_NR];
         for (int i = 0; i < masker_jobs.length; i++) {
@@ -115,8 +119,6 @@ public class Detector3D {
         masker_output = Masker3D.getMaskerOutput();
         t2 = System.currentTimeMillis();
 		System.out.println("done. " + ((t2 - t1) / 1000f) + " sec.");
-
-
 
 
 
@@ -155,18 +157,90 @@ public class Detector3D {
 
 		//// 3. PROFILE PEAK(S)
         System.out.println("extracting peaks... ");
+		System.out.println(""+img3d_zxy.length);
+		System.out.println(""+img3d_zxy[0].length);
+		System.out.println(""+img3d_zxy[0][0].length);
+
         t1 = System.currentTimeMillis();
 
         PeakExtractor3D.loadTemplate(sph3D, masker_output.foregroundLocsZXY, Profiler3D.prof3, img3d_zxy, zDist);
         int totalPeakExtractorJobs = masker_output.foregroundLocsZXY.length;
         peak_extractor_jobs = new PeakExtractor3D[CPU_NR];
         for (int i=0; i < peak_extractor_jobs.length; i++) {
-            // TODO continue here
+			peak_extractor_jobs[i] = new PeakExtractor3D(i*totalPeakExtractorJobs/CPU_NR, (i+1)*totalPeakExtractorJobs/CPU_NR);
+			peak_extractor_jobs[i].start();
         }
-
+		for (int i=0; i < peak_extractor_jobs.length; i++) {
+			try {
+				peak_extractor_jobs[i].join();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
         t2 = System.currentTimeMillis();
         System.out.println("done. " + ((t2 - t1) / 1000f) + " sec.");
 
+
+
+
+
+
+
+
+
+
+		int X = 261, Y = 137, Z = 27;
+		int index = masker_output.locIndexZXY[Z][X][Y];
+		System.out.println("index: "+index);
+		System.out.println("check: Z: "+masker_output.foregroundLocsZXY[index][0]+", X: "+masker_output.foregroundLocsZXY[index][1]+", Y: "+masker_output.foregroundLocsZXY[index][2]);
+
+
+		short[] curr_profile =  Profiler3D.prof3[index];
+		ImagePlus img_profile = new ImagePlus("profile", sph3D.drawProfile(curr_profile));
+		ArrayList<int[]> locs = sph3D.profilePeaksXY(curr_profile);
+		Overlay ov_peaks = new Overlay();
+		for (int ll = 0; ll<locs.size(); ll++) {
+			ov_peaks.add(new PointRoi(locs.get(ll)[0]+.5, locs.get(ll)[1]+.5));
+		}
+
+		ArrayList<Integer> peakIdxs = sph3D.profilePeaks(curr_profile);
+		for (int jj = 0; jj<peakIdxs.size(); jj++) { // masks.get(ii).length
+			for (int ii=0; ii<sph3D.masks.get(peakIdxs.get(jj)).length; ii++) {
+
+				int neighbourIdx = sph3D.masks.get(peakIdxs.get(jj))[ii];
+				int neighbourXplot = sph3D.vizXY.get(neighbourIdx)[0];
+				int neighbourYplot = sph3D.vizXY.get(neighbourIdx)[1];
+//				layerMask.setf(neighbourXplot, neighbourYplot, 255f);
+				PointRoi pt_mask = new PointRoi(neighbourXplot+.5, neighbourYplot+.5);
+				pt_mask.setFillColor(Color.BLUE);
+				ov_peaks.add(pt_mask);
+
+			}
+		}
+
+
+		img_profile.setOverlay(ov_peaks);
+		img_profile.show();
+
+
+		Overlay ov = new Overlay();
+		PointRoi pt = new PointRoi(X+0.5, Y+0.5);
+		pt.setPosition(Z);
+		pt.setStrokeColor(Color.RED);
+		pt.setFillColor(Color.RED);
+		ov.add(pt);
+
+		for (int ii = 0; ii< 4; ii++) {
+			System.out.println("peak "+ii+" -> "+Arrays.toString(PeakExtractor3D.peaks3[index][ii]));
+			pt = new PointRoi(PeakExtractor3D.peaks3[index][ii][0]+.5, PeakExtractor3D.peaks3[index][ii][1]+.5);
+			pt.setPosition(PeakExtractor3D.peaks3[index][ii][2]);
+			ov.add(pt);
+		}
+
+		inimg.setOverlay(ov);
+		inimg.show();
+
+		new ImagePlus("masks", sph3D.visualizeMasks()).show();
 
 
 

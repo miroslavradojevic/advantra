@@ -88,6 +88,7 @@ public class BifExtractor implements PlugIn {
 		reader.exportBifurcations(pathOutBif);
 
 		IJ.log("exported \n" + pathOutBif);
+		// TODO add the option to export them in csv list
 
 	}
 
