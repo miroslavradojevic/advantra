@@ -20,13 +20,13 @@ public class PeakExtractor3D extends Thread {
 
     public static float         zDist;                      // to properly calibrate layer
 
-    public static int[][][]     peaks3;                     // N x (4x3) main output
+    public static int[][][]     peaks3;                     // N x (4x3) main output  4 points in XYZ format (OUTPUT)
 
     public static short[][]     extracted_profiles;         // profiles extracted with Profiler3D
 
     public PeakExtractor3D(int n0, int n1)
     {
-        this.begN = n0; // split oriented filters
+        this.begN = n0;
         this.endN = n1;
     }
 

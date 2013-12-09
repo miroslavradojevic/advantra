@@ -38,6 +38,10 @@ public class Sphere3D {
 	private int 	W, H, N;                        // W,H are width and height of the 2d profile, N defines optimal sampling
 	private int 	limR, limT;
 
+    // expansion parameteres
+    private float   minCosAngDiff = .5f;
+
+
 	ArrayList<int[]>		vizXY = new ArrayList<int[]>();         // XY
 
 	ArrayList<float[]> 		elems = new ArrayList<float[]>(); 	    // list of elements (phi, theta) covering the sphere
@@ -625,7 +629,7 @@ public class Sphere3D {
 
     private float medianAlongLine(float x1, float y1, float z1lay, float x2, float y2, float z2lay, float[][][] img3d_zxy) {
 
-        int elementsInLine = Math.round(radius / 0.7f);
+        int elementsInLine = Math.round(radius / .7f);
         float[] valuesAlongLine = new float[elementsInLine];
 
         float dist = (float) Math.sqrt(Math.pow(x2-x1, 2) + Math.pow(y2-y1, 2) + Math.pow(z2lay-z1lay, 2));
@@ -640,13 +644,48 @@ public class Sphere3D {
             float atY = y1      + cc * dy;
             float atZ = z1lay   + cc * dz;
 
-			// DEBUG
-			boolean isIn = true;//atX>=0 &&
-			if (!isIn) {
-
-			}
-
             valuesAlongLine[cc] = Interpolator.interpolateAt(atX, atY, atZ, img3d_zxy);
+
+        }
+
+        return Stat.median(valuesAlongLine);
+
+    }
+
+    private float medianAlongLine(int[] x, int[] y, int[] z_lay, float[][][] img3d_zxy) {
+
+        int nr_lines = x.length - 1;
+        int elementsInLine = Math.round(radius / .7f);
+        float[] valuesAlongLine = new float[nr_lines*elementsInLine];
+
+        for (int lineNr = 0; lineNr < nr_lines; lineNr++) {
+
+            // define borders for lineNr = 0
+            int x2 = x[lineNr+1];
+            int x1 = x[lineNr];
+
+            int y2 = y[lineNr+1];
+            int y1 = y[lineNr];
+
+            int z2lay = z_lay[lineNr+1];
+            int z1lay = z_lay[lineNr];
+
+            float v = (float) Math.sqrt(Math.pow(x2-x1, 2) + Math.pow(y2-y1, 2) + Math.pow(z2lay-z1lay, 2));
+            float dx = (x2 - x1) / v;
+            float dy = (y2 - y1) / v;
+            float dz = (z2lay - z1lay) / v;
+
+            int reference_index = lineNr * elementsInLine;
+
+            for (int cc = 0; cc < elementsInLine; cc++) {
+
+                float atX = x1      + cc * dx;
+                float atY = y1      + cc * dy;
+                float atZ = z1lay   + cc * dz;
+
+                valuesAlongLine[cc+reference_index] = Interpolator.interpolateAt(atX, atY, atZ, img3d_zxy);
+
+            }
 
         }
 

@@ -18,7 +18,7 @@ public class Profiler3D extends Thread {
 
     public static Sphere3D 	sph3;                       // processing unit
 	public static int[][] 	listLocs3D;                 // N x 3 (Z,X,Y)
-	public static short[][]	prof3;                      // profiles could take much of memory (therefore 'short')
+	public static short[][]	prof3;                      // profiles could take much of memory (therefore 'short') (OUTPUT)
 
 	public Profiler3D(int n0, int n1)
 	{
