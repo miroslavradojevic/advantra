@@ -521,6 +521,8 @@ public class Sphere3D {
             float[][][] img3d_zxy,      // input (need it for ranking the peaks)
             float       zDistImage,     // input
 
+            int[][][]  lookupIdx_zxy, // binary mask to check if the detected peak belongs to the foreground so that PeakAnalyzer works well later (assumes extracted peaks are int the foreground point list)
+
             int[][] _4xXYZ              // output (will refer to a static part)
     )
     {
@@ -553,11 +555,10 @@ public class Sphere3D {
 
             float maxMedian = Float.MIN_VALUE;
             int[] currentPeaksXYZ  = new int[3];
+            boolean modified = false;
 
             for (int ii = 0; ii <= 1; ii++) { // check around peak
                 for (int jj = 0; jj <= 1; jj++) {
-
-					//System.out.println("from: "+profileCenterX+" , "+profileCenterY+" , "+profileCenterZ+" -> "+(x_peak_pix_base + ii)+" , "+(y_peak_pix_base + jj)+" , "+(z_peak_lay_base));
 
                     float currMedian = medianAlongLine(
                             profileCenterX,
@@ -568,16 +569,32 @@ public class Sphere3D {
                             z_peak_lay_base,
                             img3d_zxy);
 
-                    if (currMedian>maxMedian) {
-                        // set this one as peak
-						currentPeaksXYZ[0] = x_peak_pix_base + ii;
-						currentPeaksXYZ[1] = y_peak_pix_base + jj;
-						currentPeaksXYZ[2] = z_peak_lay_base;
-                        // update maxMedian
-                        maxMedian = currMedian;
+                    // consider [XYZ]:    x_peak_pix_base + ii,   y_peak_pix_base + jj,   z_peak_lay_base
+
+                    if (lookupIdx_zxy[z_peak_lay_base][x_peak_pix_base + ii][y_peak_pix_base + jj]!=-1)  {  // ensures retrieval from the list
+
+                        if (currMedian>maxMedian) {
+                            // set this one as peak
+                            currentPeaksXYZ[0] = x_peak_pix_base + ii;
+                            currentPeaksXYZ[1] = y_peak_pix_base + jj;
+                            currentPeaksXYZ[2] = z_peak_lay_base;
+
+                            modified = true;
+
+                            // update maxMedian
+                            maxMedian = currMedian;
+                        }
+
                     }
+//                    else {
+//                        System.out.println("peak was in the backgr");
+//                    }
 
                 }
+            }
+
+            if (modified) {
+
             }
 
             // insert maxMedian and currentPeaksXYZ to the list of 4 _4xXYZ

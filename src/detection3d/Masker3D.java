@@ -394,7 +394,7 @@ public class Masker3D extends Thread {
 
         float perc = (cnt*100f) / (image_length*image_width*image_height);
 
-        System.out.println(perc+"returning % vol. foreground");
+        System.out.println(String.format("%3.2f %% vol. foreground", perc));
 
         if (perc > 40) {// more than 40 percent is wrong
             System.out.println("too many foreground points, stopping...");

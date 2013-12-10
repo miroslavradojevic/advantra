@@ -18,6 +18,8 @@ public class PeakExtractor3D extends Thread {
 
     public static int[][] 	    listLocs3D;                 // N x 3 (Z,X,Y), list of locations
 
+    public static int[][][]     lookupIdxZXY;               // dimZ x dimX x dimY
+
     public static float         zDist;                      // to properly calibrate layer
 
     public static int[][][]     peaks3;                     // N x (4x3) main output  4 points in XYZ format (OUTPUT)
@@ -30,13 +32,14 @@ public class PeakExtractor3D extends Thread {
         this.endN = n1;
     }
 
-    public static void loadTemplate(Sphere3D sph3_init, int[][] listLocs3D_zxy, short[][] profiles_input, float[][][] img3_zxy_input, float zDist_input) {
+    public static void loadTemplate(Sphere3D sph3_init, int[][] listLocs3D_zxy, short[][] profiles_input, float[][][] img3_zxy_input, float zDist_input, int[][][] lookupIdxZXY_input) {
 
         sph3            = sph3_init;
         img3_zxy        = img3_zxy_input;                   // just necessary to rank peaks
         listLocs3D      = listLocs3D_zxy;
         zDist           = zDist_input;
         extracted_profiles = profiles_input;
+        lookupIdxZXY = lookupIdxZXY_input;
 
         // allocate output -> set to -1
         peaks3 = new int[listLocs3D.length][4][3];
@@ -59,7 +62,7 @@ public class PeakExtractor3D extends Thread {
             int atX = listLocs3D[locationIdx][1];
             int atY = listLocs3D[locationIdx][2];
 
-            sph3.peakCoords_4xXYZ(extracted_profiles[locationIdx], atX, atY, atZ, img3_zxy, zDist, peaks3[locationIdx]);
+            sph3.peakCoords_4xXYZ(extracted_profiles[locationIdx], atX, atY, atZ, img3_zxy, zDist, lookupIdxZXY, peaks3[locationIdx]);
 
         }
 

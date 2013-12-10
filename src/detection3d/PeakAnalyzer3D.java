@@ -1,5 +1,7 @@
 package detection3d;
 
+import java.util.Arrays;
+
 /**
  * Created with IntelliJ IDEA.
  * User: miroslav
@@ -18,7 +20,7 @@ public class PeakAnalyzer3D extends Thread {
 
     public static int[][][] listPeaks3D;                // N x (4x3) main output  4 points in XYZ format
 
-    public static int[][][] locIndexXYZ;                // correlate xyz with location index: dimX x dimY x dimZ
+    public static int[][][] locIndexZXY;                // correlate xyz with location index: dimX x dimY x dimZ (look up table)
 
     public static int M = 2;                            // how much it expands recursively from the center
 
@@ -31,13 +33,13 @@ public class PeakAnalyzer3D extends Thread {
         this.endN = n1;
     }
 
-    public static void loadTemplate(Sphere3D sph3_init, int[][] listLocs3D_zxy, int[][][] listPeaks3D_input, int[][][] locIndexXYZ_input, float[][][] img3_zxy_input) {
+    public static void loadTemplate(Sphere3D sph3_init, int[][] listLocs3D_zxy, int[][][] listPeaks3D_input, int[][][] locIndexZXY_input, float[][][] img3_zxy_input) {
 
         sph3 = sph3_init;
         listLocs3D = listLocs3D_zxy;
         img3_zxy = img3_zxy_input;
         listPeaks3D = listPeaks3D_input;                // peaks at each location already sorted by strength at lowest index
-        locIndexXYZ = locIndexXYZ_input;                // lookup table
+        locIndexZXY = locIndexZXY_input;                // lookup table
 
         // initialize delin3  output
         delin3 = new int[listLocs3D.length][4][M];      // will contain indexes for every 3d location (xyz can be recovered with look-up table)
@@ -55,8 +57,11 @@ public class PeakAnalyzer3D extends Thread {
 
         for (int locationIdx = begN; locationIdx < endN; locationIdx++) {
 
+            System.out.println("checking point (ZXY)-> "+Arrays.toString(listLocs3D[locationIdx])+" location "+locationIdx);
+
             // access individual peaks at this point
             for (int peakAtLoc = 0; peakAtLoc<4; peakAtLoc++) {  // there are 4 peaks allocated
+
                 if (listPeaks3D[locationIdx][peakAtLoc][0] != -1) { // x value stored as peak
 
                     // store the index value of this peak
@@ -64,40 +69,39 @@ public class PeakAnalyzer3D extends Thread {
                     int atY = listPeaks3D[locationIdx][peakAtLoc][1];
                     int atZ = listPeaks3D[locationIdx][peakAtLoc][2];
 
-                    int indexValue = locIndexXYZ[atX][atY][atZ];
+                    int indexValue = locIndexZXY[atZ][atX][atY];
+
+//                    System.out.println("peak found at ZXY "+atZ+","+atX+","+atY);
+
+                    if (indexValue==-1) System.out.println("FOUND IT! mask says "+locIndexZXY[atZ][atX][atY]);
+
+                    System.out.println(locationIdx+": peak found at ZXY "+atZ+","+atX+","+atY+" is : "+indexValue+" ::: double check (ZXY): "+ Arrays.toString(listLocs3D[indexValue]));
+
                     delin3[locationIdx][peakAtLoc][0] = indexValue; // m=0
 
                     int curr_index, prev_index, next_index;
 
-                    int[] prevXYZ = new int[3]; // TODO could be outside loop
-                    int[] currXYZ = new int[3];
-                    int[] nextXYZ = new int[3];
-
                     curr_index = indexValue;
                     prev_index = locationIdx;
 
-                    for (int m=1; m<M; m++) {
+                    for (int m=1; m<1; m++) { // M
+
+                        System.out.println("prev : "+prev_index);
+
+
+                        System.out.println("curr : "+curr_index);
 
                         // recursion : prev+curr->next index
+                        next_index = getNext(prev_index, curr_index); // next follow-up will be calculated and sotred in nextXYZ
 
-                        // these are stacked as ZXY take care on that
-                        prevXYZ[0] = listLocs3D[prev_index][1];    // X
-                        prevXYZ[1] = listLocs3D[prev_index][2];    // Y
-                        prevXYZ[2] = listLocs3D[prev_index][0];    // Z
+                        System.out.println("next : "+next_index);
 
-                        currXYZ[0] = listLocs3D[curr_index][1];    // X
-                        currXYZ[1] = listLocs3D[curr_index][2];    // Y
-                        currXYZ[2] = listLocs3D[curr_index][0];    // Z
 
-                        boolean is_found = getNext(prevXYZ, currXYZ, nextXYZ); // next follow-up will be calculated and sotred in nextXYZ
+                        if (next_index!=-1) { // -1 will be if the next one is not found
 
-                        if (is_found) {
-
-                            next_index = locIndexXYZ[nextXYZ[0]][nextXYZ[1]][nextXYZ[2]];
-
+//                            next_index = locIndexZXY[nextXYZ[0]][nextXYZ[1]][nextXYZ[2]];
                             // store it in output matrix
                             delin3[locationIdx][peakAtLoc][m] = next_index;
-
 
                         }
                         else { // follow-up does not exist, break looping m (extending further) but continue looping peaks
@@ -110,33 +114,67 @@ public class PeakAnalyzer3D extends Thread {
 
                     }
 
-
                 }
                 else { // it was -1 and the rest are not really peaks
                     break; // stop for() loop
                 }
             }
 
-
-            //int atZ = listLocs3D[locationIdx][0];
-            //int atX = listLocs3D[locationIdx][1];
-            //int atY = listLocs3D[locationIdx][2];
-
-            //sph3.peakCoords_4xXYZ(extracted_profiles[locationIdx], atX, atY, atZ, img3_zxy, zDist, peaks3[locationIdx]);
-
         }
 
     }
 
-    private static boolean getNext(int[] prevXYZ, int[] currXYZ, int[] nextXYZ){
-        boolean isOK = false;
-        // modify nextXYZ[0][1][2]
+    private static int getNext(int prev_index, int curr_index){
 
-        // loop options - read peaks from currXYZ and see how they correlate to current and previous point
+        // these are stacked as ZXY take care on that
+        int prevZ = listLocs3D[prev_index][0];    // Z
+        int prevX = listLocs3D[prev_index][1];    // X
+        int prevY = listLocs3D[prev_index][2];    // Y
+        System.out.println("curr_index: "+curr_index);
+        int currZ = listLocs3D[curr_index][0];    // Z
+        int currX = listLocs3D[curr_index][1];    // X
+        int currY = listLocs3D[curr_index][2];    // Y
 
+        // check peaks at curr
+        int[][] pks4xXYZ = listPeaks3D[curr_index];
+        for (int pkIdx = 0; pkIdx<4; pkIdx++) { // loops them by rank - those with highest weight first, pick the first one that points outwards
 
-        return isOK;
+            if (pks4xXYZ[pkIdx][0] != -1) {
+                // there is a peak to check - needs to be pointing outwards
+
+                int nextX = pks4xXYZ[pkIdx][0];
+                int nextY = pks4xXYZ[pkIdx][1];
+                int nextZ = pks4xXYZ[pkIdx][2];
+
+                double cosAng =
+                        (
+                        (currX-prevX)*(nextX-currX) + (currY-prevY)*(nextY-currY) + (currZ-prevZ)*(nextZ-currZ)
+                        )
+                                /
+                        (
+                                Math.sqrt( Math.pow(currX-prevX, 2) +  Math.pow(currY-prevY, 2) + Math.pow(currZ-prevZ, 2) ) *
+                                        Math.sqrt( Math.pow(nextX-currX, 2) + Math.pow(nextY-currY, 2) + Math.pow(nextZ-currZ, 2) )
+                        );
+
+                if (cosAng>0.6) {
+
+                    // it is aligned - add it, find its index location and output
+                    return locIndexZXY[nextZ][nextX][nextY];
+
+                }
+                else {
+                    // if not pointing outwards, continue further
+                }
+            }
+            else {
+                // no more peaks to search
+                return -1;
+            }
+
+        }
+
+        return -1; // checked all
+
     }
-
 
 }

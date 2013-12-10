@@ -40,6 +40,7 @@ public class Detector3D {
     MaskerOutput masker_output      = new MaskerOutput(); 	// foreground extraction is stored here
     Profiler3D[]    profiler_jobs   = null;
     PeakExtractor3D[] peak_extractor_jobs = null;
+    PeakAnalyzer3D[] peak_analyzer_jobs = null;
 
     public Detector3D() {
         System.out.println("loading default parameters...");
@@ -90,10 +91,11 @@ public class Detector3D {
 
         long t1, t2;
 
-
-
-
-        //// 1. MASK
+        /*
+        ********************************************************
+        * EXTRACT FOREGROUND
+        ********************************************************
+         */
         System.out.println("separating foreground... ");
 		t1 = System.currentTimeMillis();
         int margin = 0;
@@ -111,24 +113,16 @@ public class Detector3D {
                 e.printStackTrace();
             }
         }
-
-		/*
-		 	skipped locations are filled,
-		*/
-        Masker3D.fill();
+        Masker3D.fill();  // skipped locations are filled
         masker_output = Masker3D.getMaskerOutput();
         t2 = System.currentTimeMillis();
 		System.out.println("done. " + ((t2 - t1) / 1000f) + " sec.");
-
-
-
-
-
-
-
-
-
-		//// 2. PROFILE
+        new ImagePlus("FG", Masker3D.getMask()).show();
+		/*
+        ********************************************************
+        * PROFILE EXTRACT
+        ********************************************************
+         */
         System.out.println("extracting profiles... ");
         t1 = System.currentTimeMillis();
         Profiler3D.loadTemplate(sph3D, masker_output.foregroundLocsZXY, img3d_zxy, zDist);
@@ -147,23 +141,14 @@ public class Detector3D {
         }
         t2 = System.currentTimeMillis();
         System.out.println("done. " + ((t2 - t1) / 1000f) + " sec.");
-
-
-
-
-
-
-
-
-		//// 3. PROFILE PEAK(S)
+        /*
+        ********************************************************
+        * PROFILE PEAK(S)
+        ********************************************************
+         */
         System.out.println("extracting peaks... ");
-		System.out.println(""+img3d_zxy.length);
-		System.out.println(""+img3d_zxy[0].length);
-		System.out.println(""+img3d_zxy[0][0].length);
-
         t1 = System.currentTimeMillis();
-
-        PeakExtractor3D.loadTemplate(sph3D, masker_output.foregroundLocsZXY, Profiler3D.prof3, img3d_zxy, zDist);
+        PeakExtractor3D.loadTemplate(sph3D, masker_output.foregroundLocsZXY, Profiler3D.prof3, img3d_zxy, zDist, masker_output.locIndexZXY);
         int totalPeakExtractorJobs = masker_output.foregroundLocsZXY.length;
         peak_extractor_jobs = new PeakExtractor3D[CPU_NR];
         for (int i=0; i < peak_extractor_jobs.length; i++) {
@@ -179,75 +164,96 @@ public class Detector3D {
 		}
         t2 = System.currentTimeMillis();
         System.out.println("done. " + ((t2 - t1) / 1000f) + " sec.");
+        /*
+        ********************************************************
+        * PEAK(S) ANALYZE
+        ********************************************************
+         */
+        System.out.println("associating peaks... ");
+        t1 = System.currentTimeMillis();
+        PeakAnalyzer3D.loadTemplate(sph3D, masker_output.foregroundLocsZXY, PeakExtractor3D.peaks3, masker_output.locIndexZXY, img3d_zxy);
+        int totalPeakAnalyzerJobs = masker_output.foregroundLocsZXY.length;
+        peak_analyzer_jobs = new PeakAnalyzer3D[CPU_NR];
+        for (int i=0; i < peak_analyzer_jobs.length; i++) {
+            peak_analyzer_jobs[i] = new PeakAnalyzer3D(i*totalPeakAnalyzerJobs/CPU_NR, (i+1)*totalPeakAnalyzerJobs/CPU_NR);
+            peak_analyzer_jobs[i].start();
+        }
+        for (int i=0; i < peak_analyzer_jobs.length; i++) {
+            try {
+                peak_analyzer_jobs[i].join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        t2 = System.currentTimeMillis();
+        System.out.println("done. " + ((t2 - t1) / 1000f) + " sec.");
+        /*
+        ********************************************************
+        * TEST
+        ********************************************************
+         */
 
 
+        // check all peaks - they should be in foreground
 
+        System.out.println("total locations: "+PeakExtractor3D.peaks3.length + " {}{}{}{} "+masker_output.foregroundLocsZXY.length);
 
+        int cnt = 0;
+        for (int locationCheck=0; locationCheck<PeakExtractor3D.peaks3.length; locationCheck++) {
 
+            for (int peakCheck=0; peakCheck<4; peakCheck++) {
 
+                if (PeakExtractor3D.peaks3[locationCheck][peakCheck][0]!=-1) {
 
+                    int xx = PeakExtractor3D.peaks3[locationCheck][peakCheck][0];
+                    int yy = PeakExtractor3D.peaks3[locationCheck][peakCheck][1];
+                    int zz = PeakExtractor3D.peaks3[locationCheck][peakCheck][2];
 
+                    // check if it is in foreground
+                    if (!Masker3D.mask3[zz][xx][yy]) {
+                            cnt++;
+                        //System.out.println("PEAK "+Arrays.toString(PeakExtractor3D.peaks3[locationCheck][peakCheck])+" in backgr! error ");
 
+                    }
 
-		int X = 261, Y = 137, Z = 27;
-		int index = masker_output.locIndexZXY[Z][X][Y];
-		System.out.println("index: "+index);
-		System.out.println("check: Z: "+masker_output.foregroundLocsZXY[index][0]+", X: "+masker_output.foregroundLocsZXY[index][1]+", Y: "+masker_output.foregroundLocsZXY[index][2]);
+                }
+                //else {
+                //    System.out.println(Arrays.toString(PeakExtractor3D.peaks3[locationCheck][peakCheck]));
+                //}
 
+            }
 
-		short[] curr_profile =  Profiler3D.prof3[index];
-		ImagePlus img_profile = new ImagePlus("profile", sph3D.drawProfile(curr_profile));
-		ArrayList<int[]> locs = sph3D.profilePeaksXY(curr_profile);
-		Overlay ov_peaks = new Overlay();
-		for (int ll = 0; ll<locs.size(); ll++) {
-			ov_peaks.add(new PointRoi(locs.get(ll)[0]+.5, locs.get(ll)[1]+.5));
-		}
+        }
 
-		ArrayList<Integer> peakIdxs = sph3D.profilePeaks(curr_profile);
-		for (int jj = 0; jj<peakIdxs.size(); jj++) { // masks.get(ii).length
-			for (int ii=0; ii<sph3D.masks.get(peakIdxs.get(jj)).length; ii++) {
+        System.out.println(cnt);
 
-				int neighbourIdx = sph3D.masks.get(peakIdxs.get(jj))[ii];
-				int neighbourXplot = sph3D.vizXY.get(neighbourIdx)[0];
-				int neighbourYplot = sph3D.vizXY.get(neighbourIdx)[1];
-//				layerMask.setf(neighbourXplot, neighbourYplot, 255f);
-				PointRoi pt_mask = new PointRoi(neighbourXplot+.5, neighbourYplot+.5);
-				pt_mask.setFillColor(Color.BLUE);
-				ov_peaks.add(pt_mask);
-
-			}
-		}
-
-
-		img_profile.setOverlay(ov_peaks);
-		img_profile.show();
-
-
-		Overlay ov = new Overlay();
-		PointRoi pt = new PointRoi(X+0.5, Y+0.5);
-		pt.setPosition(Z);
-		pt.setStrokeColor(Color.RED);
-		pt.setFillColor(Color.RED);
-		ov.add(pt);
-
-		for (int ii = 0; ii< 4; ii++) {
-			System.out.println("peak "+ii+" -> "+Arrays.toString(PeakExtractor3D.peaks3[index][ii]));
-			pt = new PointRoi(PeakExtractor3D.peaks3[index][ii][0]+.5, PeakExtractor3D.peaks3[index][ii][1]+.5);
-			pt.setPosition(PeakExtractor3D.peaks3[index][ii][2]);
-			ov.add(pt);
-		}
-
-		inimg.setOverlay(ov);
-		inimg.show();
-
-		new ImagePlus("masks", sph3D.visualizeMasks()).show();
-
-
-
-
-
-        // 4. ASSOCIATE PEAKS
-
+//        int A = Masker3D.mask3.length;
+//        int B = Masker3D.mask3[0].length;
+//        int C = Masker3D.mask3[0][0].length;
+//        int AA = masker_output.locIndexZXY.length;
+//        int BB = masker_output.locIndexZXY[0].length;
+//        int CC = masker_output.locIndexZXY[0][0].length;
+//
+//        System.out.println("A B C    : "+A+" , "+B+" , "+C);
+//        System.out.println("AA BB CC : "+AA+" , "+BB+" , "+CC);
+//
+//        for (int aa=0; aa<AA; aa++) {
+//
+//            for (int bb=0; bb<BB; bb++) {
+//
+//                for (int cc=0; cc<CC; cc++) {
+//
+//                    if (Masker3D.mask3[aa][bb][cc] && (masker_output.locIndexZXY[aa][bb][cc]==-1) )
+//                        System.out.println("WRONG!");
+//
+//                    if (!Masker3D.mask3[aa][bb][cc] && (masker_output.locIndexZXY[aa][bb][cc]!=-1) )
+//                        System.out.println("WRONG!");
+//
+//                }
+//
+//            }
+//
+//        }
 
 
 	}
