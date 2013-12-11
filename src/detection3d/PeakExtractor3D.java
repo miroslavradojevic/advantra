@@ -1,5 +1,7 @@
 package detection3d;
 
+import ij.IJ;
+
 import java.util.ArrayList;
 
 /**
@@ -22,9 +24,11 @@ public class PeakExtractor3D extends Thread {
 
     public static float         zDist;                      // to properly calibrate layer
 
-    public static int[][][]     peaks3;                     // N x (4x3) main output  4 points in XYZ format (OUTPUT)
-
     public static short[][]     extracted_profiles;         // profiles extracted with Profiler3D
+
+    // outputs are lists of selected peaks
+    public static int[][][]     peaks2;                     // N x (4x2)   4 selected peaks in planisphere image coordinates XY
+    public static int[][][]     peaks3;                     // N x (4x3)    main output  4 selected peaks in XYZ format (OUTPUT)
 
     public PeakExtractor3D(int n0, int n1)
     {
@@ -42,12 +46,19 @@ public class PeakExtractor3D extends Thread {
         lookupIdxZXY = lookupIdxZXY_input;
 
         // allocate output -> set to -1
-        peaks3 = new int[listLocs3D.length][4][3];
+        peaks3  = new int[listLocs3D.length][4][3];
+        peaks2  = new int[listLocs3D.length][4][2];
         for (int ii = 0; ii<listLocs3D.length; ii++) {
             for (int jj = 0; jj<4; jj++) {
+
                 for (int kk = 0; kk<3; kk++) {
                     peaks3[ii][jj][kk] = -1;
                 }
+
+                for (int kk=0; kk<2; kk++) {
+                    peaks2[ii][jj][kk] = -1;
+                }
+
             }
         }
 
@@ -62,7 +73,7 @@ public class PeakExtractor3D extends Thread {
             int atX = listLocs3D[locationIdx][1];
             int atY = listLocs3D[locationIdx][2];
 
-            sph3.peakCoords_4xXYZ(extracted_profiles[locationIdx], atX, atY, atZ, img3_zxy, zDist, lookupIdxZXY, peaks3[locationIdx]);
+            sph3.peakCoords_4xXYZ(extracted_profiles[locationIdx], atX, atY, atZ, img3_zxy, zDist, lookupIdxZXY, peaks3[locationIdx], peaks2[locationIdx]); // 4x3 and 4x2 fill up
 
         }
 
@@ -86,4 +97,64 @@ public class PeakExtractor3D extends Thread {
         return  out; // will return only reference
     }
 
-}
+    public static void summary(int atX, int atY, int atZ) {
+
+        IJ.log("### Peak cloud 4x4x4 etc... ###");
+        int locationIdx = lookupIdxZXY[atZ][atX][atY];
+
+        // center
+        IJ.log("0 " + 1 + " " + (atX+0.5) + " " + (atY+0.5) + " " + (atZ+0.5) + " " + 0.5f + " -1");
+
+        // 1st generation 4 peaks from center
+        for (int loop1=0; loop1<4; loop1++) {
+
+            int g1_x = peaks3[locationIdx][loop1][0];
+            int g1_y = peaks3[locationIdx][loop1][1];
+            int g1_z = peaks3[locationIdx][loop1][2];
+
+            if (g1_x != -1) {
+
+                int spotIndex1 = lookupIdxZXY[g1_z][g1_x][g1_y];
+
+                if (spotIndex1 != -1 && g1_x != -1) {
+
+                    // spot exists
+                    IJ.log("0 " + 1 + " " + (g1_x+0.5) + " " + (g1_y+0.5) + " " + (g1_z+0.5) + " " + 0.3f + " -1");
+
+                    // loop it's peaks if it exists
+
+                    for (int loop2=0; loop2<4;loop2++) {
+
+                        int g2_x = peaks3[spotIndex1][loop2][0];
+                        int g2_y = peaks3[spotIndex1][loop2][1];
+                        int g2_z = peaks3[spotIndex1][loop2][2];
+
+                        if (g2_x != -1) {
+
+
+                            int spotIndex2 = lookupIdxZXY[g2_z][g2_x][g2_y];
+
+                            if (spotIndex2 != -1 && g2_x != -1) {
+
+                                // spot exists
+                                IJ.log("0 " + 1 + " " + (g2_x+0.5) + " " + (g2_y+0.5) + " " + (g2_z+0.5) + " " + 0.3f + " -1");
+
+                            }
+
+
+                        }
+
+
+
+                    }
+
+                }
+
+            }
+
+        }
+
+
+    }
+
+    }

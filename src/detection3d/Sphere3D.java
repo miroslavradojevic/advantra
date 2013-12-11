@@ -1,6 +1,7 @@
 package detection3d;
 
 import detection.Interpolator;
+import ij.IJ;
 import ij.ImageStack;
 import ij.process.ByteProcessor;
 import ij.process.ShortProcessor;
@@ -22,7 +23,7 @@ public class Sphere3D {
 	// azimuth 		theta [0, 2PI)
 	// polar angle  phi [PI/2(top), -PI/2(bottom)]
 
-	private static float arcRes 	= 1.0f;
+	private static float arcRes 	= 0.7f;
 	private static float PI 		= (float) Math.PI;
 	private static float TwoPI 		= (float) (2*Math.PI);
 	private static float HalfPI 	= (float) (Math.PI/2);
@@ -34,7 +35,7 @@ public class Sphere3D {
 	private float 	radius;                         // sphere radius
 	private float   scale;
     private float   neuronDiameter;
-    private static 	float 	arcNbhood = 1.5f;       // try to see the mask looks after setting this one (important to tune for peak detection)
+    private static 	float 	arcNbhood = 2.0f;       // try to see the mask looks after setting this one (important to tune for peak detection)
 	private int 	W, H, N;                        // W,H are width and height of the 2d profile, N defines optimal sampling
 	private int 	limR, limT;
 
@@ -512,27 +513,25 @@ public class Sphere3D {
 
     }
 
-    public void peakCoords_4xXYZ(
-            short[] profile,            // already calculated
-            int     profileCenterX,     // already calculated
-            int     profileCenterY,     // already calculated
-            int     profileCenterZ,     // already calculated
+    public void peakSummary(
+            short[] profile,
+            int profileCenterX,
+            int profileCenterY,
+            int profileCenterZ,
 
-            float[][][] img3d_zxy,      // input (need it for ranking the peaks)
-            float       zDistImage,     // input
+            float[][][] img3d_zxy,
+            float       zDistImage,
 
-            int[][][]  lookupIdx_zxy, // binary mask to check if the detected peak belongs to the foreground so that PeakAnalyzer works well later (assumes extracted peaks are int the foreground point list)
+            int[][][]  lookupIdx_zxy
 
-            int[][] _4xXYZ              // output (will refer to a static part)
     )
-    {
-    // output is stored in 4x3 integer array
+    { // prints peak value summary at this location (how many peaks, weight) without being added to the list
+
 
         ArrayList<Integer> peakIdxs = profilePeaks(profile); // list indexes of peaks
-
-        // take top 4 and store them according to the importance (criteria: median along the connecting line, since we don't do the iterations any more)
-        float[] medAlongLin = new float[4]; // allocate for each detected peak to compare
+        float[] medAlongLin = new float[4];
         Arrays.fill(medAlongLin, -1f);
+
 
         for (int t = 0; t<peakIdxs.size(); t++) { // check every peak
 
@@ -554,7 +553,12 @@ public class Sphere3D {
              */
 
             float maxMedian = Float.MIN_VALUE;
-            int[] currentPeaksXYZ  = new int[3];
+            int[] currentPeaksXYZ   = new int[3];
+
+            int[] currentPeaksXY    = new int[2];
+            currentPeaksXY[0] = vizXY.get(indexOfPeakDirection)[0];  // can be filled knowing the index already
+            currentPeaksXY[1] = vizXY.get(indexOfPeakDirection)[1];
+
             boolean modified = false;
 
             for (int ii = 0; ii <= 1; ii++) { // check around peak
@@ -586,42 +590,152 @@ public class Sphere3D {
                         }
 
                     }
-//                    else {
-//                        System.out.println("peak was in the backgr");
-//                    }
-
                 }
             }
 
             if (modified) { // if there was a result add it to sorted list
 
+//                IJ.log("peak #"+indexOfPeakDirection+" : 3d location index = "+lookupIdx_zxy[currentPeaksXYZ[2]][currentPeaksXYZ[0]][currentPeaksXYZ[1]]
+//                +" , weight = "+maxMedian);
+
+                IJ.log("1 2 " + (currentPeaksXYZ[0]+0.5) + " " + (currentPeaksXYZ[1]+0.5) + " " + (currentPeaksXYZ[2]+0.5) + " " + (maxMedian/255f) + " -1");
+
+            }
+
+        }
+
+        IJ.log("0 1 " + (profileCenterX+0.5) + " " + (profileCenterY+0.5) + " " + (profileCenterZ+0.5) + " " + 1f + " -1");
+
+
+    }
+
+    public void peakCoords_4xXYZ(
+            short[] profile,            // already calculated
+            int     profileCenterX,     // already calculated
+            int     profileCenterY,     // already calculated
+            int     profileCenterZ,     // already calculated
+
+            float[][][] img3d_zxy,      // input (need it for ranking the peaks)
+            float       zDistImage,     // input
+
+            int[][][]  lookupIdx_zxy, // binary mask to check if the detected peak belongs to the foreground so that PeakAnalyzer works well later (assumes extracted peaks are int the foreground point list)
+
+            int[][] _4xXYZ,             // output
+            int[][] _4xXY               // output
+    )
+    {
+    // output is stored in 4x3 integer array
+
+        ArrayList<Integer> peakIdxs = profilePeaks(profile); // list indexes of peaks
+
+        // take top 4 and store them according to the importance (criteria: median along the connecting line, since we don't do the iterations any more)
+        float[] medAlongLin = new float[4]; // allocate for each detected peak to compare
+        Arrays.fill(medAlongLin, -1f);
+
+        for (int t = 0; t<peakIdxs.size(); t++) { // check every peak
+
+            int indexOfPeakDirection = peakIdxs.get(t);
+
+            float phi       = elems.get(indexOfPeakDirection)[0];
+            float theta     = elems.get(indexOfPeakDirection)[1];
+
+            float x_peak_pix = profileCenterX + getX(radius, phi, theta);
+            float y_peak_pix = profileCenterY + getY(radius, phi, theta);
+            float z_peak_lay = profileCenterZ + getZ(radius, phi) / zDistImage; // convert pix to lay first
+
+            int x_peak_pix_base = (int) Math.floor(x_peak_pix);
+            int y_peak_pix_base = (int) Math.floor(y_peak_pix);
+            int z_peak_lay_base = (int) Math.round(z_peak_lay);
+
+            /*
+                pick the best out of 4-neighbours from the same plane - for more robustness, 4 neighbourhood around subpixel x,y,z_peak_pix,lay
+             */
+
+            float maxMedian = Float.MIN_VALUE;
+            int[] currentPeaksXYZ   = new int[3];
+
+            int[] currentPeaksXY    = new int[2];
+            currentPeaksXY[0] = vizXY.get(indexOfPeakDirection)[0];  // can be filled knowing the index already
+            currentPeaksXY[1] = vizXY.get(indexOfPeakDirection)[1];
+
+            boolean modified = false;
+
+            for (int ii = 0; ii <= 1; ii++) { // check around peak
+                for (int jj = 0; jj <= 1; jj++) {
+
+                    float currMedian = medianAlongLine(
+                            profileCenterX,
+                            profileCenterY,
+                            profileCenterZ,
+                            x_peak_pix_base + ii,
+                            y_peak_pix_base + jj,
+                            z_peak_lay_base,
+                            img3d_zxy);
+
+                    // consider [XYZ]:    x_peak_pix_base + ii,   y_peak_pix_base + jj,   z_peak_lay_base
+
+                    if (lookupIdx_zxy[z_peak_lay_base][x_peak_pix_base + ii][y_peak_pix_base + jj]!=-1)  {  // ensures retrieval from the list
+
+                        if (currMedian>maxMedian) {
+                            // set this one as peak
+                            currentPeaksXYZ[0] = x_peak_pix_base + ii;
+                            currentPeaksXYZ[1] = y_peak_pix_base + jj;
+                            currentPeaksXYZ[2] = z_peak_lay_base;
+
+                            modified = true;
+
+                            // update maxMedian
+                            maxMedian = currMedian;
+                        }
+
+                    }
+                }
+            }
+
+            if (modified) { // if there was a result add it to sorted list
             // insert maxMedian and currentPeaksXYZ to the list of 4 _4xXYZ
+            // insert currentPeaksXY to the list of 4 _4xXY
 			for (int k = 0; k < 4; k++) {
 
-				if (medAlongLin[k] == -1f) {
-					_4xXYZ[k][0] = currentPeaksXYZ[0];
-					_4xXYZ[k][1] = currentPeaksXYZ[1];
-					_4xXYZ[k][2] = currentPeaksXYZ[2];
-					medAlongLin[k] = maxMedian;
-					break;
+				if (medAlongLin[k] == -1f) {            // store immediately
+
+					_4xXYZ[k][0]    = currentPeaksXYZ[0];
+					_4xXYZ[k][1]    = currentPeaksXYZ[1];
+					_4xXYZ[k][2]    = currentPeaksXYZ[2];
+
+                    medAlongLin[k]  = maxMedian;
+
+                    _4xXY[k][0]     = currentPeaksXY[0];
+                    _4xXY[k][1]     = currentPeaksXY[1];
+
+                    break;
 
 				}
 				else if (maxMedian>medAlongLin[k]) {
 
 					// shift the rest first
-					for (int kk = 4-2; kk>=k; kk--) { // shift them from the one before last
-						// shift starting from the back (last one disappears)
+					for (int kk = 4-2; kk>=k; kk--) {   // shift them from the one before last, shift back (last one dissapears)
                         _4xXYZ[kk+1][0] = _4xXYZ[kk][0];
                         _4xXYZ[kk+1][1] = _4xXYZ[kk][1];
                         _4xXYZ[kk+1][2] = _4xXYZ[kk][2];
+
                         medAlongLin[kk+1] = medAlongLin[kk];
+
+                        _4xXY[kk+1][0] = _4xXY[kk][0];
+                        _4xXY[kk+1][1] = _4xXY[kk][1];
+
 					}
 
 					// store it at k
 					_4xXYZ[k][0] = currentPeaksXYZ[0];
 					_4xXYZ[k][1] = currentPeaksXYZ[1];
 					_4xXYZ[k][2] = currentPeaksXYZ[2];
+
 					medAlongLin[k] = maxMedian;
+
+                    _4xXY[k][0] = currentPeaksXY[0];
+                    _4xXY[k][1] = currentPeaksXY[1];
+
 					break;
 
 				}
@@ -633,7 +747,7 @@ public class Sphere3D {
 
 			}
 
-			}
+			}// modified
 
 
         }

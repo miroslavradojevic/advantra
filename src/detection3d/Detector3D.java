@@ -1,9 +1,12 @@
 package detection3d;
 
+import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
+import ij.gui.OvalRoi;
 import ij.gui.Overlay;
 import ij.gui.PointRoi;
+import ij.process.ShortProcessor;
 
 import java.awt.*;
 import java.util.ArrayList;
@@ -117,7 +120,7 @@ public class Detector3D {
         masker_output = Masker3D.getMaskerOutput();
         t2 = System.currentTimeMillis();
 		System.out.println("done. " + ((t2 - t1) / 1000f) + " sec.");
-        new ImagePlus("FG", Masker3D.getMask()).show();
+        //new ImagePlus("FG", Masker3D.getMask()).show();
 		/*
         ********************************************************
         * PROFILE EXTRACT
@@ -193,97 +196,149 @@ public class Detector3D {
         ********************************************************
          */
 
+        new ImagePlus("", sph3D.visualizeMasks()).show();
 
-        // check all peaks - they should be in foreground
+	}
 
-        System.out.println("total locations: "+PeakExtractor3D.peaks3.length + " {}{}{}{} "+masker_output.foregroundLocsZXY.length);
+	public Overlay getLocalSkeleton(int atX, int atY, int atZ) {  // make it swc export
 
-        int cnt = 0;
-        for (int locationCheck=0; locationCheck<PeakExtractor3D.peaks3.length; locationCheck++) {
+		Overlay ov = new Overlay();
+        float plot_radius = 0.5f;
 
-            for (int peakCheck=0; peakCheck<4; peakCheck++) {
+        int locationIndex = masker_output.locIndexZXY[atZ][atX][atY];
 
-                if (PeakExtractor3D.peaks3[locationCheck][peakCheck][0]!=-1) {
+		if (locationIndex!=-1) {
 
-                    int xx = PeakExtractor3D.peaks3[locationCheck][peakCheck][0];
-                    int yy = PeakExtractor3D.peaks3[locationCheck][peakCheck][1];
-                    int zz = PeakExtractor3D.peaks3[locationCheck][peakCheck][2];
+            // central point exists for sure
+            int cx = atX;
+            int cy = atY;
+            int cz = atZ;
+            OvalRoi ovroi = new OvalRoi(cx-plot_radius+.5, cy-plot_radius+.5, 2*plot_radius, 2*plot_radius);
+            ovroi.setPosition(cz);
+            ovroi.setFillColor(Color.RED);
+            ov.add(ovroi);
 
-                    // check if it is in foreground
-                    if (!Masker3D.mask3[zz][xx][yy]) {
-                        cnt++;
-                        //System.out.println("PEAK "+Arrays.toString(PeakExtractor3D.peaks3[locationCheck][peakCheck])+" in backgr! error ");
+			// check all that were different from -1
+			int[][] skel = PeakAnalyzer3D.delin3[locationIndex];
+
+            //IJ.log("\n");
+            //for (int k=0; k<PeakAnalyzer3D.delin3[locationIndex].length; k++) {
+            //    IJ.log( (k+1)+"thread -> "+Arrays.toString( PeakAnalyzer3D.delin3[locationIndex][k] ));
+            //}
+            //IJ.log("\n");
+
+            for (int thr_id = 0; thr_id<skel.length; thr_id++) {
+
+                for (int pt_id = 0; pt_id<skel[thr_id].length; pt_id++) {
+
+                    if (skel[thr_id][pt_id]==-1) {
+                        //break;
+                    }
+                    else {
+
+                        cx = masker_output.foregroundLocsZXY[skel[thr_id][pt_id]][1];
+                        cy = masker_output.foregroundLocsZXY[skel[thr_id][pt_id]][2];
+                        cz = masker_output.foregroundLocsZXY[skel[thr_id][pt_id]][0];
+                        ovroi = new OvalRoi(cx-plot_radius+.5, cy-plot_radius+.5, 2*plot_radius, 2*plot_radius);
+                        ovroi.setPosition(cz);
+                        ov.add(ovroi);
 
                     }
 
                 }
-                //else {
-                //    System.out.println(Arrays.toString(PeakExtractor3D.peaks3[locationCheck][peakCheck]));
-                //}
+
+            }
+
+		}
+
+        return ov;
+
+	}
+
+	public ShortProcessor getLocalProfile(int atX, int atY, int atZ) {  // a wrapper for Sphere3D method drawProfile()
+
+		if (masker_output.locIndexZXY[atZ][atX][atY]!=-1) {
+
+			return sph3D.drawProfile(Profiler3D.prof3[masker_output.locIndexZXY[atZ][atX][atY]]);
+
+		}
+		else {
+			return null;// return the empty profile, we're in background
+		}
+
+	}
+
+    public Overlay getLocalProfilePeaks(int atX, int atY, int atZ) {  // wrapper for Sphere3D method
+
+        // will give all peaks
+
+        Overlay ov = new Overlay();
+        float radius_plot = .4f;
+
+        if (masker_output.locIndexZXY[atZ][atX][atY]!=-1) {
+
+            ArrayList<int[]> pks = sph3D.profilePeaksXY(Profiler3D.prof3[masker_output.locIndexZXY[atZ][atX][atY]]);
+
+            for (int a=0; a<pks.size(); a++) {
+                OvalRoi ovroi = new OvalRoi(pks.get(a)[0]-radius_plot+.5, pks.get(a)[1]-radius_plot+.5, 2*radius_plot, 2*radius_plot);
+                ovroi.setFillColor(Color.RED);
+                ov.add(ovroi);
+            }
+
+        }
+
+        return ov;
+
+    }
+
+    public Overlay getSelectedLocalProfilePeaks(int atX, int atY, int atZ) {
+
+        // will give selected peaks
+
+        Overlay ov = new Overlay();
+        float radius_plot = .75f;
+
+        int locationID = masker_output.locIndexZXY[atZ][atX][atY];
+
+        if (locationID!=-1) {
+
+            for (int a = 0; a<PeakExtractor3D.peaks2[locationID].length; a++) {
+
+                int cx = PeakExtractor3D.peaks2[locationID][a][0];
+                int cy = PeakExtractor3D.peaks2[locationID][a][1];
+
+                OvalRoi ovroi = new OvalRoi(cx-radius_plot+.5, cy-radius_plot+.5, 2*radius_plot, 2*radius_plot);
+                ov.add(ovroi);
 
             }
 
         }
 
-        System.out.println(cnt);
+        return ov;
 
-//        int A = Masker3D.mask3.length;
-//        int B = Masker3D.mask3[0].length;
-//        int C = Masker3D.mask3[0][0].length;
-//        int AA = masker_output.locIndexZXY.length;
-//        int BB = masker_output.locIndexZXY[0].length;
-//        int CC = masker_output.locIndexZXY[0][0].length;
-//
-//        System.out.println("A B C    : "+A+" , "+B+" , "+C);
-//        System.out.println("AA BB CC : "+AA+" , "+BB+" , "+CC);
-//
-//        for (int aa=0; aa<AA; aa++) {
-//
-//            for (int bb=0; bb<BB; bb++) {
-//
-//                for (int cc=0; cc<CC; cc++) {
-//
-//                    if (Masker3D.mask3[aa][bb][cc] && (masker_output.locIndexZXY[aa][bb][cc]==-1) )
-//                        System.out.println("WRONG!");
-//
-//                    if (!Masker3D.mask3[aa][bb][cc] && (masker_output.locIndexZXY[aa][bb][cc]!=-1) )
-//                        System.out.println("WRONG!");
-//
-//                }
-//
-//            }
-//
-//        }
+    }
 
+    public void debug(int atX, int atY, int atZ){
 
-	}
+        int locationID = masker_output.locIndexZXY[atZ][atX][atY];
 
-	public Overlay getLocalSkeleton(int atX, int atY, int atZ) {
+        if (locationID!=-1) {
 
-		Overlay ov = new Overlay();
+//            sph3D.peakSummary(
+//                    Profiler3D.prof3[locationID],
+//                    atX, atY, atZ,
+//                    img3d_zxy,
+//                    zDist,
+//                    masker_output.locIndexZXY
+//            );
 
-		if (masker_output.locIndexZXY[atZ][atX][atY]!=-1) {
-			// check all that were different from -1
-			PeakAnalyzer3D.delin3
-		}
-		else {
-			return ov;
-		}
+            PeakExtractor3D.summary(atX, atY, atZ);
 
-	}
+//            PeakAnalyzer3D.summary(atX, atY, atZ);
 
-	public short[] getLocalProfile(int atX, int atY, int atZ) {
+        }
 
-		if (masker_output.locIndexZXY[atZ][atX][atY]!=-1) {
-
-			return Profiler3D.prof3[masker_output.locIndexZXY[atZ][atX][atY]];
-
-		}
-		else {
-			return new short[sph3D.getProfileLength()]; // return the empty profile, we're in background
-		}
-
-	}
+    }
 
 	/*
 		convert image to the array form (float[][][]) that will be used by all thread classes (Masker3D, Profiler3D, PeakExtractor, Analyzer3D) in run()

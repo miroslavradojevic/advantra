@@ -1,5 +1,7 @@
 package detection3d;
 
+import ij.IJ;
+
 import java.util.Arrays;
 
 /**
@@ -171,6 +173,31 @@ public class PeakAnalyzer3D extends Thread {
         }
 
         return -1; // checked all
+
+    }
+
+    public static void summary(int atX, int atY, int atZ) {
+
+        IJ.log("### Delineation (connecting lines) ###");
+        int locationIdx = locIndexZXY[atZ][atX][atY];
+
+        int[][] skeleton = delin3[locationIdx];
+
+        for (int i1 = 0; i1<skeleton.length; i1++) {
+            for (int i2=0; i2<skeleton[0].length; i2++) {
+                if (skeleton[i1][i2] != -1) {
+
+                    int pointId = skeleton[i1][i2];
+                    int pointZ = listLocs3D[pointId][0];
+                    int pointX = listLocs3D[pointId][1];
+                    int pointY = listLocs3D[pointId][2];
+
+                    IJ.log("2 " + (i2+3) + " " + (pointX+0.5) + " " + (pointY+0.5) + " " + (pointZ+0.5) + " " + 0.7f + " -1");
+
+                }
+            }
+        }
+
 
     }
 
