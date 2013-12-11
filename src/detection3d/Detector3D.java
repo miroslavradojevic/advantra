@@ -211,7 +211,7 @@ public class Detector3D {
 
                     // check if it is in foreground
                     if (!Masker3D.mask3[zz][xx][yy]) {
-                            cnt++;
+                        cnt++;
                         //System.out.println("PEAK "+Arrays.toString(PeakExtractor3D.peaks3[locationCheck][peakCheck])+" in backgr! error ");
 
                     }
@@ -258,36 +258,32 @@ public class Detector3D {
 
 	}
 
-    /*
-        run threaded masker within the method
-     */
-//    private void runMasker(float[][][] img3d_zxy, float zDist, float radiusMask, float iDiff, MaskerOutput mo)
-//    {
-//		/*
-//			following bit will execute run() in parallel
-//		 */
-////		int Zdim = img3d_zxy.length;
-////		int Xdim = img3d_zxy[0].length;
-////		int Ydim = img3d_zxy[0][0].length;
-////        System.out.println("done with fill()");
-//		/*
-//		 	store locations, estimated background and binary mask them in output class (take from Masker3D into MaskerOutput instance
-//		  */
-////		mo.isForeground = new boolean[Zdim][Xdim][Ydim];
-////		new ImagePlus("", Masker3D.getMask()).show();
-//	}
+	public Overlay getLocalSkeleton(int atX, int atY, int atZ) {
 
-	/*
-		run threaded profile (peak really) extraction
-	 */
-//	private void runProfiler()
-//	{
-//
-//		/*
-//			run profiler in parallel - extract peaks
-//		 */
-//
-//	}
+		Overlay ov = new Overlay();
+
+		if (masker_output.locIndexZXY[atZ][atX][atY]!=-1) {
+			// check all that were different from -1
+			PeakAnalyzer3D.delin3
+		}
+		else {
+			return ov;
+		}
+
+	}
+
+	public short[] getLocalProfile(int atX, int atY, int atZ) {
+
+		if (masker_output.locIndexZXY[atZ][atX][atY]!=-1) {
+
+			return Profiler3D.prof3[masker_output.locIndexZXY[atZ][atX][atY]];
+
+		}
+		else {
+			return new short[sph3D.getProfileLength()]; // return the empty profile, we're in background
+		}
+
+	}
 
 	/*
 		convert image to the array form (float[][][]) that will be used by all thread classes (Masker3D, Profiler3D, PeakExtractor, Analyzer3D) in run()

@@ -593,9 +593,7 @@ public class Sphere3D {
                 }
             }
 
-            if (modified) {
-
-            }
+            if (modified) { // if there was a result add it to sorted list
 
             // insert maxMedian and currentPeaksXYZ to the list of 4 _4xXYZ
 			for (int k = 0; k < 4; k++) {
@@ -632,6 +630,8 @@ public class Sphere3D {
 					// if smaller, loop further
 
 				}
+
+			}
 
 			}
 

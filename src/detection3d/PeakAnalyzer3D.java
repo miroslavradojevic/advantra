@@ -57,7 +57,7 @@ public class PeakAnalyzer3D extends Thread {
 
         for (int locationIdx = begN; locationIdx < endN; locationIdx++) {
 
-            System.out.println("checking point (ZXY)-> "+Arrays.toString(listLocs3D[locationIdx])+" location "+locationIdx);
+//            System.out.println("checking point (ZXY)-> "+Arrays.toString(listLocs3D[locationIdx])+" location "+locationIdx);
 
             // access individual peaks at this point
             for (int peakAtLoc = 0; peakAtLoc<4; peakAtLoc++) {  // there are 4 peaks allocated
@@ -73,9 +73,9 @@ public class PeakAnalyzer3D extends Thread {
 
 //                    System.out.println("peak found at ZXY "+atZ+","+atX+","+atY);
 
-                    if (indexValue==-1) System.out.println("FOUND IT! mask says "+locIndexZXY[atZ][atX][atY]);
+//                    if (indexValue==-1) System.out.println("FOUND IT! mask says "+locIndexZXY[atZ][atX][atY]);
 
-                    System.out.println(locationIdx+": peak found at ZXY "+atZ+","+atX+","+atY+" is : "+indexValue+" ::: double check (ZXY): "+ Arrays.toString(listLocs3D[indexValue]));
+//                    System.out.println(locationIdx+": peak found at ZXY "+atZ+","+atX+","+atY+" is : "+indexValue+" ::: double check (ZXY): "+ Arrays.toString(listLocs3D[indexValue]));
 
                     delin3[locationIdx][peakAtLoc][0] = indexValue; // m=0
 
@@ -84,18 +84,15 @@ public class PeakAnalyzer3D extends Thread {
                     curr_index = indexValue;
                     prev_index = locationIdx;
 
-                    for (int m=1; m<1; m++) { // M
+                    for (int m=1; m<M; m++) {
 
-                        System.out.println("prev : "+prev_index);
-
-
-                        System.out.println("curr : "+curr_index);
+//                        System.out.println("prev : "+prev_index);
+//                        System.out.println("curr : "+curr_index);
 
                         // recursion : prev+curr->next index
                         next_index = getNext(prev_index, curr_index); // next follow-up will be calculated and sotred in nextXYZ
 
-                        System.out.println("next : "+next_index);
-
+//                        System.out.println("next : "+next_index);
 
                         if (next_index!=-1) { // -1 will be if the next one is not found
 
@@ -130,7 +127,7 @@ public class PeakAnalyzer3D extends Thread {
         int prevZ = listLocs3D[prev_index][0];    // Z
         int prevX = listLocs3D[prev_index][1];    // X
         int prevY = listLocs3D[prev_index][2];    // Y
-        System.out.println("curr_index: "+curr_index);
+//        System.out.println("curr_index: "+curr_index);
         int currZ = listLocs3D[curr_index][0];    // Z
         int currX = listLocs3D[curr_index][1];    // X
         int currY = listLocs3D[curr_index][2];    // Y

@@ -1,8 +1,5 @@
 int X = 261, Y = 137, Z = 27;
 		int index = masker_output.locIndexZXY[Z][X][Y];
-		System.out.println("index: "+index);
-		System.out.println("check: Z: "+masker_output.foregroundLocsZXY[index][0]+", X: "+masker_output.foregroundLocsZXY[index][1]+", Y: "+masker_output.foregroundLocsZXY[index][2]);
-
 
 		short[] curr_profile =  Profiler3D.prof3[index];
 		ImagePlus img_profile = new ImagePlus("profile", sph3D.drawProfile(curr_profile));
