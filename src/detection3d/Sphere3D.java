@@ -2,10 +2,14 @@ package detection3d;
 
 import detection.Interpolator;
 import ij.IJ;
+import ij.ImagePlus;
 import ij.ImageStack;
+import ij.gui.OvalRoi;
+import ij.gui.Overlay;
 import ij.process.ByteProcessor;
 import ij.process.ShortProcessor;
 
+import java.awt.*;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -35,7 +39,7 @@ public class Sphere3D {
 	private float 	radius;                         // sphere radius
 	private float   scale;
     private float   neuronDiameter;
-    private static 	float 	arcNbhood = 2.0f;       // try to see the mask looks after setting this one (important to tune for peak detection)
+    private static 	float 	arcNbhood = 1.5f;       // try to see the mask looks after setting this one (important to tune for peak detection)
 	private int 	W, H, N;                        // W,H are width and height of the 2d profile, N defines optimal sampling
 	private int 	limR, limT;
 
@@ -291,6 +295,63 @@ public class Sphere3D {
 		return outIp;
 
 	}
+
+    public ImagePlus drawProfileWithPeaks(short[] profile, int x, int y, int z, float[][][] img3d, float zd, int[][][] lookup) {
+
+        ImagePlus outIm = new ImagePlus("pwp", drawProfile(profile));
+
+        // overlay all peaks
+        ArrayList<int[]> all_peaks = profilePeaksXY(profile);
+        Overlay all_ovly = new Overlay();
+        for (int a=0; a<all_peaks.size(); a++) {
+            int cx = all_peaks.get(a)[0];
+            int cy = all_peaks.get(a)[1];
+            all_ovly.add(new OvalRoi(cx-1, cy-1, 2, 2)); // yellow
+        }
+
+        // overlay selected peaks
+        int[][] four_2 = new int[4][2];
+        for (int ii=0;ii<4;ii++) {
+            for (int jj=0; jj<2; jj++) {
+                four_2[ii][jj] = -1;
+            }
+        }
+        int[][] four_3 = new int[4][3];
+        for (int ii=0;ii<4;ii++) {
+            for (int jj=0; jj<3; jj++) {
+                four_3[ii][jj] = -1;
+            }
+        }
+
+
+        peakCoords_4xXYZ(profile, x, y, z, img3d, zd, lookup, four_3, four_2);
+
+        System.out.println("\ncheck!!!\n");
+        System.out.println("peaks (4x3) "+lookup[z][x][y]+" (debug plot)");
+        for (int oo=0; oo<4; oo++){
+            System.out.println(Arrays.toString(four_3[oo]));
+        }
+        System.out.println("4x2  "+lookup[z][x][y]+" (debug plot)");
+        for (int oo=0; oo<4; oo++){
+            System.out.println(Arrays.toString(four_2[oo]));
+        }
+
+        for (int a=0; a<4; a++) {
+            if (four_2[a][0] != -1) {
+                int cx = four_2[a][0];
+                int cy = four_2[a][1];
+                OvalRoi ovroi = new OvalRoi(cx-0.5, cy-0.5, 1, 1);
+                ovroi.setFillColor(Color.RED);
+                all_ovly.add(ovroi);
+            }
+
+        }
+
+        outIm.setOverlay(all_ovly);
+
+        return outIm;
+
+    }
 
 	public int getProfileLength()
 	{
@@ -776,47 +837,6 @@ public class Sphere3D {
             float atZ = z1lay   + cc * dz;
 
             valuesAlongLine[cc] = Interpolator.interpolateAt(atX, atY, atZ, img3d_zxy);
-
-        }
-
-        return Stat.median(valuesAlongLine);
-
-    }
-
-    private float medianAlongLine(int[] x, int[] y, int[] z_lay, float[][][] img3d_zxy) {
-
-        int nr_lines = x.length - 1;
-        int elementsInLine = Math.round(radius / .7f);
-        float[] valuesAlongLine = new float[nr_lines*elementsInLine];
-
-        for (int lineNr = 0; lineNr < nr_lines; lineNr++) {
-
-            // define borders for lineNr = 0
-            int x2 = x[lineNr+1];
-            int x1 = x[lineNr];
-
-            int y2 = y[lineNr+1];
-            int y1 = y[lineNr];
-
-            int z2lay = z_lay[lineNr+1];
-            int z1lay = z_lay[lineNr];
-
-            float v = (float) Math.sqrt(Math.pow(x2-x1, 2) + Math.pow(y2-y1, 2) + Math.pow(z2lay-z1lay, 2));
-            float dx = (x2 - x1) / v;
-            float dy = (y2 - y1) / v;
-            float dz = (z2lay - z1lay) / v;
-
-            int reference_index = lineNr * elementsInLine;
-
-            for (int cc = 0; cc < elementsInLine; cc++) {
-
-                float atX = x1      + cc * dx;
-                float atY = y1      + cc * dy;
-                float atZ = z1lay   + cc * dz;
-
-                valuesAlongLine[cc+reference_index] = Interpolator.interpolateAt(atX, atY, atZ, img3d_zxy);
-
-            }
 
         }
 

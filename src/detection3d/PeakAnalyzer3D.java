@@ -195,16 +195,20 @@ public class PeakAnalyzer3D extends Thread {
 
 					if (i2==0) {
 						// line ~ median along the line
-						IJ.log(locationIdx+" " + (i2+3) + " " + (atX+0.5) +    " " + (atY+0.5) +    " " + (atZ+0.5) +    " " + 0.7f + " -1");
-						IJ.log(pointId+    " " + (i2+3) + " " + (pointX+0.5) + " " + (pointY+0.5) + " " + (pointZ+0.5) + " " + 0.7f + " "+locationIdx);
+						IJ.log(locationIdx+" " + (i2+1) + " " + (atX+0.5) +    " " + (atY+0.5) +    " " + (atZ+0.5) +    " " + 0.4f + " -1");
+						IJ.log(pointId+    " " + (i2+1) + " " + (pointX+0.5) + " " + (pointY+0.5) + " " + (pointZ+0.5) + " " + 0.4f + " "+locationIdx);
 
 					}
 					else {
 
+                        int prevPtIdx = skeleton[i1][i2-1];
+                        int prevPtZ   = listLocs3D[prevPtIdx][0];
+                        int prevPtX   = listLocs3D[prevPtIdx][1];
+                        int prevPtY   = listLocs3D[prevPtIdx][2];
 
 						// line
-						IJ.log(locationIdx+" " + (i2+3) + " " + (atX+0.5) +    " " + (atY+0.5) +    " " + (atZ+0.5) +    " " + 0.7f + " -1");
-						IJ.log(pointId+    " " + (i2+3) + " " + (pointX+0.5) + " " + (pointY+0.5) + " " + (pointZ+0.5) + " " + 0.7f + " "+locationIdx);
+						IJ.log(prevPtIdx+" " + (i2+1) + " " + (prevPtX+0.5) +    " " + (prevPtY+0.5) +    " " + (prevPtZ+0.5) +    " " + 0.4f + " -1");
+						IJ.log(pointId+    " " + (i2+1) + " " + (pointX+0.5) + " " + (pointY+0.5) + " " + (pointZ+0.5) + " " + 0.4f + " "+prevPtIdx);
 
 					}
 

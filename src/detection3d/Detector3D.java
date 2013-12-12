@@ -44,6 +44,7 @@ public class Detector3D {
     Profiler3D[]    profiler_jobs   = null;
     PeakExtractor3D[] peak_extractor_jobs = null;
     PeakAnalyzer3D[] peak_analyzer_jobs = null;
+    ScoreCalculator3D[] score_calc_jobs = null;
 
     public Detector3D() {
         System.out.println("loading default parameters...");
@@ -70,7 +71,7 @@ public class Detector3D {
         if(inimg==null || inimg.getStackSize()<=1) return ;
 
         this.img3d_zxy = stackToZxyArray(inimg.getStack());
-        this.zDist = zDist1 / 3;                                    // correct for the spreading through slices
+        this.zDist = zDist1 / 5;                                    // correct for the spreading through slices
         this.D = neuronDiameter;
         this.iDiff = iDiff1;
         this.r = scale * D;
@@ -192,11 +193,31 @@ public class Detector3D {
         System.out.println("done. " + ((t2 - t1) / 1000f) + " sec.");
         /*
         ********************************************************
-        * TEST
+        * SCORE CALCULATION
         ********************************************************
          */
+        System.out.println("calculating scores... ");
+        t1 = System.currentTimeMillis();
+        ScoreCalculator3D.loadTemplate(PeakAnalyzer3D.delin3, img3d_zxy, masker_output.locIndexZXY, masker_output.foregroundLocsZXY, Masker3D.back3);
+        int totalScoreCalcJobs = PeakAnalyzer3D.delin3.length;
+        score_calc_jobs = new ScoreCalculator3D[CPU_NR];
+        for (int i=0; i < 1; i++) { // score_calc_jobs.length
+            score_calc_jobs[i] = new ScoreCalculator3D(i*totalScoreCalcJobs/CPU_NR, (i+1)*totalScoreCalcJobs/CPU_NR);
+            score_calc_jobs[i].start();
+        }
+        for (int i=0; i < 1; i++) {// score_calc_jobs.length
+            try {
+                score_calc_jobs[i].join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        t2 = System.currentTimeMillis();
+        System.out.println("done. " + ((t2 - t1) / 1000f) + " sec.");
 
-        new ImagePlus("", sph3D.visualizeMasks()).show();
+        System.out.println("DONE ALL");
+
+        //new ImagePlus("", sph3D.visualizeMasks()).show();
 
 	}
 
@@ -323,14 +344,6 @@ public class Detector3D {
         int locationID = masker_output.locIndexZXY[atZ][atX][atY];
 
         if (locationID!=-1) {
-
-//            sph3D.peakSummary(
-//                    Profiler3D.prof3[locationID],
-//                    atX, atY, atZ,
-//                    img3d_zxy,
-//                    zDist,
-//                    masker_output.locIndexZXY
-//            );
 
             PeakExtractor3D.summary(atX, atY, atZ);
 

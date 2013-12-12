@@ -56,15 +56,13 @@ public class JunctionDetection3D implements PlugInFilter, MouseListener, MouseMo
 
     public void run(ImageProcessor imageProcessor) {
 
-		float zDist     = 3.0f;
+		float zDist     = 3.4f;
 		float D         = 4;
 		float iDiff     = 10;
 
 		// uses Detector3D
 		det3D = new Detector3D();
 		det3D.run(imp, zDist, D, iDiff);
-
-		System.out.println("DONE!");
 
         cnv.addMouseListener(this);
         cnv.addMouseMotionListener(this);
@@ -75,13 +73,11 @@ public class JunctionDetection3D implements PlugInFilter, MouseListener, MouseMo
 
         ImagePlus inimg  = new ImagePlus("/home/miroslav/test11.tif");
         float zDist     = 3.4f;
-        float D         = 3;
+        float D         = 4;
         float iDiff     = 10;
 
         Detector3D det3D = new Detector3D();
         det3D.run(inimg, zDist, D, iDiff);
-
-		IJ.log("DONE!");
 
     }
 

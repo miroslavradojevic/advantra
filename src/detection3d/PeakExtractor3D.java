@@ -4,6 +4,7 @@ import ij.IJ;
 import ij.ImagePlus;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 /**
  * Created with IntelliJ IDEA.
@@ -106,7 +107,23 @@ public class PeakExtractor3D extends Thread {
         // center
         IJ.log("0 " + 1 + " " + (atX+0.5) + " " + (atY+0.5) + " " + (atZ+0.5) + " " + 0.5f + " -1");
 
-		new ImagePlus("profile0", sph3.drawProfile(extracted_profiles[locationIdx])).show();
+        ImagePlus prof0 = sph3.drawProfileWithPeaks(extracted_profiles[locationIdx], atX, atY, atZ, img3_zxy, zDist, lookupIdxZXY);
+        prof0.setTitle("profileCnt,"+locationIdx);
+        prof0.show();
+        prof0.getCanvas().zoomIn(0,0);
+        prof0.getCanvas().zoomIn(0,0);
+        prof0.getCanvas().zoomIn(0,0);
+        prof0.getCanvas().zoomIn(0,0);
+        prof0.getCanvas().zoomIn(0,0);
+        prof0.getCanvas().zoomIn(0,0);
+        prof0.getCanvas().zoomIn(0,0);
+        prof0.getCanvas().zoomIn(0,0);
+
+
+        System.out.println("peaks "+locationIdx+" (precalculated)");
+        for (int ww=0; ww<peaks3[locationIdx].length; ww++) {
+            System.out.println( Arrays.toString(peaks3[locationIdx][ww]) );
+        }
 
         // 1st generation 4 peaks from center
         for (int loop1=0; loop1<4; loop1++) {
@@ -119,13 +136,31 @@ public class PeakExtractor3D extends Thread {
 
                 int spotIndex1 = lookupIdxZXY[g1_z][g1_x][g1_y];
 
-                if (spotIndex1 != -1 && g1_x != -1) {
+                System.out.println("processing peak: "+Arrays.toString(peaks3[locationIdx][loop1]));
+
+                if (spotIndex1 != -1) {
+
+                    System.out.println("is in foreground "+spotIndex1);
 
                     // spot exists
                     IJ.log("1 " + 1 + " " + (g1_x+0.5) + " " + (g1_y+0.5) + " " + (g1_z+0.5) + " " + 0.3f + " -1");
-					new ImagePlus("profile"+loop1, sph3.drawProfile(extracted_profiles[spotIndex1])).show();
-                    // loop it's peaks if it exists
+					//new ImagePlus("profile"+loop1, sph3.drawProfile(extracted_profiles[spotIndex1])).show();
+                    ImagePlus prof1 = sph3.drawProfileWithPeaks(extracted_profiles[spotIndex1], g1_x, g1_y, g1_z, img3_zxy, zDist, lookupIdxZXY);
+                    prof1.setTitle("profile,"+ loop1+","+spotIndex1);
+                    prof1.show();
+                    prof1.getCanvas().zoomIn(0,0);
+                    prof1.getCanvas().zoomIn(0,0);
+                    prof1.getCanvas().zoomIn(0,0);
+                    prof1.getCanvas().zoomIn(0,0);
+                    prof1.getCanvas().zoomIn(0,0);
+                    prof1.getCanvas().zoomIn(0,0);
 
+                    System.out.println("peaks "+spotIndex1+" (precalculated)");
+                    for (int ww=0; ww<peaks3[spotIndex1].length; ww++) {
+                        System.out.println( Arrays.toString(peaks3[spotIndex1][ww]) );
+                    }
+
+                    // loop it's peaks if it exists
                     for (int loop2=0; loop2<4;loop2++) {
 
                         int g2_x = peaks3[spotIndex1][loop2][0];
@@ -134,14 +169,18 @@ public class PeakExtractor3D extends Thread {
 
                         if (g2_x != -1) {
 
-
                             int spotIndex2 = lookupIdxZXY[g2_z][g2_x][g2_y];
 
-                            if (spotIndex2 != -1 && g2_x != -1) {
+                            if (spotIndex2 != -1) {
 
                                 // spot exists
                                 IJ.log("2 " + 1 + " " + (g2_x+0.5) + " " + (g2_y+0.5) + " " + (g2_z+0.5) + " " + 0.3f + " -1");
 
+                                System.out.println( Arrays.toString(peaks3[spotIndex1][loop2]) + " is FOREGROUND");
+
+                            }
+                            else {
+                                System.out.println( Arrays.toString(peaks3[spotIndex1][loop2]) + " is NOT FOREGROUND");
                             }
 
 
@@ -151,6 +190,9 @@ public class PeakExtractor3D extends Thread {
 
                     }
 
+                }
+                else {
+                    System.out.println("rejected "+g1_x+" , "+g1_y+" , "+g1_z+" it was not in the foreground! ");
                 }
 
             }
