@@ -1,6 +1,7 @@
 package detection3d;
 
 import ij.IJ;
+import ij.ImagePlus;
 
 import java.util.ArrayList;
 
@@ -105,6 +106,8 @@ public class PeakExtractor3D extends Thread {
         // center
         IJ.log("0 " + 1 + " " + (atX+0.5) + " " + (atY+0.5) + " " + (atZ+0.5) + " " + 0.5f + " -1");
 
+		new ImagePlus("profile0", sph3.drawProfile(extracted_profiles[locationIdx])).show();
+
         // 1st generation 4 peaks from center
         for (int loop1=0; loop1<4; loop1++) {
 
@@ -119,8 +122,8 @@ public class PeakExtractor3D extends Thread {
                 if (spotIndex1 != -1 && g1_x != -1) {
 
                     // spot exists
-                    IJ.log("0 " + 1 + " " + (g1_x+0.5) + " " + (g1_y+0.5) + " " + (g1_z+0.5) + " " + 0.3f + " -1");
-
+                    IJ.log("1 " + 1 + " " + (g1_x+0.5) + " " + (g1_y+0.5) + " " + (g1_z+0.5) + " " + 0.3f + " -1");
+					new ImagePlus("profile"+loop1, sph3.drawProfile(extracted_profiles[spotIndex1])).show();
                     // loop it's peaks if it exists
 
                     for (int loop2=0; loop2<4;loop2++) {
@@ -137,7 +140,7 @@ public class PeakExtractor3D extends Thread {
                             if (spotIndex2 != -1 && g2_x != -1) {
 
                                 // spot exists
-                                IJ.log("0 " + 1 + " " + (g2_x+0.5) + " " + (g2_y+0.5) + " " + (g2_z+0.5) + " " + 0.3f + " -1");
+                                IJ.log("2 " + 1 + " " + (g2_x+0.5) + " " + (g2_y+0.5) + " " + (g2_z+0.5) + " " + 0.3f + " -1");
 
                             }
 

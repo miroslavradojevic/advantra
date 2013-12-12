@@ -188,11 +188,26 @@ public class PeakAnalyzer3D extends Thread {
                 if (skeleton[i1][i2] != -1) {
 
                     int pointId = skeleton[i1][i2];
-                    int pointZ = listLocs3D[pointId][0];
+
+					int pointZ = listLocs3D[pointId][0];
                     int pointX = listLocs3D[pointId][1];
                     int pointY = listLocs3D[pointId][2];
 
-                    IJ.log("2 " + (i2+3) + " " + (pointX+0.5) + " " + (pointY+0.5) + " " + (pointZ+0.5) + " " + 0.7f + " -1");
+					if (i2==0) {
+						// line ~ median along the line
+						IJ.log(locationIdx+" " + (i2+3) + " " + (atX+0.5) +    " " + (atY+0.5) +    " " + (atZ+0.5) +    " " + 0.7f + " -1");
+						IJ.log(pointId+    " " + (i2+3) + " " + (pointX+0.5) + " " + (pointY+0.5) + " " + (pointZ+0.5) + " " + 0.7f + " "+locationIdx);
+
+					}
+					else {
+
+
+						// line
+						IJ.log(locationIdx+" " + (i2+3) + " " + (atX+0.5) +    " " + (atY+0.5) +    " " + (atZ+0.5) +    " " + 0.7f + " -1");
+						IJ.log(pointId+    " " + (i2+3) + " " + (pointX+0.5) + " " + (pointY+0.5) + " " + (pointZ+0.5) + " " + 0.7f + " "+locationIdx);
+
+					}
+
 
                 }
             }

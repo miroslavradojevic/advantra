@@ -334,7 +334,7 @@ public class Detector3D {
 
             PeakExtractor3D.summary(atX, atY, atZ);
 
-//            PeakAnalyzer3D.summary(atX, atY, atZ);
+            PeakAnalyzer3D.summary(atX, atY, atZ);
 
         }
 
