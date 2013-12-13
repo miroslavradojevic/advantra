@@ -1,6 +1,5 @@
 package detection3d;
 
-import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.OvalRoi;
@@ -68,7 +67,8 @@ public class Detector3D {
 	public void run(ImagePlus inimg, float zDist1, float neuronDiameter, float iDiff1) { // ArrayList<ArrayList<int[]>>
 
         // load image into float[][][] structure
-        if(inimg==null || inimg.getStackSize()<=1) return ;
+
+		if(inimg==null || inimg.getStackSize()<=1) return ;
 
         this.img3d_zxy = stackToZxyArray(inimg.getStack());
         this.zDist = zDist1 / 5;                                    // correct for the spreading through slices
@@ -201,11 +201,11 @@ public class Detector3D {
         ScoreCalculator3D.loadTemplate(PeakAnalyzer3D.delin3, img3d_zxy, masker_output.locIndexZXY, masker_output.foregroundLocsZXY, Masker3D.back3);
         int totalScoreCalcJobs = PeakAnalyzer3D.delin3.length;
         score_calc_jobs = new ScoreCalculator3D[CPU_NR];
-        for (int i=0; i < 1; i++) { // score_calc_jobs.length
+        for (int i=0; i < score_calc_jobs.length; i++) {
             score_calc_jobs[i] = new ScoreCalculator3D(i*totalScoreCalcJobs/CPU_NR, (i+1)*totalScoreCalcJobs/CPU_NR);
             score_calc_jobs[i].start();
         }
-        for (int i=0; i < 1; i++) {// score_calc_jobs.length
+        for (int i=0; i < score_calc_jobs.length; i++) {
             try {
                 score_calc_jobs[i].join();
             } catch (InterruptedException e) {
@@ -214,8 +214,16 @@ public class Detector3D {
         }
         t2 = System.currentTimeMillis();
         System.out.println("done. " + ((t2 - t1) / 1000f) + " sec.");
+		/*
+        ********************************************************
+        * FLS DECISION MAKING
+        ********************************************************
+         */
+		Fuzzy3D fz3d = new Fuzzy3D(10);
+		fz3d.decisionCube().show();
 
-        System.out.println("DONE ALL");
+
+		System.out.println("DONE ALL");
 
         //new ImagePlus("", sph3D.visualizeMasks()).show();
 
@@ -349,6 +357,8 @@ public class Detector3D {
 
             PeakAnalyzer3D.summary(atX, atY, atZ);
 
+			// TODO plot fls output
+
         }
 
     }
@@ -382,6 +392,6 @@ public class Detector3D {
 
     // TODO add method that converts opposite way float[][][] to ImageStack
 
-    // TODO add method to export mask, background  as ImageStack, or ImagePlus
+
 
 }

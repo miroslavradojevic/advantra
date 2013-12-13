@@ -32,12 +32,9 @@ public class Fuzzy {
 	private static float[] q_YES;
 	private static float[] q_MAYBE;
 	private static float[] q_NO;
+	//there can be three outcome categories "YES" "MAYBE" "NO" referring to input being a junction
 
 	String exportFile = System.getProperty("user.home")+File.separator+"fuzzy.dat";
-
-	/*
-		there could be three categories "YES" "MAYBE" "NO" refering to input being a junction
-	 */
 
 	public Fuzzy(float iDiff1) // , float ratio_iDiff1
 	{
@@ -95,9 +92,7 @@ public class Fuzzy {
 		v_MAYBE = new float[N];
 		v_NO = new float[N];
 
-		//for (int i=0; i<N; i++) agg[i] = Math.max(Math.max(q_NO[i], q_MAYBE[i]), q_YES[i]);
-		//M = 0;
-		//for (int i=1; i<N; i++) M += .5f*(Ma[i]+Ma[i-1]) * (x[i]-x[i-1]);
+
 
 	}
 
@@ -143,7 +138,6 @@ public class Fuzzy {
 
 	private float[] fi_YES(float z)
 	{
-		//float[] out = new float[N];
 
 		Arrays.fill(v_YES, 0);
 
@@ -158,35 +152,34 @@ public class Fuzzy {
 
 	private float[] fi_MAYBE(float z)
 	{
-//		float[] out = new float[N];
+
 		Arrays.fill(v_MAYBE, 0);
+
 		for (int i=0; i<N; i++)
 			if (q_MAYBE[i]<=z)
 				v_MAYBE[i] = q_MAYBE[i];
 			else
 				v_MAYBE[i] = z;
+
 		return v_MAYBE;
 	}
 
 	private float[] fi_NO(float z)
 	{
-//		float[] out = new float[N];
+
 		Arrays.fill(v_NO, 0);
+
 		for (int i=0; i<N; i++)
 			if (q_NO[i]<=z)
 				v_NO[i] = q_NO[i];
 			else
 				v_NO[i] = z;
+
 		return v_NO;
 	}
 
-//	private float min6(float in1, float in2, float in3, float in4, float in5, float in6)
-//	{
-//		return Math.min(in1, Math.min(in2, Math.min(in3, Math.min(in4, Math.min(in5, in6)))));
-//	}
-
 	/*
-	set of rules... how much it is "VERY HIGH", "HIGH", "MODERATE", "LOW" according to each rule
+	set of rules... how much it is ("YES", "MAYBE", "NO") according to each rule
 	 */
 
 	public float bifurcationess(

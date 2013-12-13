@@ -430,6 +430,7 @@ public class Masker3D extends Thread {
 
     }
 
+	// TODO add method to export mask, background  as ImageStack, or ImagePlus
 }
 
 class MaskerOutput { // passed as an argument to void method

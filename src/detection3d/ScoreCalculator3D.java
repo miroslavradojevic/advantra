@@ -26,6 +26,8 @@ public class ScoreCalculator3D extends Thread {
 
     public static float[][]     theta3;                  // OUTPUT, 4 scores to qualify the critical point
 
+
+
     public ScoreCalculator3D(int n0, int n1){
         this.begN = n0;
         this.endN = n1;
@@ -52,9 +54,8 @@ public class ScoreCalculator3D extends Thread {
             int locationY = loc_zxy[locationIdx][2];
             int locationZ = loc_zxy[locationIdx][0];
 
-
             // calculate theta3[location] array using delin_indxs_Nx4x3
-            float[] _8Nbhood = new float[3*3*3];
+            float[] _8Nbhood 	= new float[3*3*3];
             int cnt = 0;
             for (int dx=-1; dx<=1; dx++) {
                 for (int dy=-1; dy<=1; dy++) {
@@ -65,9 +66,7 @@ public class ScoreCalculator3D extends Thread {
                         int z = locationZ+dz;
 
                         if (x>=0 && x<img3_zxy[0].length && y>=0 && y<img3_zxy[0][0].length && z>=0 && z<img3_zxy.length) {
-
                             _8Nbhood[cnt] = img3_zxy[z][x][y];
-
                         }
 
                         cnt++;
@@ -75,15 +74,12 @@ public class ScoreCalculator3D extends Thread {
                     }
                 }
             }
-            theta3[locationIdx][0] = Stat.median(_8Nbhood); // theta0
 
-
-
+            theta3[locationIdx][0] = Stat.median(_8Nbhood) - (back3_zxy[locationZ][locationX][locationY] & 0xff); // theta0
 
             int[] idx_container = new int[delin_idxs_Nx4x3[0][0].length+1];
 
-            for (int threadIdx=0; threadIdx<delin_idxs_Nx4x3[locationIdx].length; threadIdx++) {
-                // loop along the thread
+            for (int threadIdx=0; threadIdx<delin_idxs_Nx4x3[locationIdx].length; threadIdx++) { // loop along the thread
 
                 // initialize theta for this thread
                 float thetaToAdd = 0;
@@ -100,7 +96,7 @@ public class ScoreCalculator3D extends Thread {
 
                     if ( current_point_index != -1 ) {
 
-                        idx_container[compInd+1] = delin_idxs_Nx4x3[locationIdx][threadIdx][compInd];
+                        idx_container[compInd+1] = current_point_index;
 
                     }
                     else {
@@ -113,39 +109,39 @@ public class ScoreCalculator3D extends Thread {
 
                 if (completed) {
 
-                    thetaToAdd = medianAlongLine(idx_container, img3_zxy, loc_zxy);
+                    //thetaToAdd = medianAlongLine(idx_container, img3_zxy, loc_zxy); // median of the raw image values
+					thetaToAdd = medianDiffAlongLine(idx_container, img3_zxy, back3_zxy, loc_zxy); // median of differences between image values and background values along the line
 
-                    System.out.println("2 add: "+thetaToAdd);
-
-                    System.out.println(locationIdx+"before: "+Arrays.toString(theta3[locationIdx]));
+//                    System.out.println("2 add: "+thetaToAdd);
+//                    System.out.println(locationIdx+"before: "+Arrays.toString(theta3[locationIdx]));
 
                     // theta 1-3 - arrange it in the array - highest first (first value is filled by now)
                     for (int q=0; q<theta3[locationIdx].length; q++) {
                         if (thetaToAdd > theta3[locationIdx][q]) {
 
-                            // shift those below and add it to the list at q
-                            for (int w=theta3[locationIdx].length-1; w>=q+1; w--) {
-                                theta3[locationIdx][w] = theta3[locationIdx][w-1];
-                            }
-
-                            // add it
-                            theta3[locationIdx][q] = thetaToAdd;
-
+							if (q==theta3[locationIdx].length-1) {
+								// it is the last one, just replace it, no need to break here
+								theta3[locationIdx][q] = thetaToAdd; // add it
+							}
+							else {
+								// it is not the last one
+								// shift those below and add it to the list at q
+								for (int w=theta3[locationIdx].length-1; w>=q+1; w--) {
+									theta3[locationIdx][w] = theta3[locationIdx][w-1];
+								}
+								theta3[locationIdx][q] = thetaToAdd; // add it
+								break;
+							}
 
                         }
                     }
-
-                    System.out.println(locationIdx+"after: "+Arrays.toString(theta3[locationIdx]));
-
                 }
-                else {
-                    thetaToAdd = 0;
-                }
-
-
             }
+            //System.out.println("(" + locationX + " , " + locationY + " , " + locationZ + ") -> " + Arrays.toString(theta3[locationIdx]));
 
-            System.out.println("(" + locationX + " , " + locationY + " , " + locationZ + ") -> " + Arrays.toString(theta3[locationIdx]));
+			// FLS score
+			// TODO - input whole row of theta values
+
 
 
         } // location loop
@@ -190,40 +186,53 @@ public class ScoreCalculator3D extends Thread {
 
         }
 
-//        for (int lineNr = 0; lineNr < nr_lines; lineNr++) {
-//            // define borders for lineNr = 0
-//            int x2 = x[lineNr+1];
-//            int x1 = x[lineNr];
-//
-//            int y2 = y[lineNr+1];
-//            int y1 = y[lineNr];
-//
-//            int z2lay = z_lay[lineNr+1];
-//            int z1lay = z_lay[lineNr];
-//
-//            float v = (float) Math.sqrt(Math.pow(x2-x1, 2) + Math.pow(y2-y1, 2) + Math.pow(z2lay-z1lay, 2));
-//            float dx = (x2 - x1) / v;
-//            float dy = (y2 - y1) / v;
-//            float dz = (z2lay - z1lay) / v;
-//
-//            int reference_index = lineNr * elementsInLine;
-//
-//            for (int cc = 0; cc < elementsInLine; cc++) {
-//
-//                float atX = x1      + cc * dx;
-//                float atY = y1      + cc * dy;
-//                float atZ = z1lay   + cc * dz;
-//
-//                valuesAlongLine[cc+reference_index] = Interpolator.interpolateAt(atX, atY, atZ, img3d_zxy);
-//
-//            }
-//
-//        }
-
         return Stat.median(values_along_line);
 
     }
 
+	private static float medianDiffAlongLine(int[] _idx_xyz, float[][][] img3d_zxy, byte[][][] back3d_zxy, int[][] _idx2zxy) { // it is not necessary to have image and background arrays as arguments
 
+		int nr_sub_lines = _idx_xyz.length - 1;
+
+		int elements_per_line = 10;
+
+		float[] values_along_line = new float[nr_sub_lines*elements_per_line];
+
+		for (int sub_line_idx=1; sub_line_idx<=nr_sub_lines; sub_line_idx++) {
+
+			int prevX = _idx2zxy[ _idx_xyz[sub_line_idx-1] ][1];
+			int prevY = _idx2zxy[ _idx_xyz[sub_line_idx-1] ][2];
+			int prevZ = _idx2zxy[ _idx_xyz[sub_line_idx-1] ][0];
+
+			int currX = _idx2zxy[ _idx_xyz[sub_line_idx] ][1];
+			int currY = _idx2zxy[ _idx_xyz[sub_line_idx] ][2];
+			int currZ = _idx2zxy[ _idx_xyz[sub_line_idx] ][0];
+
+			// take the background as value calculated around currX, currY, currZ  for this line
+			byte background_value = back3d_zxy[currZ][currX][currY];
+
+			float v  = (float) Math.sqrt( Math.pow(currX-prevX, 2) + Math.pow(currY-prevY, 2) + Math.pow(currZ-prevZ, 2) );
+			float dx = (currX-prevX)/v; // unit length
+			dx *= ((float) (currX-prevX)/elements_per_line);
+			float dy = (currY-prevY)/v;
+			dy *= ((float) (currY-prevY)/elements_per_line);
+			float dz = (currZ-prevZ)/v;
+			dz *= ((float) (currZ-prevZ)/elements_per_line);
+
+			int reference_idx = (sub_line_idx-1) * elements_per_line;
+
+			// loop along the line
+			for (int cc=0; cc<elements_per_line; cc++) {
+				float atX = prevX   + cc * dx;
+				float atY = prevY   + cc * dy;
+				float atZ = prevZ   + cc * dz;
+				values_along_line[reference_idx + cc] = Interpolator.interpolateAt(atX, atY, atZ, img3d_zxy) - (background_value & 0xff);
+			}
+
+		}
+
+		return Stat.median(values_along_line);
+
+	}
 
 }
