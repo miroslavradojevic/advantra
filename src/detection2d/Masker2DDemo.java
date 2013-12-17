@@ -1,20 +1,11 @@
 package detection2d;
 
-import aux.Tools;
-import detection.Masker;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.Prefs;
 import ij.gui.*;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
-
-import java.awt.*;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
-import java.awt.event.MouseMotionListener;
-import java.awt.image.ImageObserver;
-import java.util.Arrays;
 
 /**
  * Created with IntelliJ IDEA.
@@ -82,11 +73,14 @@ public class Masker2DDemo implements PlugInFilter {
     }
 
     public void run(ImageProcessor imageProcessor) {
-	long t1, t2;
+
+        long t1, t2;
+
         /*
         main
          */
 		t1 = System.currentTimeMillis();
+
         Masker2D.loadTemplate(inimg_xy, 0, nhoodRadius, iDiff);
         int totalLocs = inimg_xy.length * inimg_xy[0].length;
 
@@ -104,8 +98,9 @@ public class Masker2DDemo implements PlugInFilter {
         }
 
 		Masker2D.formRemainingOutputs();
-		t2 = System.currentTimeMillis();
-		IJ.log("done. "+((t2-t1)/1000f)+"sec.");
+
+        t2 = System.currentTimeMillis();
+        IJ.log("done. "+((t2-t1)/1000f)+"sec.");
 
         ImagePlus outmask = new ImagePlus("mask", Masker2D.getMask());
         outmask.show();
@@ -113,7 +108,7 @@ public class Masker2DDemo implements PlugInFilter {
         ImagePlus outback = new ImagePlus("background", Masker2D.getBackground());
 		outback.show();
 
-		IJ.log("\n"+Masker2D.i2xy.length+" connected regions extracted.\n"+"elapsed: "+((t2-t1)/1000f)+ " seconds.");
+		IJ.log("\ntotal "+Masker2D.i2xy.length+" locations extracted.\n"+"elapsed: "+((t2-t1)/1000f)+ " seconds.");
 
     }
 

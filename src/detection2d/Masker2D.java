@@ -117,9 +117,9 @@ public class Masker2D extends Thread {
 
 		IJ.log(String.format("%3.2f %% vol. foreground extracted", perc));
 
-		if (perc > 40) {// more than 40 percent is wrong
-			System.out.println("too many foreground points, stopping...");
-			return; // return just the lookup table
+		if (perc > 80) {// more than 80 percent is wrong
+			System.out.println("warning: a lot of foreground points...");
+			//return; // return just the lookup table
 		}
 
 		// component: foreground point list: locations and background estimates

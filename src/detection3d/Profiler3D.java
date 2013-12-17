@@ -35,12 +35,10 @@ public class Profiler3D extends Thread {
 
         // allocate output
 		prof3 = new short[listLocs3D.length][sph3.getProfileLength()];
-//		System.out.println("input "+prof3.length+" locations x "+prof3[0].length+" profiles");
 
 	}
 
-	public void run()
-	{
+	public void run() {
 
         for (int profileComponentIdx = begN; profileComponentIdx < endN; profileComponentIdx++) {
 
@@ -55,52 +53,10 @@ public class Profiler3D extends Thread {
             }
 
         }
-
-//        // extract peak locations in parallel for subset of locations - locations are split in parallel
-//        // peaks3 is filled up
-//        int profileSize = sph3.getProfileLength();
-//        float[] profile = new float[profileSize];                   // allocate array where circular neighbourhood values will be stored
-//
-//        for (int locIdx=begN; locIdx<endN; locIdx++) {              // work on the range of operations
-//
-//            int atZ = listLocs3D[locIdx][0];
-//            int atX = listLocs3D[locIdx][1];
-//            int atY = listLocs3D[locIdx][2];
-//
-//            sph3.extractProfile(atX, atY, atZ, img3_zxy, zDist, profile); // output will be stored in profile array
-//
-//            sph3.peakCoords_4xXYZ(
-//                    profile,
-//                    atX,
-//                    atY,
-//                    atZ,
-//                    img3_zxy,
-//                    zDist,
-//                    peaks3[locIdx]
-//            );// detect peaks and store them in corresponding location storage
-
     }
 
     public static short[][] getProfiles() {
         return  prof3;
     }
-
-//	public static float[] sequence(float beginValue, float endValue, int Nelements, boolean lastIncluded)
-//	{
-//
-//		float[] seqArray = new float[Nelements];
-//
-//		if (lastIncluded) {
-//			float step = (endValue-beginValue)/(Nelements-1);
-//			for (int ii=0; ii<Nelements; ii++) seqArray[ii] = beginValue + ii * step;
-//		}
-//		else {
-//			float step = (endValue-beginValue)/Nelements;
-//			for (int ii=0; ii<Nelements; ii++) seqArray[ii] = beginValue + ii * step;
-//		}
-//
-//		return seqArray;
-//
-//	}
 
 }

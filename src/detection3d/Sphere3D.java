@@ -31,7 +31,7 @@ public class Sphere3D {
 	private static float PI 		= (float) Math.PI;
 	private static float TwoPI 		= (float) (2*Math.PI);
 	private static float HalfPI 	= (float) (Math.PI/2);
-	private static float samplingStep = 1.5f;
+	private static float samplingStep = 0.7f;
 	public static float     R_FULL 	= 1.00f;
 	public static float     T_HALF 	= 0.50f;
 	public static int 		weightStdRatioToD = 4;  // could be a parameter
@@ -42,10 +42,6 @@ public class Sphere3D {
     private static 	float 	arcNbhood = 1.5f;       // try to see the mask looks after setting this one (important to tune for peak detection)
 	private int 	W, H, N;                        // W,H are width and height of the 2d profile, N defines optimal sampling
 	private int 	limR, limT;
-
-    // expansion parameteres
-    private float   minCosAngDiff = .5f;
-
 
 	ArrayList<int[]>		vizXY = new ArrayList<int[]>();         // XY
 
@@ -66,13 +62,13 @@ public class Sphere3D {
 		this.W  = 4*N + 1;
 		this.H  = 2*N + 1;
 
-		this.limR = (int) Math.ceil(R_FULL*neuronDiameter/samplingStep);   // how many to take radially with given sampling step
-		this.limT = (int) Math.ceil(T_HALF*neuronDiameter/samplingStep);
+		this.limR = (int) Math.ceil(R_FULL*neuronDiameter/samplingStep);    // how many to take radially with given sampling step
+		this.limT = (int) Math.ceil(T_HALF*neuronDiameter/samplingStep);    //
 
 		vizXY.clear();
 		elems.clear();
 
-		float stepPhi = PI / (H-1); // step when last included: []
+		float stepPhi = PI / (H-1);                                         // step when last included: []
 		for (int phiIdx = 0; phiIdx<H; phiIdx++) {
 			float currPhi = (PI/2) - phiIdx * stepPhi;
 
@@ -190,7 +186,6 @@ public class Sphere3D {
         for (int iii=0; iii<weights.length; iii++) {
             weights[iii] /= sumWgt;
         }
-        // weights.add(weights);
 
 	}
 
@@ -227,16 +222,9 @@ public class Sphere3D {
 							  float n2x, float n2y, float n2z,
 							  float px, float py, float pz) {
 
-		// line is defined with l and m
-
 		float d = 0;
 
 		double[] p_b = new double[3];
-
-		// p - b
-		//p_b[0] = px;// - b[0];
-		//p_b[1] = py;// - b[1];
-		//p_b[2] = pz;// - b[1];
 
 		//double[] n21 = new double[3];
 		float n21Len = (float) Math.sqrt(Math.pow(n2x-n1x,2)+Math.pow(n2y-n1y,2)+Math.pow(n2z-n1z,2));
@@ -246,22 +234,9 @@ public class Sphere3D {
 
 		float proj = (px - n1x) * n21x + (py - n1y) * n21y + (pz - n1z) * n21z; // dot prod
 
-//		if(Math.abs(proj)<Double.MIN_VALUE){
-//			return Math.sqrt( Math.pow(p_b[0] - n2x, 2) + Math.pow(p_b[1] - n2y, 2) ); //Double.MAX_VALUE;
-//		}
-//
-//		proj = (p_b[0] - n1x) * n[0] + (p_b[1] - n1y) * n[1];
-//		if(Math.abs(proj)<Double.MIN_VALUE){
-//			return Math.sqrt( Math.pow(p_b[0]-n1x, 2) + Math.pow(p_b[1] - n1y, 2)); //Double.MAX_VALUE;
-//		}
-
-		//IJ.log("nLen: "+nLen+" -> "+n[0]+","+n[1]+" proj: "+proj);
-
 		p_b[0] = -(px - n1x) + proj * n21x;
 		p_b[1] = -(py - n1y) + proj * n21y;
 		p_b[2] = -(pz - n1z) + proj * n21z;
-
-//		distance_from_line = vectorNorm(distance_2d);
 
 		return (float) Math.sqrt(p_b[0]*p_b[0] + p_b[1]*p_b[1] + p_b[2]*p_b[2]);
 

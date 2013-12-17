@@ -136,6 +136,7 @@ public final class Interpolator {
 	/*
 		static methods - image given as input argument
 	 */
+
 	public static final float	interpolateAt(double x, double y, FloatProcessor inip2d) {
 
 		float value = 0;
@@ -170,8 +171,6 @@ public final class Interpolator {
 	}
 
 	public static final float interpolateAt(float atX, float atY, float atZ_layer, float[][][] img3d_zxy) {
-
-//		float value;
 
         int x1 = (int) atX;//Math.floor(atX);
         int x2 = x1 + 1;//(int) Math.ceil(atX);
@@ -210,25 +209,61 @@ public final class Interpolator {
 			float I21_2 = img3d_zxy[ z2  ][ x1 ][ y2 ]; // bottom left
 			float I22_2 = img3d_zxy[ z2  ][ x2 ][ y2 ]; // bottom right
 
-//			float a = ( x1 != x2 )?( atX - x1 ) / ( x2 - x1 ) : 0.5f;	// col
-//			float b = ( y1 != y2 )?( atY - y1 ) / ( y2 - y1 ) : 0.5f;	//row
-//			float c = ( z1 != z2 )?( atZ_layer - z1 )/( z2 - z1 ) : 0.5f; // lay
-
 			float I_1 =
 
                     (1-z_frac)  * (  (1-y_frac) * ((1-x_frac)*I11_1 + x_frac*I12_1) + (y_frac) * ((1-x_frac)*I21_1 + x_frac*I22_1) )   +
                     z_frac      * (  (1-y_frac) * ((1-x_frac)*I11_2 + x_frac*I12_2) + (y_frac) * ((1-x_frac)*I21_2 + x_frac*I22_2) );
 
-
-			//a*(1-b)*I12_1 + a*b*I22_1;
-//			float I_2 = (1-a)*(1-b)*I11_2 + (1-a)*b*I21_2 + a*(1-b)*I12_2 + a*b*I22_2;
-
-//			value = (1-c)*I_1+c*I_2;
-
-		//}
-
 		return I_1;
 
 	}
+
+    public static final float	interpolateAt(float atX, float atY, float[][] img2d_xy) {
+
+        int x1 = (int) atX;
+        int x2 = x1 + 1;
+        float x_frac = atX - x1;
+
+        int y1 = (int) atY;
+        int y2 = y1 + 1;
+        float y_frac = atY - y1;
+
+//        int z1 = (int) atZ_layer;//Math.floor(atZ_layer);
+//        int z2 = z1 + 1;//(int) Math.ceil(atZ_layer);
+//        float z_frac = atZ_layer - z1;
+
+        // technically this check should be there but is skipped to make things faster
+        boolean isIn =
+                y1>=0 && y1<img2d_xy[0].length &&
+                        y2>=0 && y2<img2d_xy[0].length &&
+                        x1>=0 && x1<img2d_xy.length &&
+                        x2>=0 && x2<img2d_xy.length;
+//                        z1>=0 && z1<img3d_zxy.length &&
+//                        z2>=0 && z2<img3d_zxy.length
+
+        if(!isIn){
+            System.out.println(atX+" , "+atY+" , "+" -> "+x1+", "+x2+" | "+y1+", "+y2+", "+", ");
+        }
+
+        // take neighbourhood
+        float I11_1 = img2d_xy[ x1  ][ y1 ];  // upper left
+        float I12_1 = img2d_xy[ x2  ][ y1 ];  // upper right
+        float I21_1 = img2d_xy[ x1  ][ y2  ]; // bottom left
+        float I22_1 = img2d_xy[ x2  ][ y2  ]; // bottom right
+
+//        float I11_2 = img3d_zxy[ z2  ][ x1 ][ y1 ]; // upper left
+//        float I12_2 = img3d_zxy[ z2  ][ x2 ][ y1 ]; // upper right
+//        float I21_2 = img3d_zxy[ z2  ][ x1 ][ y2 ]; // bottom left
+//        float I22_2 = img3d_zxy[ z2  ][ x2 ][ y2 ]; // bottom right
+
+        float I_1 = (  (1-y_frac) * ((1-x_frac)*I11_1 + x_frac*I12_1) + (y_frac) * ((1-x_frac)*I21_1 + x_frac*I22_1) );
+
+//                (1-z_frac)  * (  (1-y_frac) * ((1-x_frac)*I11_1 + x_frac*I12_1) + (y_frac) * ((1-x_frac)*I21_1 + x_frac*I22_1) )   +
+//                        z_frac      * (  (1-y_frac) * ((1-x_frac)*I11_2 + x_frac*I12_2) + (y_frac) * ((1-x_frac)*I21_2 + x_frac*I22_2) );
+
+        return I_1;
+
+    }
+
 
 }
