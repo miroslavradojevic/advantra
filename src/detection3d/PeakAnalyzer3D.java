@@ -26,6 +26,8 @@ public class PeakAnalyzer3D extends Thread {
 
     public static int M = 2;                            // how much it expands recursively from the center
 
+	public static float minCos = 0.6f;
+
     // mainly to associate the peaks and link follow-up points
     public static int[][][] delin3; // N(foreground locs.) x 4(max. threads) x M(follow-up locs) contains index for each location (OUTPUT)
 //    public static float[][] theta;  // N(foreground locs.) x 3 (top 3 thetas inputs to fuzzy system) (ALTERNATIVE OUTPUT)
@@ -35,13 +37,14 @@ public class PeakAnalyzer3D extends Thread {
         this.endN = n1;
     }
 
-    public static void loadTemplate(Sphere3D sph3_init, int[][] listLocs3D_zxy, int[][][] listPeaks3D_input, int[][][] locIndexZXY_input, float[][][] img3_zxy_input) {
+    public static void loadTemplate(Sphere3D sph3_init, int[][] listLocs3D_zxy, int[][][] listPeaks3D_input, int[][][] locIndexZXY_input, float[][][] img3_zxy_input, float _minCosAng) {
 
         sph3 = sph3_init;
         listLocs3D = listLocs3D_zxy;
         img3_zxy = img3_zxy_input;
         listPeaks3D = listPeaks3D_input;                // peaks at each location already sorted by strength at lowest index
         locIndexZXY = locIndexZXY_input;                // lookup table
+		minCos = _minCosAng;
 
         // initialize delin3  output
         delin3 = new int[listLocs3D.length][4][M];      // will contain indexes for every 3d location (xyz can be recovered with look-up table)
@@ -129,7 +132,6 @@ public class PeakAnalyzer3D extends Thread {
         int prevZ = listLocs3D[prev_index][0];    // Z
         int prevX = listLocs3D[prev_index][1];    // X
         int prevY = listLocs3D[prev_index][2];    // Y
-//        System.out.println("curr_index: "+curr_index);
         int currZ = listLocs3D[curr_index][0];    // Z
         int currX = listLocs3D[curr_index][1];    // X
         int currY = listLocs3D[curr_index][2];    // Y
@@ -155,7 +157,7 @@ public class PeakAnalyzer3D extends Thread {
                                         Math.sqrt( Math.pow(nextX-currX, 2) + Math.pow(nextY-currY, 2) + Math.pow(nextZ-currZ, 2) )
                         );
 
-                if (cosAng>0.6) {
+                if (cosAng>minCos) {
 
                     // it is aligned - add it, find its index location and output
                     return locIndexZXY[nextZ][nextX][nextY];
@@ -184,7 +186,10 @@ public class PeakAnalyzer3D extends Thread {
         int[][] skeleton = delin3[locationIdx];
 
         for (int i1 = 0; i1<skeleton.length; i1++) {
-            for (int i2=0; i2<skeleton[0].length; i2++) {
+
+			System.out.println("skeleton "+i1+""+Arrays.toString(skeleton[i1]));
+
+			for (int i2=0; i2<skeleton[0].length; i2++) {
                 if (skeleton[i1][i2] != -1) {
 
                     int pointId = skeleton[i1][i2];

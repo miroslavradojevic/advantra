@@ -105,7 +105,7 @@ public class PeakExtractor3D extends Thread {
         int locationIdx = lookupIdxZXY[atZ][atX][atY];
 
         // center
-        IJ.log("0 " + 1 + " " + (atX+0.5) + " " + (atY+0.5) + " " + (atZ+0.5) + " " + 0.5f + " -1");
+        IJ.log("0 " + 0 + " " + (atX+0.5) + " " + (atY+0.5) + " " + (atZ+0.5) + " " + 0.75f + " -1");
 
         ImagePlus prof0 = sph3.drawProfileWithPeaks(extracted_profiles[locationIdx], atX, atY, atZ, img3_zxy, zDist, lookupIdxZXY);
         prof0.setTitle("profileCnt,"+locationIdx);
@@ -117,13 +117,14 @@ public class PeakExtractor3D extends Thread {
         prof0.getCanvas().zoomIn(0,0);
         prof0.getCanvas().zoomIn(0,0);
         prof0.getCanvas().zoomIn(0,0);
-        prof0.getCanvas().zoomIn(0,0);
 
 
-        System.out.println("peaks "+locationIdx+" (precalculated)");
+        System.out.println("peaks3 "+locationIdx+" ");
         for (int ww=0; ww<peaks3[locationIdx].length; ww++) {
             System.out.println( Arrays.toString(peaks3[locationIdx][ww]) );
         }
+
+		if (true) return;
 
         // 1st generation 4 peaks from center
         for (int loop1=0; loop1<4; loop1++) {

@@ -1,6 +1,9 @@
 package detection3d;
 
 import detection.Interpolator;
+import ij.ImagePlus;
+import ij.ImageStack;
+import ij.process.ByteProcessor;
 
 import java.util.Arrays;
 
@@ -24,25 +27,29 @@ public class ScoreCalculator3D extends Thread {
 
     public static int[][][]     delin_idxs_Nx4x3;        // list of delineated peaks around central point in at least 4 directions  N x (4 x 3)
 
+	public static Fuzzy3D		fz3d;					 // used to calculate the score
+
     public static float[][]     theta3;                  // OUTPUT, 4 scores to qualify the critical point
 
-
+	public static float[]		score3;					 // array of scores provided by Fuzzy3D
 
     public ScoreCalculator3D(int n0, int n1){
         this.begN = n0;
         this.endN = n1;
     }
 
-    public static void loadTemplate(int[][][] _delin_idxs_Nx4x3, float[][][] _img3_zxy, int[][][] _lookup_idx_zxy, int[][] _loc_zxy, byte[][][] _back3_zxy) {
+    public static void loadTemplate(int[][][] _delin_idxs_Nx4x3, float[][][] _img3_zxy, int[][][] _lookup_idx_zxy, int[][] _loc_zxy, byte[][][] _back3_zxy, Fuzzy3D _fz3d) {
 
         delin_idxs_Nx4x3 = _delin_idxs_Nx4x3;
         img3_zxy = _img3_zxy;
         lookup_idx_zxy = _lookup_idx_zxy;
         loc_zxy = _loc_zxy;
         back3_zxy = _back3_zxy;
+		fz3d = _fz3d;
 
         // initialize output with zeros
         theta3 = new float[delin_idxs_Nx4x3.length][4];
+		score3 = new float[delin_idxs_Nx4x3.length];
 
     }
 
@@ -140,13 +147,45 @@ public class ScoreCalculator3D extends Thread {
             //System.out.println("(" + locationX + " , " + locationY + " , " + locationZ + ") -> " + Arrays.toString(theta3[locationIdx]));
 
 			// FLS score
-			// TODO - input whole row of theta values
-
-
+			score3[locationIdx] = fz3d.bifurcationess(
+															 theta3[locationIdx][0],
+															 theta3[locationIdx][1],
+															 theta3[locationIdx][2],
+															 theta3[locationIdx][3]
+															 );
 
         } // location loop
 
     }
+
+	public static ImagePlus getThresholdedScores(float th) {
+		// turn thresholded scores into an output byte image
+		int W = img3_zxy[0].length;
+		int H = img3_zxy[0][0].length;
+		int L = img3_zxy.length;
+
+		ImageStack out_stack = new ImageStack(W, H);
+		for (int l=0; l<L; l++) {
+			out_stack.addSlice(new ByteProcessor(W, H));
+		}
+
+		for (int l=0; l<score3.length; l++) {
+
+			if (score3[l]>=th) {
+				int x = loc_zxy[l][1];
+				int y = loc_zxy[l][2];
+				int z = loc_zxy[l][0];
+				out_stack.setVoxel(x,y,z, 255);
+			}
+
+		}
+
+		ImagePlus out_im = new ImagePlus("scores_th="+th, out_stack);
+		return out_im;
+
+	}
+
+
 
     private static float medianAlongLine(int[] _idx_xyz, float[][][] img3d_zxy, int[][] _idx2zxy) { // (indexes_of_points_along_the_line, input_image, lookup_table)
 

@@ -875,6 +875,28 @@ public class Find_Connected_Regions  { //implements PlugIn
         return regs;
     }
 
+	public ArrayList<ArrayList<int[]>> getConnectedRegions3D_XYZ()
+	{
+
+		ArrayList<ArrayList<int[]>> regs = new ArrayList<ArrayList<int[]>>(results.size());
+
+		for (int i=0; i<results.size(); i++) {
+			ArrayList<int[]> locs = new ArrayList<int[]>(results.get(i).locations.size());
+			for (int j=0; j<results.get(i).locations.size(); j++) {
+				locs.add(new int[]{
+										  results.get(i).locations.get(j)[1],
+										  results.get(i).locations.get(j)[0],
+										  results.get(i).locations.get(j)[2]
+				});
+			}
+			regs.add(locs);
+		}
+
+		return regs;
+
+
+	}
+
     public ImagePlus showLabels(){
 
         byte[][] bytes_red = new byte[height][width * height];

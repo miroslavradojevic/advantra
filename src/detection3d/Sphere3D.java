@@ -298,7 +298,7 @@ public class Sphere3D {
 
     public ImagePlus drawProfileWithPeaks(short[] profile, int x, int y, int z, float[][][] img3d, float zd, int[][][] lookup) {
 
-        ImagePlus outIm = new ImagePlus("pwp", drawProfile(profile));
+        ImagePlus outIm = new ImagePlus("", drawProfile(profile));
 
         // overlay all peaks
         ArrayList<int[]> all_peaks = profilePeaksXY(profile);
@@ -440,6 +440,7 @@ public class Sphere3D {
 		return  (short) ((int) ((value/255f)*65535f) &  0xffff);  // TODO set that it works with 8 bit only because 255f means we expect to have values from that range in the image
 
 	}
+
 
 
     public ArrayList<Integer> profilePeaks(short[] profile) {

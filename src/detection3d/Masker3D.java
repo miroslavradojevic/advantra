@@ -73,46 +73,6 @@ public class Masker3D extends Thread {
 
 	}
 
-//    public static void setMaskAtPos(int atX, int atY, int atZ, float sphereRadius) {
-//
-//        ArrayList<int[]> positions = extractCircularNbhoodIndexes(atX, atY, atZ, sphereRadius);
-//            for (int tt=0; tt<positions.size(); tt++) {
-//                System.out.println(positions.get(tt)[0]+" , "+positions.get(tt)[1]+" , "+positions.get(tt)[2]);  // zxy
-//                mask3[positions.get(tt)[0]][positions.get(tt)[1]][positions.get(tt)[2]] = true;
-//            }
-//
-//    }
-
-//    private static ArrayList<int[]> extractCircularNbhoodIndexes(int atX, int atY, int atZ, float sphereRadius) {
-//
-//        ArrayList<int[]> out = new ArrayList<int[]>();
-//
-//        int rPix = Math.round(sphereRadius);
-//        int rLay = Math.round(sphereRadius / zDist);
-//
-//        if (atX-rPix>=0 && atY-rPix>=0 && atZ-rLay>=0 && atX+rPix<image_width && atY+rPix<image_height && atZ+rLay<image_length) {
-//
-//            int cnt = 0;
-//
-//            for (int xLoc=atX-rPix; xLoc<=atX+rPix; xLoc++) {
-//                for (int yLoc=atY-rPix; yLoc<=atY+rPix; yLoc++) {
-//                    for (int zLoc=atZ-rLay; zLoc<=atZ+rLay; zLoc++) { // loop in layers
-//
-//                        float c = (zLoc-atZ) * zDist;   // back to pixels
-//                        if ( (xLoc-atX)*(xLoc-atX)+(yLoc-atY)*(yLoc-atY)+c*c <= rPix*rPix ) {
-//
-//                            out.add(new int[]{zLoc, xLoc, yLoc});
-//
-//                        }
-//                    }
-//                }
-//            }
-//        }
-//
-//        return out;
-//
-//    }
-
 	public static void extractCircularNbhood(int atX, int atY, int atZ, float sphereRadius, float[] values)
 	{
 
@@ -251,7 +211,6 @@ public class Masker3D extends Thread {
 				float locMedXYZ 	= Stat.median(circNeigh);
 
                 // calculate 95% median here or take median of smaller circle
-
 				//float locMgnXYZ 	= iDiff; // (locAvgXYZ + 2 * locStdXYZ - locMedXYZ > iDiff)? 0 : iDiff;
 
 				back3[atZ][atX][atY] = (byte)Math.round(locMedXYZ);

@@ -275,9 +275,9 @@ public class Fuzzy3D {
 				for (int z=0; z<L; z++) {
 
 					// x will represent theta1
-					float th_1 = ((float) x / W) * iDiff;
-					float th_2 = ((float) y / H) * iDiff;
-					float th_3 = ((float) z / L) * iDiff;
+					float th_1 = ((float) x / W) * 1.2f * iDiff;
+					float th_2 = ((float) y / H) * 1.2f * iDiff;
+					float th_3 = ((float) z / L) * 1.2f * iDiff;
 
 					float[] out_NMY = new float[3]; // out_NMY[0] ~ NO, out_NMY[1] ~ MAYBE, out_NMY[2] ~ YES
 

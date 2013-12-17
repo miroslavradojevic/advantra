@@ -12,6 +12,9 @@ import ij.process.ShortProcessor;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
+import java.io.*;
+import java.util.ArrayList;
+import java.util.Arrays;
 
 /**
  * Created with IntelliJ IDEA.
@@ -62,7 +65,18 @@ public class JunctionDetection3D implements PlugInFilter, MouseListener, MouseMo
 
 		// uses Detector3D
 		det3D = new Detector3D();
-		det3D.run(imp, zDist, D, iDiff);
+//		ArrayList<float[]>
+		float[][] det_list_xyzr =  det3D.run(imp, zDist, D, iDiff);
+		if (det_list_xyzr!=null) {
+//			System.out.println(det_list_xyzr.length + " els.");
+			exportSwcWithLocs("/home/miroslav/test_output.swc", det_list_xyzr);
+			for (int w=0; w<det_list_xyzr.length; w++) {
+//				System.out.println(Arrays.toString(det_list_xyzr[w]));
+			}
+		}
+
+//		cnv.getImage().setOverlay(det3D.exportOverlayForegroundLocations());
+		//cnv.getImage().setOverlay(det3D.exportOverlayPeakLocations()); // debug only
 
         cnv.addMouseListener(this);
         cnv.addMouseMotionListener(this);
@@ -77,9 +91,35 @@ public class JunctionDetection3D implements PlugInFilter, MouseListener, MouseMo
         float iDiff     = 10;
 
         Detector3D det3D = new Detector3D();
-        det3D.run(inimg, zDist, D, iDiff);
+		float[][] det_list_xyzr =  det3D.run(inimg, zDist, D, iDiff);
 
     }
+
+	public void exportSwcWithLocs(String out_path, float[][] _xyzr_list){ // ArrayList<float[]>
+
+		PrintWriter     logWriter = null;
+
+		try {
+			logWriter = new PrintWriter(out_path);
+			logWriter.print("");
+			logWriter.close();
+		}
+		catch (FileNotFoundException ex) {}
+
+		try {
+			logWriter = new PrintWriter(new BufferedWriter(new FileWriter(out_path, true)));
+			logWriter.println("# SWC WITH LOCATIONS ");
+		} catch (IOException e) {}
+
+		for (int l=0; l<_xyzr_list.length; l++) {
+			logWriter.println((l+1)+" "+0+" "+_xyzr_list[l][0]+" "+_xyzr_list[l][1]+" "+_xyzr_list[l][2]+" "+_xyzr_list[l][3]+" "+(-1));
+
+		}
+
+
+		logWriter.close();
+
+	}
 
     public void mouseClicked(MouseEvent e) {
 
@@ -88,30 +128,35 @@ public class JunctionDetection3D implements PlugInFilter, MouseListener, MouseMo
         int offscreenZ = cnv.getImage().getZ()-1;
 
         // overlay the skeleton
-        Overlay skeleton = det3D.getLocalSkeleton(offscreenX, offscreenY, offscreenZ);
-        cnv.getImage().setOverlay(skeleton);
+        //Overlay skeleton = det3D.getLocalSkeleton(offscreenX, offscreenY, offscreenZ);
+        //cnv.getImage().setOverlay(skeleton);
 
-        // update the profile image
-        if (pfl_iw==null) {
+        pfl_ip = det3D.getLocalProfile(offscreenX, offscreenY, offscreenZ);
+
+        if (pfl_ip==null) {
+			IJ.log("point in backgr");
             pfl_ip = new ShortProcessor(1, 1);
-            pfl_im = new ImagePlus("", pfl_ip);
-            pfl_iw = new ImageWindow(pfl_im);
-            pfl_iw.setSize(600, 300);
-        }
-        else { // it exists, just update it
-            pfl_ip = det3D.getLocalProfile(offscreenX, offscreenY, offscreenZ);
-
-            if (pfl_ip==null) {
-                pfl_ip = new ShortProcessor(1, 1);
-            }
-
-            pfl_im.setProcessor(pfl_ip);
-            pfl_iw.updateImage(pfl_im);
-            pfl_iw.setSize(600, 300);
-            pfl_iw.getCanvas().fitToWindow();//setMagnification(8);
+			pfl_im = new ImagePlus("BACK", pfl_ip);
 
         }
+		else {
+			pfl_im = new ImagePlus("FGR", pfl_ip);
+//				pfl_im.setProcessor(pfl_ip);
+		}
 
+
+		if (pfl_iw==null) {
+			pfl_iw = new ImageWindow(pfl_im);
+		}
+		else {
+//			pfl_im.show();
+			pfl_iw.setImage(pfl_im);
+			pfl_iw.setSize(600, 300);
+			pfl_iw.getCanvas().fitToWindow();
+//			pfl_iw.updateImage(pfl_im);
+		}
+
+		/*
         // plot detected & selected peaks on the profile
         Overlay local_profile_peaks = det3D.getLocalProfilePeaks(offscreenX, offscreenY, offscreenZ);
         Overlay selected_local_profile_peaks = det3D.getSelectedLocalProfilePeaks(offscreenX, offscreenY, offscreenZ);
@@ -127,6 +172,8 @@ public class JunctionDetection3D implements PlugInFilter, MouseListener, MouseMo
         if (joint.size()>0) {
             pfl_iw.getCanvas().getImage().setOverlay(joint);
         }
+		*/
+
 
         det3D.debug(offscreenX, offscreenY, offscreenZ);
 
