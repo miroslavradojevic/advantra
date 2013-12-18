@@ -1,4 +1,4 @@
-package detection3d;
+package aux;
 
 /**
  * Created with IntelliJ IDEA.

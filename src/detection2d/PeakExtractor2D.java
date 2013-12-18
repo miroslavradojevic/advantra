@@ -26,6 +26,7 @@ public class PeakExtractor2D extends Thread {
     // outputs are lists of selected peaks
     public static int[][][]     peaks1;                     // N x (4x1)   4 selected peaks in abscissa coordinates X
     public static int[][][]     peaks2;                     // N x (4x2)   main output  4 selected peaks in XY format
+    // TODO add another output - peak strength (useful for plot and for later tracing usage)
 
     public PeakExtractor2D(int n0, int n1)
     {
@@ -63,17 +64,27 @@ public class PeakExtractor2D extends Thread {
 
 	public void run()
 	{
+        // variables just for this thread range
+        int[] start_indexes = new int[sph2d.getProfileLength()];
+        for (int i = 0; i < start_indexes.length; i++) start_indexes[i] = i; // zero indenxing is used
+
+        int[] end_indexes = new int[sph2d.getProfileLength()];        // zeros at the beginning
 
 		for (int locationIdx = begN; locationIdx < endN; locationIdx++) {
 
 			int atX = i2xy[locationIdx][0];
 			int atY = i2xy[locationIdx][1];
 
-			sph2d.peakCoords_4xXY(extracted_profiles[locationIdx], atX, atY, inimg_xy, xy2i, peaks2[locationIdx], peaks1[locationIdx]); // peaks1,2 will fill up
+			sph2d.peakCoords_4xXY(
+                    extracted_profiles[locationIdx],
+                    start_indexes, end_indexes,
+                    atX, atY,
+                    inimg_xy, xy2i,
+                    peaks2[locationIdx], peaks1[locationIdx]
+            ); // peaks1,2 will fill up
 
 		}
 
 	}
-
 
 }

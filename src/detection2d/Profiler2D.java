@@ -30,7 +30,7 @@ public class Profiler2D extends Thread {
 
     public static void loadTemplate(Sphere2D _sph2d, int[][] _i2xy, float[][] _inimg_xy){
 
-        sph2d = _sph2d; // just assign link, no allocation necessary since there will be one Sphere2D instance for all
+        sph2d = _sph2d; // just assign link, no allocation necessary since there will be one Sphere3D instance for all
         i2xy = _i2xy;
         inimg_xy = _inimg_xy;
 
@@ -55,28 +55,27 @@ public class Profiler2D extends Thread {
         }
     }
 
-	public static ImageProcessor getProfile(int atX, int atY, int[][] _xy2i){
+    public static ImageProcessor getProfile(int atX, int atY, int[][] _xy2i){
 
-		int idx = _xy2i[atX][atY];
-		if (idx != -1) {
-			int len = prof2[0].length;
-			float[] f = new float[len];
-			float[] fx = new float[len];
+        int idx = _xy2i[atX][atY];
+        if (idx != -1) {
+            int len = prof2[0].length;
+            float[] f = new float[len];
+            float[] fx = new float[len];
 
-			for (int i=0; i<len; i++) {
-				f[i] = ((prof2[idx][i] & 0xffff) / 65535f) * 255f;
-				fx[i] = i;
-			}
+            for (int i=0; i<len; i++) {
+                f[i] = ((prof2[idx][i] & 0xffff) / 65535f) * 255f;
+                fx[i] = i;
+            }
 
-			Plot p = new Plot("profile at ("+atX+","+atY+")", "", "filtered", fx, f);
-			p.setSize(600, 300);
+            Plot p = new Plot("profile at ("+atX+","+atY+")", "", "filtered", fx, f);
+            p.setSize(600, 300);
 
-			return p.getProcessor();
-		}
-		else {
-			return null;
-		}
+            return p.getProcessor();
+        }
+        else {
+            return null;
+        }
 
-	}
-
+    }
 }

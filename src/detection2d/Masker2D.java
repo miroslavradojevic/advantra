@@ -1,6 +1,6 @@
 package detection2d;
 
-import detection3d.Stat;
+import aux.Stat;
 import ij.IJ;
 import ij.process.ByteProcessor;
 

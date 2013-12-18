@@ -1,5 +1,6 @@
 package detection2d;
 
+import aux.Tools;
 import detection.Interpolator;
 import ij.IJ;
 import ij.ImagePlus;
@@ -13,13 +14,15 @@ import ij.process.FloatProcessor;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Vector;
 
 /**
  * Created with IntelliJ IDEA.
  * User: miroslav
  * Date: 12/17/13
  * Time: 10:37 AM
- * Computation unit for 2D processing
+ * Computation unit for 2D processing, contains precomputed values for profile extraction and peak detection
+ * indexing, neighbour list (for peaks), offset list (for profiles)
  */
 public class Sphere2D {
 
@@ -29,6 +32,8 @@ public class Sphere2D {
     public static float     R_FULL 	        = 1.00f;
     public static float     T_HALF 	        = 0.50f;
     public static int 		weightStdRatioToD = 4;                  // could be a parameter
+    public static int       MAX_ITER        = 15;
+    public static int       EPSILON         = 0;
 
     private float 	radius;
     private float   scale;
@@ -37,11 +42,11 @@ public class Sphere2D {
 
     private int 	limR, limT;
 
-    ArrayList<Float>        theta = new ArrayList<Float>(); 	    // list of elements (theta) covering the circle
+    private static ArrayList<Float>        theta = new ArrayList<Float>(); 	        // list of elements (theta) covering the circle
 
-    ArrayList<int[]> 		masks = new ArrayList<int[]>(); 	    // list of list indexes of the neighbours for each list element
+    private static ArrayList<int[]> 		masks = new ArrayList<int[]>(); 	    // list of list indexes of the neighbours for each list element
 
-    ArrayList<float[][]> 	offstXY = new ArrayList<float[][]>(); 	// list of filter offsets for each direction
+    private static ArrayList<float[][]> 	offstXY = new ArrayList<float[][]>(); 	// list of filter offsets for each direction
 
     float[] weights;
 
@@ -54,10 +59,9 @@ public class Sphere2D {
         this.radius 	= scale * neuronDiam;
         this.scale      = scale;
         this.neuronDiameter = neuronDiam;
-        this.N 	= (int) Math.ceil( ( (2 * Math.PI * radius) / arcRes) );
+        this.N 	= (int) Math.ceil( ( (2 * Math.PI * radius) / arcRes) );    // N will influence theta list size, and offstXY list size
         this.limR = (int) Math.ceil(R_FULL*neuronDiameter/samplingStep);    // how many to take radially with given sampling step
         this.limT = (int) Math.ceil(T_HALF*neuronDiameter/samplingStep);    //
-
 
         theta.clear();
         for (int i=0; i<N; i++) {
@@ -226,18 +230,70 @@ public class Sphere2D {
 
             float x_offs_pix = offstXY.get(profileIdx)[offsetIdx][0];
             float y_offs_pix = offstXY.get(profileIdx)[offsetIdx][1];
-//            float z_offs_lay = offstXY.get(profileIdx)[offsetIdx][2] / zDist; // convert to layers
 
             float imgVal = Interpolator.interpolateAt(atX + x_offs_pix, atY + y_offs_pix, _inimg_xy); // , atZ + z_offs_lay
             value += weights[offsetIdx] * imgVal;
 
         }
 
-        return  (short) ((int) ((value/255f)*65535f));//&  0xffff
+        return  (short) ((int) ((value/255f)*65535f)); // &  0xffff
 
     }
 
-	public void peakCoords_4xXY(short[] _profile, ){
+//    public static float[] extractPeakIdxs(float[] profile1, double[] startPts, double[] finishPts)
+//    {
+//
+//        int convPoints = startPts.length;
+//        int profileLength = profile1.length;
+//
+//        for (int k=0; k<convPoints; k++) {
+//            startPts[k] = ((float) k / convPoints) * profileLength;
+//        }
+//
+//        //Tools.runMeanShift(startPts, profile1, maxIter, epsilon, h,	finishPts);
+//        Tools.runMaxShift(startPts, profile1, maxIter, epsilon, h, finishPts);
+//
+//        Vector<float[]> cls = Tools.extractClusters1(finishPts, minD, M, profileLength);
+//
+//        if (cls.size()==0) return null;
+//
+//        else if (cls.size()==1) return new float[]{cls.get(0)[0]};
+//
+//        else if (cls.size()==2) return new float[]{cls.get(0)[0], cls.get(1)[0]};
+//
+//        else if (cls.size()==3) return new float[]{cls.get(0)[0], cls.get(1)[0], cls.get(2)[0]};
+//
+//        else if (cls.size()==4) return new float[]{cls.get(0)[0], cls.get(1)[0], cls.get(2)[0], cls.get(3)[0]};
+//
+//        else return bestN(cls, 4);
+//
+//    }
+
+	public void peakCoords_4xXY(short[] _profile,                           // main input
+                                int[] start_pts, int[] end_pts,          // aux. arrays (to avoid allocating them inside method each time) - end_pts is also an output
+                                int atX, int atY,                           // for global coordinate outputs
+                                float[][] _inimg_xy, int[][] _xy2i,         // to calculate median() along line
+                                int[][] peaks2_xy, int[][] peaks1_i){       // outputs
+
+        // this is the block that extracts 4 strongest peaks in global 2d coordinates (that's why atX, atY at the input) and profile indexes
+        // ranking can be based on median between locations of number of points that converged to each cluster
+        // in order to rank using medians - image array, look-up tables are added to be able to compute medians
+        // otherwise ranking can be based on number of convergence points - then all the image data is not necessary (position is enough)
+        // this implementation will have the number of convergence points but use median along the line as ranking estimate finally
+        runLineSearch(
+                start_pts,
+                _profile,
+                MAX_ITER,
+                EPSILON,
+                end_pts);
+
+        // cluster end_pts together
+
+
+        //System.out.println("BEFORE:");
+        //System.out.println(Arrays.toString(start_pts));
+        //System.out.println("AFTER:");
+        //System.out.println(Arrays.toString(end_pts));
 
 	}
 
@@ -254,18 +310,17 @@ public class Sphere2D {
         }
     }
 
-
     private void transY(float ty, float[][] coords){
         for (int i=0; i<coords.length; i++){
             coords[i][1] += ty;
         }
     }
 
-
     private float point2line(float n1x, float n1y,  // float n1z,
                              float n2x, float n2y,  // float n2z,
                              float px,  float py    //, float pz
-    ) {
+    )
+    {
 
         float d = 0;
 
@@ -302,5 +357,59 @@ public class Sphere2D {
     private float getX(float r, float theta){return r * (float) Math.cos(theta);}
 
     private float getY(float r, float theta){return r * (float) Math.sin(theta);}
+
+    private static int runOneMax(int curr_pos, short[] _input_profile) {
+        int 	    new_pos     = curr_pos;
+        int 		max	 		= Integer.MIN_VALUE;
+
+        // curr_pos will define the set of neighbouring indexes
+        int[] neighbour_idxs = masks.get(curr_pos);
+
+        for (int i=0; i<neighbour_idxs.length; i++) {
+            int neighbour_idx = neighbour_idxs[i];
+            int read_value = (int) (_input_profile[neighbour_idx] & 0xffff);
+            if (read_value>max) {
+                max = read_value;
+                new_pos = neighbour_idx;
+            }
+        }
+
+        return new_pos;
+    }
+
+    private static void runLineSearch(
+            int[] 	    start_idxs,
+            short[] 	input_profile,
+            int 		max_iter,
+            int 	    epsilon,
+            int[] 	    end_idxs // same length as start (this would be output)
+    )
+    {
+
+        // initialize output array
+        for (int i = 0; i < end_idxs.length; i++) {
+            end_idxs[i] = start_idxs[i];
+        }
+
+        // iterate each of the elements of the output
+        for (int i = 0; i < end_idxs.length; i++) {
+
+            int iter = 0;
+            int d;
+
+            do{
+
+                int new_pos = runOneMax(end_idxs[i], input_profile);
+                int pre_value = input_profile[end_idxs[i]] & 0xffff;
+                int new_value = input_profile[new_pos]     & 0xffff;
+                d = Math.abs(new_value - pre_value);
+                end_idxs[i] = new_pos;
+                iter++;
+            }
+            while(iter < max_iter && d > epsilon);
+
+        }
+
+    }
 
 }

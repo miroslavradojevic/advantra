@@ -1,5 +1,6 @@
 package detection3d;
 
+import aux.Stat;
 import ij.ImageStack;
 import ij.process.ByteProcessor;
 

@@ -1,5 +1,6 @@
 package detection3d;
 
+import aux.Stat;
 import detection.Interpolator;
 import ij.IJ;
 import ij.ImagePlus;
@@ -13,7 +14,6 @@ import java.awt.*;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 
 /**
  * Created with IntelliJ IDEA.

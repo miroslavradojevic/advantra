@@ -41,7 +41,6 @@ public class Profiler2DDemo implements PlugInFilter, MouseListener, MouseMotionL
 
 	public int setup(String s, ImagePlus imagePlus) {
 
-
         if(imagePlus==null) return DONE;
 
         inimg_xy = new float[imagePlus.getWidth()][imagePlus.getHeight()]; // x~column, y~row
@@ -146,6 +145,10 @@ public class Profiler2DDemo implements PlugInFilter, MouseListener, MouseMotionL
         t2 = System.currentTimeMillis();
 
         IJ.log("done. "+((t2-t1)/1000f)+"sec.");
+
+
+
+
 
         ImagePlus outmask = new ImagePlus("mask", Masker2D.getMask());
         outmask.show();

@@ -377,9 +377,6 @@ public class Tools {
 			T[i] = start[i];
 		}
 
-//		// performance analysis
-//		int countInterrupted = 0;
-
 		for (int i = 0; i < T.length; i++) {
 
 			int iter = 0;
@@ -388,9 +385,6 @@ public class Tools {
 			do{
 
 				double new_pos = runOneMax(T[i], h, inputProfile);
-
-//				d = Math.abs(new_pos - T[i]); // absolute diff - ok for images
-
 				double new_value = interp1Darray((float) new_pos, 	inputProfile);
 				double pre_value = interp1Darray((float) T[i], 		inputProfile);
 				d = Math.abs(new_value - pre_value);
@@ -400,14 +394,7 @@ public class Tools {
 			}
 			while(iter < max_iter && d > epsilon);
 
-//			// performance analysis
-//			if (iter==max_iter) countInterrupted++;
-
 		}
-
-		//System.out.println("MAX-SHIFT: "+(countInterrupted*100f/T.length)+"% points stopped by MAX_ITER");
-
-		//return T;
 
 	}
 
