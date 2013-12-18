@@ -144,7 +144,6 @@ public class JunctionDetection3D implements PlugInFilter, MouseListener, MouseMo
 //				pfl_im.setProcessor(pfl_ip);
 		}
 
-
 		if (pfl_iw==null) {
 			pfl_iw = new ImageWindow(pfl_im);
 		}

@@ -233,10 +233,13 @@ public class Sphere2D {
 
         }
 
-        return  (short) ((int) ((value/255f)*65535f) &  0xffff);
+        return  (short) ((int) ((value/255f)*65535f));//&  0xffff
 
     }
 
+	public void peakCoords_4xXY(short[] _profile, ){
+
+	}
 
     /*
     *********************************************************************
@@ -283,7 +286,6 @@ public class Sphere2D {
         return (float) Math.sqrt(p_b[0]*p_b[0] + p_b[1]*p_b[1]); // + p_b[2]*p_b[2]
 
     }
-
 
     private float arcBetweenDirections(float theta1, float theta2){
 

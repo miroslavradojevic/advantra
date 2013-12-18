@@ -4,27 +4,42 @@ import ij.IJ;
 import ij.ImagePlus;
 import ij.Prefs;
 import ij.gui.GenericDialog;
+import ij.gui.ImageCanvas;
+import ij.gui.ImageWindow;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
+import ij.process.ShortProcessor;
+
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.awt.event.MouseMotionListener;
 
 /**
  * Created with IntelliJ IDEA.
  * User: miroslav
  * Date: 12/17/13
  * Time: 11:28 AM
- * Tests Profiler 2d
+ * Tests Profiler2D, extract the mask using Masker2D first and extract the profiles
  */
-public class Profiler2DDemo implements PlugInFilter {
+public class Profiler2DDemo implements PlugInFilter, MouseListener, MouseMotionListener {
 
     float[][] 	inimg_xy; // store input image as an array
 
     /*
     parameters
      */
-    float       maskNhoodRadius, iDiff, D, s=1.5f;
+    float       iDiff, D, s=1.5f; // maskNhoodRadius
     int         CPU_NR;
 
-    public int setup(String s, ImagePlus imagePlus) {
+	/*
+	interface things
+	 */
+	ImagePlus       pfl_im = new ImagePlus();
+	ImageProcessor  pfl_ip = null;
+	ImageWindow     pfl_iw;
+	ImageCanvas 	cnv;
+
+	public int setup(String s, ImagePlus imagePlus) {
 
 
         if(imagePlus==null) return DONE;
@@ -52,25 +67,27 @@ public class Profiler2DDemo implements PlugInFilter {
         /******************************
          Generic Dialog
          *****************************/
-        this.maskNhoodRadius             = (float)   Prefs.get("advantra.critpoint.mask.nhoodRadius", 5);
-        this.iDiff 					    = (float)   Prefs.get("advantra.critpoint.mask.iDiff", 5);
-        this.D 					        = (float)   Prefs.get("advantra.critpoint.profile.d", 4);
+        //this.maskNhoodRadius             	= (float)   Prefs.get("advantra.critpoint.mask.nhoodRadius", 5);
+        this.iDiff 					    	= (float)   Prefs.get("advantra.critpoint.mask.iDiff", 5);
+        this.D 					        	= (float)   Prefs.get("advantra.critpoint.profile.d", 4);
 
         GenericDialog gd = new GenericDialog("PROFILER2DDEMO");
-        gd.addNumericField("radius ", 	maskNhoodRadius, 	0, 10, "spatial neighbourhood");
+        //gd.addNumericField("radius ", 	maskNhoodRadius, 	0, 10, "spatial neighbourhood");
         gd.addNumericField("iDiff ", 	iDiff, 			0, 10, "intensity margin");
         gd.addNumericField("D ", 	D, 			0, 10, "neuron diameter[pix]");
 
         gd.showDialog();
         if (gd.wasCanceled()) return DONE;
 
-        maskNhoodRadius      = (float) gd.getNextNumber();
-        Prefs.set("advantra.critpoint.mask.nhoodRadius",	maskNhoodRadius);
+        //maskNhoodRadius      = (float) gd.getNextNumber();
+        //Prefs.set("advantra.critpoint.mask.nhoodRadius",	maskNhoodRadius);
 
         iDiff       	= (float) gd.getNextNumber();
         Prefs.set("advantra.critpoint.mask.iDiff", 	    	iDiff);
 
         CPU_NR = Runtime.getRuntime().availableProcessors();
+
+		cnv = imagePlus.getCanvas();
 
         return DOES_8G+DOES_32+NO_CHANGES;
 
@@ -133,5 +150,49 @@ public class Profiler2DDemo implements PlugInFilter {
         ImagePlus outmask = new ImagePlus("mask", Masker2D.getMask());
         outmask.show();
 
+		IJ.log("click on the original image...");
+
+		cnv.addMouseListener(this);
+		cnv.addMouseMotionListener(this);
     }
+
+	public void mouseClicked(MouseEvent e) {
+
+		int clickX = cnv.offScreenX(e.getX());
+		int clickY = cnv.offScreenY(e.getY());
+
+		pfl_ip = Profiler2D.getProfile(clickX, clickY, Masker2D.xy2i);
+
+		if (pfl_ip == null) {
+			pfl_ip = new ShortProcessor(1, 1);
+			pfl_im.setTitle("background");
+		}
+		else {
+			pfl_im.setTitle("foreground");
+		}
+
+		pfl_im.setProcessor(pfl_ip);
+
+		if (pfl_iw==null) {
+			pfl_iw = new ImageWindow(pfl_im);
+		}
+		else {
+			pfl_iw.setImage(pfl_im);
+		}
+
+		//pfl_iw.setSize(600, 300);
+		//pfl_iw.getCanvas().fitToWindow();
+
+	}
+
+	public void mouseMoved(MouseEvent e) {
+		mouseClicked(e);
+	}
+
+	public void mousePressed(MouseEvent e) {}
+	public void mouseReleased(MouseEvent e) {}
+	public void mouseEntered(MouseEvent e) {}
+	public void mouseExited(MouseEvent e) {}
+	public void mouseDragged(MouseEvent e) {}
+
 }

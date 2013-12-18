@@ -113,10 +113,8 @@ public class Masker2DDemo implements PlugInFilter {
     }
 
 //	public void mouseClicked(MouseEvent e) {
-//
 //		int offscreenX = incanvas.offScreenX(e.getX());
 //		int offscreenY = incanvas.offScreenY(e.getY());
-//
 //		int radiusToCheck = (int) Math.ceil(nhoodRadius);
 //		float[] circVals = Masker.extractCircleVals(offscreenX, offscreenY, radiusToCheck, Masker.circleElements(radiusToCheck));
 //		Arrays.sort(circVals);
@@ -170,34 +168,4 @@ public class Masker2DDemo implements PlugInFilter {
 //		incanvas.setOverlay(ov);
 //
 //	}
-//
-//	public void mouseMoved(MouseEvent e) {
-//		mouseClicked(e);
-//	}
-//
-//	@Override
-//	public void mousePressed(MouseEvent e) {
-//		//To change body of implemented methods use File | Settings | File Templates.
-//	}
-//
-//	@Override
-//	public void mouseReleased(MouseEvent e) {
-//		//To change body of implemented methods use File | Settings | File Templates.
-//	}
-//
-//	@Override
-//	public void mouseEntered(MouseEvent e) {
-//		//To change body of implemented methods use File | Settings | File Templates.
-//	}
-//
-//	@Override
-//	public void mouseExited(MouseEvent e) {
-//		//To change body of implemented methods use File | Settings | File Templates.
-//	}
-//
-//	@Override
-//	public void mouseDragged(MouseEvent e) {
-//		//To change body of implemented methods use File | Settings | File Templates.
-//	}
-//
 }
