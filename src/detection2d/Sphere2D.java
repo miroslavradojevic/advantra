@@ -42,13 +42,21 @@ public class Sphere2D {
 
     private int 	limR, limT;
 
-    private static ArrayList<Float>        theta = new ArrayList<Float>(); 	        // list of elements (theta) covering the circle
+    // all discretized angle (theta) values will be indexed in a list
+    // masks will contain indexes of local neighbours (necessary for peak extraction and clustering)
+    // offsets used in oriented filtering are precomputed for each indexed angle
+    // there is also a symmetric table that stores precomputed distance differences between each indexed direction (used in clustering methods after converging the indexes)
+    //
+
+    private static ArrayList<Float>         theta = new ArrayList<Float>(); 	        // list of elements (theta) covering the circle
 
     private static ArrayList<int[]> 		masks = new ArrayList<int[]>(); 	    // list of list indexes of the neighbours for each list element
 
     private static ArrayList<float[][]> 	offstXY = new ArrayList<float[][]>(); 	// list of filter offsets for each direction
 
-    float[] weights;
+    private static float[] weights;
+
+    private static float[][] diffs;
 
     /*
     *********************************************************************
@@ -163,6 +171,26 @@ public class Sphere2D {
             weights[iii] /= sumWgt;
         }
 
+        /*
+                form table with differences (used for clustering)
+         */
+
+        diffs = new float[theta.size()][theta.size()];
+        for (int i = 0; i < theta.size(); i++) {
+            for (int j = i; j < theta.size(); j++) {
+                if (i==j) {
+                    diffs[i][j] = 0;
+                }
+                else {
+                    float theta1 = theta.get(i);
+                    float theta2 = theta.get(j);
+                    float dtheta = wrap_diff(theta1, theta2);
+                    diffs[i][j] = radius * dtheta;
+                    diffs[j][i] = radius * dtheta;
+                }
+            }
+        }
+
     }
 
     public ImagePlus showSampling(){
@@ -239,35 +267,6 @@ public class Sphere2D {
         return  (short) ((int) ((value/255f)*65535f)); // &  0xffff
 
     }
-
-//    public static float[] extractPeakIdxs(float[] profile1, double[] startPts, double[] finishPts)
-//    {
-//
-//        int convPoints = startPts.length;
-//        int profileLength = profile1.length;
-//
-//        for (int k=0; k<convPoints; k++) {
-//            startPts[k] = ((float) k / convPoints) * profileLength;
-//        }
-//
-//        //Tools.runMeanShift(startPts, profile1, maxIter, epsilon, h,	finishPts);
-//        Tools.runMaxShift(startPts, profile1, maxIter, epsilon, h, finishPts);
-//
-//        Vector<float[]> cls = Tools.extractClusters1(finishPts, minD, M, profileLength);
-//
-//        if (cls.size()==0) return null;
-//
-//        else if (cls.size()==1) return new float[]{cls.get(0)[0]};
-//
-//        else if (cls.size()==2) return new float[]{cls.get(0)[0], cls.get(1)[0]};
-//
-//        else if (cls.size()==3) return new float[]{cls.get(0)[0], cls.get(1)[0], cls.get(2)[0]};
-//
-//        else if (cls.size()==4) return new float[]{cls.get(0)[0], cls.get(1)[0], cls.get(2)[0], cls.get(3)[0]};
-//
-//        else return bestN(cls, 4);
-//
-//    }
 
 	public void peakCoords_4xXY(short[] _profile,                           // main input
                                 int[] start_pts, int[] end_pts,          // aux. arrays (to avoid allocating them inside method each time) - end_pts is also an output
@@ -409,6 +408,117 @@ public class Sphere2D {
             while(iter < max_iter && d > epsilon);
 
         }
+
+    }
+
+    private static int[] clustering(int[] idxs, float[][] dists, float threshold_dists)   // essentially clustering of the indexes
+    {
+        // indxs represent indexes of values that need to be clustered
+        // intended to place here indexes after the convergence
+        // dists are the distances
+        // threshold_dists is the distance limit
+        // output is list of unique labels
+
+        int[] labels = new int[idxs.length];
+        for (int i = 0; i < labels.length; i++) labels[i] = i;  // initialize the output
+
+        //System.out.println("INIT. LABELS:");
+        //System.out.println(Arrays.toString(labels));
+
+        for (int i = 0; i < idxs.length; i++) {
+
+            // one versus the rest
+            for (int j = 0; j < idxs.length; j++) {
+
+                // check the rest of the values
+                if (i != j) {
+
+                    int idx_i = idxs[i]; // will be used to read diff from the table
+                    int idx_j = idxs[j]; //
+
+                    if (dists[idx_i][idx_j]<=threshold_dists) {
+
+                        if (labels[j] != labels[i]) {
+                            // propagate the label
+                            int currLabel = labels[j];
+                            int newLabel  = labels[i];
+
+                            labels[j] = newLabel;
+
+                            //set all that also were currLabel to newLabel
+                            for (int k = 0; k < labels.length; k++)
+                                if (labels[k]==currLabel)
+                                    labels[k] = newLabel;
+
+                        }
+
+                    }
+
+                }
+
+            }
+
+        }
+
+        //System.out.println("OUT LABELS:");
+//		for (int ii = 0; ii < labels.length; ii++)
+//			System.out.print(labels[ii]+" ");
+        //System.out.println(Arrays.toString(labels));
+
+        return labels;
+
+    }
+
+    public static ArrayList<float[]> extracting(int[] labels, int[] idxs, ArrayList<Float> vals) {
+
+        // loop obtained labels (labels & idxs should have the same length)
+
+        boolean[] checked = new boolean[idxs.length];      // aux
+        ArrayList<float[]> out = new ArrayList<float[]>(); // allocate the output
+
+        for (int i = 0; i < idxs.length; i++) {
+            if (!checked[i]) {
+                // this is the first value
+                float centroid  = vals.get(idxs[i]); // vals[ idxs[i] ];
+                float shifts    = 0; // naturally 0 shift for the first one
+                int count = 1;
+                checked[i] = true;
+
+                // check the rest
+                for (int j = i+1; j < idxs.length; j++) {
+                    if (!checked[j]) {
+                        if (labels[j]==labels[i]) {
+
+                            // clustering said they're together
+                            shifts += vals.get(idxs[j])-centroid; //vals[ idxs[j] ];
+                            count++;
+                            checked[j] = true;
+
+                        }
+                    }
+                }
+
+                centroid += shifts/count;
+                // TODO wrap it because it is an angle, can go out of the range
+                wrap()
+                out.add(new float[]{centroid/count, count});
+
+            }
+        }
+
+        return out;
+
+    }
+
+    private static float wrap_diff(float theta_1, float theta_2) { // wraps the angle difference theta_1, theta_2 range [0, 2PI)
+
+        float d = theta_1 - theta_2;
+
+        d = (d>0)? d : (-d) ;
+
+        d = (d>Math.PI)? (float) (2*Math.PI-d) : d ;
+
+        return d;
 
     }
 
