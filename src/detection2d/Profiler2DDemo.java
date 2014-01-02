@@ -146,10 +146,6 @@ public class Profiler2DDemo implements PlugInFilter, MouseListener, MouseMotionL
 
         IJ.log("done. "+((t2-t1)/1000f)+"sec.");
 
-
-
-
-
         ImagePlus outmask = new ImagePlus("mask", Masker2D.getMask());
         outmask.show();
 

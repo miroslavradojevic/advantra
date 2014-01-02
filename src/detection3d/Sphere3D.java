@@ -685,7 +685,8 @@ public class Sphere3D {
             int z_peak_lay_base = (int) Math.round(z_peak_lay);
 
             /*
-                pick the best out of 4-neighbours from the same plane - for more robustness, 4 neighbourhood around subpixel x,y,z_peak_pix,lay
+                pick the best out of 4-neighbours from the same plane -
+                for more robustness, 4 neighbourhood around subpixel x,y,z_peak_pix,lay
              */
 
             float maxMedian = Float.MIN_VALUE;

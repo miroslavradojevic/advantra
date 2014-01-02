@@ -3,21 +3,24 @@ package detection2d;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.Prefs;
-import ij.gui.GenericDialog;
-import ij.gui.ImageCanvas;
-import ij.gui.OvalRoi;
-import ij.gui.Overlay;
+import ij.gui.*;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
+import ij.process.ShortProcessor;
+
+import java.awt.*;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.awt.event.MouseMotionListener;
 
 /**
  * Created with IntelliJ IDEA.
  * User: miroslav
  * Date: 12/17/13
  * Time: 4:10 PM
- * Demo usage of PeakExtractor2D: uses Masker2D, Profiler2D, and shows peaks extracted on all foreground locations as a joint Overlay on the image
+ * Demo usage of PeakExtractor2D: uses also Masker2D, Profiler2D, and shows peaks extracted on all foreground locations as a joint Overlay on the image
  */
-public class PeakExtractor2DDemo implements PlugInFilter {
+public class PeakExtractor2DDemo implements PlugInFilter, MouseListener, MouseMotionListener {
 
     float[][] 	inimg_xy; // store input image as an array
 
@@ -30,10 +33,12 @@ public class PeakExtractor2DDemo implements PlugInFilter {
     /*
     interface things
      */
-    ImageCanvas cnv;
+	ImagePlus       pfl_im = new ImagePlus();
+	ImageProcessor  pfl_ip = null;
+	ImageWindow 	pfl_iw;
+	ImageCanvas 	cnv;
 
-
-    public int setup(String s, ImagePlus imagePlus) {
+	public int setup(String s, ImagePlus imagePlus) {
 
         if(imagePlus==null) return DONE;
 
@@ -88,6 +93,8 @@ public class PeakExtractor2DDemo implements PlugInFilter {
 
     public void run(ImageProcessor imageProcessor) {
 
+//		System.out.println(String.format("range: %4d", (int)(6.5f/0.7f)));
+
         Sphere2D sph2d = new Sphere2D(D, s);
         ImagePlus samplingScheme =  sph2d.showSampling();
         samplingScheme.show();
@@ -99,10 +106,6 @@ public class PeakExtractor2DDemo implements PlugInFilter {
         main
          */
         long t1, t2;
-
-        /*
-        main
-         */
         t1 = System.currentTimeMillis();
 
         Masker2D.loadTemplate(inimg_xy, 0, sph2d.getOuterRadius(), iDiff);
@@ -140,7 +143,7 @@ public class PeakExtractor2DDemo implements PlugInFilter {
         }
 
         PeakExtractor2D.loadTemplate(sph2d, Masker2D.i2xy, Profiler2D.prof2, inimg_xy, Masker2D.xy2i);
-        System.out.println("managed to initialize");
+        //System.out.println("managed to initialize");
         int totalPeakExtrComponents = Profiler2D.prof2.length; // number of profiles == number of locations
 
         PeakExtractor2D pe_jobs[] = new PeakExtractor2D[CPU_NR];
@@ -158,33 +161,120 @@ public class PeakExtractor2DDemo implements PlugInFilter {
 
 
         t2 = System.currentTimeMillis();
-
+		        System.out.println("DEBUG: finished peak extraction");
         IJ.log("done. "+((t2-t1)/1000f)+"sec.");
 
-        // show the peaks (all peaks in one overlay)
+		/*
+			mouse listeners after processing
+		 */
+		cnv.addMouseListener(this);
+		cnv.addMouseMotionListener(this);
+
+        /* DEBUG: show the peaks (all peaks in one overlay at the current image)
         Overlay ov = new Overlay();
-        float R_MAX = 2; // ~ corresponds highest weight
+        float R_MAX = 1; // ~ corresponds highest weight
         float R = R_MAX;
-        for (int l = 0; l<PeakExtractor2D.peaks2.length; l++) { // loop locations
+        for (int l = 0; l<PeakExtractor2D.peaks_xy.length; l++) { // loop locations
 
-            for (int t = 0; t<PeakExtractor2D.peaks2[l].length; t++) {  // loop threads
+            for (int t = 0; t<PeakExtractor2D.peaks_xy[l].length; t++) {  // loop threads
 
-                int pk_x = PeakExtractor2D.peaks2[l][t][0];
-                int pk_y = PeakExtractor2D.peaks2[l][t][1];
+                int pk_x = PeakExtractor2D.peaks_xy[l][t][0];
+                int pk_y = PeakExtractor2D.peaks_xy[l][t][1];
 
                 if (pk_x != -1 && pk_y != -1) {
                     // R ~ size - weight of the peak
                     OvalRoi ovroi = new OvalRoi(pk_x+.5 - (R/2), pk_y+.5 - (R/2), R, R);
+					ovroi.setFillColor(Color.BLUE);
                     ov.add(ovroi);
 
                 }
 
             }
 
-
         }
 
         cnv.getImage().setOverlay(ov);
+        */
 
     }
+
+	public void mouseClicked(MouseEvent e) {
+
+		int clickX = cnv.offScreenX(e.getX());
+		int clickY = cnv.offScreenY(e.getY());
+
+//		IJ.log(String.format("clicked:\t %4d, %4d", clickX, clickY));
+
+		pfl_ip = Profiler2D.getProfile(clickX, clickY, Masker2D.xy2i);
+
+		if (pfl_ip == null) {
+			pfl_ip = new ShortProcessor(1, 1);
+			pfl_im.setTitle("background");
+		}
+		else {
+			pfl_im.setTitle("foreground");
+		}
+
+		pfl_im.setProcessor(pfl_ip);
+
+		if (pfl_iw==null) {
+			pfl_iw = new ImageWindow(pfl_im);
+		}
+		else {
+			pfl_iw.setImage(pfl_im);
+		}
+
+		//pfl_iw.setSize(600, 300);
+		//pfl_iw.getCanvas().fitToWindow();
+
+		// add an overlay with peaks
+		Overlay ov = new Overlay();
+		float R = 2;
+		OvalRoi ovalroi = new OvalRoi(clickX-(R/2)+.5f, clickY-(R/2)+.5f, R, R);
+		//ovalroi.setFillColor(Color.BLUE);
+		ov.add(ovalroi);
+
+		// read extracted peaks at this location
+		int idx = Masker2D.xy2i[clickX][clickY];
+		if (idx!=-1) {
+			int[][] pk_locs_xy = PeakExtractor2D.peaks_xy[idx];
+			for (int i = 0; i<pk_locs_xy.length; i++) {
+
+				int pk_x = pk_locs_xy[i][0];
+				int pk_y = pk_locs_xy[i][1];
+
+				if (pk_x!=-1) {
+					// peak exists
+					ovalroi = new OvalRoi(pk_x-(R/2)+.5f, pk_y-(R/2)+.5f, R, R);
+					Color c = Color.BLACK;
+					if(i==0) {
+						c = Color.RED;
+					}
+					else if (i==1) {
+						c = Color.YELLOW;
+					}
+					else if (i==2) {
+						c = Color.GREEN;
+					}
+					else if (i==3) {
+						c = Color.BLUE;
+					}
+					ovalroi.setFillColor(c);
+				}
+
+				ov.add(ovalroi);
+			}
+
+		}
+
+		cnv.setOverlay(ov);
+
+	}
+
+	public void mousePressed(MouseEvent e) {}
+	public void mouseReleased(MouseEvent e) {}
+	public void mouseEntered(MouseEvent e) {}
+	public void mouseExited(MouseEvent e) {}
+	public void mouseDragged(MouseEvent e) {}
+	public void mouseMoved(MouseEvent e) {}
 }

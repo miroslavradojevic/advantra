@@ -1,5 +1,6 @@
 package detection2d;
 
+import aux.Stat;
 import aux.Tools;
 import detection.Interpolator;
 import ij.IJ;
@@ -42,6 +43,10 @@ public class Sphere2D {
 
     private int 	limR, limT;
 
+	private static float TWO_PI = (float) (2 * Math.PI);
+	private static float ONE_PI = (float) (1 * Math.PI);
+
+    //
     // all discretized angle (theta) values will be indexed in a list
     // masks will contain indexes of local neighbours (necessary for peak extraction and clustering)
     // offsets used in oriented filtering are precomputed for each indexed angle
@@ -268,11 +273,11 @@ public class Sphere2D {
 
     }
 
-	public void peakCoords_4xXY(short[] _profile,                           // main input
-                                int[] start_pts, int[] end_pts,          // aux. arrays (to avoid allocating them inside method each time) - end_pts is also an output
-                                int atX, int atY,                           // for global coordinate outputs
-                                float[][] _inimg_xy, int[][] _xy2i,         // to calculate median() along line
-                                int[][] peaks2_xy, int[][] peaks1_i){       // outputs
+	public void peakCoords_4xXY(short[] _profile,                           	// main input
+                                int[] start_pts, int[] end_pts,          		// aux. arrays (to avoid allocating them inside method each time) - end_pts is also an output
+                                int atX, int atY,                           	// for global coordinate outputs
+                                float[][] _inimg_xy, int[][] _xy2i,         	// to calculate median() along line
+                                int[][] peaks_loc_xy, float[][] peaks_ang_theta){	// outputs
 
         // this is the block that extracts 4 strongest peaks in global 2d coordinates (that's why atX, atY at the input) and profile indexes
         // ranking can be based on median between locations of number of points that converged to each cluster
@@ -287,18 +292,134 @@ public class Sphere2D {
                 end_pts);
 
         // cluster end_pts together
+		int[] labs = clustering(end_pts, diffs, arcNbhood);
 
+		// extract the cluster centroids out  -> <theta, weight>
+		ArrayList<float[]> clss = extracting(labs, end_pts, theta);
 
-        //System.out.println("BEFORE:");
-        //System.out.println(Arrays.toString(start_pts));
-        //System.out.println("AFTER:");
-        //System.out.println(Arrays.toString(end_pts));
+		appendClusters(atX, atY, _xy2i, _inimg_xy, clss, peaks_loc_xy, peaks_ang_theta);
 
 	}
 
     /*
     *********************************************************************
      */
+
+	private void appendClusters(
+									   int atX, int atY,
+									   int[][] 		_xy2i,  						// lookup table
+									   float[][] 	_inimg_xy,                     	// input image
+									   ArrayList<float[]> clusters_to_append,       // <theta, weight>
+									   int[][] 		destination_locs,               // 4x2
+									   float[][] 	destination_angs)               // 4x1
+	{
+		// take top 4 and store them according to the importance (criteria: median along the connecting line, or convergence iterations)
+		float[] medAlongLin = new float[destination_locs.length];
+		Arrays.fill(medAlongLin, -1f);
+
+		for (int t=0; t<clusters_to_append.size(); t++) { // check every peak theta angle
+
+			float peak_theta = clusters_to_append.get(t)[0];
+			//float peak_theta_weight = clusters_to_append.get(t)[1];
+
+			float x_peak_pix = atX + getX(radius, peak_theta);
+			float y_peak_pix = atY + getY(radius, peak_theta);
+
+			int x_peak_pix_base = (int) Math.floor(x_peak_pix);
+			int y_peak_pix_base = (int) Math.floor(y_peak_pix);
+
+			/*
+				pick the best out of 4 neighbours (compensate location inaccuracy)
+			 */
+
+			float maxWeight = Float.MIN_VALUE;
+			int[] currentPeaksXY   = new int[2];
+
+			boolean modified = false;
+
+			for (int ii = 0; ii <= 1; ii++) { // check around peak
+				for (int jj = 0; jj <= 1; jj++) {
+
+					int check_x = x_peak_pix_base + ii;
+					int check_y = y_peak_pix_base + jj;
+
+					if (check_x>=0 && check_x<_inimg_xy.length && check_y>=0 && check_y<_inimg_xy[0].length) {
+
+						float currMedian = medianAlongLine(	atX, atY, check_x, check_y, _inimg_xy );
+
+						if (_xy2i[check_x][check_y]!=-1)  {  // ensures retrieval from the list
+
+							if (currMedian>maxWeight) {
+								// set this one as peak
+								currentPeaksXY[0] = check_x;
+								currentPeaksXY[1] = check_y;
+
+								modified = true;
+
+								// update maxMedian
+								maxWeight = currMedian;
+							}
+
+						}
+					}
+				}
+			}
+
+			if (modified) { // if there was a result add it to sorted list
+				// insert maxMedian and currentPeaksXYZ to the list of 4 (destination_array)
+				for (int k = 0; k < 4; k++) {
+
+					if (medAlongLin[k] == -1f) {            			// store immediately
+
+						destination_locs[k][0]    = currentPeaksXY[0];
+						destination_locs[k][1]    = currentPeaksXY[1];
+
+						medAlongLin[k]  = maxWeight;
+
+						destination_angs[k][0]     = peak_theta;
+
+						break;
+
+					}
+					else if (maxWeight > medAlongLin[k]) {
+
+						// shift the rest first
+						for (int kk = 4-2; kk>=k; kk--) {   // shift them from the one before last, shift back (last one dissapears)
+
+							destination_locs[kk+1][0] = destination_locs[kk][0];
+							destination_locs[kk+1][1] = destination_locs[kk][1];
+
+							medAlongLin[kk+1] = medAlongLin[kk];
+
+							destination_angs[kk+1][0] = destination_angs[kk][0];
+
+						}
+
+						// store it at k
+						destination_locs[k][0] = currentPeaksXY[0];
+						destination_locs[k][1] = currentPeaksXY[1];
+
+						medAlongLin[k] = maxWeight;
+
+						destination_angs[k][0] = peak_theta;
+
+						break;
+
+					}
+					else {
+
+						// if smaller, loop further
+
+					}
+
+				}
+
+			}// modified
+
+		}
+
+
+	}
 
     private void rotZ(float ang, float[][] coords) {
         for (int i=0; i<coords.length; i++) {
@@ -355,7 +476,7 @@ public class Sphere2D {
 
     private float getX(float r, float theta){return r * (float) Math.cos(theta);}
 
-    private float getY(float r, float theta){return r * (float) Math.sin(theta);}
+    private float getY(float r, float theta){return r * (-1) * (float) Math.sin(theta);}
 
     private static int runOneMax(int curr_pos, short[] _input_profile) {
         int 	    new_pos     = curr_pos;
@@ -490,7 +611,33 @@ public class Sphere2D {
                         if (labels[j]==labels[i]) {
 
                             // clustering said they're together
-                            shifts += vals.get(idxs[j])-centroid; //vals[ idxs[j] ];
+							// important that vals and centroid values are all wrapped in [0, 2PI) range
+                            float add_value = vals.get(idxs[j]);
+							float add_diff = wrap_diff(centroid, add_value);
+							if (centroid<ONE_PI) {
+								// there is always pi values on right
+								if (add_value>=centroid & add_value<centroid+ONE_PI) {
+									// sign is (+)
+								}
+								else {
+									// sign is (-)
+									add_diff = (-1) * add_diff;
+								}
+
+							}
+							else {
+								// >= ONE_PI
+								// there is always pi values on left
+								if (add_value<=centroid & add_value>centroid-ONE_PI) {
+									// sign is (-)
+									add_diff = (-1) * add_diff;
+								}
+								else {
+									// sign in (+)
+								}
+							}
+
+							shifts += add_diff;
                             count++;
                             checked[j] = true;
 
@@ -499,9 +646,8 @@ public class Sphere2D {
                 }
 
                 centroid += shifts/count;
-                // TODO wrap it because it is an angle, can go out of the range
-                wrap()
-                out.add(new float[]{centroid/count, count});
+				wrap_0_2PI(centroid);
+                out.add(new float[]{centroid, count});
 
             }
         }
@@ -521,5 +667,44 @@ public class Sphere2D {
         return d;
 
     }
+
+	private static float wrap_0_2PI(float ang) {
+		float out = ang;
+		while (out<0) {
+			out += TWO_PI;
+		}
+		while (out>=TWO_PI) {
+			out -= TWO_PI;
+		}
+		return out;
+	}
+
+	private float medianAlongLine(float x1, float y1, float x2, float y2, float[][] inimg_xy) {
+
+		// DEBUG:
+		//System.out.println(String.format("median_along_line(%4.2f, %4.2f)->(%4.2f, %4.2f)", x1, y1, x2, y2));
+
+		int elementsInLine = (int) (radius / .7f);
+		float[] valuesAlongLine = new float[elementsInLine];
+
+		float dist = (float) Math.sqrt(Math.pow(x2-x1, 2) + Math.pow(y2-y1, 2)); //  + Math.pow(z2lay-z1lay, 2)
+
+		float dx = (x2 - x1) / dist;
+		float dy = (y2 - y1) / dist;
+//		float dz = (z2lay - z1lay) / dist;
+
+		for (int cc = 0; cc<elementsInLine; cc++) {
+
+			float atX = x1      + cc * dx;
+			float atY = y1      + cc * dy;
+//			float atZ = z1lay   + cc * dz;
+
+			valuesAlongLine[cc] = Interpolator.interpolateAt(atX, atY, inimg_xy);
+
+		}
+
+		return Stat.median(valuesAlongLine);
+
+	}
 
 }
