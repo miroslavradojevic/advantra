@@ -474,9 +474,9 @@ public class Sphere2D {
 
     }
 
-    private float getX(float r, float theta){return r * (float) Math.cos(theta);}
+    private float getX(float r, float theta){return (-1) * r * (float) Math.sin(theta);}
 
-    private float getY(float r, float theta){return r * (-1) * (float) Math.sin(theta);}
+    private float getY(float r, float theta){return (-1) * r * (float) Math.cos(theta);}
 
     private static int runOneMax(int curr_pos, short[] _input_profile) {
         int 	    new_pos     = curr_pos;

@@ -64,8 +64,10 @@ public class Profiler2D extends Thread {
             float[] fx = new float[len];
 
             for (int i=0; i<len; i++) {
-                f[i] = ((prof2[idx][i] & 0xffff) / 65535f) * 255f;
-                fx[i] = i;
+                f[i] = ((prof2[idx][i] & 0xffff) / 65535f) * 255f; // retrieve the profile
+                //fx[i] = i; // abscissa in cnt
+                fx[i] = (i / (float) len) * 360; // abscissa in degs
+
             }
 
             Plot p = new Plot("profile at ("+atX+","+atY+")", "", "filtered", fx, f);
