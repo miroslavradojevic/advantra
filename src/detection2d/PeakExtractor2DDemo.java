@@ -27,7 +27,7 @@ public class PeakExtractor2DDemo implements PlugInFilter, MouseListener, MouseMo
     /*
     parameters
      */
-    float       iDiff, D, s=1.5f; // maskNhoodRadius
+    float       iDiff, D, s=1.5f; // scale is fixed
     int         CPU_NR;
 
     /*
@@ -93,8 +93,6 @@ public class PeakExtractor2DDemo implements PlugInFilter, MouseListener, MouseMo
 
     public void run(ImageProcessor imageProcessor) {
 
-//		System.out.println(String.format("range: %4d", (int)(6.5f/0.7f)));
-
         Sphere2D sph2d = new Sphere2D(D, s);
         ImagePlus samplingScheme =  sph2d.showSampling();
         samplingScheme.show();
@@ -143,7 +141,6 @@ public class PeakExtractor2DDemo implements PlugInFilter, MouseListener, MouseMo
         }
 
         PeakExtractor2D.loadTemplate(sph2d, Masker2D.i2xy, Profiler2D.prof2, inimg_xy, Masker2D.xy2i);
-        //System.out.println("managed to initialize");
         int totalPeakExtrComponents = Profiler2D.prof2.length; // number of profiles == number of locations
 
         PeakExtractor2D pe_jobs[] = new PeakExtractor2D[CPU_NR];
@@ -169,6 +166,7 @@ public class PeakExtractor2DDemo implements PlugInFilter, MouseListener, MouseMo
 		 */
 		cnv.addMouseListener(this);
 		cnv.addMouseMotionListener(this);
+        IJ.setTool("hand");
 
         /* DEBUG: show the peaks (all peaks in one overlay at the current image)
         Overlay ov = new Overlay();
@@ -203,9 +201,7 @@ public class PeakExtractor2DDemo implements PlugInFilter, MouseListener, MouseMo
 		int clickX = cnv.offScreenX(e.getX());
 		int clickY = cnv.offScreenY(e.getY());
 
-//		IJ.log(String.format("clicked:\t %4d, %4d", clickX, clickY));
-
-		pfl_ip = Profiler2D.getProfile(clickX, clickY, Masker2D.xy2i);
+		pfl_ip = PeakExtractor2D.getProfileWithPeaks(clickX, clickY, Masker2D.xy2i); //Profiler2D.getProfile(clickX, clickY, Masker2D.xy2i);
 
 		if (pfl_ip == null) {
 			pfl_ip = new ShortProcessor(1, 1);
@@ -227,11 +223,10 @@ public class PeakExtractor2DDemo implements PlugInFilter, MouseListener, MouseMo
 		//pfl_iw.setSize(600, 300);
 		//pfl_iw.getCanvas().fitToWindow();
 
-		// add an overlay with peaks
+		// add an overlay with one generation of the peaks
 		Overlay ov = new Overlay();
 		float R = 2;
 		OvalRoi ovalroi = new OvalRoi(clickX-(R/2)+.5f, clickY-(R/2)+.5f, R, R);
-		//ovalroi.setFillColor(Color.BLUE);
 		ov.add(ovalroi);
 
 		// read extracted peaks at this location
@@ -271,10 +266,11 @@ public class PeakExtractor2DDemo implements PlugInFilter, MouseListener, MouseMo
 
 	}
 
+    public void mouseMoved(MouseEvent e) { mouseClicked(e); }
 	public void mousePressed(MouseEvent e) {}
 	public void mouseReleased(MouseEvent e) {}
 	public void mouseEntered(MouseEvent e) {}
 	public void mouseExited(MouseEvent e) {}
 	public void mouseDragged(MouseEvent e) {}
-	public void mouseMoved(MouseEvent e) {}
+
 }

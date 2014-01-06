@@ -242,7 +242,8 @@ public final class Interpolator {
 //                        z2>=0 && z2<img3d_zxy.length
 
         if(!isIn){
-            System.out.println(atX+" , "+atY+" , "+" -> "+x1+", "+x2+" | "+y1+", "+y2+", "+", ");
+            System.out.println("\nthere was a problem with interpolation at "+atX+" , "+atY+"   "+" -> x range: "+x1+" -- "+x2+" | y range: "+y1+" -- "+y2+", "+"  \n");
+            // TODO get out if it is wrong, return something - this way it still continues accessing wrong values
         }
 
         // take neighbourhood

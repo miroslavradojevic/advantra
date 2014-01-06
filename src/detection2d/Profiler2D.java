@@ -55,7 +55,11 @@ public class Profiler2D extends Thread {
         }
     }
 
-    public static ImageProcessor getProfile(int atX, int atY, int[][] _xy2i){
+    /*
+        various versions of the output (plot imageprocessor, just an array with corresponding thetas in degs)
+     */
+
+    public static ImageProcessor getProfile(int atX, int atY, int[][] _xy2i){  // reads from prof2 array class member
 
         int idx = _xy2i[atX][atY];
         if (idx != -1) {
@@ -80,4 +84,7 @@ public class Profiler2D extends Thread {
         }
 
     }
+
+
+
 }

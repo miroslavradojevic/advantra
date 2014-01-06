@@ -26,11 +26,11 @@ public class PeakAnalyzer3D extends Thread {
 
     public static int M = 2;                            // how much it expands recursively from the center
 
-	public static float minCos = 0.6f;
+	public static float minCos = 0.6f;                  // allowed derail
 
     // mainly to associate the peaks and link follow-up points
-    public static int[][][] delin3; // N(foreground locs.) x 4(max. threads) x M(follow-up locs) contains index for each location (OUTPUT)
-//    public static float[][] theta;  // N(foreground locs.) x 3 (top 3 thetas inputs to fuzzy system) (ALTERNATIVE OUTPUT)
+    public static int[][][] delin3;                     // N(foreground locs.) x 4(max. threads) x M(follow-up locs) contains index for each location (OUTPUT)
+//    public static float[][] theta;                    // N(foreground locs.) x 3 (top 3 thetas inputs to fuzzy system) (ALTERNATIVE OUTPUT)
 
     public PeakAnalyzer3D(int n0, int n1){
         this.begN = n0;
@@ -65,7 +65,7 @@ public class PeakAnalyzer3D extends Thread {
 //            System.out.println("checking point (ZXY)-> "+Arrays.toString(listLocs3D[locationIdx])+" location "+locationIdx);
 
             // access individual peaks at this point
-            for (int peakAtLoc = 0; peakAtLoc<4; peakAtLoc++) {  // there are 4 peaks allocated
+            for (int peakAtLoc = 0; peakAtLoc<4; peakAtLoc++) {  // there are 4 branches allocated
 
                 if (listPeaks3D[locationIdx][peakAtLoc][0] != -1) { // x value stored as peak
 
@@ -106,7 +106,7 @@ public class PeakAnalyzer3D extends Thread {
                             delin3[locationIdx][peakAtLoc][m] = next_index;
 
                         }
-                        else { // follow-up does not exist, break looping m (extending further) but continue looping peaks
+                        else { // follow-up does not exist, break looping m (extending further) but continue looping branches
                             break;
                         }
 

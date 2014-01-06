@@ -1,9 +1,7 @@
 package detection2d;
 
 import aux.Stat;
-import aux.Tools;
 import detection.Interpolator;
-import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.OvalRoi;
@@ -15,7 +13,6 @@ import ij.process.FloatProcessor;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Vector;
 
 /**
  * Created with IntelliJ IDEA.
@@ -37,7 +34,7 @@ public class Sphere2D {
     public static int       EPSILON         = 0;
 
     private float 	radius;
-    private float   scale;
+//    private float   scale;
     private float   neuronDiameter;
     private int     N;
 
@@ -70,7 +67,7 @@ public class Sphere2D {
     public Sphere2D(float neuronDiam, float scale) {
 
         this.radius 	= scale * neuronDiam;
-        this.scale      = scale;
+//        this.scale      = scale;
         this.neuronDiameter = neuronDiam;
         this.N 	= (int) Math.ceil( ( (2 * Math.PI * radius) / arcRes) );    // N will influence theta list size, and offstXY list size
         this.limR = (int) Math.ceil(R_FULL*neuronDiameter/samplingStep);    // how many to take radially with given sampling step
@@ -319,7 +316,7 @@ public class Sphere2D {
 
 		for (int t=0; t<clusters_to_append.size(); t++) { // check every peak theta angle
 
-			float peak_theta = clusters_to_append.get(t)[0];
+			float peak_theta = clusters_to_append.get(t)[0];   // value in [rad]
 			//float peak_theta_weight = clusters_to_append.get(t)[1];
 
 			float x_peak_pix = atX + getX(radius, peak_theta);
@@ -365,7 +362,9 @@ public class Sphere2D {
 				}
 			}
 
-			if (modified) { // if there was a result add it to sorted list
+			if (modified) {
+
+			    // if there was a result add it to sorted list
 				// insert maxMedian and currentPeaksXYZ to the list of 4 (destination_array)
 				for (int k = 0; k < 4; k++) {
 
@@ -476,7 +475,7 @@ public class Sphere2D {
 
     private float getX(float r, float theta){return (-1) * r * (float) Math.sin(theta);}
 
-    private float getY(float r, float theta){return (-1) * r * (float) Math.cos(theta);}
+    private float getY(float r, float theta){return (+1) * r * (float) Math.cos(theta);}
 
     private static int runOneMax(int curr_pos, short[] _input_profile) {
         int 	    new_pos     = curr_pos;
@@ -646,8 +645,8 @@ public class Sphere2D {
                 }
 
                 centroid += shifts/count;
-				wrap_0_2PI(centroid);
-                out.add(new float[]{centroid, count});
+//                centroid = ;
+                out.add(new float[]{wrap_0_2PI(centroid), count});  // outputs centroid in [rad]
 
             }
         }
@@ -684,20 +683,29 @@ public class Sphere2D {
 		// DEBUG:
 		//System.out.println(String.format("median_along_line(%4.2f, %4.2f)->(%4.2f, %4.2f)", x1, y1, x2, y2));
 
-		int elementsInLine = (int) (radius / .7f);
+        float increment_length = .7f;
+
+		int elementsInLine = (int) (radius / increment_length);  // how many increment can safely fit between
 		float[] valuesAlongLine = new float[elementsInLine];
 
 		float dist = (float) Math.sqrt(Math.pow(x2-x1, 2) + Math.pow(y2-y1, 2)); //  + Math.pow(z2lay-z1lay, 2)
 
 		float dx = (x2 - x1) / dist;
 		float dy = (y2 - y1) / dist;
-//		float dz = (z2lay - z1lay) / dist;
+		// [dx, dy] is unit vector
+
+        dx *= increment_length;
+        dy *= increment_length;
 
 		for (int cc = 0; cc<elementsInLine; cc++) {
 
 			float atX = x1      + cc * dx;
 			float atY = y1      + cc * dy;
 //			float atZ = z1lay   + cc * dz;
+
+            if (atX<0 || atX>inimg_xy.length-1 || atY<0 || atY>inimg_xy[0].length-1) {
+                System.out.println(String.format("\n%5d.(%4d) element (X, Y) was set wrong: (%5.2f, %5.2f) when sampling values between (%5.2f, %5.2f)->(%5.2f, %5.2f)\n", cc, elementsInLine, atX, atY, x1, y1, x2, y2));
+            }
 
 			valuesAlongLine[cc] = Interpolator.interpolateAt(atX, atY, inimg_xy);
 
