@@ -223,7 +223,7 @@ public class PeakExtractor2DDemo implements PlugInFilter, MouseListener, MouseMo
 		//pfl_iw.setSize(600, 300);
 		//pfl_iw.getCanvas().fitToWindow();
 
-		// add an overlay with one generation of the peaks
+		// add an overlay with one generation of the peaks (todo: Overlay can be output of the method in PeakExtractor2D)
 		Overlay ov = new Overlay();
 		float R = 2;
 		OvalRoi ovalroi = new OvalRoi(clickX-(R/2)+.5f, clickY-(R/2)+.5f, R, R);

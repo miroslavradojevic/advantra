@@ -81,7 +81,7 @@ public class PeakAnalyzer2D extends Thread {
                     for (int m=1; m<M; m++) { // follow the rest of the indexes
 
                         // recursion : prev+curr->next index
-                        next_index = getNext(prev_index, curr_index); // next follow-up will be calculated and sotred in nextXYZ
+                        next_index = getNext(prev_index, curr_index); // next follow-up will be calculated and sotred
 
                         if (next_index!=-1) { // -1 will be if the next one is not found
 
@@ -90,7 +90,7 @@ public class PeakAnalyzer2D extends Thread {
                             delin2[locationIdx][pp][m] = next_index;
 
                         }
-                        else { // follow-up does not exist, break looping m (extending further) but continue looping peaks
+                        else { // follow-up does not exist, break looping m (extending further) but continue looping branches
                             break;
                         }
 
@@ -111,10 +111,9 @@ public class PeakAnalyzer2D extends Thread {
     private static int getNext(int prev_index, int curr_index){
 
         // these are stacked as XY - take care on that
-//        int prevZ = i2xy[prev_index][0];    // Z
         int prevX = i2xy[prev_index][0];    // X
         int prevY = i2xy[prev_index][1];    // Y
-//        int currZ = listLocs3D[curr_index][0];    // Z
+
         int currX = i2xy[curr_index][0];    // X
         int currY = i2xy[curr_index][1];    // Y
 
@@ -127,26 +126,22 @@ public class PeakAnalyzer2D extends Thread {
 
                 int nextX = pks4xXY[pkIdx][0];
                 int nextY = pks4xXY[pkIdx][1];
-//                int nextZ = pks4xXYZ[pkIdx][2];
 
                 double cosAng =
                         (
-                                (currX-prevX)*(nextX-currX) + (currY-prevY)*(nextY-currY)                               // + (currZ-prevZ)*(nextZ-currZ)
+                        	(currX-prevX)*(nextX-currX) + (currY-prevY)*(nextY-currY)                               // + (currZ-prevZ)*(nextZ-currZ)
                         )
-                                /
-                                (
-                                        Math.sqrt( Math.pow(currX-prevX, 2) +  Math.pow(currY-prevY, 2) ) *             //  + Math.pow(currZ-prevZ, 2)
-                                                Math.sqrt( Math.pow(nextX-currX, 2) + Math.pow(nextY-currY, 2) )        //  + Math.pow(nextZ-currZ, 2)
-                                );
+                        /
+                        (
+                        	Math.sqrt( Math.pow(currX-prevX, 2) + Math.pow(currY-prevY, 2) ) *             //  + Math.pow(currZ-prevZ, 2)
+                            Math.sqrt( Math.pow(nextX-currX, 2) + Math.pow(nextY-currY, 2) )        //  + Math.pow(nextZ-currZ, 2)
+                        );
 
                 if (cosAng>minCos) {
-
-                    // it is aligned - add it, find its index location and output
-                    return xy2i[nextX][nextY];
-
+                    return xy2i[nextX][nextY]; // it is aligned - add it, find its index and return as output
                 }
                 else {
-                    // if not pointing outwards, continue further
+                    // if not pointing outwards, continue further down the rank till it reaches -1 or checks all
                 }
             }
             else {
@@ -158,5 +153,7 @@ public class PeakAnalyzer2D extends Thread {
         return -1; // checked all
 
     }
+
+
 
 }
