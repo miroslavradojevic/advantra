@@ -1,5 +1,12 @@
 package detection2d;
 
+import ij.IJ;
+import ij.gui.OvalRoi;
+import ij.gui.Overlay;
+
+import java.awt.*;
+import java.util.Arrays;
+
 /**
  * Created by miroslav on 1/6/14.
  * Will associate the peaks of the profiles, parallel threaded implementation
@@ -66,10 +73,11 @@ public class PeakAnalyzer2D extends Thread {
                 if (peaks_at_loc[pp][0] != -1) { // if the peak exists (X coord. is != -1)
 
                     // store the index value of this peak
+
                     int pkX = peaks_at_loc[pp][0];
                     int pkY = peaks_at_loc[pp][1];
 
-                    int indexValue = xy2i[atX][atY];
+                    int indexValue = xy2i[pkX][pkY];
 
                     delin2[locationIdx][pp][0] = indexValue; // m=0
 
@@ -81,7 +89,8 @@ public class PeakAnalyzer2D extends Thread {
                     for (int m=1; m<M; m++) { // follow the rest of the indexes
 
                         // recursion : prev+curr->next index
-                        next_index = getNext(prev_index, curr_index); // next follow-up will be calculated and sotred
+
+                        next_index = getNext(prev_index, curr_index); // next follow-up will be calculated and sorted
 
                         if (next_index!=-1) { // -1 will be if the next one is not found
 
@@ -93,7 +102,6 @@ public class PeakAnalyzer2D extends Thread {
                         else { // follow-up does not exist, break looping m (extending further) but continue looping branches
                             break;
                         }
-
 
                     }
 
@@ -154,6 +162,92 @@ public class PeakAnalyzer2D extends Thread {
 
     }
 
+    /*
+        outputs
+     */
+    public static Overlay getDelineation(int atX, int atY)
+    {
+        Overlay ov = new Overlay();
+        float R = 2;
+        OvalRoi ovalroi = new OvalRoi(atX-(R/2)+.5f, atY-(R/2)+.5f, R, R);
+        ov.add(ovalroi);
 
+        // read extracted peaks at this location
+        int idx = Masker2D.xy2i[atX][atY];
+
+        /*
+            show selected points
+         */
+
+        if (idx!=-1) {
+
+            int[][] delin_at_loc = PeakAnalyzer2D.delin2[idx];
+
+            // show locs  (debug)
+            IJ.log("\n_____");
+            for (int a=0; a<delin_at_loc.length; a++) {
+                IJ.log(Arrays.toString(delin_at_loc[a]));
+            }
+            IJ.log("_____\n");
+
+            for (int b = 0; b<delin_at_loc.length; b++) {           // loop 4 branches
+
+                boolean complete = true;
+
+                for (int m=0; m<M; m++) {
+
+                    if (delin_at_loc[b][m] != -1) {
+
+                        // there is a point to add
+
+                        int pt_idx = delin_at_loc[b][m];
+
+                        int pt_x = i2xy[pt_idx][0];
+                        int pt_y = i2xy[pt_idx][1];
+
+                        ovalroi = new OvalRoi(pt_x-(R/2)+.5f, pt_y-(R/2)+.5f, R, R); // add the point to the overlay
+                        ov.add(ovalroi);
+
+                    }
+                    else {
+                        complete = false;
+                        break; // stop with the branch
+                    }
+
+                }
+
+                // finished along the branch
+                if (complete) {
+
+                    IJ.log("branch"+b+". -> complete");
+                    // TODO: put the lines in between for the fully delineated branches
+
+                }
+
+            }
+
+        }
+
+        /*
+            show cloud of peak points
+         */
+
+        if (idx != -1) {
+
+            int[][] pks_at_loc = PeakExtractor2D.peaks_xy[idx];
+
+            for (int b = 0; b<pks_at_loc.length; b++) {           // loop 4 branches
+
+
+
+            }
+
+        }
+
+
+
+        return ov;
+
+    }
 
 }

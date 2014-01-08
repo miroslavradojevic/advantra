@@ -1,5 +1,6 @@
 package detection2d;
 
+import ij.gui.Overlay;
 import ij.gui.Plot;
 import ij.process.ImageProcessor;
 
@@ -151,6 +152,18 @@ public class PeakExtractor2D extends Thread {
         }
 
     }
+
+    public Overlay getPeaks(int atX, int atY)
+    {
+
+        Overlay ov = new Overlay();
+        return ov;
+
+    }
+
+    /*
+        auxiliary stuff
+     */
 
     private static final float rad2deg(float ang_rad){
         return (ang_rad / (float) Math.PI) * 180f;
