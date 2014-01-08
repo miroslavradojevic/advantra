@@ -26,7 +26,7 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
     /*
     parameters
      */
-    float       s = 1.2f;               // scale is fixed
+    float       s = 1.5f;               // scale is fixed
     float       iDiff, D, minCos;
     int         M = 2;
 

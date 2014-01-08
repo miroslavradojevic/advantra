@@ -3,8 +3,10 @@ package detection2d;
 import ij.IJ;
 import ij.gui.OvalRoi;
 import ij.gui.Overlay;
+import ij.gui.PointRoi;
 
 import java.awt.*;
+import java.util.ArrayList;
 import java.util.Arrays;
 
 /**
@@ -220,7 +222,8 @@ public class PeakAnalyzer2D extends Thread {
                 if (complete) {
 
                     IJ.log("branch"+b+". -> complete");
-                    // TODO: put the lines in between for the fully delineated branches
+                    // TODO: put the lines in between for the fully delineated branches that reached the end
+
 
                 }
 
@@ -234,17 +237,58 @@ public class PeakAnalyzer2D extends Thread {
 
         if (idx != -1) {
 
-            int[][] pks_at_loc = PeakExtractor2D.peaks_xy[idx];
+            // establish the overlay with the cloud of recursively traced profile peaks
+            // trace works M times recursively (that is the full choice)
 
-            for (int b = 0; b<pks_at_loc.length; b++) {           // loop 4 branches
+            /*
+                initialize
+             */
+            int m = 1;
+            ArrayList<int[]> next_pts_xy = new ArrayList<int[]>();
+            next_pts_xy.clear();
+            next_pts_xy.add(i2xy[idx]);     // xy
 
+            while (m<=4) {
 
+                // add those from the next_pts_xy list to the overlay
+                for (int kk=0; kk<next_pts_xy.size(); kk++) {
+                    int curr_x = next_pts_xy.get(kk)[0];
+                    int curr_y = next_pts_xy.get(kk)[1];
+                    PointRoi proi = new PointRoi(curr_x+.5f, curr_y+.5f);
+                    ov.add(proi);
+                }
 
-            }
+                // redefine next_pts_xy as follow-up points
+                ArrayList<int[]> temp = (ArrayList<int[]>) next_pts_xy.clone();
+                next_pts_xy.clear();
+                for (int ii=0; ii<temp.size(); ii++) {
+
+                    int read_x = temp.get(ii)[0];
+                    int read_y = temp.get(ii)[1];
+                    int read_i = xy2i[read_x][read_y];
+
+                    int[][] pks_at_loc = PeakExtractor2D.peaks_xy[read_i];
+
+                    for (int jj = 0; jj<pks_at_loc.length; jj++) {
+
+                        int new_x = pks_at_loc[jj][0];
+                        int new_y = pks_at_loc[jj][1];
+
+                        if (new_x != -1) {
+                            next_pts_xy.add(new int[]{new_x, new_y});
+                        }
+                        else {
+                            break;
+                        }
+
+                    }
+                }
+
+                m++;
+
+            } // loop
 
         }
-
-
 
         return ov;
 
