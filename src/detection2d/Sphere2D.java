@@ -27,6 +27,8 @@ public class Sphere2D {
     private static float    arcRes 	        = 0.7f;
     private static float 	arcNbhood       = 2*arcRes;
     private static float    samplingStep    = 0.7f;
+    private static boolean  CHECK_NBRS_WHEN_ASSIGNING_PEAK_LOCS = false;
+
     public static float     R_FULL 	        = 1.00f;
     public static float     T_HALF 	        = 0.50f;
     public static int 		weightStdRatioToD = 4;                  // could be a parameter
@@ -67,7 +69,6 @@ public class Sphere2D {
     public Sphere2D(float neuronDiam, float scale) {
 
         this.radius 	= scale * neuronDiam;
-//        this.scale      = scale;
         this.neuronDiameter = neuronDiam;
         this.N 	= (int) Math.ceil( ( (2 * Math.PI * radius) / arcRes) );    // N will influence theta list size, and offstXY list size
         this.limR = (int) Math.ceil(R_FULL*neuronDiameter/samplingStep);    // how many to take radially with given sampling step
@@ -310,62 +311,89 @@ public class Sphere2D {
 									   int[][] 		destination_locs,               // 4x2
 									   float[][] 	destination_angs)               // 4x1
 	{
+
+        // _inimg_xy was used just to be input for median along the line anf to
+        // be aware of the image dimensions - check if the appended location is within the image
+        int W = _inimg_xy.length;
+        int H = _inimg_xy[0].length;
+
 		// take top 4 and store them according to the importance (criteria: median along the connecting line, or convergence iterations)
 		float[] medAlongLin = new float[destination_locs.length];
 		Arrays.fill(medAlongLin, -1f);
 
 		for (int t=0; t<clusters_to_append.size(); t++) { // check every peak theta angle
 
-			float peak_theta = clusters_to_append.get(t)[0];   // value in [rad]
-			//float peak_theta_weight = clusters_to_append.get(t)[1];
+			float peak_theta = clusters_to_append.get(t)[0];   // value in [rad]  !!!!!!!!!
+            int[] currentPeaksXY   = new int[2];
 
 			float x_peak_pix = atX + getX(radius, peak_theta);
 			float y_peak_pix = atY + getY(radius, peak_theta);
 
-			int x_peak_pix_base = (int) Math.floor(x_peak_pix);
-			int y_peak_pix_base = (int) Math.floor(y_peak_pix);
+            boolean modified = false;
+            float maxWeight = Float.MIN_VALUE;
 
-			/*
-				pick the best out of 4 neighbours (compensate location inaccuracy)
-			 */
+            if (CHECK_NBRS_WHEN_ASSIGNING_PEAK_LOCS) {
 
-			float maxWeight = Float.MIN_VALUE;
-			int[] currentPeaksXY   = new int[2];
+                /*
+				pick the best out of 4 neighbours (compensate location inaccuracy), can be nothing if it's either in background or out of the image
+			    */
 
-			boolean modified = false;
+                int x_peak_pix_base = (int) Math.floor(x_peak_pix);
+                int y_peak_pix_base = (int) Math.floor(y_peak_pix);
 
-			for (int ii = 0; ii <= 1; ii++) { // check around peak
-				for (int jj = 0; jj <= 1; jj++) {
+                for (int ii = 0; ii <= 1; ii++) { // check around peak
+                    for (int jj = 0; jj <= 1; jj++) {
 
-					int check_x = x_peak_pix_base + ii;
-					int check_y = y_peak_pix_base + jj;
+                        int check_x = x_peak_pix_base + ii;
+                        int check_y = y_peak_pix_base + jj;
 
-					if (check_x>=0 && check_x<_inimg_xy.length && check_y>=0 && check_y<_inimg_xy[0].length) {
+                        if (check_x>=0 && check_x<W && check_y>=0 && check_y<H) { // is in image
 
-						float currMedian = medianAlongLine(	atX, atY, check_x, check_y, _inimg_xy );
+                            float currMedian = medianAlongLine(	atX, atY, check_x, check_y, _inimg_xy );
 
-						if (_xy2i[check_x][check_y]!=-1)  {  // ensures retrieval from the list
+                            if (_xy2i[check_x][check_y]!=-1)  {  // ensures retrieval from the list
 
-							if (currMedian>maxWeight) {
-								// set this one as peak
-								currentPeaksXY[0] = check_x;
-								currentPeaksXY[1] = check_y;
+                                if (currMedian>maxWeight) {
+                                    // set this one as peak
+                                    currentPeaksXY[0] = check_x;
+                                    currentPeaksXY[1] = check_y;
 
-								modified = true;
+                                    modified = true;
 
-								// update maxMedian
-								maxWeight = currMedian;
-							}
+                                    // update maxMedian
+                                    maxWeight = currMedian;
+                                }
 
-						}
-					}
-				}
-			}
+                            }
+                        }
+                    }
+                }
+
+            }
+            else {
+
+                // rounded locations, don't check the neighbours
+                int x_peak_pix_rounded = (int) Math.round(x_peak_pix);
+                int y_peak_pix_rounded = (int) Math.round(y_peak_pix);
+
+                if (x_peak_pix_rounded>=0 && x_peak_pix_rounded<W && y_peak_pix_rounded>=0 && y_peak_pix_rounded<H) {
+                    float currMedian = medianAlongLine(	atX, atY, x_peak_pix_rounded, y_peak_pix_rounded, _inimg_xy );
+                    if (_xy2i[x_peak_pix_rounded][y_peak_pix_rounded]!=-1) {
+                        if (currMedian>maxWeight) { // dummy thing, just to be consistent
+                            currentPeaksXY[0] = x_peak_pix_rounded;
+                            currentPeaksXY[1] = y_peak_pix_rounded;
+                            modified = true;
+                            maxWeight = currMedian;
+                        }
+                    }
+                }
+
+            }
 
 			if (modified) {
 
-			    // if there was a result add it to sorted list
-				// insert maxMedian and currentPeaksXYZ to the list of 4 (destination_array)
+			    // if there was a result append it to sorted list of peaks around this location
+				// insert currentPeaksXY and peak_theta -> to the list of 4 (destination_locs, destination_angs)
 				for (int k = 0; k < 4; k++) {
 
 					if (medAlongLin[k] == -1f) {            			// store immediately
@@ -413,7 +441,7 @@ public class Sphere2D {
 
 				}
 
-			}// modified
+			} // modified
 
 		}
 

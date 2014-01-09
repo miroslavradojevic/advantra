@@ -21,7 +21,7 @@ import java.util.Arrays;
  */
 public class Detector3D {
 
-    float[][][] img3d_zxy;  // inpput 3d image in convenient form (z,x,y)
+    float[][][] img3d_zxy;  // input 3d image in convenient form (z,x,y)
     float zDist;
 
 	Sphere3D sph3D;         // will be tool for thread classes - used to make geometric computations
@@ -30,7 +30,7 @@ public class Detector3D {
     float 	D;
     float 	iDiff;
     float 	r;
-    float 	scale = 1.5f;                   // heuristics: 1.5 is resonable
+    float 	scale = 1.5f;                   // heuristics: 1.5 is reasonable
 
     public static float 	MIN_COS_ANG = .6f;
     public static float 	MIN_FUZZY_SCORE = .5f;

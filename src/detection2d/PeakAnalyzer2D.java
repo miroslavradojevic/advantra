@@ -19,7 +19,7 @@ public class PeakAnalyzer2D extends Thread {
 
     private int begN, endN;
 
-    // VARIABLES
+    // VARIABLES (mainly used as a table)
     public static int[][] 	    i2xy;                   // selected locations
     public static int[][]     	xy2i;                   // need for recursion
 
@@ -187,9 +187,7 @@ public class PeakAnalyzer2D extends Thread {
 
             // show locs  (debug)
             IJ.log("\n_____");
-            for (int a=0; a<delin_at_loc.length; a++) {
-                IJ.log(Arrays.toString(delin_at_loc[a]));
-            }
+            for (int a=0; a<delin_at_loc.length; a++) IJ.log(Arrays.toString(delin_at_loc[a]));
             IJ.log("_____\n");
 
             for (int b = 0; b<delin_at_loc.length; b++) {           // loop 4 branches
