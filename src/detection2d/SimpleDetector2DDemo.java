@@ -4,44 +4,25 @@ import ij.IJ;
 import ij.ImagePlus;
 import ij.Prefs;
 import ij.gui.GenericDialog;
-import ij.gui.ImageCanvas;
-import ij.gui.ImageWindow;
-import ij.gui.Overlay;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
 
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
-import java.awt.event.MouseMotionListener;
-
 /**
- * Created by miroslav on 1/6/14.
- * Demo usage of PeakAnalyzer2D: uses also Masker2D, Profiler2D, and PeakExtractor2D shows delineated
- * branching structure extracted on all foreground locations as a joint Overlay on the image
+ * Created by miroslav on 1/10/14.
+ * Demo usage of SimpleDetector2D, do the whole pipeline and find simple detections
  */
-public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMotionListener {
+public class SimpleDetector2DDemo implements PlugInFilter {
 
     float[][] 	inimg_xy;               // store input image as an array
 
-    /*
-    parameters
-     */
+    // PARAMETERS
     float       s = 1.5f;               // scale is fixed
     float       iDiff, D, minCos, scatterDist;
     int         M = 2;
 
     int         CPU_NR;
 
-    /*
-    interface things
-     */
-    ImagePlus pfl_im = new ImagePlus();
-    ImageProcessor pfl_ip = null;
-    ImageWindow pfl_iw;
-    ImageCanvas cnv;
-
     public int setup(String s, ImagePlus imagePlus) {
-
         if(imagePlus==null) return DONE;
 
         inimg_xy = new float[imagePlus.getWidth()][imagePlus.getHeight()]; // x~column, y~row
@@ -100,35 +81,29 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
 
         CPU_NR = Runtime.getRuntime().availableProcessors();
 
-        cnv = imagePlus.getCanvas();
+        //cnv = imagePlus.getCanvas();
 
         return DOES_8G+DOES_32+NO_CHANGES;
-
     }
 
     public void run(ImageProcessor imageProcessor) {
 
+
         Sphere2D sph2d = new Sphere2D(D, s);
+        int W = inimg_xy.length;
+        int H = inimg_xy[0].length;
+        int foreground_locs;
 
-        ImagePlus samplingScheme =  sph2d.showSampling();
-        samplingScheme.show();
-        samplingScheme.getWindow().setSize(600, 600);
-        samplingScheme.getCanvas().fitToWindow();
-
-        ImagePlus weightScheme = sph2d.showWeights();
-        weightScheme.show();
-        weightScheme.getWindow().setSize(600, 600);
-        weightScheme.getCanvas().fitToWindow();
-
-        /*
+/*
         main
          */
         long t1, t2;
         t1 = System.currentTimeMillis();
 
+        //**************************
 
         Masker2D.loadTemplate(inimg_xy, 0, sph2d.getOuterRadius(), iDiff);
-        int totalLocs = inimg_xy.length * inimg_xy[0].length;
+        int totalLocs = W * H;
 
         Masker2D ms_jobs[] = new Masker2D[CPU_NR];
         for (int i = 0; i < ms_jobs.length; i++) {
@@ -145,7 +120,7 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
 
         Masker2D.formRemainingOutputs();
 
-
+        //**************************
 
         Profiler2D.loadTemplate(sph2d, Masker2D.i2xy, inimg_xy);
         int totalProfileComponents = sph2d.getProfileLength();
@@ -163,9 +138,12 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
             }
         }
 
+        foreground_locs = Profiler2D.prof2.length;  // or Masker2D.i2xy.length (the same)
+
+        //**************************
 
         PeakExtractor2D.loadTemplate(sph2d, Masker2D.i2xy, Profiler2D.prof2, inimg_xy, Masker2D.xy2i);
-        int totalPeakExtrComponents = Profiler2D.prof2.length; // number of profiles == number of locations i2xy.length
+        int totalPeakExtrComponents = foreground_locs;
 
         PeakExtractor2D pe_jobs[] = new PeakExtractor2D[CPU_NR];
         for (int i = 0; i < pe_jobs.length; i++) {
@@ -180,9 +158,10 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
             }
         }
 
+        //**************************
 
         PeakAnalyzer2D.loadTemplate(Masker2D.i2xy, Masker2D.xy2i, PeakExtractor2D.peaks_xy, M, minCos, scatterDist); // initialize peak analyzer parameters
-        int totalPeakAnalyzeComponents = Masker2D.i2xy.length; // number of locations
+        int totalPeakAnalyzeComponents = foreground_locs;
 
         PeakAnalyzer2D pa_jobs[] = new PeakAnalyzer2D[CPU_NR];
         for (int i = 0; i < pa_jobs.length; i++) {
@@ -197,44 +176,28 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
             }
         }
 
+        //**************************
+
+        SimpleDetector2D.loadTemplate(W, H, Masker2D.i2xy, PeakAnalyzer2D.delin2);
+        int totalSimpleDetectComponents = foreground_locs;
+
+        SimpleDetector2D sd_jobs[] = new SimpleDetector2D[CPU_NR];
+        for (int i = 0; i < sd_jobs.length; i++) {
+            sd_jobs[i] = new SimpleDetector2D(i*totalSimpleDetectComponents/CPU_NR, (i+1)*totalSimpleDetectComponents/CPU_NR);
+            sd_jobs[i].start();
+        }
+        for (int i = 0; i<sd_jobs.length; i++) {
+            try {
+                sd_jobs[i].join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+
+        SimpleDetector2D.drawDetections();
+
         t2 = System.currentTimeMillis();
         IJ.log("done. "+((t2-t1)/1000f)+"sec.");
 
-        /*
-			mouse listeners after processing
-		 */
-        cnv.addMouseListener(this);
-        cnv.addMouseMotionListener(this);
-        IJ.setTool("hand");
-
     }
-
-
-    public void mouseClicked(MouseEvent e)
-    {
-
-        mouseMoved(e);
-        IJ.log("TRAIN! POSSIBLE");
-
-    }
-
-    public void mouseMoved(MouseEvent e)
-    {
-        //mouseClicked(e);
-
-        int clickX = cnv.offScreenX(e.getX());
-        int clickY = cnv.offScreenY(e.getY());
-
-        Overlay ov = PeakAnalyzer2D.getDelineation(clickX, clickY);
-
-        cnv.setOverlay(ov);
-
-    }
-
-    public void mousePressed(MouseEvent e)  {}
-    public void mouseReleased(MouseEvent e) {}
-    public void mouseEntered(MouseEvent e)  {}
-    public void mouseExited(MouseEvent e)   {}
-    public void mouseDragged(MouseEvent e)  {}
-
 }

@@ -1,13 +1,14 @@
 package detection2d;
 
-import ij.IJ;
+import aux.Stat;
+import ij.gui.Line;
 import ij.gui.OvalRoi;
 import ij.gui.Overlay;
 import ij.gui.PointRoi;
 
 import java.awt.*;
 import java.util.ArrayList;
-import java.util.Arrays;
+
 
 /**
  * Created by miroslav on 1/6/14.
@@ -29,6 +30,8 @@ public class PeakAnalyzer2D extends Thread {
     // PARAMETERS
     public static int M = 2;                            // how much it expands recursively from the center
     public static float minCos = 0.6f;                  // allowed derail
+    public static float scatterDist = 5;                // allowed scatter dist, upper limit, half of the neighbouring peaks should be within
+
 
     // OUTPUT: associate the peaks and link follow-up points
     public static int[][][] delin2;                     // N(foreground locs.) x 4(max. threads) x M(follow-up locs) contains index for each location
@@ -39,13 +42,14 @@ public class PeakAnalyzer2D extends Thread {
         this.endN = n1;
     }
 
-    public static void loadTemplate(int[][] _i2xy, int[][] _xy2i, int[][][] _peaks_xy, int _M, float _minCos) {
+    public static void loadTemplate(int[][] _i2xy, int[][] _xy2i, int[][][] _peaks_xy, int _M, float _minCos, float _scatterDist) {
 
         i2xy = _i2xy;
         xy2i = _xy2i;
         peaks_xy = _peaks_xy;
         M = _M;
         minCos = _minCos;
+        scatterDist = _scatterDist;
 
         // allocate output -> set to -1
         delin2 = new int[i2xy.length][4][M];
@@ -81,7 +85,9 @@ public class PeakAnalyzer2D extends Thread {
 
                     int indexValue = xy2i[pkX][pkY];
 
-                    delin2[locationIdx][pp][0] = indexValue; // m=0
+                    if (isRobust(indexValue, locationIdx, scatterDist)) {    // locationIdx is mother index in this case
+                        delin2[locationIdx][pp][0] = indexValue; // STORE IT! m=0
+                    }
 
                     int curr_index, prev_index, next_index;
 
@@ -96,8 +102,12 @@ public class PeakAnalyzer2D extends Thread {
 
                         if (next_index!=-1) { // -1 will be if the next one is not found
 
-                            // store it in output matrix
-                            delin2[locationIdx][pp][m] = next_index;
+                            if (isRobust(next_index, curr_index, scatterDist)) {
+                                delin2[locationIdx][pp][m] = next_index;     // store it in output matrix
+                            }
+                            else {
+                                break; // stop going further if it is not robust
+                            }
 
                         }
                         else { // follow-up does not exist, break looping m (extending further) but continue looping branches
@@ -117,7 +127,89 @@ public class PeakAnalyzer2D extends Thread {
 
     }
 
-    private static int getNext(int prev_index, int curr_index){
+ /*
+ * the "spatial consistency" is checked to account for the peak robustness (it's neighbours have to point to the spatially close location)
+ * to avoid having some outlier peaks included but have groups of peaks pointing together, agreeing on the same information
+ * isRobust() gives out the filtered version of delin2 where only the stable ones are taken
+ */
+
+    private static boolean isRobust(int test_idx, int mother_idx, float scatter_th) {
+
+        // check for robustness
+        // check if the mother-peak's neighbours agree with the follow-up
+        // take the 4 or 8 neighbourhood of the mother peak and take
+        // 4 or 8 euclidean-wise closest peaks to the one being checked
+        // if the median of them is close enough (if they're not too scattered)
+        // then consider the peak follow-up spatially robust
+
+        int test_x = i2xy[test_idx][0];
+        int test_y = i2xy[test_idx][1];
+
+        // check how many agree-points (scatter) there can be
+
+        // 4 neighbours
+        int[][] dx_dy = new int[][]{
+                {-1, 0},
+                { 0,-1},
+                { 1, 0},
+                { 0, 1}
+        };
+        float[] scatter_dists = new float[dx_dy.length];
+
+        int mother_x = i2xy[mother_idx][0];
+        int mother_y = i2xy[mother_idx][1];
+
+        for (int i=0; i<dx_dy.length; i++) {
+
+            int neigbr_x = mother_x + dx_dy[i][0];
+            int neigbr_y = mother_y + dx_dy[i][1];
+            int neigbr_i = xy2i[neigbr_x][neigbr_y];
+
+            scatter_dists[i] = xy2i.length; // max dist
+
+            if (neigbr_i != -1) {
+
+                int[][] get_peaks_nbr = peaks_xy[neigbr_i]; // peak signature of the neighbour
+
+                // pick the closest one
+                for (int k=0; k<get_peaks_nbr.length; k++) {
+
+                    if (get_peaks_nbr[k][0] != -1) {
+
+                        int scatter_x = get_peaks_nbr[k][0];
+                        int scatter_y = get_peaks_nbr[k][1];
+
+                        float d = dist(test_x, test_y, scatter_x, scatter_y);
+
+                        if (d<scatter_dists[i]) {
+                            scatter_dists[i] = d;
+                        }
+
+                    }
+                    else {
+                        break;
+                    }
+
+                }
+
+            }
+
+        }
+
+        if (Stat.median(scatter_dists)<=scatter_th) {
+            return true;
+        }
+        else {
+            return false;
+        }
+
+    }
+
+    private static float dist(int a_x, int a_y, int b_x, int b_y){
+        return (float) Math.sqrt( Math.pow(a_x-b_x, 2) + Math.pow(a_y-b_y, 2) );
+    }
+
+    private static int getNext(int prev_index, int curr_index) {
 
         // these are stacked as XY - take care on that
         int prevX = i2xy[prev_index][0];    // X
@@ -185,9 +277,9 @@ public class PeakAnalyzer2D extends Thread {
             int[][] delin_at_loc = PeakAnalyzer2D.delin2[idx];
 
             // show locs  (debug)
-            IJ.log("\n_____");
-            for (int a=0; a<delin_at_loc.length; a++) IJ.log(Arrays.toString(delin_at_loc[a]));
-            IJ.log("_____\n");
+            //IJ.log("\n_____");
+            //for (int a=0; a<delin_at_loc.length; a++) IJ.log(Arrays.toString(delin_at_loc[a]));
+            //IJ.log("_____\n");
 
             for (int b = 0; b<delin_at_loc.length; b++) {           // loop 4 branches
 
@@ -205,6 +297,8 @@ public class PeakAnalyzer2D extends Thread {
                         int pt_y = i2xy[pt_idx][1];
 
                         ovalroi = new OvalRoi(pt_x-(R/2)+.5f, pt_y-(R/2)+.5f, R, R); // add the point to the overlay
+                        ovalroi.setStrokeColor(java.awt.Color.RED);
+                        ovalroi.setStrokeWidth(2);
                         ov.add(ovalroi);
 
                     }
@@ -216,11 +310,31 @@ public class PeakAnalyzer2D extends Thread {
                 }
 
                 // finished along the branch
-                if (complete) {
+                if (complete) {    // add lines along complete lines
 
-                    IJ.log("branch"+b+". -> complete");
-                    // TODO: put the lines in between for the fully delineated branches that reached the end
+                    for (int m=0; m<M; m++) {
+                        int curr_i = delin_at_loc[b][m];
+                        int curr_x = i2xy[curr_i][0];
+                        int curr_y = i2xy[curr_i][1];
 
+                        int prev_i, prev_x, prev_y;
+
+                        if (m==0) {
+                            prev_x = atX;
+                            prev_y = atY;
+                        }
+                        else{
+                            prev_i = delin_at_loc[b][m-1];
+                            prev_x = i2xy[prev_i][0];
+                            prev_y = i2xy[prev_i][1];
+                        }
+
+                        Line l = new Line(prev_x, prev_y, curr_x, curr_y);
+                        l.setStrokeColor(Color.RED);
+                        l.setStrokeWidth(2);
+                        ov.add(l);
+
+                    }
 
                 }
 
