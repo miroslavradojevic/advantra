@@ -96,7 +96,6 @@ public class PeakAnalyzer2D extends Thread {
 
                         if (next_index!=-1) { // -1 will be if the next one is not found
 
-//                            next_index = locIndexZXY[nextXYZ[0]][nextXYZ[1]][nextXYZ[2]];
                             // store it in output matrix
                             delin2[locationIdx][pp][m] = next_index;
 
