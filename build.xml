@@ -11,6 +11,8 @@
     <property name="build"  		location="build" />
     <property name="user" 		    value="miroslavR" />
 
+    <mkdir dir="${build}"/>
+
     <!-- clean build directory -->
     <delete includeemptydirs="true">
         <fileset dir="${build}">
@@ -32,16 +34,6 @@
         </jar>
 
         <copy file="./critpoint_.jar"  toDir="${env.HOME}/ImageJ/plugins/" />
-
-        <!-- copy necessary libraries to folder where they can ce called in a command -->
-        <copy file="./critpoint_.jar"                       toDir="${env.HOME}/bif_det/" />
-        <copy file="${env.HOME}/jarlib/ij.jar"              toDir="${env.HOME}/bif_det/" />
-        <copy file="${env.HOME}/jarlib/imagescience.jar"    toDir="${env.HOME}/bif_det/" />
-        <copy file="./src/generate/generate_bifs"           toDir="${env.HOME}/bif_det/" />
-        <copy file="./src/detection/detect_bifs"            toDir="${env.HOME}/bif_det/" />
-        <copy file="./r/DetectionDemo.r"                    toDir="${env.HOME}/bif_det/" />
-
-        <!-- <copy file="./critpoint_.jar"  toDir="/dev/shm/ImageJ/plugins/" /> -->
         <!-- <copy file="./critpoint_.jar"  toDir="${env.HOME}/Fiji.app/plugins/" /> -->
 
     </target>
@@ -75,7 +67,7 @@
     <!--target="1.5" -->
     <target name="compile" description="Compile module">
 
-        <mkdir dir="${build}"/>
+
 
         <javac target="1.5" destdir="${build}" srcdir="${src}" debug="true" debuglevel="lines,vars,source">
             <classpath refid="classpath"/>

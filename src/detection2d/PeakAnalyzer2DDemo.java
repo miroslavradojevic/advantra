@@ -3,10 +3,7 @@ package detection2d;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.Prefs;
-import ij.gui.GenericDialog;
-import ij.gui.ImageCanvas;
-import ij.gui.ImageWindow;
-import ij.gui.Overlay;
+import ij.gui.*;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
 
@@ -146,7 +143,6 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
         Masker2D.formRemainingOutputs();
 
 
-
         Profiler2D.loadTemplate(sph2d, Masker2D.i2xy, inimg_xy);
         int totalProfileComponents = sph2d.getProfileLength();
 
@@ -205,7 +201,21 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
 		 */
         cnv.addMouseListener(this);
         cnv.addMouseMotionListener(this);
-        IJ.setTool("hand");
+
+        // add foreground mask on top
+		//IJ.log("window title: "+cnv.getImage().getWindow().getTitle());
+
+		// overlay foreground
+		ImagePlus foregroundMask = new ImagePlus("foreground", Masker2D.getMask());
+
+		//foregroundMask.show();
+		//String foregroundMaskName = foregroundMask.getWindow().getTitle();
+
+		IJ.selectWindow(cnv.getImage().getWindow().getTitle());
+		IJ.setTool("hand");
+		//IJ.run("Add Image...", "image="+"foreground"+" x=0 y=0 opacity=25");
+		//foregroundMask.close();
+
 
     }
 
@@ -226,6 +236,9 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
         int clickY = cnv.offScreenY(e.getY());
 
         Overlay ov = PeakAnalyzer2D.getDelineation(clickX, clickY);
+		ImageRoi fgroi = new ImageRoi(0, 0, Masker2D.getMask());// !!! not very efficient to be done each time
+		fgroi.setOpacity(0.15);
+		ov.add(fgroi);
 
         cnv.setOverlay(ov);
 

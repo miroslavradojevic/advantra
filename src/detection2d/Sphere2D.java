@@ -706,17 +706,14 @@ public class Sphere2D {
 		return out;
 	}
 
-	private float medianAlongLine(float x1, float y1, float x2, float y2, float[][] inimg_xy) {
-
-		// DEBUG:
-		//System.out.println(String.format("median_along_line(%4.2f, %4.2f)->(%4.2f, %4.2f)", x1, y1, x2, y2));
+	public static float medianAlongLine(float x1, float y1, float x2, float y2, float[][] inimg_xy) {
 
         float increment_length = .7f;
 
-		int elementsInLine = (int) (radius / increment_length);  // how many increment can safely fit between
-		float[] valuesAlongLine = new float[elementsInLine];
-
 		float dist = (float) Math.sqrt(Math.pow(x2-x1, 2) + Math.pow(y2-y1, 2)); //  + Math.pow(z2lay-z1lay, 2)
+
+		int elementsInLine = (int) (dist / increment_length);  // how many increment can safely fit between
+		float[] valuesAlongLine = new float[elementsInLine];
 
 		float dx = (x2 - x1) / dist;
 		float dy = (y2 - y1) / dist;
