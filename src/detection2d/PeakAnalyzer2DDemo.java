@@ -10,6 +10,7 @@ import ij.process.ImageProcessor;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
+import java.io.File;
 
 /**
  * Created by miroslav on 1/6/14.
@@ -177,7 +178,7 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
         }
 
 
-        PeakAnalyzer2D.loadTemplate(Masker2D.i2xy, Masker2D.xy2i, PeakExtractor2D.peaks_xy, M, minCos, scatterDist); // initialize peak analyzer parameters
+        PeakAnalyzer2D.loadTemplate(Masker2D.i2xy, Masker2D.xy2i, PeakExtractor2D.peaks_xy, inimg_xy, Masker2D.back_xy, M, minCos, scatterDist); // initialize peak analyzer parameters
         int totalPeakAnalyzeComponents = Masker2D.i2xy.length; // number of locations
 
         PeakAnalyzer2D pa_jobs[] = new PeakAnalyzer2D[CPU_NR];
@@ -193,6 +194,11 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
             }
         }
 
+        String home_dir = System.getProperty("user.home");
+        PeakAnalyzer2D.exportFeatsCsv(home_dir+ File.separator+"trial.feat"); // export features
+
+
+
         t2 = System.currentTimeMillis();
         IJ.log("done. "+((t2-t1)/1000f)+"sec.");
 
@@ -202,20 +208,8 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
         cnv.addMouseListener(this);
         cnv.addMouseMotionListener(this);
 
-        // add foreground mask on top
-		//IJ.log("window title: "+cnv.getImage().getWindow().getTitle());
-
-		// overlay foreground
-		ImagePlus foregroundMask = new ImagePlus("foreground", Masker2D.getMask());
-
-		//foregroundMask.show();
-		//String foregroundMaskName = foregroundMask.getWindow().getTitle();
-
 		IJ.selectWindow(cnv.getImage().getWindow().getTitle());
 		IJ.setTool("hand");
-		//IJ.run("Add Image...", "image="+"foreground"+" x=0 y=0 opacity=25");
-		//foregroundMask.close();
-
 
     }
 

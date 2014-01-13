@@ -1,14 +1,18 @@
 package detection2d;
 
 import aux.Stat;
+import com.sun.org.apache.bcel.internal.generic.FLOAD;
 import detection.Interpolator;
+import ij.IJ;
 import ij.gui.Line;
 import ij.gui.OvalRoi;
 import ij.gui.Overlay;
 import ij.gui.PointRoi;
 
 import java.awt.*;
+import java.io.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 
 /**
@@ -133,9 +137,13 @@ public class PeakAnalyzer2D extends Thread {
             }
 
 			// delin2[locationIdx] is fully formed
+
+            /*
+            calc_feats
+             */
 			// extract features at this spot theta = median(line_beg_end) - backgr(line_end)
 			// take top 3 branches (highest min.)  out of calc_feats
-			float[][] calc_feats = new float[delin2[locationIdx].length][2]; // take just min/max
+			float[][] calc_feats = new float[delin2[locationIdx].length][2]; // take just min/max, 4x2
 
 			for (int ii=0; ii<calc_feats.length; ii++) {
 
@@ -189,13 +197,47 @@ public class PeakAnalyzer2D extends Thread {
 
 			}
 
-			// store top 3 rows of calc_feats in feat2  (criteria: min_value, first index)
-			// loop 3 times and each time take the currently higest min
+            /*
+            calc_feat, central
+             */
+            int center_x = i2xy[locationIdx][0];
+            int center_y = i2xy[locationIdx][1];
+            float calc_feat = medianAtPoint(center_x, center_y, inimg_xy) - (backg_xy[center_x][center_y] & 0xff);
+            calc_feat = (calc_feat>0)? calc_feat : 0 ;
 
+            feat2[locationIdx][6] = calc_feat;
 
-			feat2[locationIdx][0] = 1;
-			feat2[locationIdx][1] = 1;
+			// store top 3 rows of calc_feats in feat2[locationIdx]  (criteria: min_value, first index)
+			// loop 3 times and each time take the currently highest min
+            boolean[] checked = new boolean[calc_feats.length];
 
+            for (int bb=0; bb<3; bb++) {
+
+                float max_to_beat = Float.NEGATIVE_INFINITY;
+                int max_idx = -1;
+
+                for (int aa=0; aa<calc_feats.length; aa++) {
+
+                    if (calc_feats[aa][0]>max_to_beat && !checked[aa]) {
+                        max_to_beat = calc_feats[aa][0];
+                        max_idx = aa;
+                    }
+
+                }
+
+//                if (max_idx==-1) {
+//                    for (int yy=0; yy<calc_feats.length; yy++) {
+////                        System.out.println(Arrays.toString(calc_feats[yy]));
+//                        System.out.println(String.format("%d x %d, \t %f", calc_feats.length, calc_feats[0].length, max_to_beat));
+//                    }
+//                    System.out.println(String.format("\nfilled in: %d so far and it was wrong\n", bb));
+//                }
+
+                checked[max_idx] = true;
+                feat2[locationIdx][2*bb]    = calc_feats[max_idx][0];
+                feat2[locationIdx][2*bb+1]  = calc_feats[max_idx][1];
+
+            }
 
         }
 
@@ -326,6 +368,28 @@ public class PeakAnalyzer2D extends Thread {
         }
 
         return -1; // checked all
+
+    }
+
+    private static float medianAtPoint(int x, int y, float[][] _inimg_xy) {
+
+        float[] nhood = new float[9];
+
+        if (x>0 && x<_inimg_xy.length-1 && y>0 && y<_inimg_xy[0].length-1) {
+
+            int cnt = 0;
+            for (int dx=-1; dx<=1; dx++) {
+                for (int dy=-1; dy<=1; dy++) {
+
+                    nhood[cnt] = _inimg_xy[x+dx][y+dy];
+                    cnt++;
+
+                }
+            }
+
+        }
+
+        return Stat.median(nhood);
 
     }
 
@@ -510,6 +574,40 @@ public class PeakAnalyzer2D extends Thread {
         }
 
         return ov;
+
+    }
+
+    public static void exportFeatsCsv(String file_path) {
+
+        IJ.log("exporting extracted features...");
+
+        PrintWriter logWriter = null; //initialize writer
+
+        try {
+            logWriter = new PrintWriter(file_path);
+            logWriter.print("");
+            logWriter.close();
+        } catch (FileNotFoundException ex) {}   // empty the file before logging...
+
+        try {                                   // initialize detection log file
+            logWriter = new PrintWriter(new BufferedWriter(new FileWriter(file_path, true)));
+        } catch (IOException e) {}
+
+        //main loop
+        for (int ii=0; ii<feat2.length; ii++) {
+            for (int jj=0; jj<feat2[ii].length; jj++) {
+                logWriter.print(String.format("%6.2f", feat2[ii][jj]));
+                if (jj<feat2[ii].length-1) {
+                    logWriter.print(",\t");
+                }
+                else {
+                    logWriter.print("\n");
+                }
+            }
+        }
+
+        logWriter.close(); // close log
+        IJ.log("Saved in "+file_path);
 
     }
 
