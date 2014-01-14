@@ -26,10 +26,10 @@ public class Sphere2D {
 
     private static float    arcRes 	        = 0.7f;
     private static float 	arcNbhood       = 2*arcRes;
-    private static float    samplingStep    = 0.7f;
+    private static float    samplingStep    = 0.5f;
     private static boolean  CHECK_NBRS_WHEN_ASSIGNING_PEAK_LOCS = false;
 
-    public static float     R_FULL 	        = 1.00f;
+//    public static float     R_FULL 	        = 1.00f;
     public static float     T_HALF 	        = 0.50f;
     public static int 		weightStdRatioToD = 4;                  // could be a parameter
     public static int       MAX_ITER        = 15;
@@ -71,8 +71,10 @@ public class Sphere2D {
         this.radius 	= scale * neuronDiam;
         this.neuronDiameter = neuronDiam;
         this.N 	= (int) Math.ceil( ( (2 * Math.PI * radius) / arcRes) );    // N will influence theta list size, and offstXY list size
-        this.limR = (int) Math.ceil(R_FULL*neuronDiameter/samplingStep);    // how many to take radially with given sampling step
-        this.limT = (int) Math.ceil(T_HALF*neuronDiameter/samplingStep);    //
+        this.limT = (int) Math.ceil(T_HALF*neuronDiameter/samplingStep);    // transversal sampling limits
+        //this.limR = (int) Math.ceil(R_FULL*neuronDiameter/samplingStep);    // how many to take radially with given sampling step
+        this.limR = 2 * limT + 1;//(int) Math.ceil(R_FULL*neuronDiameter/samplingStep);    // how many to take radially with given sampling step
+
 
         theta.clear();
         for (int i=0; i<N; i++) {
@@ -113,7 +115,7 @@ public class Sphere2D {
         }
 
         offstXY.clear();
-        weights = new float[(2*limT+1)*(limR+1)];
+        weights = new float[(2*limT+1)*limR]; // (limR+1)
         float sumWgt = 0;
 
         for (int ii = 0; ii<theta.size(); ii++) {
@@ -124,11 +126,11 @@ public class Sphere2D {
 				form sampling (offset) points
 			 */
 
-            float[][] offsetsPerDirection = new float[(2*limT+1)*(limR+1)][2];
+            float[][] offsetsPerDirection = new float[(2*limT+1)*limR][2]; // (limR+1)
 
             int cnt = 0;
 
-            for (int k=-limR; k<=0; k++) {
+            for (int k=-(limR-1); k<=0; k++) {
 
                 for (int i=-limT; i<=limT; i++) {
 
@@ -239,7 +241,7 @@ public class Sphere2D {
 
         float sum = 0;
         for (int k=0; k<weights.length; k++) sum += weights[k];
-        return new ImagePlus("weights", new FloatProcessor((2*limT+1), (limR+1), weights));
+        return new ImagePlus("weights", new FloatProcessor((2*limT+1), limR, weights)); // (limR+1)
 
     }
 

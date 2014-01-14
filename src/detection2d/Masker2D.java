@@ -4,6 +4,7 @@ import aux.Stat;
 import ij.IJ;
 import ij.process.ByteProcessor;
 
+import java.io.*;
 import java.util.Arrays;
 
 /**
@@ -220,5 +221,38 @@ public class Masker2D extends Thread {
 
 	}
 
+    public static void exportI2xyCsv(String file_path) {
+
+        IJ.log("exporting i2xy lookup table...");
+
+        PrintWriter logWriter = null; //initialize writer
+
+        try {
+            logWriter = new PrintWriter(file_path);
+            logWriter.print("");
+            logWriter.close();
+        } catch (FileNotFoundException ex) {}   // empty the file before logging...
+
+        try {                                   // initialize detection log file
+            logWriter = new PrintWriter(new BufferedWriter(new FileWriter(file_path, true)));
+        } catch (IOException e) {}
+
+        //main loop
+        for (int ii=0; ii<i2xy.length; ii++) {
+            for (int jj=0; jj<i2xy[ii].length; jj++) {
+                logWriter.print(String.format("%6d", i2xy[ii][jj]));
+                if (jj<i2xy[ii].length-1) {
+                    logWriter.print(",\t");
+                }
+                else {
+                    logWriter.print("\n");
+                }
+            }
+        }
+
+        logWriter.close(); // close log
+        IJ.log("Saved in "+file_path);
+
+    }
 
 }

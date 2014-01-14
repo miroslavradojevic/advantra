@@ -33,7 +33,7 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
     /*
     interface things
      */
-    ImagePlus pfl_im = new ImagePlus();
+    ImagePlus pfl_im = new ImagePlus();    // used with live inspections
     ImageProcessor pfl_ip = null;
     ImageWindow pfl_iw;
     ImageCanvas cnv;

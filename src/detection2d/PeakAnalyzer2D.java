@@ -143,7 +143,7 @@ public class PeakAnalyzer2D extends Thread {
              */
 			// extract features at this spot theta = median(line_beg_end) - backgr(line_end)
 			// take top 3 branches (highest min.)  out of calc_feats
-			float[][] calc_feats = new float[delin2[locationIdx].length][2]; // take just min/max, 4x2
+			float[][] calc_feats = new float[delin2[locationIdx].length][2]; // take just min/max, 4x2, 4x(min,max)
 
 			for (int ii=0; ii<calc_feats.length; ii++) {
 
@@ -205,13 +205,13 @@ public class PeakAnalyzer2D extends Thread {
             float calc_feat = medianAtPoint(center_x, center_y, inimg_xy) - (backg_xy[center_x][center_y] & 0xff);
             calc_feat = (calc_feat>0)? calc_feat : 0 ;
 
-            feat2[locationIdx][6] = calc_feat;
+            feat2[locationIdx][6] = calc_feat;  // central one at index 6
 
 			// store top 3 rows of calc_feats in feat2[locationIdx]  (criteria: min_value, first index)
 			// loop 3 times and each time take the currently highest min
             boolean[] checked = new boolean[calc_feats.length];
 
-            for (int bb=0; bb<3; bb++) {
+            for (int bb=0; bb<3; bb++) { // loop three times and pick the one with highest available min
 
                 float max_to_beat = Float.NEGATIVE_INFINITY;
                 int max_idx = -1;
@@ -225,16 +225,8 @@ public class PeakAnalyzer2D extends Thread {
 
                 }
 
-//                if (max_idx==-1) {
-//                    for (int yy=0; yy<calc_feats.length; yy++) {
-////                        System.out.println(Arrays.toString(calc_feats[yy]));
-//                        System.out.println(String.format("%d x %d, \t %f", calc_feats.length, calc_feats[0].length, max_to_beat));
-//                    }
-//                    System.out.println(String.format("\nfilled in: %d so far and it was wrong\n", bb));
-//                }
-
                 checked[max_idx] = true;
-                feat2[locationIdx][2*bb]    = calc_feats[max_idx][0];
+                feat2[locationIdx][2*bb]    = calc_feats[max_idx][0];   // bb = 0, 1, 2
                 feat2[locationIdx][2*bb+1]  = calc_feats[max_idx][1];
 
             }
@@ -605,6 +597,42 @@ public class PeakAnalyzer2D extends Thread {
                 }
             }
         }
+
+        logWriter.close(); // close log
+        IJ.log("Saved in "+file_path);
+
+    }
+
+    public static void exportFeatsLegend(String file_path) {
+
+        IJ.log("exporting feature legend...");
+
+        PrintWriter logWriter = null; //initialize writer
+
+        try {
+            logWriter = new PrintWriter(file_path);
+            logWriter.print("");
+            logWriter.close();
+        } catch (FileNotFoundException ex) {}   // empty the file before logging...
+
+        try {                                   // initialize detection log file
+            logWriter = new PrintWriter(new BufferedWriter(new FileWriter(file_path, true)));
+        } catch (IOException e) {}
+
+
+        logWriter.println("strength: branch 0 > branch 1 > branch 2");
+        logWriter.println("score_at_point = median_along_line_ending at_point(or in the point neighbourhood) - background_estimate_at_point");
+
+        logWriter.println("feature 0: \tbranch 0 min score");
+        logWriter.println("feature 1: \tbranch 0 max score");
+
+        logWriter.println("feature 2: \tbranch 1 min score");
+        logWriter.println("feature 3: \tbranch 1 max score");
+
+        logWriter.println("feature 4: \tbranch 2 min score");
+        logWriter.println("feature 5: \tbranch 2 max score");
+
+        logWriter.println("feature 6: \tcenter       score");
 
         logWriter.close(); // close log
         IJ.log("Saved in "+file_path);
