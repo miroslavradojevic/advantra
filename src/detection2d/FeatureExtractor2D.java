@@ -27,6 +27,7 @@ public class FeatureExtractor2D implements PlugInFilter {
     float[][] 	inimg_xy;               // store input image as an array
     String      image_name;
     String      image_dir;
+    String      output_dir;             // parameter signature will be in folder name
 
     /*
     feature extraction parameters
@@ -103,6 +104,21 @@ public class FeatureExtractor2D implements PlugInFilter {
 
         s               = (float) gd.getNextNumber();
         Prefs.set("advantra.critpoint.profile.s", 	        s);
+
+        output_dir =
+                image_dir + image_name + "__" +
+                "idiff_"+Float.toString(iDiff)+"_"+
+                "D_"+Float.toString(D)+"_"+
+                "M_"+Float.toString(M)+"_"+
+                "minCos_"+Float.toString(minCos)+"_"+
+                "scatterDist_"+Float.toString(scatterDist)+"_"+
+                "s_"+Float.toString(s)+File.separator
+        ;
+
+        boolean out_dir_created = new File(output_dir).mkdirs();
+        if (!out_dir_created) {
+
+        }
 
         CPU_NR = Runtime.getRuntime().availableProcessors();
 
@@ -188,10 +204,10 @@ public class FeatureExtractor2D implements PlugInFilter {
         t2 = System.currentTimeMillis();
         IJ.log("done. "+((t2-t1)/1000f)+"sec.");
 
-        PeakAnalyzer2D.exportFeatsCsv(   image_dir+image_name+".feat");    // export csv features      from PeakAnalyzer2D.feat2 to image_name.feat
-        PeakAnalyzer2D.exportFeatsLegend(image_dir+image_name+".feat.description");
-        Masker2D.exportI2xyCsv(          image_dir+image_name+".i2xy"); // export csv lookup table  from Masker2D.i2xy to image_name.i2xy
-        exportExtractionLegend(          image_dir+image_name+".feat.params");
+        PeakAnalyzer2D.exportFeatsCsv(   output_dir+image_name+".feat");    // export csv features      from PeakAnalyzer2D.feat2 to image_name.feat
+        PeakAnalyzer2D.exportFeatsLegend(output_dir+image_name+".feat.description");
+        Masker2D.exportI2xyCsv(          output_dir+image_name+".i2xy"); // export csv lookup table  from Masker2D.i2xy to image_name.i2xy
+        exportExtractionLegend(          output_dir+image_name+".feat.params");
 
     }
 

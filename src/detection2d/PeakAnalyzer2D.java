@@ -89,12 +89,8 @@ public class PeakAnalyzer2D extends Thread {
 
                     int pkX = peaks_at_loc[pp][0]; // store the index value of this peak
                     int pkY = peaks_at_loc[pp][1];
-
                     int indexValue = xy2i[pkX][pkY];
-
-                    if (isRobust(indexValue, locationIdx, scatterDist)) {    // locationIdx is mother index in this case
-                        delin2[locationIdx][pp][0] = indexValue; // STORE IT! m=0
-                    }
+                    delin2[locationIdx][pp][0] = indexValue; // STORE IT! m=0, don't check "robustness" here, as later on
 
                     int curr_index, prev_index, next_index;
 
@@ -112,7 +108,7 @@ public class PeakAnalyzer2D extends Thread {
                                 delin2[locationIdx][pp][m] = next_index;     // store it in output matrix
                             }
                             else {
-                                break; // stop going further if it is not robust
+                                break; // stop going further with delineating if it is not robust
                             }
 
                         }
@@ -170,7 +166,9 @@ public class PeakAnalyzer2D extends Thread {
 
     }
 
-	private static float[][] takeMinMax(int[][] delineation_idxs, int root_idx, boolean dbg) {
+	private static float[][] takeMinMax(int[][] delineation_idxs, int root_idx, boolean verbose) {
+
+        //if (verbose) { IJ.log(""); } // just in case
 
 		float[][] calc_feats = new float[delineation_idxs.length][2];
 
@@ -182,13 +180,18 @@ public class PeakAnalyzer2D extends Thread {
 
 			for (int jj=0; jj<delineation_idxs[ii].length; jj++) { // along each branch peak
 
-				// calculate curr_val
-				if (delineation_idxs[ii][jj] != -1) {
+				if (delineation_idxs[ii][jj] != -1) { // calculate curr_val
 
 					int prev_i, prev_x, prev_y;
 					int curr_i, curr_x, curr_y;
 
 					prev_i = (jj==0)? root_idx : delineation_idxs[ii][jj-1];
+                    if (prev_i == -1) {
+                        System.out.println("wrong:");
+                        for (int kk=0; kk<delineation_idxs.length; kk++) {
+                            System.out.println(Arrays.toString(delineation_idxs[kk])+"|"+Arrays.toString(delin2[root_idx][kk])+"|" +Arrays.toString(peaks_xy[root_idx][kk]));
+                        }
+                    }
 					prev_x = i2xy[prev_i][0];
 					prev_y = i2xy[prev_i][1];
 					curr_i = delineation_idxs[ii][jj];
@@ -203,10 +206,6 @@ public class PeakAnalyzer2D extends Thread {
 				}
 				else {
 					curr_val = 0;
-				}
-
-				if (dbg) {
-					IJ.log("DBG: \t"+ii+","+jj+" ::: "+curr_val);
 				}
 
 				if (curr_val>max_val) {
@@ -232,26 +231,27 @@ public class PeakAnalyzer2D extends Thread {
 
 		int atLoc = xy2i[atX][atY];
 
-		if (atLoc != -1) {
-			IJ.log("FEAT2:");
-			IJ.log(Arrays.toString(feat2[atLoc]));
+        IJ.log(String.format("/**** LOC (%5d, %5d) [%10d] ****/", atX, atY, atLoc));
 
-			IJ.log("DELIN2:");
-			IJ.log("CENTER: "+atLoc);
-			for (int ii=0; ii<delin2[atLoc].length; ii++) {
-				IJ.log("DELINEATION "+ii+" -> "+Arrays.toString(delin2[atLoc][ii]));
+		if (atLoc != -1) {
+
+			IJ.log("DELINEATION INDEXES:");
+            for (int ii=0; ii<delin2[atLoc].length; ii++) {
+				IJ.log("-> "+Arrays.toString(delin2[atLoc][ii]));
 			}
 
 			float[][] test = takeMinMax(delin2[atLoc], atLoc, true);
-			IJ.log("VALUES TO PICK:");
-//			IJ.log("CENTER: "+atLoc);
+			IJ.log("CALCULATED FEATURES:");
 			for (int ii=0; ii<test.length; ii++) {
-				IJ.log("CALCULATED "+ii+" -> "+Arrays.toString(test[ii]));
+				IJ.log("MIN/MAX-> "+Arrays.toString(test[ii]));
 			}
 
-		}
+            IJ.log("FEATURE VECTOR(TH11, TH12, TH21, TH22, TH31, TH32, C):");
+            IJ.log(Arrays.toString(feat2[atLoc]));
+
+        }
 		else {
-			IJ.log("background!");
+			IJ.log("background point, no data!");
 		}
 
 	}
