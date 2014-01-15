@@ -195,12 +195,12 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
         }
 
         String home_dir = System.getProperty("user.home");
-        PeakAnalyzer2D.exportFeatsCsv(home_dir+ File.separator+"trial.feat"); // export features
+        PeakAnalyzer2D.exportFeatsCsv(home_dir + File.separator + "trial.feat"); // export features
 
 
 
         t2 = System.currentTimeMillis();
-        IJ.log("done. "+((t2-t1)/1000f)+"sec.");
+        IJ.log("done. " + ((t2 - t1) / 1000f) + "sec.");
 
         /*
 			mouse listeners after processing
@@ -235,6 +235,9 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
 		ov.add(fgroi);
 
         cnv.setOverlay(ov);
+		
+		// show features
+		PeakAnalyzer2D.print(clickX, clickY);
 
     }
 

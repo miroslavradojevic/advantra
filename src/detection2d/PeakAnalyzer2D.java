@@ -80,20 +80,14 @@ public class PeakAnalyzer2D extends Thread {
     {
         for (int locationIdx = begN; locationIdx < endN; locationIdx++) {
 
-            //int atX = i2xy[locationIdx][0];
-            //int atY = i2xy[locationIdx][1];
-
             int[][] peaks_at_loc = peaks_xy[locationIdx];
 
-            // check neighbouring peaks
             // access individual peaks at this point
             for (int pp = 0; pp<peaks_at_loc.length; pp++) {  // loop 4 allocated branches
 
                 if (peaks_at_loc[pp][0] != -1) { // if the peak exists (X coord. is != -1)
 
-                    // store the index value of this peak
-
-                    int pkX = peaks_at_loc[pp][0];
+                    int pkX = peaks_at_loc[pp][0]; // store the index value of this peak
                     int pkY = peaks_at_loc[pp][1];
 
                     int indexValue = xy2i[pkX][pkY];
@@ -110,7 +104,6 @@ public class PeakAnalyzer2D extends Thread {
                     for (int m=1; m<M; m++) { // follow the rest of the indexes
 
                         // recursion : prev+curr->next index
-
                         next_index = getNext(prev_index, curr_index); // next follow-up will be calculated and sorted
 
                         if (next_index!=-1) { // -1 will be if the next one is not found
@@ -134,82 +127,16 @@ public class PeakAnalyzer2D extends Thread {
                     break; // stop for() loop - there are no more branches (already aligned)
                 }
 
-            }
+            } // delin2[locationIdx] is fully formed
 
-			// delin2[locationIdx] is fully formed
-
-            /*
-            calc_feats
-             */
-			// extract features at this spot theta = median(line_beg_end) - backgr(line_end)
-			// take top 3 branches (highest min.)  out of calc_feats
-			float[][] calc_feats = new float[delin2[locationIdx].length][2]; // take just min/max, 4x2, 4x(min,max)
-
-			for (int ii=0; ii<calc_feats.length; ii++) {
-
-				float min_val = Float.MAX_VALUE;
-				float max_val = Float.MIN_VALUE;
-				float curr_val;
-
-				for (int jj=0; jj<delin2[locationIdx][ii].length; jj++) { // along each branch peak
-
-					// calculate curr_val
-					if (delin2[locationIdx][ii][jj] != -1) {
-
-						int prev_i, prev_x, prev_y;
-						int curr_i, curr_x, curr_y;
-
-						if (jj==0) { // jj marks current index
-							prev_i = locationIdx;
-						}
-						else {
-							prev_i = jj-1;
-						}
-
-						prev_x = i2xy[prev_i][0];
-						prev_y = i2xy[prev_i][1];
-						curr_i = delin2[locationIdx][ii][jj];
-						curr_x = i2xy[curr_i][0];
-						curr_y = i2xy[curr_i][1];
-
-						float med_along_line = medianAlongLine(prev_x, prev_y, curr_x, curr_y, inimg_xy);
-						int back_at_loc = backg_xy[curr_x][curr_y] & 0xff;
-						curr_val = med_along_line - back_at_loc;
-						curr_val = (curr_val>0)? curr_val : 0 ;
-
-					}
-					else {
-						curr_val = 0;
-					}
-
-					if (curr_val>max_val) {
-						max_val = curr_val;
-					}
-					if (curr_val<min_val) {
-						min_val = curr_val;
-					}
-
-				}
-
-				// store min/max val for this branch
-				calc_feats[ii][0] = min_val;
-				calc_feats[ii][1] = max_val;
-
-			}
-
-            /*
-            calc_feat, central
-             */
-            int center_x = i2xy[locationIdx][0];
-            int center_y = i2xy[locationIdx][1];
-            float calc_feat = medianAtPoint(center_x, center_y, inimg_xy) - (backg_xy[center_x][center_y] & 0xff);
-            calc_feat = (calc_feat>0)? calc_feat : 0 ;
-
-            feat2[locationIdx][6] = calc_feat;  // central one at index 6
+            /*	calc_feats	*/
+			// extract features at this spot, feat. value = median(line_beg_end) - backgr(line_end)
+			// take just min/max along one thread, 4xM -> 4x2(min,max)
+			float[][] calc_feats = takeMinMax(delin2[locationIdx], locationIdx, false);
 
 			// store top 3 rows of calc_feats in feat2[locationIdx]  (criteria: min_value, first index)
 			// loop 3 times and each time take the currently highest min
-            boolean[] checked = new boolean[calc_feats.length];
+			boolean[] checked = new boolean[calc_feats.length];
 
             for (int bb=0; bb<3; bb++) { // loop three times and pick the one with highest available min
 
@@ -231,9 +158,105 @@ public class PeakAnalyzer2D extends Thread {
 
             }
 
-        }
+			/*	calc_feat, central	*/
+			int center_x = i2xy[locationIdx][0];
+			int center_y = i2xy[locationIdx][1];
+			float calc_feat = medianAtPoint(center_x, center_y, inimg_xy) - (backg_xy[center_x][center_y] & 0xff);
+			calc_feat = (calc_feat>0)? calc_feat : 0 ;
+
+			feat2[locationIdx][6] = calc_feat;  // central one at index 6
+
+		}
 
     }
+
+	private static float[][] takeMinMax(int[][] delineation_idxs, int root_idx, boolean dbg) {
+
+		float[][] calc_feats = new float[delineation_idxs.length][2];
+
+		for (int ii=0; ii<calc_feats.length; ii++) {
+
+			float min_val = Float.POSITIVE_INFINITY;
+			float max_val = Float.NEGATIVE_INFINITY;
+			float curr_val;
+
+			for (int jj=0; jj<delineation_idxs[ii].length; jj++) { // along each branch peak
+
+				// calculate curr_val
+				if (delineation_idxs[ii][jj] != -1) {
+
+					int prev_i, prev_x, prev_y;
+					int curr_i, curr_x, curr_y;
+
+					prev_i = (jj==0)? root_idx : delineation_idxs[ii][jj-1];
+					prev_x = i2xy[prev_i][0];
+					prev_y = i2xy[prev_i][1];
+					curr_i = delineation_idxs[ii][jj];
+					curr_x = i2xy[curr_i][0];
+					curr_y = i2xy[curr_i][1];
+
+					float med_along_line = medianAlongLine(prev_x, prev_y, curr_x, curr_y, inimg_xy);
+					int back_at_loc = backg_xy[curr_x][curr_y] & 0xff;
+					curr_val = med_along_line - back_at_loc;
+					curr_val = (curr_val>0)? curr_val : 0 ;
+
+				}
+				else {
+					curr_val = 0;
+				}
+
+				if (dbg) {
+					IJ.log("DBG: \t"+ii+","+jj+" ::: "+curr_val);
+				}
+
+				if (curr_val>max_val) {
+					max_val = curr_val;
+				}
+				if (curr_val<min_val) {
+					min_val = curr_val;
+				}
+
+			}
+
+			calc_feats[ii][0] = min_val; // store min/max val for this branch
+			calc_feats[ii][1] = max_val;
+
+		}
+
+		return calc_feats;
+
+	}
+
+	// debug
+	public static void print(int atX, int atY) {
+
+		int atLoc = xy2i[atX][atY];
+
+		if (atLoc != -1) {
+			IJ.log("FEAT2:");
+			IJ.log(Arrays.toString(feat2[atLoc]));
+
+			IJ.log("DELIN2:");
+			IJ.log("CENTER: "+atLoc);
+			for (int ii=0; ii<delin2[atLoc].length; ii++) {
+				IJ.log("DELINEATION "+ii+" -> "+Arrays.toString(delin2[atLoc][ii]));
+			}
+
+			float[][] test = takeMinMax(delin2[atLoc], atLoc, true);
+			IJ.log("VALUES TO PICK:");
+//			IJ.log("CENTER: "+atLoc);
+			for (int ii=0; ii<test.length; ii++) {
+				IJ.log("CALCULATED "+ii+" -> "+Arrays.toString(test[ii]));
+			}
+
+		}
+		else {
+			IJ.log("background!");
+		}
+
+	}
+
+
 
  /*
  * the "spatial consistency" is checked to account for the peak robustness (it's neighbours have to point to the spatially close location)
