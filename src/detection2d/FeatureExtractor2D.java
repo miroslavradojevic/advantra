@@ -8,6 +8,8 @@ import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
 
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 /**
  * Created by miroslav on 1/10/14.
@@ -43,7 +45,13 @@ public class FeatureExtractor2D implements PlugInFilter {
         if(imagePlus==null) return DONE;
 
         image_name = imagePlus.getShortTitle();
-        image_dir  = imagePlus.getOriginalFileInfo().directory;
+        image_dir  = imagePlus.getOriginalFileInfo().directory + image_name;
+
+        File image_dir_f = new File(image_dir);
+        if (!image_dir_f.exists()) {
+            boolean img_dir_created = new File(image_dir).mkdirs();
+            if (!img_dir_created) return DONE;
+        }
 
         inimg_xy = new float[imagePlus.getWidth()][imagePlus.getHeight()]; // x~column, y~row
 
@@ -106,19 +114,21 @@ public class FeatureExtractor2D implements PlugInFilter {
         Prefs.set("advantra.critpoint.profile.s", 	        s);
 
         output_dir =
-                image_dir + image_name + "__" +
+                image_dir + File.separator +
                 "idiff_"+Float.toString(iDiff)+"_"+
                 "D_"+Float.toString(D)+"_"+
                 "M_"+Float.toString(M)+"_"+
                 "minCos_"+Float.toString(minCos)+"_"+
                 "scatterDist_"+Float.toString(scatterDist)+"_"+
-                "s_"+Float.toString(s)+File.separator
+                "s_"+Float.toString(s)//+File.separator
         ;
 
-        boolean out_dir_created = new File(output_dir).mkdirs();
-        if (!out_dir_created) {
+        boolean delete_success = deleteDir(new File(output_dir));
+        if (!delete_success) return DONE;
 
-        }
+        boolean out_dir_created = new File(output_dir).mkdirs();
+        if (!out_dir_created) return DONE;
+//        IJ.log("created\t\n" + output_dir);
 
         CPU_NR = Runtime.getRuntime().availableProcessors();
 
@@ -127,6 +137,8 @@ public class FeatureExtractor2D implements PlugInFilter {
     }
 
     public void run(ImageProcessor imageProcessor) {
+
+        if (true) return;
 
         Sphere2D sph2d = new Sphere2D(D, s);
 
@@ -240,6 +252,25 @@ public class FeatureExtractor2D implements PlugInFilter {
         logWriter.close(); // close log
         IJ.log("Saved in "+file_path);
 
+    }
+
+    private static boolean deleteDir(File dir)
+    {
+        if (dir.isDirectory())
+        {
+            String[] children = dir.list();
+            for (int i=0; i<children.length; i++)
+            {
+                boolean success = deleteDir(new File(dir, children[i]));
+                if (!success)
+                {
+                    return false;
+                }
+            }
+            // The directory is now empty so delete it
+            return dir.delete();
+        }
+        return true;
     }
 
 
