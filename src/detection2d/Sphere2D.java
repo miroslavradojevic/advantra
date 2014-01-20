@@ -7,6 +7,7 @@ import ij.ImageStack;
 import ij.gui.OvalRoi;
 import ij.gui.Overlay;
 import ij.gui.PointRoi;
+import ij.io.FileSaver;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 
@@ -237,6 +238,13 @@ public class Sphere2D {
 
     }
 
+	public void exportSampling(String file_path) {
+
+		FileSaver fs = new FileSaver(showSampling());
+		fs.saveAsTiffStack(file_path);
+
+	}
+
     public ImagePlus showWeights(){
 
         float sum = 0;
@@ -244,6 +252,13 @@ public class Sphere2D {
         return new ImagePlus("weights", new FloatProcessor((2*limT+1), limR, weights)); // (limR+1)
 
     }
+
+	public void exportWeights(String file_path) {
+
+		FileSaver fs = new FileSaver(showWeights());
+		fs.saveAsTiff(file_path);
+
+	}
 
     public int getProfileLength()
     {

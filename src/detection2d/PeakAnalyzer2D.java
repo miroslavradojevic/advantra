@@ -594,7 +594,7 @@ public class PeakAnalyzer2D extends Thread {
 
     public static void exportFeatsCsv(String file_path) {
 
-        IJ.log("exporting extracted features...");
+//        IJ.log("exporting extracted features...");
 
         PrintWriter logWriter = null; //initialize writer
 
@@ -622,13 +622,13 @@ public class PeakAnalyzer2D extends Thread {
         }
 
         logWriter.close(); // close log
-        IJ.log("Saved in "+file_path);
+//        IJ.log("Saved in "+file_path);
 
     }
 
     public static void exportFeatsLegend(String file_path) {
 
-        IJ.log("exporting feature legend...");
+//        IJ.log("exporting feature legend...");
 
         PrintWriter logWriter = null; //initialize writer
 
@@ -658,7 +658,7 @@ public class PeakAnalyzer2D extends Thread {
         logWriter.println("feature 6: \tcenter       score");
 
         logWriter.close(); // close log
-        IJ.log("Saved in "+file_path);
+//        IJ.log("Saved in "+file_path);
 
     }
 

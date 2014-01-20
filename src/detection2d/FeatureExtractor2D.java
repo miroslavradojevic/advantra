@@ -120,15 +120,14 @@ public class FeatureExtractor2D implements PlugInFilter {
                 "M_"+Float.toString(M)+"_"+
                 "minCos_"+Float.toString(minCos)+"_"+
                 "scatterDist_"+Float.toString(scatterDist)+"_"+
-                "s_"+Float.toString(s)//+File.separator
+                "s_"+Float.toString(s)+File.separator
         ;
 
         boolean delete_success = deleteDir(new File(output_dir));
-        if (!delete_success) return DONE;
+        if (!delete_success) { IJ.log("delete " + output_dir + " failed."); return DONE; }
 
         boolean out_dir_created = new File(output_dir).mkdirs();
-        if (!out_dir_created) return DONE;
-//        IJ.log("created\t\n" + output_dir);
+        if (!out_dir_created) { IJ.log("creating " + output_dir + " failed."); return DONE; }
 
         CPU_NR = Runtime.getRuntime().availableProcessors();
 
@@ -138,11 +137,11 @@ public class FeatureExtractor2D implements PlugInFilter {
 
     public void run(ImageProcessor imageProcessor) {
 
-        if (true) return;
-
         Sphere2D sph2d = new Sphere2D(D, s);
 
-        long t1, t2;
+		IJ.log("start extraction...");
+
+		long t1, t2;
         t1 = System.currentTimeMillis();
 
         /********************************/
@@ -216,16 +215,23 @@ public class FeatureExtractor2D implements PlugInFilter {
         t2 = System.currentTimeMillis();
         IJ.log("done. "+((t2-t1)/1000f)+"sec.");
 
+		IJ.log("exporting...");
         PeakAnalyzer2D.exportFeatsCsv(   output_dir+image_name+".feat");    // export csv features      from PeakAnalyzer2D.feat2 to image_name.feat
         PeakAnalyzer2D.exportFeatsLegend(output_dir+image_name+".feat.description");
         Masker2D.exportI2xyCsv(          output_dir+image_name+".i2xy"); // export csv lookup table  from Masker2D.i2xy to image_name.i2xy
-        exportExtractionLegend(          output_dir+image_name+".feat.params");
+		Masker2D.exportEstBackground(    output_dir + image_name + ".back.tif");
+		Masker2D.exportForegroundMask(   output_dir + image_name + ".mask.tif");
+		sph2d.exportSampling(            output_dir + image_name + ".sampling.tif");
+		sph2d.exportSampling(            output_dir+image_name+".sampling.tif");
+		sph2d.exportWeights(             output_dir+image_name+".weights.tif");
+		exportExtractionLegend(          output_dir + image_name + ".feat.params");
+		IJ.log("done.");
 
     }
 
     private void exportExtractionLegend(String file_path) {
 
-        IJ.log("exporting feature extraction parameters...");
+//        IJ.log("exporting feature extraction parameters...");
 
         PrintWriter logWriter = null; //initialize writer
 
@@ -242,15 +248,15 @@ public class FeatureExtractor2D implements PlugInFilter {
 
         logWriter.println("extraction parameters:");
 
-        logWriter.println("advantra.critpoint.mask.iDiff: \t"+          this.iDiff);
-        logWriter.println("advantra.critpoint.profile.d:  \t"+          this.D);
-        logWriter.println("advantra.critpoint.analyze.m: \t"+           this.M);
+        logWriter.println("advantra.critpoint.mask.iDiff:      \t"+          this.iDiff);
+        logWriter.println("advantra.critpoint.profile.d:       \t"+          this.D);
+        logWriter.println("advantra.critpoint.analyze.m:       \t"+           this.M);
         logWriter.println("advantra.critpoint.analyze.min_cos: \t"+     this.minCos);
-        logWriter.println("advantra.critpoint.analyze.scatter_d: \t"+   this.scatterDist);
-        logWriter.println("advantra.critpoint.profile.s: \t"+           this.s);
+        logWriter.println("advantra.critpoint.analyze.scatter_d:\t"+   this.scatterDist);
+        logWriter.println("advantra.critpoint.profile.s:        \t"+           this.s);
 
         logWriter.close(); // close log
-        IJ.log("Saved in "+file_path);
+        //IJ.log("Saved in "+file_path);
 
     }
 
@@ -261,16 +267,24 @@ public class FeatureExtractor2D implements PlugInFilter {
             String[] children = dir.list();
             for (int i=0; i<children.length; i++)
             {
-                boolean success = deleteDir(new File(dir, children[i]));
+				File f = new File(dir, children[i]);
+                boolean success = deleteDir(f);
                 if (!success)
                 {
+					IJ.log("could not delete " + f.getAbsolutePath());
                     return false;
                 }
             }
             // The directory is now empty so delete it
             return dir.delete();
         }
+		else {
+			// if it was a file - empty the dir anyway
+			dir.delete();
+		}
+
         return true;
+
     }
 
 

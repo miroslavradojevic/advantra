@@ -85,6 +85,4 @@ public class Profiler2D extends Thread {
 
     }
 
-
-
 }

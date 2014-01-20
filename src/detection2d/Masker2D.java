@@ -2,6 +2,8 @@ package detection2d;
 
 import aux.Stat;
 import ij.IJ;
+import ij.ImagePlus;
+import ij.io.FileSaver;
 import ij.process.ByteProcessor;
 
 import java.io.*;
@@ -223,7 +225,7 @@ public class Masker2D extends Thread {
 
     public static void exportI2xyCsv(String file_path) {
 
-        IJ.log("exporting i2xy lookup table...");
+//        IJ.log("exporting i2xy lookup table...");
 
         PrintWriter logWriter = null; //initialize writer
 
@@ -251,8 +253,26 @@ public class Masker2D extends Thread {
         }
 
         logWriter.close(); // close log
-        IJ.log("Saved in "+file_path);
+//        IJ.log("Saved in "+file_path);
 
     }
+
+	public static void exportForegroundMask(String file_path) {
+
+		ByteProcessor bp = getMask();
+		ImagePlus ip = new ImagePlus("foreground_mask", bp);
+		FileSaver fs = new FileSaver(ip);
+		fs.saveAsTiff(file_path);
+
+	}
+
+	public static void exportEstBackground(String file_path) {
+
+		ByteProcessor bp = getBackground();
+		ImagePlus ip = new ImagePlus("est_background", bp);
+		FileSaver fs = new FileSaver(ip);
+		fs.saveAsTiff(file_path);
+
+	}
 
 }
