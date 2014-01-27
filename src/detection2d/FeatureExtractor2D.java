@@ -14,14 +14,20 @@ import java.nio.file.Path;
 /**
  * Created by miroslav on 1/10/14.
  * simplified version of PeakAnalyzer2DDemo stripped down to extract features, no debug things and user interface
- * input is an image, the output is
+ * input is an image, the outputs are exported into output files:
  *
- * image.feat (csv file) with extracted features,
- * image.i2xy ( also .csv) with index to (x,y) mapping,
- * image.param (regular txt output) with parameters used for f.e. and f. description
+ * image.feat   (csv) with extracted features: nr. locations x 7 features,
+ * image.feat.description (txt) file with the description of the features used
+ * image.feat.params (txt) extraction log, parameters used for feature extraction
+ * image.i2xy   (csv) with index (i) to coordinate (x,y) mapping, lookup table
+ * image.frame  (csv) with frame map for each location (4xM index map describing the streamlines going from every location)
+ * image.back.tif (tif image) estimated background
+ * image.mask.tif (tif image) selection of foreground pixels
+ * image.sampling.tif (tif image) imagej visualization of the sampling scheme for filtering
+ * image.weights.tif (tif image) weights of the filter profile
  *
  * this is designed to be ij plugin, can be automatically called using macros, outputs have
- * the same name as the input image and are stored int the same folder
+ * the same name as the input image and are stored in the same folder
  */
 
 public class FeatureExtractor2D implements PlugInFilter {
@@ -213,25 +219,23 @@ public class FeatureExtractor2D implements PlugInFilter {
         /********************************/
 
         t2 = System.currentTimeMillis();
-        IJ.log("done. "+((t2-t1)/1000f)+"sec.");
+        IJ.log(((t2-t1)/1000f)+"sec.");
 
 		IJ.log("exporting...");
         PeakAnalyzer2D.exportFeatsCsv(   output_dir+image_name+".feat");    // export csv features      from PeakAnalyzer2D.feat2 to image_name.feat
         PeakAnalyzer2D.exportFeatsLegend(output_dir+image_name+".feat.description");
+        exportExtractionLegend(          output_dir+image_name+".feat.params");
         Masker2D.exportI2xyCsv(          output_dir+image_name+".i2xy"); // export csv lookup table  from Masker2D.i2xy to image_name.i2xy
-		Masker2D.exportEstBackground(    output_dir + image_name + ".back.tif");
-		Masker2D.exportForegroundMask(   output_dir + image_name + ".mask.tif");
-		sph2d.exportSampling(            output_dir + image_name + ".sampling.tif");
+        PeakAnalyzer2D.exportFrames(     output_dir+image_name+".frame");
+        Masker2D.exportEstBackground(    output_dir+image_name+".back.tif");
+		Masker2D.exportForegroundMask(   output_dir+image_name+".mask.tif");
 		sph2d.exportSampling(            output_dir+image_name+".sampling.tif");
 		sph2d.exportWeights(             output_dir+image_name+".weights.tif");
-		exportExtractionLegend(          output_dir + image_name + ".feat.params");
 		IJ.log("done.");
 
     }
 
     private void exportExtractionLegend(String file_path) {
-
-//        IJ.log("exporting feature extraction parameters...");
 
         PrintWriter logWriter = null; //initialize writer
 
@@ -248,15 +252,13 @@ public class FeatureExtractor2D implements PlugInFilter {
 
         logWriter.println("extraction parameters:");
 
-        logWriter.println("advantra.critpoint.mask.iDiff:      \t"+          this.iDiff);
-        logWriter.println("advantra.critpoint.profile.d:       \t"+          this.D);
-        logWriter.println("advantra.critpoint.analyze.m:       \t"+           this.M);
-        logWriter.println("advantra.critpoint.analyze.min_cos: \t"+     this.minCos);
-        logWriter.println("advantra.critpoint.analyze.scatter_d:\t"+   this.scatterDist);
-        logWriter.println("advantra.critpoint.profile.s:        \t"+           this.s);
-
+        logWriter.println("advantra.critpoint.mask.iDiff:       \t"+        this.iDiff);
+        logWriter.println("advantra.critpoint.profile.d:        \t"+        this.D);
+        logWriter.println("advantra.critpoint.profile.s:        \t"+        this.s);
+        logWriter.println("advantra.critpoint.analyze.m:        \t"+        PeakAnalyzer2D.M            + this.M);
+        logWriter.println("advantra.critpoint.analyze.min_cos:  \t"+        PeakAnalyzer2D.minCos       + this.minCos);
+        logWriter.println("advantra.critpoint.analyze.scatter_d:\t"+        PeakAnalyzer2D.scatterDist  + this.scatterDist);
         logWriter.close(); // close log
-        //IJ.log("Saved in "+file_path);
 
     }
 

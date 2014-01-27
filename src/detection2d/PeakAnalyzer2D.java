@@ -17,9 +17,12 @@ import java.util.Arrays;
 
 /**
  * Created by miroslav on 1/6/14.
+ *
  * Will associate the peaks of the profiles, parallel threaded implementation
  * expands each branch recursively, M steps, outputs the indexes of the skeleton locations
  * has to satisfy geometry (expansion angle and expansion length)
+ *
+ * Calculates and exports the features at every location after frame delineation
  */
 public class PeakAnalyzer2D extends Thread {
 
@@ -40,9 +43,11 @@ public class PeakAnalyzer2D extends Thread {
     public static float scatterDist = 5;                // allowed scatter dist, upper limit, half of the neighbouring peaks should be within
 
 
-    // OUTPUT: associate the peaks and link follow-up points
+    // OUTPUT
+    // associate the peaks and link follow-up points
     public static int[][][] delin2;                     // N(foreground locs.) x 4(max. threads) x M(follow-up locs) contains index for each location
-	public static float[][]	feat2;						// N x 7 (6+1) features
+	// extract features
+    public static float[][]	feat2;						// N x 7 (6+1) features
 
     public PeakAnalyzer2D(int n0, int n1)
     {
@@ -594,8 +599,6 @@ public class PeakAnalyzer2D extends Thread {
 
     public static void exportFeatsCsv(String file_path) {
 
-//        IJ.log("exporting extracted features...");
-
         PrintWriter logWriter = null; //initialize writer
 
         try {
@@ -622,13 +625,44 @@ public class PeakAnalyzer2D extends Thread {
         }
 
         logWriter.close(); // close log
-//        IJ.log("Saved in "+file_path);
 
     }
 
-    public static void exportFeatsLegend(String file_path) {
+    public static void exportFrames(String file_path) {
 
-//        IJ.log("exporting feature legend...");
+        PrintWriter logWriter = null; //initialize writer
+
+        try {
+            logWriter = new PrintWriter(file_path);
+            logWriter.print("");
+            logWriter.close();
+        } catch (FileNotFoundException ex) {}   // empty the file before logging...
+
+        try {                                   // initialize
+            logWriter = new PrintWriter(new BufferedWriter(new FileWriter(file_path, true)));
+        } catch (IOException e) {}
+
+        //main loop
+        for (int ii=0; ii<delin2.length; ii++) {
+            for (int jj=0; jj<delin2[ii].length; jj++) { // loop streamlines
+                for (int kk=0; kk<delin2[ii][jj].length; kk++) { // print M elements in the same streamline
+                    logWriter.print(String.format("%6d", delin2[ii][jj][kk]));
+                    if (kk<delin2[ii][jj].length-1) {
+                        logWriter.print(",\t");
+                    }
+                    else {
+                        logWriter.print("\n");
+                    }
+                }
+            }
+        }
+
+        logWriter.close(); // close log
+
+    }
+
+
+    public static void exportFeatsLegend(String file_path) {
 
         PrintWriter logWriter = null; //initialize writer
 
@@ -641,7 +675,6 @@ public class PeakAnalyzer2D extends Thread {
         try {                                   // initialize detection log file
             logWriter = new PrintWriter(new BufferedWriter(new FileWriter(file_path, true)));
         } catch (IOException e) {}
-
 
         logWriter.println("strength: branch 0 > branch 1 > branch 2");
         logWriter.println("score_at_point = median_along_line_ending at_point(or in the point neighbourhood) - background_estimate_at_point");
@@ -658,7 +691,6 @@ public class PeakAnalyzer2D extends Thread {
         logWriter.println("feature 6: \tcenter       score");
 
         logWriter.close(); // close log
-//        IJ.log("Saved in "+file_path);
 
     }
 
