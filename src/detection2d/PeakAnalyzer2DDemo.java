@@ -227,8 +227,8 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
         int clickY = cnv.offScreenY(e.getY());
 
         Overlay ov = PeakAnalyzer2D.getDelineation(clickX, clickY);
-		ImageRoi fgroi = new ImageRoi(0, 0, Masker2D.getMask());// !!! not very efficient to be done each time
-		fgroi.setOpacity(0.15);
+		ImageRoi fgroi = new ImageRoi(0, 0, Masker2D.getMask());    // !!! not very efficient to be done each time
+		fgroi.setOpacity(0.15);   // add foreground to know what was removed always
 		ov.add(fgroi);
 
         cnv.setOverlay(ov);

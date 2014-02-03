@@ -473,7 +473,7 @@ public class PeakAnalyzer2D extends Thread {
             //for (int a=0; a<delin_at_loc.length; a++) IJ.log(Arrays.toString(delin_at_loc[a]));
             //IJ.log("_____\n");
 
-            for (int b = 0; b<delin_at_loc.length; b++) {           // loop 4 branches
+            for (int b = 0; b<delin_at_loc.length; b++) {           // loop 4 branches, b index defines the strength
 
                 boolean complete = true;
 
@@ -490,7 +490,7 @@ public class PeakAnalyzer2D extends Thread {
 
                         ovalroi = new OvalRoi(pt_x-(R/2)+.5f, pt_y-(R/2)+.5f, R, R); // add the point to the overlay
                         ovalroi.setStrokeColor(java.awt.Color.RED);
-                        ovalroi.setStrokeWidth(2);
+                        ovalroi.setStrokeWidth(1.2);
                         ov.add(ovalroi);
 
                     }
@@ -522,9 +522,24 @@ public class PeakAnalyzer2D extends Thread {
                         }
 
                         Line l = new Line(prev_x, prev_y, curr_x, curr_y);
-                        l.setStrokeColor(Color.RED);
-                        l.setStrokeWidth(2);
-                        ov.add(l);
+                        if (b==0) {
+                            l.setStrokeColor(Color.RED);
+                        }
+                        else if (b==1) {
+                            l.setStrokeColor(Color.YELLOW);
+                        }
+                        else if (b==2) {
+                            l.setStrokeColor(Color.GREEN);
+                        }
+                        else {
+                            l.setStrokeColor(Color.BLUE);
+                        }
+
+                        l.setStrokeWidth(1.5);
+                        ov.add(l);            // add the line in case recursion was completed
+
+                        // TODO: add network to estimate the background - rectangle scaled with D
+
 
                     }
 
