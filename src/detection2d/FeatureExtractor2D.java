@@ -19,7 +19,8 @@ import java.nio.file.Path;
  * image.feat   (csv) with extracted features: nr. locations x 7 features,
  * image.feat.description (txt) file with the description of the features used
  * image.feat.params (txt) extraction log, parameters used for feature extraction
- * image.i2xy   (csv) with index (i) to coordinate (x,y) mapping, lookup table
+ * image.i2xy   (csv) with index (i) to zero-indexed coordinate (x,y) mapping, lookup table
+ * image.xy2i   (csv) with zero-indexed coordinate (x,y) to index (i) mapping, lookup table
  * image.frame  (csv) with frame map for each location (4xM index map describing the streamlines going from every location)
  * image.back.tif (tif image) estimated background
  * image.mask.tif (tif image) selection of foreground pixels
@@ -168,6 +169,7 @@ public class FeatureExtractor2D implements PlugInFilter {
         }
 
         Masker2D.formRemainingOutputs();
+		new ImagePlus("MASK", Masker2D.getMask()).show();
         /********************************/
         Profiler2D.loadTemplate(sph2d, Masker2D.i2xy, inimg_xy);
         int totalProfileComponents = sph2d.getProfileLength();
@@ -222,11 +224,12 @@ public class FeatureExtractor2D implements PlugInFilter {
         IJ.log(((t2-t1)/1000f)+"sec.");
 
 		IJ.log("exporting...");
-        PeakAnalyzer2D.exportFeatsCsv(   output_dir+image_name+".feat");    // export csv features      from PeakAnalyzer2D.feat2 to image_name.feat
+        PeakAnalyzer2D.exportFeatsCsv(   output_dir+image_name+".feat"); // export csv features from PeakAnalyzer2D.feat2 to image_name.feat
         PeakAnalyzer2D.exportFeatsLegend(output_dir+image_name+".feat.description");
         exportExtractionLegend(          output_dir+image_name+".feat.params");
         Masker2D.exportI2xyCsv(          output_dir+image_name+".i2xy"); // export csv lookup table  from Masker2D.i2xy to image_name.i2xy
-        PeakAnalyzer2D.exportFrames(     output_dir+image_name+".frame");
+        Masker2D.exportXy2iCsv(			 output_dir+image_name+".xy2i"); // export csv lookup from Masker2D.xy2i to image_name.xy2i
+		PeakAnalyzer2D.exportFrames(     output_dir+image_name+".frame");
         Masker2D.exportEstBackground(    output_dir+image_name+".back.tif");
 		Masker2D.exportForegroundMask(   output_dir+image_name+".mask.tif");
 		sph2d.exportSampling(            output_dir+image_name+".sampling.tif");
@@ -288,6 +291,5 @@ public class FeatureExtractor2D implements PlugInFilter {
         return true;
 
     }
-
 
 }

@@ -15,6 +15,10 @@ import java.util.Arrays;
  * Date: 12/16/13
  * Time: 3:24 PM
  * Parallel threaded implementation of masker module - robust foreground point extraction
+ * Separates foreground from the background to reduce the computation by comparing
+ * and thresholding the difference between
+ * 95th percentile and 50th percentile (median)  of the values within range of radiuses surrounding some location
+ * where median is background estimate taken at the smallest radius where the difference above iDiff exists
  */
 public class Masker2D extends Thread {
 
@@ -28,6 +32,11 @@ public class Masker2D extends Thread {
 	private static float            radiusCheck;
 	private static   float 			iDiff;
 	private static int              marginPix;
+	private static float[]			rses; // radiuses around the one given as argument
+	private static float			alfa = 0.75f;
+	private static float 			rmin = 2f;
+	private static float			rmax = 10f;
+
 
 	/*
 	OUTPUT
@@ -60,16 +69,31 @@ public class Masker2D extends Thread {
 		 */
 		back_xy = new byte[image_width][image_height];
 		mask_xy = new boolean[image_width][image_height];
-		i2xy 	= new int[1][1];                       // values known after run()
+		i2xy 	= new int[1][1];  // values known after run()
 		xy2i 	= new int[1][1];  // values known after run()
+
+		/*
+        multiscale : try different radiuses around the one that was set - to cover more scales
+		 */
+		rses = new float[3];
+		rses[0] = radiusCheck*alfa;
+		rses[1] = radiusCheck;
+		rses[2] = radiusCheck*(1f/alfa);
+
+		IJ.log("diameters to check:");
+		// constrain them
+		for (int aa=0; aa<rses.length; aa++) {
+			rses[aa] = (rses[aa]<rmin)? rmin : (rses[aa]>rmax)? rmax : rses[aa];
+			IJ.log(""+rses[aa]);
+		}
 
 	}
 
 	public void run()
 	{
 
-		int circNeighSize = sizeCircularNbhood(radiusCheck);
-		float[] circNeigh = new float[circNeighSize];
+		//int circNeighSize = sizeCircularNbhood(radiusCheck);
+		//float[] circNeigh = new float[circNeighSize];
 
 		for (int locIdx=begN; locIdx<endN; locIdx++) {
 
@@ -81,13 +105,24 @@ public class Masker2D extends Thread {
 
 			if (processIt) {
 
-				extractCircularNbhood(atX, atY, radiusCheck, circNeigh);
-				float m50 	= Stat.median(circNeigh);
-				float m95 = Stat.quantile(circNeigh, 15, 20);
+				float iDiffMax = Float.NEGATIVE_INFINITY;
 
-				back_xy[atX][atY] = (byte) Math.round(m50);
-				if (m95 - m50 > iDiff) {
-					mask_xy[atX][atY] = true;
+				for(int ridx = 0; ridx<rses.length; ridx++) {  // loop rs radiuses
+
+					float[] circNeigh = new float[sizeCircularNbhood(rses[ridx])];
+					extractCircularNbhood(atX, atY, rses[ridx], circNeigh);
+					float m50 	= Stat.median(circNeigh);
+					float m95 = Stat.quantile(circNeigh, 19, 20); // quantile ratio: how much signal there has to be
+
+					if (m95 - m50 > iDiffMax) {
+						back_xy[atX][atY] = (byte) Math.round(m50); // background estimate where the difference was the highest
+						iDiffMax = m95 - m50;
+					}
+
+					if (m95 - m50 > iDiff) {
+						mask_xy[atX][atY] = true;
+					}
+
 				}
 
 			}
@@ -225,8 +260,6 @@ public class Masker2D extends Thread {
 
     public static void exportI2xyCsv(String file_path) {
 
-//        IJ.log("exporting i2xy lookup table...");
-
         PrintWriter logWriter = null; //initialize writer
 
         try {
@@ -239,8 +272,7 @@ public class Masker2D extends Thread {
             logWriter = new PrintWriter(new BufferedWriter(new FileWriter(file_path, true)));
         } catch (IOException e) {}
 
-        //main loop
-        for (int ii=0; ii<i2xy.length; ii++) {
+        for (int ii=0; ii<i2xy.length; ii++) {  //main loop
             for (int jj=0; jj<i2xy[ii].length; jj++) {
                 logWriter.print(String.format("%6d", i2xy[ii][jj]));
                 if (jj<i2xy[ii].length-1) {
@@ -253,9 +285,38 @@ public class Masker2D extends Thread {
         }
 
         logWriter.close(); // close log
-//        IJ.log("Saved in "+file_path);
 
     }
+
+	public static void exportXy2iCsv(String file_path) {
+
+		PrintWriter logWriter = null; //initialize writer
+
+		try {
+			logWriter = new PrintWriter(file_path);
+			logWriter.print("");
+			logWriter.close();
+		} catch (FileNotFoundException ex) {}   // empty the file before logging...
+
+		try {                                   // initialize detection log file
+			logWriter = new PrintWriter(new BufferedWriter(new FileWriter(file_path, true)));
+		} catch (IOException e) {}
+
+		for (int ii=0; ii<xy2i.length; ii++) {  //main loop
+			for (int jj=0; jj<xy2i[ii].length; jj++) {
+				logWriter.print(String.format("%15d", xy2i[ii][jj]));
+				if (jj<xy2i[ii].length-1) {
+					logWriter.print(",\t");
+				}
+				else {
+					logWriter.print("\n");
+				}
+			}
+		}
+
+		logWriter.close(); // close log
+
+	}
 
 	public static void exportForegroundMask(String file_path) {
 
