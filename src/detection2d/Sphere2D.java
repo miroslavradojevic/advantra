@@ -725,7 +725,7 @@ public class Sphere2D {
 		return out;
 	}
 
-	public static float medianAlongLine(float x1, float y1, float x2, float y2, float[][] inimg_xy) {
+	public static float medianAlongLine(float x1, float y1, float x2, float y2, float[][] inimg_xy) { // TODO: move to PeakAnalyzer2D
 
         float increment_length = .7f;
 
@@ -757,42 +757,6 @@ public class Sphere2D {
 
 		return Stat.median(valuesAlongLine);
 
-	}
-
-	public static ArrayList<PointRoi> backgroundAlongLine(float x1, float y1, float x2, float y2, float[][] inimg_xy) {
-
-		// estimate the background as median or 1st quartile of image values from the square limited with (x1, y1) and (x2, y2)
-		ArrayList<PointRoi> pts = new ArrayList<PointRoi>();
-		float l = (float) Math.sqrt(Math.pow(x2-x1, 2)+Math.pow(y2-y1,2));
-		int N = (int) Math.ceil( l / (samplingStep*2) );
-		float vx, vy, wx, wy; // vectors that cover the square
-		//System.out.println("l = "+l+"\t r = "+radius);
-		vx = (x2-x1)/l;
-		vy = (y2-y1)/l;
-		wx = vy;
-		wy = -vx;
-
-		for (int ii=0; ii<=2*N; ii++) { // loops vector v
-
-			for (int jj=-N; jj<=N; jj++) { // loops vector w
-
-				float curr_x = x1 + ii * samplingStep * vx + jj * samplingStep * vy;
-				float curr_y = y1 + ii * samplingStep * wx + jj * samplingStep * wy;
-				//if (curr_x>=0 && curr_x<=inimg_xy.length-1 && curr_y>=0 && curr_y<=inimg_xy[0].length-1) {
-					pts.add(new PointRoi(curr_x, curr_y));
-				//}
-
-			}
-
-		}
-
-		return pts;
-
-	}
-
-	public static float backgroundLocalPatch(float x1, float y1, float x2, float y2, float[][] inimg_xy) {
-		// refill the values in localPatch
-		return 0;
 	}
 
 }

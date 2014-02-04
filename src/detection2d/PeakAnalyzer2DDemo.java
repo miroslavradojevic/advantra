@@ -2,8 +2,10 @@ package detection2d;
 
 import ij.IJ;
 import ij.ImagePlus;
+import ij.ImageStack;
 import ij.Prefs;
 import ij.gui.*;
+import ij.io.FileSaver;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
 
@@ -31,11 +33,11 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
     int         CPU_NR;
 
     /*
-    interface things
+    interface things (patches of the delineated spatial frame)
      */
-    ImagePlus pfl_im = new ImagePlus();    // used with live inspections
-    ImageProcessor pfl_ip = null;
-    ImageWindow pfl_iw;
+    ImagePlus       pfl_im = new ImagePlus();    // used with live inspections
+    ImageStack      pfl_is = null;
+    ImageWindow     pfl_iw;
     ImageCanvas cnv;
 
     public int setup(String s, ImagePlus imagePlus) {
@@ -143,7 +145,6 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
 
         Masker2D.formRemainingOutputs();
 
-
         Profiler2D.loadTemplate(sph2d, Masker2D.i2xy, inimg_xy);
         int totalProfileComponents = sph2d.getProfileLength();
 
@@ -214,8 +215,39 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
     public void mouseClicked(MouseEvent e)
     {
 
-        mouseMoved(e);
-        IJ.log("TRAIN! POSSIBLE");
+//        mouseMoved(e);
+
+        int clickX = cnv.offScreenX(e.getX());
+        int clickY = cnv.offScreenY(e.getY());
+
+//        FileSaver fs = new FileSaver(pfl_im);
+//        fs.saveAsTiffStack("/home/miroslav/patches.tif");
+//                 IJ.log("saved");
+
+        /*
+            output Stack with local patches & update window
+         */
+        pfl_is = PeakAnalyzer2D.getDelineationPatches(clickX, clickY);
+        pfl_im.setStack("patches", pfl_is);
+
+        if (pfl_iw==null) {
+            pfl_im.show();
+            pfl_iw = new ImageWindow(pfl_im);
+        }
+        else {
+            //pfl_iw.updateImage(pfl_im);
+        }
+
+//        pfl_iw.setSize(200, 200);
+//        pfl_iw.getCanvas().zoomIn(0,0);//fitToWindow();
+//        pfl_iw.getCanvas().zoomIn(0,0);//fitToWindow();
+//        pfl_iw.getCanvas().zoomIn(0,0);//fitToWindow();
+
+//        IJ.selectWindow(cnv.getImage().getWindow().getTitle());
+        IJ.setTool("hand");
+
+
+
 
     }
 
@@ -226,13 +258,17 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
         int clickX = cnv.offScreenX(e.getX());
         int clickY = cnv.offScreenY(e.getY());
 
-        Overlay ov = PeakAnalyzer2D.getDelineation(clickX, clickY);
-		ImageRoi fgroi = new ImageRoi(0, 0, Masker2D.getMask());    // !!! not very efficient to be done each time
-		fgroi.setOpacity(0.15);   // add foreground to know what was removed always
+        /*
+            output Overlay & update canvas with the original
+         */
+        Overlay ov = PeakAnalyzer2D.getDelineationOverlay(clickX, clickY);
+
+        ImageRoi fgroi = new ImageRoi(0, 0, Masker2D.getMask());    // !!! not very efficient to be done each time
+		fgroi.setOpacity(0.1);                                     // add foreground to know what was removed always
 		ov.add(fgroi);
 
         cnv.setOverlay(ov);
-		
+
 		// show data
 		PeakAnalyzer2D.print(clickX, clickY);
 
