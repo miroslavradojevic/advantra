@@ -539,7 +539,10 @@ public class PeakAnalyzer2D extends Thread {
                         ov.add(l);            // add the line in case recursion was completed
 
                         // TODO: add network to estimate the background - rectangle scaled with D
-
+						ArrayList<PointRoi> listPtsBck = Sphere2D.backgroundAlongLine(prev_x, prev_y, curr_x, curr_y, inimg_xy);
+						for (int aa=0; aa<listPtsBck.size(); aa++) {
+							ov.add(listPtsBck.get(aa));
+						}
 
                     }
 
