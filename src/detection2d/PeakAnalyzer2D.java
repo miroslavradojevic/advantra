@@ -417,39 +417,40 @@ public class PeakAnalyzer2D extends Thread {
 
     }
 
-	private static float medianAlongLine(int x1, int y1, int x2, int y2, float[][] inimg_xy) {
-
-		float increment_length = .7f;
-
-		float dist = (float) Math.sqrt(Math.pow(x2-x1, 2) + Math.pow(y2-y1, 2)); //  + Math.pow(z2lay-z1lay, 2)
-
-		int elementsInLine = (int) (dist / increment_length);  // how many increment can safely fit between
-		float[] valuesAlongLine = new float[elementsInLine];
-
-		float dx = (x2 - x1) / dist;
-		float dy = (y2 - y1) / dist;
-		// [dx, dy] is unit vector
-
-		dx *= increment_length;
-		dy *= increment_length;
-
-		for (int cc = 0; cc<elementsInLine; cc++) {
-
-			float atX = x1      + cc * dx;
-			float atY = y1      + cc * dy;
-//			float atZ = z1lay   + cc * dz;
-
-			if (atX<0 || atX>inimg_xy.length-1 || atY<0 || atY>inimg_xy[0].length-1) {
-				System.out.println(String.format("\n%5d.(%4d) element (X, Y) was set wrong: (%5.2f, %5.2f) when sampling values between (%5.2f, %5.2f)->(%5.2f, %5.2f)\n", cc, elementsInLine, atX, atY, x1, y1, x2, y2));
-			}
-
-			valuesAlongLine[cc] = Interpolator.interpolateAt(atX, atY, inimg_xy);
-
-		}
-
-		return Stat.median(valuesAlongLine);
-
-	}
+	// it is public only because Sphere2D uses it for weighting peaks while expanding
+//	public static float medianAlongLine(int x1, int y1, int x2, int y2, float[][] inimg_xy) {
+//
+//		float increment_length = .7f;
+//
+//		float dist = (float) Math.sqrt(Math.pow(x2-x1, 2) + Math.pow(y2-y1, 2)); //  + Math.pow(z2lay-z1lay, 2)
+//
+//		int elementsInLine = (int) (dist / increment_length);  // how many increment can safely fit between
+//		float[] valuesAlongLine = new float[elementsInLine];
+//
+//		float dx = (x2 - x1) / dist;
+//		float dy = (y2 - y1) / dist;
+//		// [dx, dy] is unit vector
+//
+//		dx *= increment_length;
+//		dy *= increment_length;
+//
+//		for (int cc = 0; cc<elementsInLine; cc++) {
+//
+//			float atX = x1      + cc * dx;
+//			float atY = y1      + cc * dy;
+////			float atZ = z1lay   + cc * dz;
+//
+//			if (atX<0 || atX>inimg_xy.length-1 || atY<0 || atY>inimg_xy[0].length-1) {
+//				System.out.println(String.format("\n%5d.(%4d) element (X, Y) was set wrong: (%5.2f, %5.2f) when sampling values between (%5.2f, %5.2f)->(%5.2f, %5.2f)\n", cc, elementsInLine, atX, atY, x1, y1, x2, y2));
+//			}
+//
+//			valuesAlongLine[cc] = Interpolator.interpolateAt(atX, atY, inimg_xy);
+//
+//		}
+//
+//		return Stat.median(valuesAlongLine);
+//
+//	}
 
     /*
         outputs
@@ -527,7 +528,7 @@ public class PeakAnalyzer2D extends Thread {
                             prev_y = i2xy[prev_i][1];
                         }
 
-                        Line l = new Line(prev_x, prev_y, curr_x, curr_y);
+                        Line l = new Line(prev_x+.5f, prev_y+.5f, curr_x+.5f, curr_y+.5f);
                         if (b==0) {
                             l.setStrokeColor(Color.RED);
                         }
@@ -620,7 +621,8 @@ public class PeakAnalyzer2D extends Thread {
 
     }
 
-    public static ImageStack getDelineationPatches(int atX, int atY) {
+    public static ImageStack getDelineationPatches(int atX, int atY)
+	{
 
         // create new ImageStack with every layer corresponding to one patch
         // involved in modelling the local structure
@@ -676,7 +678,45 @@ public class PeakAnalyzer2D extends Thread {
 
     }
 
-    public static void exportFeatsCsv(String file_path) {
+	public static ImageStack getDelineationLines(int atX, int atY) {
+		return new ImageStack();
+	}
+
+	public static float medianAlongLine(float x1, float y1, float x2, float y2, float[][] inimg_xy) {
+
+		float increment_length = .7f;
+
+		float dist = (float) Math.sqrt(Math.pow(x2-x1, 2) + Math.pow(y2-y1, 2)); //  + Math.pow(z2lay-z1lay, 2)
+
+		int elementsInLine = (int) (dist / increment_length);  // how many increment can safely fit between
+		float[] valuesAlongLine = new float[elementsInLine];
+
+		float dx = (x2 - x1) / dist;
+		float dy = (y2 - y1) / dist;
+		// [dx, dy] is unit vector
+
+		dx *= increment_length;
+		dy *= increment_length;
+
+		for (int cc = 0; cc<elementsInLine; cc++) {
+
+			float atX = x1      + cc * dx;
+			float atY = y1      + cc * dy;
+//			float atZ = z1lay   + cc * dz;
+
+//			if (atX<0 || atX>inimg_xy.length-1 || atY<0 || atY>inimg_xy[0].length-1) {
+//				System.out.println(String.format("\n%5d.(%4d) element (X, Y) was set wrong: (%5.2f, %5.2f) when sampling values between (%5.2f, %5.2f)->(%5.2f, %5.2f)\n", cc, elementsInLine, atX, atY, x1, y1, x2, y2));
+//			}
+
+			valuesAlongLine[cc] = Interpolator.interpolateAt(atX, atY, inimg_xy);
+
+		}
+
+		return Stat.median(valuesAlongLine);
+
+	}
+
+	public static void exportFeatsCsv(String file_path) {
 
         PrintWriter logWriter = null; //initialize writer
 
@@ -880,5 +920,11 @@ public class PeakAnalyzer2D extends Thread {
         return Stat.median(vals);
 
     }
+
+	/*
+		methods that deal with local line (defined with prev_xy and curr_xy)
+	 */
+
+
 
 }

@@ -290,6 +290,9 @@ public class Sphere2D {
 
     }
 
+	// TODO peakCoords_4xXY() should go to PeakExtractor2D instead to be consistent this way
+	// method medianAlongLine() used to weight clusters to be appended
+	// imlemented in PeakAnalyzer2D to extract the features actually (PeakAnalyzer2D also does feature extraction)
 	public void peakCoords_4xXY(short[] _profile,                           	// main input
                                 int[] start_pts, int[] end_pts,          		// aux. arrays (to avoid allocating them inside method each time) - end_pts is also an output
                                 int atX, int atY,                           	// for global coordinate outputs
@@ -342,7 +345,7 @@ public class Sphere2D {
 
 		for (int t=0; t<clusters_to_append.size(); t++) { // check every peak theta angle
 
-			float peak_theta = clusters_to_append.get(t)[0];   // value in [rad]  !!!!!!!!!
+			float peak_theta = clusters_to_append.get(t)[0];   // value in [rad] theta !!!!!!!!!
             int[] currentPeaksXY   = new int[2];
 
 			float x_peak_pix = atX + getX(radius, peak_theta);
@@ -368,7 +371,7 @@ public class Sphere2D {
 
                         if (check_x>=0 && check_x<W && check_y>=0 && check_y<H) { // is in image
 
-                            float currMedian = medianAlongLine(	atX, atY, check_x, check_y, _inimg_xy );
+                            float currMedian = PeakAnalyzer2D.medianAlongLine(	atX, atY, check_x, check_y, _inimg_xy );
 
                             if (_xy2i[check_x][check_y]!=-1)  {  // ensures retrieval from the list
 
@@ -396,7 +399,7 @@ public class Sphere2D {
                 int y_peak_pix_rounded = (int) Math.round(y_peak_pix);
 
                 if (x_peak_pix_rounded>=0 && x_peak_pix_rounded<W && y_peak_pix_rounded>=0 && y_peak_pix_rounded<H) {
-                    float currMedian = medianAlongLine(	atX, atY, x_peak_pix_rounded, y_peak_pix_rounded, _inimg_xy );
+                    float currMedian = PeakAnalyzer2D.medianAlongLine(	atX, atY, x_peak_pix_rounded, y_peak_pix_rounded, _inimg_xy );
                     if (_xy2i[x_peak_pix_rounded][y_peak_pix_rounded]!=-1) {
                         if (currMedian>maxWeight) { // dummy thing, just to be consistent
                             currentPeaksXY[0] = x_peak_pix_rounded;
@@ -723,40 +726,6 @@ public class Sphere2D {
 			out -= TWO_PI;
 		}
 		return out;
-	}
-
-	public static float medianAlongLine(float x1, float y1, float x2, float y2, float[][] inimg_xy) { // TODO: move to PeakAnalyzer2D
-
-        float increment_length = .7f;
-
-		float dist = (float) Math.sqrt(Math.pow(x2-x1, 2) + Math.pow(y2-y1, 2)); //  + Math.pow(z2lay-z1lay, 2)
-
-		int elementsInLine = (int) (dist / increment_length);  // how many increment can safely fit between
-		float[] valuesAlongLine = new float[elementsInLine];
-
-		float dx = (x2 - x1) / dist;
-		float dy = (y2 - y1) / dist;
-		// [dx, dy] is unit vector
-
-        dx *= increment_length;
-        dy *= increment_length;
-
-		for (int cc = 0; cc<elementsInLine; cc++) {
-
-			float atX = x1      + cc * dx;
-			float atY = y1      + cc * dy;
-//			float atZ = z1lay   + cc * dz;
-
-            if (atX<0 || atX>inimg_xy.length-1 || atY<0 || atY>inimg_xy[0].length-1) {
-                System.out.println(String.format("\n%5d.(%4d) element (X, Y) was set wrong: (%5.2f, %5.2f) when sampling values between (%5.2f, %5.2f)->(%5.2f, %5.2f)\n", cc, elementsInLine, atX, atY, x1, y1, x2, y2));
-            }
-
-			valuesAlongLine[cc] = Interpolator.interpolateAt(atX, atY, inimg_xy);
-
-		}
-
-		return Stat.median(valuesAlongLine);
-
 	}
 
 }
