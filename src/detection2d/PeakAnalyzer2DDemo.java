@@ -35,9 +35,11 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
     /*
     interface things (patches of the delineated spatial frame)
      */
-    ImagePlus       pfl_im = new ImagePlus();    // used with live inspections
-    ImageStack      pfl_is = null;
-    ImageWindow     pfl_iw;
+    ImagePlus       pfl_im  = new ImagePlus();    // used with live inspections (viz patches)
+    ImagePlus       pfl_im1  = new ImagePlus();    // used with live inspections (plot)
+    ImageStack      pfl_is  = null;
+    ImageStack      pfl_is1  = null;
+//    ImageWindow     pfl_iw  = null;
     ImageCanvas cnv;
 
     public int setup(String s, ImagePlus imagePlus) {
@@ -229,25 +231,13 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
          */
         pfl_is = PeakAnalyzer2D.getDelineationPatches(clickX, clickY);
         pfl_im.setStack("patches", pfl_is);
+        pfl_im.show();
 
-        if (pfl_iw==null) {
-            pfl_im.show();
-            pfl_iw = new ImageWindow(pfl_im);
-        }
-        else {
-            //pfl_iw.updateImage(pfl_im);
-        }
+        pfl_is1 = PeakAnalyzer2D.plotDelineationLines(clickX, clickY);
+        pfl_im1.setStack("lines", pfl_is1);
+        pfl_im1.show();
 
-//        pfl_iw.setSize(200, 200);
-//        pfl_iw.getCanvas().zoomIn(0,0);//fitToWindow();
-//        pfl_iw.getCanvas().zoomIn(0,0);//fitToWindow();
-//        pfl_iw.getCanvas().zoomIn(0,0);//fitToWindow();
-
-//        IJ.selectWindow(cnv.getImage().getWindow().getTitle());
         IJ.setTool("hand");
-
-
-
 
     }
 
