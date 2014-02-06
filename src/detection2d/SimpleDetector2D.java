@@ -7,7 +7,7 @@ import ij.process.ByteProcessor;
 /**
  * Created by miroslav on 1/9/14.
  * takes the robustly estimated peaks
- * loops the locations' peak skeletons extracted using PeakAnalyzer2D (the usage of that class draws th usage of the other classes as well)
+ * loops the locatio+++ns' peak skeletons extracted using PeakAnalyzer2D (the usage of that class draws th usage of the other classes as well)
  * detector checks if the robust, consistent peak recursion evolved till the proposed end, along at least three branches
  * no special unsupervised/supervised detection, just structure fit used to make the decision
  * is supposed to give the rough sketch of the areas that can be bifurcation spots, the rest is to extract the features and do thorough decision making

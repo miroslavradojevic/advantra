@@ -35,7 +35,7 @@ public class Masker2D extends Thread {
 	private static float[]			rses; // radiuses around the one given as argument
 	private static float			alfa = 0.75f;
 	private static float 			rmin = 2f;
-	private static float			rmax = 10f;
+	private static float			rmax = 20f; // max what you expect the diameter to be
 
 
 	/*
@@ -84,7 +84,7 @@ public class Masker2D extends Thread {
 		// constrain them
 		for (int aa=0; aa<rses.length; aa++) {
 			rses[aa] = (rses[aa]<rmin)? rmin : (rses[aa]>rmax)? rmax : rses[aa];
-			IJ.log(""+rses[aa]);
+			IJ.log("the neighbourhood diameter is "+rses[aa]);
 		}
 
 	}
