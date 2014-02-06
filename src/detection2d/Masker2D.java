@@ -80,11 +80,10 @@ public class Masker2D extends Thread {
 		rses[1] = radiusCheck;
 		rses[2] = radiusCheck*(1f/alfa);
 
-		IJ.log("diameters to check:");
 		// constrain them
 		for (int aa=0; aa<rses.length; aa++) {
 			rses[aa] = (rses[aa]<rmin)? rmin : (rses[aa]>rmax)? rmax : rses[aa];
-			IJ.log("the neighbourhood diameter is "+rses[aa]);
+			//IJ.log("the neighbourhood diameter is "+rses[aa]);
 		}
 
 	}

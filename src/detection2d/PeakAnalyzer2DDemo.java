@@ -7,6 +7,7 @@ import ij.Prefs;
 import ij.gui.*;
 import ij.io.FileSaver;
 import ij.plugin.filter.PlugInFilter;
+import ij.process.ByteProcessor;
 import ij.process.ImageProcessor;
 
 import java.awt.event.MouseEvent;
@@ -205,6 +206,24 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
 
 //        PeakAnalyzer2D.exportFeatsCsv(System.getProperty("user.home") + File.separator + "trial.feat"); // export features
 
+        SimpleDetector2D.loadTemplate(inimg_xy.length, inimg_xy[0].length, Masker2D.i2xy, PeakAnalyzer2D.delin2);
+        int totalSimpleDetectComponents = Masker2D.i2xy.length;
+
+        SimpleDetector2D sd_jobs[] = new SimpleDetector2D[CPU_NR];
+        for (int i = 0; i < sd_jobs.length; i++) {
+            sd_jobs[i] = new SimpleDetector2D(i*totalSimpleDetectComponents/CPU_NR, (i+1)*totalSimpleDetectComponents/CPU_NR);
+            sd_jobs[i].start();
+        }
+        for (int i = 0; i<sd_jobs.length; i++) {
+            try {
+                sd_jobs[i].join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+
+        SimpleDetector2D.drawDetections();                    // show it and overlay maybe
+
         t2 = System.currentTimeMillis();
         IJ.log("done. " + ((t2 - t1) / 1000f) + "sec.");
 
@@ -254,16 +273,33 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
         int clickX = cnv.offScreenX(e.getX());
         int clickY = cnv.offScreenY(e.getY());
 
+        Overlay curr_overlay = cnv.getImage().getOverlay(); // get current overlay
+
+        // add new overlay on top of it
+
+
         /*
             output Overlay & update canvas with the original
          */
-        Overlay ov = PeakAnalyzer2D.getDelineationOverlay(clickX, clickY);
+        Overlay ov_to_add = PeakAnalyzer2D.getDelineationOverlay(clickX, clickY);
+        for (int yy=0; yy<ov_to_add.size(); yy++) {
 
-        ImageRoi fgroi = new ImageRoi(0, 0, Masker2D.getMask());    // !!! not very efficient to be done each time
-		fgroi.setOpacity(0.1);                                     // add foreground to know what was removed always
-		ov.add(fgroi);
+            //basic_overlay.add(ov_to_add);
 
-        cnv.setOverlay(ov);
+        }
+
+
+        //ImageRoi fgroi = new ImageRoi(0, 0, Masker2D.getMask());    // !!! not very efficient to be done each time
+        ImageRoi simple_det_roi = new ImageRoi(0, 0, new ByteProcessor(inimg_xy.length, inimg_xy[0].length, SimpleDetector2D.score2));
+        // !!! not very efficient to be done each time
+
+
+        simple_det_roi.setOpacity(0.1);            // add foreground to know what was removed always
+        ov_to_add.add(simple_det_roi); //    +
+        //simple_det_roi.setOpacity(0.1);     // add foreground to know what was removed always
+		//ov.add(simple_det_roi);
+
+        cnv.setOverlay(ov_to_add);
 
 		// show data
 		PeakAnalyzer2D.print(clickX, clickY);

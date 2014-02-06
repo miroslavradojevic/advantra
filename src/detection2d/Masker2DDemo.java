@@ -102,7 +102,7 @@ public class Masker2DDemo implements PlugInFilter {
         t2 = System.currentTimeMillis();
         IJ.log("done. "+((t2-t1)/1000f)+"sec.");
 
-        ImagePlus outmask = new ImagePlus("mask,D="+IJ.d2s(,1), Masker2D.getMask());
+        ImagePlus outmask = new ImagePlus("mask,R="+IJ.d2s(nhoodRadius,1)+",iDiff="+IJ.d2s(iDiff,2), Masker2D.getMask());
         outmask.show();
 
         ImagePlus outback = new ImagePlus("background", Masker2D.getBackground());
