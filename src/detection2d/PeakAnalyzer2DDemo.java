@@ -29,6 +29,7 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
     float       s = 1.5f;               // scale is fixed
     float       iDiff, D, minCos, scatterDist;
     int         M = 2;
+	float 		threshold; 				// used for feature score normalization
 
     int         CPU_NR;
 
@@ -39,7 +40,6 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
     ImagePlus       pfl_im1  = new ImagePlus();    // used with live inspections (plot)
     ImageStack      pfl_is  = null;
     ImageStack      pfl_is1  = null;
-//    ImageWindow     pfl_iw  = null;
     ImageCanvas cnv;
 
     public int setup(String s, ImagePlus imagePlus) {
@@ -74,6 +74,7 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
         this.M 					        	= (int)     Prefs.get("advantra.critpoint.analyze.m", 2);
         this.minCos 					    = (float)   Prefs.get("advantra.critpoint.analyze.min_cos", 0.5f);
         this.scatterDist                    = (float)   Prefs.get("advantra.critpoint.analyze.scatter_d", 5f);
+		this.threshold						= (float) 	Prefs.get("advantra.critpoint.analyze.threshold", 10f);
 
         GenericDialog gd = new GenericDialog("PROFILER2DDEMO");
         gd.addNumericField("iDiff ", 	iDiff, 			0, 10, "intensity margin");
@@ -81,6 +82,8 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
         gd.addNumericField("M ", 	    M, 			    0, 10, "branch len.");
         gd.addNumericField("min cos ", 	minCos, 	    1, 10, "alignment parameter.");
         gd.addNumericField("scatter d ",scatterDist, 	1, 10, "max allowed scatter (robustness test)");
+		gd.addMessage("feat. calculation");
+		gd.addNumericField("threshold ",threshold, 		1, 10, "intensity margin");
 
         gd.showDialog();
         if (gd.wasCanceled()) return DONE;
@@ -99,6 +102,9 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
 
         scatterDist     = (float) gd.getNextNumber();
         Prefs.set("advantra.critpoint.analyze.scatter_d", 	scatterDist);
+
+		threshold		= (float) gd.getNextNumber();
+		Prefs.set("advantra.critpoint.analyze.threshold", 	threshold);
 
         CPU_NR = Runtime.getRuntime().availableProcessors();
 
@@ -181,7 +187,7 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
         }
 
 
-        PeakAnalyzer2D.loadTemplate(Masker2D.i2xy, Masker2D.xy2i, PeakExtractor2D.peaks_xy, inimg_xy, Masker2D.back_xy, M, minCos, scatterDist); // initialize peak analyzer parameters
+        PeakAnalyzer2D.loadTemplate(Masker2D.i2xy, Masker2D.xy2i, PeakExtractor2D.peaks_xy, inimg_xy, Masker2D.back_xy, M, minCos, scatterDist, threshold); // initialize peak analyzer parameters
         int totalPeakAnalyzeComponents = Masker2D.i2xy.length; // number of locations
 
         PeakAnalyzer2D pa_jobs[] = new PeakAnalyzer2D[CPU_NR];

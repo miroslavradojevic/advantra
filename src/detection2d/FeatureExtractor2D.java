@@ -44,6 +44,7 @@ public class FeatureExtractor2D implements PlugInFilter {
     float       iDiff, D, minCos, scatterDist;
     int         M = 2;
     float       s = 1.5f;
+	float 		threshold; 				// used for feature score normalization
 
     int         CPU_NR;
 
@@ -89,7 +90,7 @@ public class FeatureExtractor2D implements PlugInFilter {
         this.minCos 					    = (float)   Prefs.get("advantra.critpoint.analyze.min_cos", 0.2f);
         this.scatterDist                    = (float)   Prefs.get("advantra.critpoint.analyze.scatter_d", 2*this.D);
         this.s                              = (float)   Prefs.get("advantra.critpoint.profile.s", 1.5f);
-
+		this.threshold						= (float) 	Prefs.get("advantra.critpoint.analyze.threshold", 10f);
 
         GenericDialog gd = new GenericDialog("FEATURE_EXTRACTION");
         gd.addNumericField("idiff", 	iDiff, 			1, 20, "intensity margin");
@@ -98,6 +99,8 @@ public class FeatureExtractor2D implements PlugInFilter {
         gd.addNumericField("mincos", 	minCos, 	    1, 20, "alignment parameter.");
         gd.addNumericField("scatter_d",scatterDist, 	1, 20, "max allowed scatter (robustness test)");
         gd.addNumericField("scale",    s, 	            1, 20, "profiler scale");
+		gd.addMessage("feat. calculation");
+		gd.addNumericField("threshold ",threshold, 		1, 10, "intensity margin");
 
         gd.showDialog();
         if (gd.wasCanceled()) return DONE;
@@ -119,6 +122,9 @@ public class FeatureExtractor2D implements PlugInFilter {
 
         s               = (float) gd.getNextNumber();
         Prefs.set("advantra.critpoint.profile.s", 	        s);
+
+		threshold		= (float) gd.getNextNumber();
+		Prefs.set("advantra.critpoint.analyze.threshold", 	threshold);
 
         output_dir =
                 image_dir + File.separator +
@@ -203,7 +209,7 @@ public class FeatureExtractor2D implements PlugInFilter {
             }
         }
         /********************************/
-        PeakAnalyzer2D.loadTemplate(Masker2D.i2xy, Masker2D.xy2i, PeakExtractor2D.peaks_xy, inimg_xy, Masker2D.back_xy, M, minCos, scatterDist); // initialize peak analyzer parameters
+        PeakAnalyzer2D.loadTemplate(Masker2D.i2xy, Masker2D.xy2i, PeakExtractor2D.peaks_xy, inimg_xy, Masker2D.back_xy, M, minCos, scatterDist, threshold); // initialize peak analyzer parameters
         int totalPeakAnalyzeComponents = Masker2D.i2xy.length; // number of locations
 
         PeakAnalyzer2D pa_jobs[] = new PeakAnalyzer2D[CPU_NR];
