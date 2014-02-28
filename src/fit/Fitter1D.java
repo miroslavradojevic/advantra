@@ -109,6 +109,8 @@ public class Fitter1D {
 
 		float[] out = new float[]{Float.NaN, Float.MAX_VALUE};
 
+
+
 		return out;
 
 	}

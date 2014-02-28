@@ -39,6 +39,7 @@ public class PeakAnalyzer2D extends Thread {
 	public static byte[][]		backg_xy;				// background estimation (for feature extraction)
 
     // PARAMETERS
+    public static float D = 4f;
     public static int M = 2;                            // how much it expands recursively from the center
     public static float minCos = 0.6f;                  // allowed derail
     public static float scatterDist = 5;                // allowed scatter dist, upper limit, half of the neighbouring peaks should be within
@@ -61,8 +62,9 @@ public class PeakAnalyzer2D extends Thread {
     }
 
     public static void loadTemplate(int[][] _i2xy, int[][] _xy2i, int[][][] _peaks_xy, float[][] _inimg_xy, byte[][] _backgr_xy,
-									int _M, float _minCos, float _scatterDist, float _threshold) {
+									int _M, float _minCos, float _scatterDist, float _threshold, float _D) {
 
+        D = _D;
         i2xy = _i2xy;
         xy2i = _xy2i;
         peaks_xy = _peaks_xy;
@@ -497,7 +499,7 @@ public class PeakAnalyzer2D extends Thread {
 
         // return the delineated local structure Overlay for visualization
         Overlay ov = new Overlay();
-        float R = 1;
+        float R = 1; // radius of the circles written
         OvalRoi ovalroi = new OvalRoi(atX-(R/2)+.5f, atY-(R/2)+.5f, R, R);
         ov.add(ovalroi);
 
@@ -517,7 +519,7 @@ public class PeakAnalyzer2D extends Thread {
             //for (int a=0; a<delin_at_loc.length; a++) IJ.log(Arrays.toString(delin_at_loc[a]));
             //IJ.log("_____\n");
 
-            for (int b = 0; b<delin_at_loc.length; b++) {           // loop 4 branches, b index defines the strength
+            for (int b = 0; b<delin_at_loc.length; b++) {           // loop 4 branches, b index defines the branch "strength"
 
                 boolean complete = true;
 
@@ -570,12 +572,15 @@ public class PeakAnalyzer2D extends Thread {
                         for (int aa = 0; aa < line_pts.size(); aa++) {
                             ov.add(line_pts.get(aa));
                         }
-//                      Line l = new Line(prev_x+.5f, prev_y+.5f, curr_x+.5f, curr_y+.5f);
 
-                        ArrayList<PointRoi> pts = localPatchLocs(prev_x, prev_y, curr_x, curr_y);
-						for (int aa=0; aa<pts.size(); aa++) {
+                        // add the patch locations
+                        //ArrayList<PointRoi> pts = localPatchLocs(prev_x, prev_y, curr_x, curr_y);
+                        ArrayList<PointRoi> pts = localPatchAvgProfile(prev_x, prev_y, curr_x, curr_y, D);
+
+                        for (int aa=0; aa<pts.size(); aa++) {
 							ov.add(pts.get(aa));
 						}
+
 
                     }
 
@@ -661,11 +666,11 @@ public class PeakAnalyzer2D extends Thread {
 
         if (idx!=-1) {
 
-            int[][] delin_at_loc = PeakAnalyzer2D.delin2[idx];
+            int[][] delin_at_loc = PeakAnalyzer2D.delin2[idx];      //
 
             for (int b = 0; b<delin_at_loc.length; b++) {           // loop 4 branches, b index defines the strength
 
-                if (delin_at_loc[b][M-1] != -1) { // if the last one is there - it is complete
+                if (delin_at_loc[b][M-1] != -1) {                   // if the last one is there - it is complete
 
                     for (int m = 0; m<M; m++) {
 
@@ -991,13 +996,50 @@ public class PeakAnalyzer2D extends Thread {
 
     }
 
+
+
     /*
         methods that deal with local image patch - (rectangle defined with prev_xy and curr_xy)
         extract set of PointRoi-s used for sampling,    localPatchLocs()   (vizualization only)
         extract array with sampled image values,        localPatchVals()   (vizualization only)
         or final median estimate of the patch values    localPatchMedn()   (real thing)
+         localPatchAvgProfile() (average of the profiles along)
         (median serves as the estimate of the background level)
      */
+
+    private static ArrayList<PointRoi> localPatchAvgProfile(float x1, float y1, float x2, float y2, float D) {
+
+        // D will define the size of the patch (neuron diameter is used here)
+        float l = (float) Math.sqrt(Math.pow(x2-x1, 2)+Math.pow(y2-y1,2));
+        int N = (int) Math.ceil( D / (samplingStep * 2) );
+        float vx, vy, wx, wy;
+        vx = (x2-x1)/l;
+        vy = (y2-y1)/l;
+        wx = vy;
+        wy = -vx;
+
+        // allocate outputs
+        ArrayList<PointRoi> pts = new ArrayList<PointRoi>((2*N+1)*(2*N+1));
+
+        for (int ii=0; ii<=2*N; ii++) { // loops vector v
+
+            for (int jj=-N; jj<=N; jj++) { // loops vector w
+
+                float curr_x = x1 + ii * samplingStep * vx + jj * samplingStep * vy;
+                float curr_y = y1 + ii * samplingStep * wx + jj * samplingStep * wy;
+
+                PointRoi pt = new PointRoi(curr_x+.5f, curr_y+.5f);
+                pt.setFillColor(Color.DARK_GRAY);
+                pts.add(pt);
+
+            }
+
+        }
+
+        return pts;
+
+    }
+
     private static ArrayList<PointRoi> localPatchLocs(float x1, float y1, float x2, float y2) { // , float[][] inimg_xy
 
         float l = (float) Math.sqrt(Math.pow(x2-x1, 2)+Math.pow(y2-y1,2));   // l will vary depending on the chosen pixel (it's not always perfectly symmetric)
@@ -1030,6 +1072,8 @@ public class PeakAnalyzer2D extends Thread {
         return pts;
 
     }
+
+
 
     private static float[] localPatchVals(float x1, float y1, float x2, float y2, float[][] inimg_xy) {
         // estimate the background as median or 1st quartile of image values from the square limited with (x1, y1) and (x2, y2)
