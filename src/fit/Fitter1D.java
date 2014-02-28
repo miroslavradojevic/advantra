@@ -3,16 +3,17 @@ package fit;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.Plot;
+import ij.process.ImageProcessor;
 
 import java.util.ArrayList;
 
 /**
  * Created by miroslav on 2/7/14.
  * Fitting gaussian 1d profile given the input 1d profile vector
- * class contains the library of 1d profiles that can be expected with neuron from 2d patches
+ * class contains the library of 1d profiles that can be expected with neuron from projecting along 2d patches
  * (if calculated averages along verticals of the patch)
  * all the profiles are the expected gaussian bells typical for the neuron, normalized 0-1
- * it's the shape that's being matched and quantification of that fit
+ * it's the shape that's being matched and quantification of that fit through ssd, ncc, etc...
  *
  */
 public class Fitter1D {
@@ -89,21 +90,28 @@ public class Fitter1D {
         for (int i=0; i<templates.size(); i++) {
 
             float   curr_ssd_score  = 0;
-            int     curr_idx    = -1;
 
-            for (int j =0; j<templates.get(i)[j]; j++) {
+			// profile has to have the same length
+			for (int j =0; j<templates.get(i)[j]; j++) curr_ssd_score += Math.pow(profile[j] - templates.get(i)[j], 2);
 
-                // profile has to have the same length
-                curr_ssd_score += Math.pow(profile[j] - templates.get(i)[j], 2);
-
-
-            }
-
+			if (curr_ssd_score < out[1]) {
+				out[1] = curr_ssd_score;
+				out[0] = i;
+			}
 
         }
-        return 0f;
+
+        return out;
 
     }
+
+	public float[] ncc() {
+
+		float[] out = new float[]{Float.NaN, Float.MAX_VALUE};
+
+		return out;
+
+	}
 
     public void showTemplates() {
 
@@ -123,5 +131,21 @@ public class Fitter1D {
         img_out.show();
 
     }
+
+	public float[] getTemplate(int template_index) {
+
+		return templates.get(template_index);
+
+	}
+
+	public Plot getTemplatePlot(int template_index) {
+
+		float[] xaxis = new float[vector_len];
+		for (int aa=0; aa<vector_len; aa++) xaxis[aa] = aa;
+
+		Plot p = new Plot("", "", "", xaxis, templates.get(template_index));
+		return p;
+
+	}
 
 }

@@ -291,8 +291,6 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
 
         //ImageRoi fgroi = new ImageRoi(0, 0, Masker2D.getMask());    // !!! not very efficient to be done each time
         ImageRoi simple_det_roi = new ImageRoi(0, 0, new ByteProcessor(inimg_xy.length, inimg_xy[0].length, SimpleDetector2D.score2));
-        // !!! not very efficient to be done each time
-
 
         simple_det_roi.setOpacity(0.1);            // add foreground to know what was removed always
         ov_to_add.add(simple_det_roi); //    +
