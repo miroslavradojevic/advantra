@@ -209,9 +209,13 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
         }
 
 //        PeakAnalyzer2D.exportFeatsCsv(System.getProperty("user.home") + File.separator + "trial.feat"); // export features		
+
+
+
+
+        /*
         SimpleDetector2D.loadTemplate(inimg_xy.length, inimg_xy[0].length, Masker2D.i2xy, PeakAnalyzer2D.delin2);
         int totalSimpleDetectComponents = Masker2D.i2xy.length;
-
         SimpleDetector2D sd_jobs[] = new SimpleDetector2D[CPU_NR];
         for (int i = 0; i < sd_jobs.length; i++) {
             sd_jobs[i] = new SimpleDetector2D(i*totalSimpleDetectComponents/CPU_NR, (i+1)*totalSimpleDetectComponents/CPU_NR);
@@ -224,8 +228,8 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
                 e.printStackTrace();
             }
         }
-
-        SimpleDetector2D.drawDetections();                    // show it and overlay maybe
+        SimpleDetector2D.drawDetections();                    // show it as DET and overlay maybe
+        */
 
         t2 = System.currentTimeMillis();
         IJ.log("done. " + ((t2 - t1) / 1000f) + "sec.");
@@ -240,7 +244,6 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
 		IJ.setTool("hand");
 
     }
-
 
     public void mouseClicked(MouseEvent e)
     {
@@ -261,8 +264,8 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
         pfl_im.setStack("patches", pfl_is);
         pfl_im.show();
 
-        pfl_is1 = PeakAnalyzer2D.plotDelineationLines(clickX, clickY);
-        pfl_im1.setStack("lines", pfl_is1);
+        pfl_is1 = PeakAnalyzer2D.plotDelineationProfiles(clickX, clickY);
+        pfl_im1.setStack("cross-profiles", pfl_is1);
         pfl_im1.show();
 
         IJ.setTool("hand");
@@ -284,24 +287,23 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
             output Overlay & update canvas with the original
          */
         Overlay ov_to_add = PeakAnalyzer2D.getDelineationOverlay(clickX, clickY);
-        for (int yy=0; yy<ov_to_add.size(); yy++) {
+//        for (int yy=0; yy<ov_to_add.size(); yy++) {
+//            //basic_overlay.add(ov_to_add);
+//        }
 
-            //basic_overlay.add(ov_to_add);
-
-        }
-
+        // add the whole image on top as overlay each time mouse is moved
         //ImageRoi fgroi = new ImageRoi(0, 0, Masker2D.getMask());    // !!! not very efficient to be done each time
-        ImageRoi simple_det_roi = new ImageRoi(0, 0, new ByteProcessor(inimg_xy.length, inimg_xy[0].length, SimpleDetector2D.score2));
+        //ImageRoi simple_det_roi = new ImageRoi(0, 0, new ByteProcessor(inimg_xy.length, inimg_xy[0].length, SimpleDetector2D.score2));
 
-        simple_det_roi.setOpacity(0.1);            // add foreground to know what was removed always
-        ov_to_add.add(simple_det_roi); //    +
+        //simple_det_roi.setOpacity(0.1);     // add foreground to know what was removed always
+        //ov_to_add.add(simple_det_roi);
         //simple_det_roi.setOpacity(0.1);     // add foreground to know what was removed always
 		//ov.add(simple_det_roi);
 
         cnv.setOverlay(ov_to_add);
 
 		// show data
-		PeakAnalyzer2D.print(clickX, clickY);
+		//PeakAnalyzer2D.print(clickX, clickY);
 
     }
 
