@@ -27,7 +27,7 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
     /*
     parameters
      */
-    float       s = 1.5f;               // scale is fixed
+    float       s = 1.2f;               // scale is fixed
     float       iDiff, D, minCos, scatterDist;
     int         M = 2;
 	float 		threshold; 				// used for feature score normalization
@@ -119,6 +119,7 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
 
         Sphere2D sph2d = new Sphere2D(D, s);
 
+		/*
         ImagePlus samplingScheme =  sph2d.showSampling();
         samplingScheme.show();
         samplingScheme.getWindow().setSize(600, 600);
@@ -128,6 +129,7 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
         weightScheme.show();
         weightScheme.getWindow().setSize(600, 600);
         weightScheme.getCanvas().fitToWindow();
+		*/
 
         /*
         main
@@ -137,6 +139,7 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
 
 
         Masker2D.loadTemplate(inimg_xy, 0, sph2d.getOuterRadius(), iDiff);
+//		IJ.log("sphere outer radius " + sph2d.getOuterRadius());
         int totalLocs = inimg_xy.length * inimg_xy[0].length;
 
         Masker2D ms_jobs[] = new Masker2D[CPU_NR];
@@ -153,6 +156,7 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
         }
 
         Masker2D.formRemainingOutputs();
+		//new ImagePlus("MASK", Masker2D.getMask()).show();
 
         Profiler2D.loadTemplate(sph2d, Masker2D.i2xy, inimg_xy);
         int totalProfileComponents = sph2d.getProfileLength();
@@ -204,8 +208,7 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
             }
         }
 
-//        PeakAnalyzer2D.exportFeatsCsv(System.getProperty("user.home") + File.separator + "trial.feat"); // export features
-
+//        PeakAnalyzer2D.exportFeatsCsv(System.getProperty("user.home") + File.separator + "trial.feat"); // export features		
         SimpleDetector2D.loadTemplate(inimg_xy.length, inimg_xy[0].length, Masker2D.i2xy, PeakAnalyzer2D.delin2);
         int totalSimpleDetectComponents = Masker2D.i2xy.length;
 

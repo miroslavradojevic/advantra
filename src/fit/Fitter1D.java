@@ -1,5 +1,6 @@
 package fit;
 
+import aux.Stat;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.Plot;
@@ -21,65 +22,95 @@ public class Fitter1D {
     int vector_len;
 
     // template profiles
-    ArrayList<float[]> templates;
+    ArrayList<float[]> 	templates;
+	ArrayList<Float> 	templates_mean;
+	ArrayList<float[]>	templates_mean_subtr;
+	ArrayList<Float> 	templates_mean_subtr_sum;
+	ArrayList<String>	template_legend;
 
     // middle
-    float middle_idx, start_sigma, end_sigma, start_width, end_width, d_sigma = 1f, d_width = 2f;
+    float middle_idx,
+			start_sigma, d_sigma, end_sigma, // slope
+			start_width, d_width, end_width, // basic width
+			start_shift, d_shift, end_shift; // sift from middle
 
-    public Fitter1D(int _vector_len){
+    public Fitter1D(int _vector_len, boolean verbose){
 
+		// parameters
         vector_len  = _vector_len;
-        start_sigma = vector_len*0.25f;
-        end_sigma   = vector_len*0.95f;
-        d_sigma     = vector_len*0.05f;
-        start_width = 0;
-        end_width   = vector_len*0.5f;
-        d_width     = vector_len*0.1f;
 
-        middle_idx = (vector_len-1) / 2f;
+		middle_idx = (vector_len-1) / 2f;
+		// sigma
+		start_sigma = vector_len*0.25f;
+		d_sigma     = vector_len*0.05f;
+		end_sigma   = vector_len*0.95f;
+		// width
+		start_width = 0;
+		d_width     = vector_len*0.1f;
+		end_width   = vector_len*0.0f;
+		//shift
+		start_shift	= -vector_len*0.2f;
+		d_shift		= vector_len*0.05f;
+		end_shift	= -start_shift;
 
-        templates = new ArrayList<float[]>();
+		// variables will be stored in:
+		// templates                                  	(vector)
+		// templates_mean (used for NCC calculation)  	(scalar)
+		// templates - templates_mean                 	(vector)
+		// sum(templates - templates_mean)				(scalar)
+		// templates_legend 							(string)
+        templates 			= new ArrayList<float[]>();
+		templates_mean 		= new ArrayList<Float>();
+		templates_mean_subtr= new ArrayList<float[]>();
+		templates_mean_subtr_sum = new ArrayList<Float>();
+		template_legend = new ArrayList<String>();
 
         // width loop, sigma loop
-        for(float wd = start_width; wd<=end_width; wd+=d_width) {
+        for(float width = start_width; width<=end_width; width+=d_width) {
 
             for (float sigma = start_sigma; sigma < end_sigma; sigma+=d_sigma) {
 
-                float[] templates_element = new float[vector_len];
+				for (float shift = start_shift; shift < end_shift; shift+=d_shift) {
 
-//                float min_val = Float.MAX_VALUE, max_val = Float.NEGATIVE_INFINITY;
+					float[] templates_element = new float[vector_len];
 
-                for (int i = 0; i < vector_len; i++) {
+					float boundary_1 = middle_idx + shift - width/2;
+					float boundary_2 = middle_idx + shift + width/2;
 
-                    if (i<middle_idx-wd/2) {
-                        double d = middle_idx - wd/2 - i;
-                        templates_element[i] = (float) Math.exp(-Math.pow(d, 2)/(2*sigma));
-                    }
-                    else if (i>=middle_idx-wd/2 && i<middle_idx+wd/2) {
-                        float d = i - middle_idx;
-                        templates_element[i] = 1;
-                        //d = (d<0)? -d : d ;
-                        //templates_element[i] = (float) Math.exp(-Math.pow(d, 2)/(2*sigma));
-                    }
-                    else {
-                        float d = i - (middle_idx + wd/2);
-                        templates_element[i] = (float) Math.exp(-Math.pow(d, 2)/(2*sigma));
-                    }
+					for (int i = 0; i < vector_len; i++) {
 
-//                    if (templates_element[i] > max_val) {
-//                        max_val = templates_element[i];
-//                    }
-//                    if (templates_element[i] < min_val) {
-//                        min_val = templates_element[i];
-//                    }
+						if (i < boundary_1) {
+							double d = boundary_1 - i;
+							templates_element[i] = (float) Math.exp(-Math.pow(d, 2)/(2*sigma*sigma));
+						}
+						else if (i >= boundary_1 && i < boundary_2) {
+							templates_element[i] = 1;
+						}
+						else {
+							float d = i - boundary_2;
+							templates_element[i] = (float) Math.exp(-Math.pow(d, 2)/(2*sigma*sigma));
+						}
 
-                }
+					}
 
-                templates.add(templates_element);
+					templates.add(templates_element);
+					// calculate mean
+					templates_mean.add(Stat.average(templates_element));
+					// subtract and store in the same array
+
+
+				}
+
+
 
             }
 
         }
+
+		if (verbose) {
+			System.out.println("created " + templates.size() + " template profiles.");
+		}
+
 
     }
 
@@ -105,7 +136,7 @@ public class Fitter1D {
 
     }
 
-	public float[] ncc() {
+	public float[] ncc(float[] profile) {
 
 		float[] out = new float[]{Float.NaN, Float.MAX_VALUE};
 
