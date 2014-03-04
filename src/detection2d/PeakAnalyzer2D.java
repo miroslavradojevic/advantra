@@ -47,6 +47,7 @@ public class PeakAnalyzer2D extends Thread {
 
 
     private static float    samplingStep = 0.6f;            // when sampling image values to extract features
+	private static int		L = 4;                          // will define how many are taken along the diameter, in radial direction
 	private static int      dim;                            // cross profile length
 	private static int      dim_half;                       // cross profile half-length
     private static int      radial_step = 3;
@@ -75,6 +76,8 @@ public class PeakAnalyzer2D extends Thread {
         dim_half = dim;
         dim = 2*dim + 1;
 
+//		samplingStepY = D / 3; // so that 4 are taken along every diameter chunk
+
         i2xy = _i2xy;
         xy2i = _xy2i;
         peaks_xy = _peaks_xy;
@@ -84,8 +87,6 @@ public class PeakAnalyzer2D extends Thread {
         minCos = _minCos;
         scatterDist = _scatterDist;
 		threshold = _threshold;
-
-
 
         // allocate output -> set to -1
         delin2 = new int[i2xy.length][4][M];
@@ -491,11 +492,6 @@ public class PeakAnalyzer2D extends Thread {
 
             int[][] delin_at_loc = PeakAnalyzer2D.delin2[idx];
 
-            // show locs  (debug)
-            //IJ.log("\n_____");
-            //for (int a=0; a<delin_at_loc.length; a++) IJ.log(Arrays.toString(delin_at_loc[a]));
-            //IJ.log("_____\n");
-
             for (int b = 0; b<delin_at_loc.length; b++) {           // loop 4 branches, b index defines the branch "strength"
 
                 boolean complete = true;
@@ -545,19 +541,12 @@ public class PeakAnalyzer2D extends Thread {
                         }
 
                         // add the points for the line connecting prev_xy and curr_xy
-                        ArrayList<OvalRoi> line_pts = localLineLocs(prev_x, prev_y, curr_x, curr_y);
-                        for (int aa = 0; aa < line_pts.size(); aa++) {
-                            ov.add(line_pts.get(aa));
-                        }
+                        ArrayList<OvalRoi> line_pts = localPatchCrossProfilesLocs(prev_x, prev_y, curr_x, curr_y);
+                        for (int aa = 0; aa < line_pts.size(); aa++) ov.add(line_pts.get(aa));
 
                         // add the patch locations
-                        //ArrayList<PointRoi> pts = localPatchLocs(prev_x, prev_y, curr_x, curr_y);
-                        ArrayList<PointRoi> pts = localPatchAvgProfile(prev_x, prev_y, curr_x, curr_y, D);
-
-                        for (int aa=0; aa<pts.size(); aa++) {
-							ov.add(pts.get(aa));
-						}
-
+                        ArrayList<PointRoi> pts = localPatchValsLocs(prev_x, prev_y, curr_x, curr_y);
+                        for (int aa=0; aa<pts.size(); aa++) ov.add(pts.get(aa));
 
                     }
 
@@ -669,7 +658,7 @@ public class PeakAnalyzer2D extends Thread {
                             prev_y = i2xy[prev_i][1];
                         }
 
-                        float[] vals = localPatchVals(prev_x, prev_y, curr_x, curr_y);// , inimg_xy, D
+                        float[] vals = localPatchVals(prev_x, prev_y, curr_x, curr_y);
 						// append it to concat
 						for (int aa=0; aa<vals.length; aa++) {
 							concat[cnt] = vals[aa]; cnt++;
@@ -734,13 +723,8 @@ public class PeakAnalyzer2D extends Thread {
                         // get cross-profile values sampled from the local patch (aligned with the patch)
                         ArrayList<float[]> vals = localPatchCrossProfiles(prev_x, prev_y, curr_x, curr_y);
 
-
-
                         // append the local patch cross profiles along one branch
-                        for (int aa = 0; aa < vals.size(); aa++) {
-                            profiles_along.add(vals.get(aa));
-//                            System.out.print(Arrays.toString(vals.get(aa)));
-                        }
+                        for (int aa = 0; aa < vals.size(); aa++) profiles_along.add(vals.get(aa));
 
                     }
 
@@ -749,7 +733,7 @@ public class PeakAnalyzer2D extends Thread {
                     for (int aa=0; aa<dim; aa++) xx[aa] = aa;
 
                     Plot plt = new Plot("", "", "");
-                    plt.setLimits(0, dim-1, 0, 255);
+                    plt.setLimits(0, dim-1, 0, 1);
                     for (int aaa=0; aaa<profiles_along.size(); aaa++) {
                         plt.addPoints(xx, profiles_along.get(aaa), Plot.LINE);
                     }
@@ -948,33 +932,24 @@ public class PeakAnalyzer2D extends Thread {
         (median serves as the estimate of the background level)
      */
 
-    private static ArrayList<PointRoi> localPatchAvgProfile(float x1, float y1, float x2, float y2, float D) {
+    private static ArrayList<PointRoi> localPatchValsLocs(float x1, float y1, float x2, float y2) {
 
-        // D will define the size of the patch (neuron diameter is used here)
         float l = (float) Math.sqrt(Math.pow(x2-x1, 2)+Math.pow(y2-y1,2));
-        int N = (int) Math.ceil( D / (samplingStep * 2) );
-        float vx, vy, wx, wy;
-        vx = (x2-x1)/l;
-        vy = (y2-y1)/l;
-        wx = vy;
-        wy = -vx;
+        float vx = (x2-x1)/l;
+		float vy = (y2-y1)/l;
+		float wx = vy;
+		float wy = -vx;
 
-        // allocate outputs
-        ArrayList<PointRoi> pts = new ArrayList<PointRoi>((2*N+1)*(2*N+1));
+        ArrayList<PointRoi> pts = new ArrayList<PointRoi>(dim*dim);
 
-        for (int ii=0; ii<=2*N; ii++) { // loops vector v
-
-            for (int jj=-N; jj<=N; jj++) { // loops vector w
-
+        for (int ii=0; ii<=2*dim_half; ii++) { // loops vector v
+            for (int jj=-dim_half; jj<=dim_half; jj++) { // loops vector w
                 float curr_x = x2 - ii * samplingStep * vx + jj * samplingStep * vy;
                 float curr_y = y2 - ii * samplingStep * wx + jj * samplingStep * wy;
-
                 PointRoi pt = new PointRoi(curr_x+.5f, curr_y+.5f);
                 pt.setFillColor(Color.DARK_GRAY);
                 pts.add(pt);
-
             }
-
         }
 
         return pts;
@@ -989,23 +964,16 @@ public class PeakAnalyzer2D extends Thread {
         float wx = vy;
         float wy = -vx;
 
-        // allocate outputs
         float[] vals            = new float[dim*dim];
-
         int cnt = 0;
 
         for (int ii=0; ii<=2*dim_half; ii++) { // loops vector v
-
             for (int jj=-dim_half; jj<=dim_half; jj++) { // loops vector w
-
                 float curr_x = x2 - ii * samplingStep * vx + jj * samplingStep * vy;
                 float curr_y = y2 - ii * samplingStep * wx + jj * samplingStep * wy;
-
                 vals[cnt] = Interpolator.interpolateAt(curr_x, curr_y, inimg_xy);
                 cnt++;
-
             }
-
         }
 
         return vals;
@@ -1020,30 +988,35 @@ public class PeakAnalyzer2D extends Thread {
         float wx = vy;
         float wy = -vx;
 
-        // allocate outputs
         ArrayList<float[]> vals            = new ArrayList<float[]>();
 
+		float samplingStepRadial = D / (float)(L-1);
 
-        for (int ii=0; ii<=2*dim_half; ii++) { // loops vector v
+        for (int ii=0; ii<L; ii++) { // loops L of them in radial direction
 
-            if (ii % radial_step == 0) { // skip radially, every second
+            float[] val = new float[dim];
+            int cnt = 0;
+			float val_min = Float.POSITIVE_INFINITY;
+			float val_max = Float.NEGATIVE_INFINITY;
 
-                float[] val = new float[dim];
-                int cnt = 0;
+            for (int jj=-dim_half; jj<=dim_half; jj++) { // loops vector w
+                float curr_x = x2 - ii * samplingStepRadial * vx + jj * samplingStep * vy;
+                float curr_y = y2 - ii * samplingStepRadial * wx + jj * samplingStep * wy;
 
-                for (int jj=-dim_half; jj<=dim_half; jj++) { // loops vector w
+                val[cnt] = Interpolator.interpolateAt(curr_x, curr_y, inimg_xy);
 
-                    float curr_x = x2 - ii * samplingStep * vx + jj * samplingStep * vy;
-                    float curr_y = y2 - ii * samplingStep * wx + jj * samplingStep * wy;
+				if (val[cnt]>val_max) val_max = val[cnt];
+				if (val[cnt]<val_min) val_min = val[cnt];
 
-                    val[cnt] = Interpolator.interpolateAt(curr_x, curr_y, inimg_xy);
-                    cnt++;
-
-                }
-
-                vals.add(val);
-
+                cnt++;
             }
+
+			// normalize min-max so that they're from 0 to 1
+			for (int iii = 0; iii<val.length; iii++){
+				val[iii] = (val[iii]-val_min)/(val_max-val_min);
+			}
+
+            vals.add(val);
 
         }
 
@@ -1051,44 +1024,96 @@ public class PeakAnalyzer2D extends Thread {
 
     }
 
+	private static ArrayList<OvalRoi> localPatchCrossProfilesLocs(float x1, float y1, float x2, float y2) {
+
+		float R = 1f;
+
+		float l = (float) Math.sqrt(Math.pow(x2-x1, 2)+Math.pow(y2-y1, 2));
+		float vx = (x2-x1)/l;
+		float vy = (y2-y1)/l;
+		float wx = vy;
+		float wy = -vx;
+
+		ArrayList<OvalRoi> pts = new ArrayList<OvalRoi>(dim*L);
+
+		float samplingStepRadial = D / (float)(L-1);
+
+		for (int ii=0; ii<L; ii++) { // loops L of them in radial direction
+
+//			float[] val = new float[dim];
+//			int cnt = 0;
+//			float val_min = Float.POSITIVE_INFINITY;
+//			float val_max = Float.NEGATIVE_INFINITY;
+
+			for (int jj=-dim_half; jj<=dim_half; jj++) { // loops vector w
+				float curr_x = x2 - ii * samplingStepRadial * vx + jj * samplingStep * vy;
+				float curr_y = y2 - ii * samplingStepRadial * wx + jj * samplingStep * wy;
+
+//				val[cnt] = Interpolator.interpolateAt(curr_x, curr_y, inimg_xy);
+
+//				if (val[cnt]>val_max) val_max = val[cnt];
+//				if (val[cnt]<val_min) val_min = val[cnt];
+
+//				cnt++;
+
+				OvalRoi pt = new OvalRoi(curr_x+.5f-(R/2), curr_y+.5f-(R/2), R, R);
+				pt.setFillColor(Color.BLUE);
+				pts.add(pt);
+
+			}
+
+			// normalize min-max so that they're from 0 to 1
+//			for (int iii = 0; iii<val.length; iii++){
+//				val[iii] = (val[iii]-val_min)/(val_max-val_min);
+//			}
+
+//			pts.add(val);
+
+		}
+
+		return pts;
+
+
+	}
+
 	/*
 		methods that deal with local line (defined with prev_xy and curr_xy)
 	 */
-    private static ArrayList<OvalRoi> localLineLocs(float x1, float y1, float x2, float y2) {
-
-        float R = 0.5f; // radius of the oval circles
-
-        float dist = (float) Math.sqrt(Math.pow(x2-x1, 2) + Math.pow(y2-y1, 2)); //  + Math.pow(z2lay-z1lay, 2)
-
-        int elementsInLine = (int) (dist / samplingStep);  // how many increment can safely fit between
-//        float[] valuesAlongLine = new float[elementsInLine];
-
-        float dx = (x2 - x1) / dist;
-        float dy = (y2 - y1) / dist;
-        // [dx, dy] is unit vector
-
-        dx *= samplingStep;
-        dy *= samplingStep;
-
-        ArrayList<OvalRoi> pts = new ArrayList<OvalRoi>(elementsInLine);
-
-        for (int cc = 0; cc<elementsInLine; cc++) {
-
-            float atX = x1      + cc * dx;
-            float atY = y1      + cc * dy;
-//			float atZ = z1lay   + cc * dz;
-
-//            valuesAlongLine[cc] = Interpolator.interpolateAt(atX, atY, inimg_xy);
-
-            OvalRoi ovroi = new OvalRoi(atX-(R/2)+.5f, atY-(R/2)+.5f, R, R);
-            ovroi.setStrokeWidth(R/2);
-            ovroi.setStrokeColor(Color.BLUE);
-            pts.add(ovroi);
-
-        }
-
-        return pts;
-    }
+//    private static ArrayList<OvalRoi> localLineLocs(float x1, float y1, float x2, float y2) {
+//
+//        float R = 0.5f; // radius of the oval circles
+//
+//        float dist = (float) Math.sqrt(Math.pow(x2-x1, 2) + Math.pow(y2-y1, 2)); //  + Math.pow(z2lay-z1lay, 2)
+//
+//        int elementsInLine = (int) (dist / samplingStep);  // how many increment can safely fit between
+////        float[] valuesAlongLine = new float[elementsInLine];
+//
+//        float dx = (x2 - x1) / dist;
+//        float dy = (y2 - y1) / dist;
+//        // [dx, dy] is unit vector
+//
+//        dx *= samplingStep;
+//        dy *= samplingStep;
+//
+//        ArrayList<OvalRoi> pts = new ArrayList<OvalRoi>(elementsInLine);
+//
+//        for (int cc = 0; cc<elementsInLine; cc++) {
+//
+//            float atX = x1      + cc * dx;
+//            float atY = y1      + cc * dy;
+////			float atZ = z1lay   + cc * dz;
+//
+////            valuesAlongLine[cc] = Interpolator.interpolateAt(atX, atY, inimg_xy);
+//
+//            OvalRoi ovroi = new OvalRoi(atX-(R/2)+.5f, atY-(R/2)+.5f, R, R);
+//            ovroi.setStrokeWidth(R/2);
+//            ovroi.setStrokeColor(Color.BLUE);
+//            pts.add(ovroi);
+//
+//        }
+//
+//        return pts;
+//    }
 
     private static float[] localLineVals(float x1, float y1, float x2, float y2, float[][] inimg_xy) {
 
