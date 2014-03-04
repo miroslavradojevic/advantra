@@ -25,7 +25,7 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
     float[][] 	inimg_xy;               // store input image as an array
 
     /*
-    parameters
+        parameters
      */
     float       s = 1.2f;               // scale is fixed
     float       iDiff, D, minCos, scatterDist;
@@ -38,9 +38,13 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
     interface things (patches of the delineated spatial frame)
      */
     ImagePlus       pfl_im  = new ImagePlus();    // used with live inspections (viz patches)
-    ImagePlus       pfl_im1  = new ImagePlus();    // used with live inspections (plot)
+    ImagePlus       pfl_im1 = new ImagePlus();    // used with live inspections (plot)
+    ImagePlus       pfl_im2 = new ImagePlus();
+
     ImageStack      pfl_is  = null;
-    ImageStack      pfl_is1  = null;
+    ImageStack      pfl_is1 = null;
+    ImageProcessor  pfl_ip2 = null;
+
     ImageCanvas cnv;
 
     public int setup(String s, ImagePlus imagePlus) {
@@ -119,7 +123,7 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
 
         Sphere2D sph2d = new Sphere2D(D, s);
 
-		/*
+
         ImagePlus samplingScheme =  sph2d.showSampling();
         samplingScheme.show();
         samplingScheme.getWindow().setSize(600, 600);
@@ -129,19 +133,17 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
         weightScheme.show();
         weightScheme.getWindow().setSize(600, 600);
         weightScheme.getCanvas().fitToWindow();
-		*/
+
 
         /*
         main
          */
         long t1, t2;
         t1 = System.currentTimeMillis();
-
-
+        //************************************************
+        IJ.log("extracting mask...");
         Masker2D.loadTemplate(inimg_xy, 0, sph2d.getOuterRadius(), iDiff);
-//		IJ.log("sphere outer radius " + sph2d.getOuterRadius());
         int totalLocs = inimg_xy.length * inimg_xy[0].length;
-
         Masker2D ms_jobs[] = new Masker2D[CPU_NR];
         for (int i = 0; i < ms_jobs.length; i++) {
             ms_jobs[i] = new Masker2D(i*totalLocs/CPU_NR,  (i+1)*totalLocs/CPU_NR);
@@ -154,13 +156,12 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
                 e.printStackTrace();
             }
         }
-
         Masker2D.formRemainingOutputs();
-		//new ImagePlus("MASK", Masker2D.getMask()).show();
-
+		new ImagePlus("MASK", Masker2D.getMask()).show();
+        //************************************************
+        IJ.log("calculating profiles...");
         Profiler2D.loadTemplate(sph2d, Masker2D.i2xy, inimg_xy);
         int totalProfileComponents = sph2d.getProfileLength();
-
         Profiler2D pf_jobs[] = new Profiler2D[CPU_NR];
         for (int i = 0; i < pf_jobs.length; i++) {
             pf_jobs[i] = new Profiler2D(i*totalProfileComponents/CPU_NR,  (i+1)*totalProfileComponents/CPU_NR);
@@ -173,11 +174,10 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
                 e.printStackTrace();
             }
         }
-
-
+        //************************************************
+        IJ.log("extracting peaks...");
         PeakExtractor2D.loadTemplate(sph2d, Masker2D.i2xy, Profiler2D.prof2, inimg_xy, Masker2D.xy2i);
         int totalPeakExtrComponents = Profiler2D.prof2.length; // number of profiles == number of locations i2xy.length
-
         PeakExtractor2D pe_jobs[] = new PeakExtractor2D[CPU_NR];
         for (int i = 0; i < pe_jobs.length; i++) {
             pe_jobs[i] = new PeakExtractor2D(i*totalPeakExtrComponents/CPU_NR, (i+1)*totalPeakExtrComponents/CPU_NR);
@@ -190,11 +190,10 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
                 e.printStackTrace();
             }
         }
-
-
+        //************************************************
+        IJ.log("analyzing peaks + extracting features ...");
         PeakAnalyzer2D.loadTemplate(Masker2D.i2xy, Masker2D.xy2i, PeakExtractor2D.peaks_xy, inimg_xy, Masker2D.back_xy, M, minCos, scatterDist, threshold, D); // initialize peak analyzer parameters
         int totalPeakAnalyzeComponents = Masker2D.i2xy.length; // number of locations
-
         PeakAnalyzer2D pa_jobs[] = new PeakAnalyzer2D[CPU_NR];
         for (int i = 0; i < pa_jobs.length; i++) {
             pa_jobs[i] = new PeakAnalyzer2D(i*totalPeakAnalyzeComponents/CPU_NR, (i+1)*totalPeakAnalyzeComponents/CPU_NR);
@@ -207,12 +206,8 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
                 e.printStackTrace();
             }
         }
-
-//        PeakAnalyzer2D.exportFeatsCsv(System.getProperty("user.home") + File.separator + "trial.feat"); // export features		
-
-
-
-
+        //************************************************
+//        PeakAnalyzer2D.exportFeatsCsv(System.getProperty("user.home") + File.separator + "trial.feat"); // export features
         /*
         SimpleDetector2D.loadTemplate(inimg_xy.length, inimg_xy[0].length, Masker2D.i2xy, PeakAnalyzer2D.delin2);
         int totalSimpleDetectComponents = Masker2D.i2xy.length;
@@ -263,10 +258,16 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
         pfl_is = PeakAnalyzer2D.getDelineationPatches(clickX, clickY);
         pfl_im.setStack("patches", pfl_is);
         pfl_im.show();
+        pfl_im.getWindow().setSize(250, 500);
+        pfl_im.getCanvas().fitToWindow();
 
         pfl_is1 = PeakAnalyzer2D.plotDelineationProfiles(clickX, clickY);
         pfl_im1.setStack("cross-profiles", pfl_is1);
         pfl_im1.show();
+
+        pfl_ip2 = PeakAnalyzer2D.plotDelineationFeatures(clickX, clickY);
+        pfl_im2.setProcessor("features", pfl_ip2);
+        pfl_im2.show();
 
         IJ.setTool("hand");
 
@@ -279,7 +280,7 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
         int clickX = cnv.offScreenX(e.getX());
         int clickY = cnv.offScreenY(e.getY());
 
-        Overlay curr_overlay = cnv.getImage().getOverlay(); // get current overlay
+//        Overlay curr_overlay = cnv.getImage().getOverlay(); // get current overlay
 
         // add new overlay on top of it
 

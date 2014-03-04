@@ -20,8 +20,7 @@ public class Fitter1DDemo {
         f1d.showTemplates();
 
 		IJ.log("fitting a vector...");
-        // random vector of profile_length
-        Random generator = new Random();
+        //Random generator = new Random();
         float[] random_vec = new float[profile_length];
         for (int aa=0; aa<profile_length; aa++) {
             random_vec[aa] = (float) Math.exp(-(aa-profile_length/2f)*(aa-profile_length/2f)/(2*5*5));//generator.nextFloat();
@@ -29,10 +28,10 @@ public class Fitter1DDemo {
 
         // fit
         float[] fitting_ncc, fitting_ssd;
-        fitting_ncc = f1d.fit_ncc(random_vec);
+        fitting_ncc = f1d.fit(random_vec, "NCC");
         IJ.log("fit NCC, idx = "+IJ.d2s(fitting_ncc[0], 0)+", NCC = "+IJ.d2s(fitting_ncc[1],2));
 
-        fitting_ssd = f1d.fit_ssd(random_vec);
+        fitting_ssd = f1d.fit(random_vec, "SSD");
         IJ.log("fit SSD, idx = "+IJ.d2s(fitting_ssd[0], 0)+", SSD = "+IJ.d2s(fitting_ssd[1],2));
 
         // show fit
