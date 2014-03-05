@@ -469,7 +469,7 @@ public class PeakAnalyzer2D extends Thread {
     }
 
     /*
-        outputs
+        outputs (to visualize delineation and extracted features)
      */
     public static Overlay getDelineationOverlay(int atX, int atY)
     {
@@ -639,7 +639,7 @@ public class PeakAnalyzer2D extends Thread {
 					float[] concat = new float[M*dim*dim];
 					int cnt = 0;
 
-                    for (int m = 0; m<M; m++) {
+                    for (int m = M-1; m>=0; m--) { // align them backwards
 
                         int curr_i = delin_at_loc[b][m];
                         int curr_x = i2xy[curr_i][0];
@@ -658,9 +658,10 @@ public class PeakAnalyzer2D extends Thread {
                         }
 
                         float[] vals = localPatchVals(prev_x, prev_y, curr_x, curr_y);
-						// append it to concat
-						for (int aa=0; aa<vals.length; aa++) {
-							concat[cnt] = vals[aa]; cnt++;
+
+						for (int aa=0; aa<vals.length; aa++) { // append it
+							concat[cnt] = vals[aa];
+                            cnt++;
 						}
 
                     }
@@ -767,7 +768,7 @@ public class PeakAnalyzer2D extends Thread {
 
         Plot feature_plot = new Plot("", "", "");
         feature_plot.setLimits(0, 5.5, 0, 1);
-        // 4x(MxL) features
+        // 4x(MxL) features, xx is x axis plot, yy is y axis plot
         float[] xx = new float[4*M*L];
         float[] yy = new float[4*M*L];
         for (int i=0; i<(4*M*L); i++) yy[i]=1;
@@ -808,7 +809,7 @@ public class PeakAnalyzer2D extends Thread {
                         // get cross-profile values sampled from the local patch (aligned with the patch)
                         float[] vals = localPatchCrossProfileFitScores(prev_x, prev_y, curr_x, curr_y);
 
-                        // append L "vals"
+                        // append L "vals" to the feature vector 4*(M*L)
                         for (int l = 0; l < vals.length; l++) yy[b*(M*L)+m*L+l] = vals[l];
 
                     }
@@ -830,17 +831,66 @@ public class PeakAnalyzer2D extends Thread {
         }
         IJ.log("------");
 
-        //System.out.println(Arrays.toString(yy));
-
         feature_plot.addPoints(xx, yy, Plot.BOX);
         return feature_plot.getProcessor();
 
     }
 
-//    public static float[] getDelineationFeatures(int atX, int atY)
-//    {
-//
-//    }
+    public static float[] getDelineationFeatures(int atX, int atY)
+    {
+        // will calculate the features (fitting scores of the gaussian profiles along the delineated branch, M*L cross-sections)
+        // & store them in (M*L) dimensional vector, with the first one being the closest to the central root location
+        // 4*(M*L) fit scores
+        // 4*(M*L) overlap scores (one for each fit)
+        // every cross section line has one score for fit and one for overlap with the highest one from the other branches
+        float[] fit_sc = new float[4*M*L]; // 4 cover both cross sections and junctions
+        for (int i=0; i<fit_sc.length; i++) fit_sc[i]=1;
+
+        int idx = Masker2D.xy2i[atX][atY]; // read extracted peaks at this location
+
+        if (idx!=-1) {
+
+            int[][] delin_at_loc = PeakAnalyzer2D.delin2[idx];
+
+            for (int b = 0; b<delin_at_loc.length; b++) {           // loop 4 branches, b index defines the strength
+
+                if (delin_at_loc[b][M-1] != -1) { // if the last one is there - it is complete
+
+                    for (int m = 0; m<M; m++) {
+
+                        int curr_i = delin_at_loc[b][m];
+                        int curr_x = i2xy[curr_i][0];
+                        int curr_y = i2xy[curr_i][1];
+
+                        int prev_i, prev_x, prev_y;
+
+                        if (m==0) {
+                            prev_x = atX;
+                            prev_y = atY;
+                        }
+                        else{
+                            prev_i = delin_at_loc[b][m-1];
+                            prev_x = i2xy[prev_i][0];
+                            prev_y = i2xy[prev_i][1];
+                        }
+
+                        // get cross-profile values sampled from the local patch (aligned with the patch)
+                        float[] vals = localPatchCrossProfileFitScores(prev_x, prev_y, curr_x, curr_y);
+
+                        // append L "vals" to the feature vector 4*(M*L)
+                        for (int l = 0; l < vals.length; l++) yy[b*(M*L)+m*L+l] = vals[l];
+
+                    }
+
+                }
+
+            }
+
+        }
+
+        return feats;
+
+    }
 
 	/*
 		score calculation
@@ -1020,7 +1070,8 @@ public class PeakAnalyzer2D extends Thread {
         (median serves as the estimate of the background level)
      */
 
-    private static ArrayList<PointRoi> localPatchValsLocs(float x1, float y1, float x2, float y2) {
+    private static ArrayList<PointRoi> localPatchValsLocs(float x1, float y1, float x2, float y2)
+    {
 
         float l = (float) Math.sqrt(Math.pow(x2-x1, 2)+Math.pow(y2-y1,2));
         float vx = (x2-x1)/l;
@@ -1044,7 +1095,8 @@ public class PeakAnalyzer2D extends Thread {
 
     }
 
-    private static float[] localPatchVals(float x1, float y1, float x2, float y2) {
+    private static float[] localPatchVals(float x1, float y1, float x2, float y2)
+    {
 
         float l = (float) Math.sqrt(Math.pow(x2-x1, 2)+Math.pow(y2-y1, 2));
         float vx = (x2-x1)/l;
@@ -1052,7 +1104,7 @@ public class PeakAnalyzer2D extends Thread {
         float wx = vy;
         float wy = -vx;
 
-        float[] vals            = new float[dim*dim];
+        float[] vals = new float[dim*dim];
         int cnt = 0;
 
         for (int ii=0; ii<=2*dim_half; ii++) { // loops vector v
@@ -1068,7 +1120,8 @@ public class PeakAnalyzer2D extends Thread {
 
     }
 
-    private static ArrayList<float[]> localPatchCrossProfiles(float x1, float y1, float x2, float y2) {
+    private static ArrayList<float[]> localPatchCrossProfiles(float x1, float y1, float x2, float y2)
+    {
 
         float l = (float) Math.sqrt(Math.pow(x2-x1, 2)+Math.pow(y2-y1, 2));
         float vx = (x2-x1)/l;
@@ -1112,7 +1165,8 @@ public class PeakAnalyzer2D extends Thread {
 
     }
 
-	private static ArrayList<OvalRoi> localPatchCrossProfilesLocs(float x1, float y1, float x2, float y2) {
+	private static ArrayList<OvalRoi> localPatchCrossProfilesLocs(float x1, float y1, float x2, float y2)
+    {
 
 		float R = 1f;
 
