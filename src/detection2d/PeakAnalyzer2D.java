@@ -621,7 +621,6 @@ public class PeakAnalyzer2D extends Thread {
     public static ImageStack getDelineationPatches(int atX, int atY)
 	{
 
-
         // create new ImageStack with every layer corresponding to one patch
         // involved in modelling the local structure
         ImageStack isOut = new ImageStack(dim, M*dim);//(patch_size,patch_size);
@@ -836,7 +835,7 @@ public class PeakAnalyzer2D extends Thread {
 
     }
 
-    public static float[] getDelineationFeatures(int atX, int atY)
+    public static void getDelineationFeatures(int atX, int atY, float[] cs_fitscor, float[][] cs_geometr, float[] cs_overlap, float[] feats)
     {
         // will calculate the features (fitting scores of the gaussian profiles along the delineated branch, M*L cross-sections)
         // & store them in (M*L) dimensional vector, with the first one being the closest to the central root location
@@ -844,29 +843,34 @@ public class PeakAnalyzer2D extends Thread {
         // 4*(M*L) overlap scores (one for each fit)
         // every cross section line has one score for fit and one for overlap with the highest one from the other branches
 		// there are max 4 branches in 2D, in case they are missing - the rest of the features are filled with modelled values - modeling bad scores
-        float[][] scores = new float[2][4*M*L]; // 4 would cover both cross sections and junctions
 
-		// first row - normalized fitting scores
-        for (int i=0; i<scores[0].length; i++) {
-			scores[0][i] = 1f; // missing values modelled as bad fit
-		}
+        // scores (out of the method call, allocated outside, here just referenced)
+        //float[]     cs_fitscor = new float[4*M*L];          // cross section fitting scores
+        // geometry
+        //float[][]   cs_geometr = new float[4*M*L][4];       // store locations for every cross section
+		// overlap
+        //float[]     cs_overlap = new float[4*M*L];          // store overlap scores for every cross section
 
-		// second row - overlap scores
-		for (int i=0; i<scores[1].length; i++) {
-			scores[1][i] = 0f; // missing values modelled as no overlap
-		}
+        // fill up the arrays
+        for (int i=0; i<cs_fitscor.length; i++) cs_fitscor[i] = 1f; // missing values modelled as bad fit
+		for (int i=0; i<cs_overlap.length; i++) cs_overlap[i] = 0f; // missing values modelled as no overlap
 
         int idx = Masker2D.xy2i[atX][atY]; // read extracted peaks at this location
 
-        if (idx!=-1) {
+        if (idx!=-1) {       // location is in foreground, there is a delineation there
 
             int[][] delin_at_loc = PeakAnalyzer2D.delin2[idx];
 
+            // loop branches twice:
+            // 1 - to extract cross-profiles' locations and to extract their fit scores
+            // 2 - to extract overlap once all the cross-profile locations are known
+
+            // 1
             for (int b = 0; b<delin_at_loc.length; b++) {           // loop 4 branches, b index defines the strength
 
-                if (delin_at_loc[b][M-1] != -1) { // if the last one is there - it is complete
+                if (delin_at_loc[b][M-1] != -1) {                   // if the last one is there - it is complete
 
-                    for (int m = 0; m<M; m++) {      				// loop patches
+                    for (int m = 0; m<M; m++) {      				// loop patches outwards
 
                         int curr_i = delin_at_loc[b][m];
                         int curr_x = i2xy[curr_i][0];
@@ -885,10 +889,17 @@ public class PeakAnalyzer2D extends Thread {
                         }
 
                         // get cross-profile values sampled from the local patch (aligned with the patch)
-                        float[] vals = localPatchCrossProfileFitScores(prev_x, prev_y, curr_x, curr_y);  // L scores per patch
+                        float[]     vals    = localPatchCrossProfileFitScores(prev_x, prev_y, curr_x, curr_y);  // L scores per patch
+                        float[][]   locs    = localPatchCrossProfileGeometry(prev_x, prev_y, curr_x, curr_y); // Lx4 (2 vectors describe cross-section: p[x,y] and r[x,y], 2 values each in 2D)
 
-                        // append L "vals" from the patch to the feature vector 4*(M*L)
-                        for (int l = 0; l < vals.length; l++) scores[0][b*(M*L)+m*L+l] = vals[l];
+                        // append L "vals" from the patch to the corresponding index of feature vector 4*(M*L)
+                        for (int l = 0; l < vals.length; l++) cs_fitscor[b*(M*L)+m*L+l] = vals[l];
+                        // append L "locs" from the patch
+                        for (int l = 0; l < locs.length; l++) {
+                            for (int l1 = 0; l1 < locs[0].length; l1++) {
+                                cs_geometr[b*(M*L)+m*L+l][l1] = locs[l][l1];
+                            }
+                        }
 
                     }
 
@@ -896,9 +907,31 @@ public class PeakAnalyzer2D extends Thread {
 
             }
 
+            // 2 use completed cs_geometr to calculate cs_overlap
+            for (int ii=0; ii<cs_geometr.length; ii++) {
+
+                int ii_bidx = ii / (M*L);
+                float max_overlap = 0f;
+
+                for (int jj=0; jj<cs_geometr.length; jj++) {
+                    int jj_bidx = jj / (M*L);
+                    if (ii_bidx != jj_bidx) { // highest overlap score from other branch
+                        float overlap = 89;
+//                                calculateOverlap(
+//                            float p1_x, float p1_y, float r1_x, float r1_y,
+//                            float p2_x, float p2_y, float r2_x, float r2_y);
+
+                        if (overlap>max_overlap) {
+                            max_overlap = overlap;
+                        }
+                    }
+                }
+
+            }
+
         }
 
-        return feats;
+//        return feats;
 
     }
 
@@ -1072,14 +1105,10 @@ public class PeakAnalyzer2D extends Thread {
     }
 
     /*
-        methods that deal with local image patch - (rectangle defined with prev_xy and curr_xy)
-        extract set of PointRoi-s used for sampling,    localPatchLocs()   (vizualization only)
-        extract array with sampled image values,        localPatchVals()   (vizualization only)
-        or final median estimate of the patch values    localPatchMedn()   (real thing)
-         localPatchAvgProfile() (average of the profiles along)
-        (median serves as the estimate of the background level)
+        methods that deal with local image patch - (rectangle defined with prev_x,y and curr_x,y)
      */
 
+    // (VIZ) extract set of PointRoi-s used for local patch sampling
     private static ArrayList<PointRoi> localPatchValsLocs(float x1, float y1, float x2, float y2)
     {
 
@@ -1105,6 +1134,7 @@ public class PeakAnalyzer2D extends Thread {
 
     }
 
+    // (VIZ) extract array with local patch sampled values
     private static float[] localPatchVals(float x1, float y1, float x2, float y2)
     {
 
@@ -1130,6 +1160,7 @@ public class PeakAnalyzer2D extends Thread {
 
     }
 
+    // (VIZ) list of arrays containing the local patch cross profiles that were fitted
     private static ArrayList<float[]> localPatchCrossProfiles(float x1, float y1, float x2, float y2)
     {
 
@@ -1175,6 +1206,7 @@ public class PeakAnalyzer2D extends Thread {
 
     }
 
+    // (VIZ) list of of local patch cross profile line segments described with dots
 	private static ArrayList<OvalRoi> localPatchCrossProfilesLocs(float x1, float y1, float x2, float y2)
     {
 
@@ -1228,6 +1260,7 @@ public class PeakAnalyzer2D extends Thread {
 
 	}
 
+    // (CALC) calculation of the fitting scores for every local patch cross profile
     private static float[] localPatchCrossProfileFitScores(float x1, float y1, float x2, float y2)
     {
 
@@ -1275,6 +1308,65 @@ public class PeakAnalyzer2D extends Thread {
         return fit_scores;
 
     }
+
+    // (CALC) calculation of the line segment geometry for every local patch cross profile
+    private static float[][] localPatchCrossProfileGeometry(float x1, float y1, float x2, float y2)
+    {
+        // extract [px py rx ry] describing cross profile at this patch
+        float l = (float) Math.sqrt(Math.pow(x2-x1, 2)+Math.pow(y2-y1, 2));
+        float vx = (x2-x1)/l;
+        float vy = (y2-y1)/l;
+        float wx = vy;
+        float wy = -vx;
+
+        float[][] geom = new float[L][4];
+
+        float samplingStepRadial = D / (float)(L-1);
+
+        for (int ii=0; ii<L; ii++) { // loops L of them in radial direction
+
+            float[] val = new float[dim];
+            int cnt = 0;
+            //float val_min = Float.POSITIVE_INFINITY;
+            //float val_max = Float.NEGATIVE_INFINITY;
+
+            float px = x2 - ii * samplingStepRadial * vx + (-dim_half) * samplingStep * vy;
+            float py = 99;
+            float rx = 99;
+            float ry = 99;
+
+            for (int jj=-dim_half; jj<=dim_half; jj++) { // loops vector w
+
+                float curr_x = x2 - ii * samplingStepRadial * vx + jj * samplingStep * vy;
+                float curr_y = y2 - ii * samplingStepRadial * wx + jj * samplingStep * wy;
+
+//                if (val[cnt]>val_max) val_max = val[cnt];
+//                if (val[cnt]<val_min) val_min = val[cnt];
+
+            }
+
+            // normalize min-max so that they're from 0 to 1
+//            for (int iii = 0; iii<val.length; iii++){
+//                val[iii] = (val[iii]-val_min)/(val_max-val_min);
+//            }
+
+            // fit the normalized profile
+//            dummy = fitter.fit(val, "NSSD");
+//            fit_scores[ii] = dummy[1];
+
+        }
+
+
+
+        return geom;
+
+
+
+    }
+
+    // method that calculates overlap of two line segments
+
+
 	/*
 		methods that deal with local line (defined with prev_xy and curr_xy)
 	 */
