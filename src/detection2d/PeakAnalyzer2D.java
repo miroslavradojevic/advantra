@@ -843,8 +843,18 @@ public class PeakAnalyzer2D extends Thread {
         // 4*(M*L) fit scores
         // 4*(M*L) overlap scores (one for each fit)
         // every cross section line has one score for fit and one for overlap with the highest one from the other branches
-        float[] fit_sc = new float[4*M*L]; // 4 cover both cross sections and junctions
-        for (int i=0; i<fit_sc.length; i++) fit_sc[i]=1;
+		// there are max 4 branches in 2D, in case they are missing - the rest of the features are filled with modelled values - modeling bad scores
+        float[][] scores = new float[2][4*M*L]; // 4 would cover both cross sections and junctions
+
+		// first row - normalized fitting scores
+        for (int i=0; i<scores[0].length; i++) {
+			scores[0][i] = 1f; // missing values modelled as bad fit
+		}
+
+		// second row - overlap scores
+		for (int i=0; i<scores[1].length; i++) {
+			scores[1][i] = 0f; // missing values modelled as no overlap
+		}
 
         int idx = Masker2D.xy2i[atX][atY]; // read extracted peaks at this location
 
@@ -856,7 +866,7 @@ public class PeakAnalyzer2D extends Thread {
 
                 if (delin_at_loc[b][M-1] != -1) { // if the last one is there - it is complete
 
-                    for (int m = 0; m<M; m++) {
+                    for (int m = 0; m<M; m++) {      				// loop patches
 
                         int curr_i = delin_at_loc[b][m];
                         int curr_x = i2xy[curr_i][0];
@@ -875,10 +885,10 @@ public class PeakAnalyzer2D extends Thread {
                         }
 
                         // get cross-profile values sampled from the local patch (aligned with the patch)
-                        float[] vals = localPatchCrossProfileFitScores(prev_x, prev_y, curr_x, curr_y);
+                        float[] vals = localPatchCrossProfileFitScores(prev_x, prev_y, curr_x, curr_y);  // L scores per patch
 
-                        // append L "vals" to the feature vector 4*(M*L)
-                        for (int l = 0; l < vals.length; l++) yy[b*(M*L)+m*L+l] = vals[l];
+                        // append L "vals" from the patch to the feature vector 4*(M*L)
+                        for (int l = 0; l < vals.length; l++) scores[0][b*(M*L)+m*L+l] = vals[l];
 
                     }
 
