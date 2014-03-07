@@ -30,7 +30,7 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
     float       s = 1.2f;               // scale is fixed
     float       iDiff, D, minCos, scatterDist;
     int         M = 2;
-	float 		threshold; 				// used for feature score normalization
+	float 		threshold; 				// used for NCC fit measure
 
     int         CPU_NR;
 
@@ -43,7 +43,7 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
 
     ImageStack      pfl_is  = null;
     ImageStack      pfl_is1 = null;
-    ImageProcessor  pfl_ip2 = null;
+    ImageStack      pfl_is2 = null;
 
     ImageCanvas cnv;
 
@@ -88,7 +88,7 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
         gd.addNumericField("min cos ", 	minCos, 	    1, 10, "alignment parameter.");
         gd.addNumericField("scatter d ",scatterDist, 	1, 10, "max allowed scatter (robustness test)");
 		gd.addMessage("feat. calculation");
-		gd.addNumericField("threshold ",threshold, 		1, 10, "intensity margin");
+		gd.addNumericField("threshold ",threshold, 		2, 10, "intensity margin");
 
         gd.showDialog();
         if (gd.wasCanceled()) return DONE;
@@ -126,14 +126,13 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
 
         ImagePlus samplingScheme =  sph2d.showSampling();
         samplingScheme.show();
-        samplingScheme.getWindow().setSize(600, 600);
+        samplingScheme.getWindow().setSize(200, 200);
         samplingScheme.getCanvas().fitToWindow();
 
         ImagePlus weightScheme = sph2d.showWeights();
         weightScheme.show();
-        weightScheme.getWindow().setSize(600, 600);
+        weightScheme.getWindow().setSize(200, 200);
         weightScheme.getCanvas().fitToWindow();
-
 
         /*
         main
@@ -206,25 +205,12 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
                 e.printStackTrace();
             }
         }
+        IJ.log("export features ");
+        String out_file_fit     = System.getProperty("user.home") + File.separator + "ncc_fit.feat";
+        String out_file_ratio   = System.getProperty("user.home") + File.separator + "ratio_on.feat";
+        PeakAnalyzer2D.exportFeatsCsv(out_file_fit, out_file_ratio); // export features
+        IJ.log("done exporting to: \n" + out_file_fit + "\n" + out_file_ratio + "\n\n");
         //************************************************
-//        PeakAnalyzer2D.exportFeatsCsv(System.getProperty("user.home") + File.separator + "trial.feat"); // export features
-        /*
-        SimpleDetector2D.loadTemplate(inimg_xy.length, inimg_xy[0].length, Masker2D.i2xy, PeakAnalyzer2D.delin2);
-        int totalSimpleDetectComponents = Masker2D.i2xy.length;
-        SimpleDetector2D sd_jobs[] = new SimpleDetector2D[CPU_NR];
-        for (int i = 0; i < sd_jobs.length; i++) {
-            sd_jobs[i] = new SimpleDetector2D(i*totalSimpleDetectComponents/CPU_NR, (i+1)*totalSimpleDetectComponents/CPU_NR);
-            sd_jobs[i].start();
-        }
-        for (int i = 0; i<sd_jobs.length; i++) {
-            try {
-                sd_jobs[i].join();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-        SimpleDetector2D.drawDetections();                    // show it as DET and overlay maybe
-        */
 
         t2 = System.currentTimeMillis();
         IJ.log("done. " + ((t2 - t1) / 1000f) + "sec.");
@@ -265,8 +251,8 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
         pfl_im1.setStack("cross-profiles", pfl_is1);
         pfl_im1.show();
 
-        pfl_ip2 = PeakAnalyzer2D.plotDelineationFeatures(clickX, clickY);
-        pfl_im2.setProcessor("features", pfl_ip2);
+        pfl_is2 = PeakAnalyzer2D.plotDelineationFeatures(clickX, clickY);
+        pfl_im2.setStack("features", pfl_is2);
         pfl_im2.show();
 
         IJ.setTool("hand");
