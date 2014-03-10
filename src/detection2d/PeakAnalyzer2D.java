@@ -62,6 +62,7 @@ public class PeakAnalyzer2D extends Thread {
 	// features
     public static float[][][]   feat2;						// N(foreground locs.) x 4 x (M x L) fit scores
     public static float[][]     ratio2;                     // N(foreground locs.) x 4 + 1 ratio of those above the threshold and score for the point
+    public static float[][]     lhood2;
 
     // PROCESSING UNITS
     private static Fitter1D fitter;                         // class used to calculate fitting scores
@@ -88,6 +89,10 @@ public class PeakAnalyzer2D extends Thread {
         fitter = new Fitter1D(dim, false); // dim = profile width with current samplingStep, verbose = false
         fitter.showTemplates();
 
+        fuzzy_logic_system = new Fuzzy2D(101, 0.25f);
+        fuzzy_logic_system.showFuzzification();
+        fuzzy_logic_system.showDefuzzification();
+
         i2xy = _i2xy;
         xy2i = _xy2i;
         peaks_xy = _peaks_xy;
@@ -107,6 +112,7 @@ public class PeakAnalyzer2D extends Thread {
 
 		feat2   = new float[i2xy.length][4][M*L]; // fitting scores
         ratio2  = new float[i2xy.length][4+1];      // ratio of ON NCC scores (higher than threshold)
+        lhood2  = new float[i2xy.length][fuzzy_logic_system.L];
 
     }
 
@@ -138,7 +144,7 @@ public class PeakAnalyzer2D extends Thread {
 
                         if (next_index!=-1) { // -1 will be if the next one is not found
 
-                            if (isRobust(next_index, curr_index, scatterDist)) {
+                            if (true) { // isRobust(next_index, curr_index, scatterDist)
                                 delin2[locationIdx][pp][m] = next_index;     // store it in output matrix
                             }
                             else {
@@ -162,7 +168,7 @@ public class PeakAnalyzer2D extends Thread {
             /*	calculate features	*/
             int atX = i2xy[locationIdx][0];
             int atY = i2xy[locationIdx][1];
-            getDelineationFeatures(atX, atY, feat2[locationIdx], ratio2[locationIdx]);
+            getDelineationFeatures(atX, atY, feat2[locationIdx], ratio2[locationIdx], lhood2[locationIdx]);
 
 		}
 
@@ -176,14 +182,12 @@ public class PeakAnalyzer2D extends Thread {
         IJ.log(String.format("/**** LOC (%5d, %5d) [%10d] ****/", atX, atY, atLoc));
 
 		if (atLoc != -1) {
-
 			IJ.log("DELINEATION INDEXES:");
             for (int ii=0; ii<delin2[atLoc].length; ii++) IJ.log("-> " + Arrays.toString(delin2[atLoc][ii]));
-
+            IJ.log("RATIO -> " + Arrays.toString(ratio2[atLoc]));
 			IJ.log("NCC:");
-			for (int ii=0; ii<feat2[atLoc][ii].length; ii++) IJ.log("B "+ii+" -> " + Arrays.toString(feat2[atLoc][ii]));
-
-			IJ.log("RATIO -> " + Arrays.toString(ratio2[atLoc]));
+			for (int ii=0; ii<feat2[atLoc].length; ii++) IJ.log("B "+ii+" -> " + Arrays.toString(feat2[atLoc][ii]));
+            IJ.log("FUZZY LIKELIHOODS -> " + Arrays.toString(lhood2[atLoc]));
 
         }
 		else {
@@ -665,7 +669,7 @@ public class PeakAnalyzer2D extends Thread {
 
     }
 
-    public static void getDelineationFeatures(int atX, int atY, float[][] fitNCC, float[] ratioON) // feat2[locIdx] ratio2[locIdx]
+    public static void getDelineationFeatures(int atX, int atY, float[][] fitNCC, float[] ratioON, float[] lhood) // feat2[locIdx] ratio2[locIdx]
     {
         // will calculate the features (fitting scores of the gaussian profiles along the delineated branch, M*L cross-section fits)
         // & store them in (M*L) dimensional vector, with the first one being the closest to the central root location
@@ -727,6 +731,9 @@ public class PeakAnalyzer2D extends Thread {
 
 			// last feature
 			ratioON[4] = Masker2D.fg_score[atX][atY];
+
+            fuzzy_logic_system.critpointScores(ratioON[0], ratioON[1], ratioON[2], ratioON[3], ratioON[4], lhood);
+
 
         }
 

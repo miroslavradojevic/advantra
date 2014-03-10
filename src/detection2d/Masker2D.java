@@ -123,7 +123,7 @@ public class Masker2D extends Thread {
 				criteria[atX][atY] 	= m95 - m05;
 
 				if (m95-m05>0.1) {
-					fg_score[atX][atY]  = medianAtPoint(atX, atY, inimg_xy) - m05;
+					fg_score[atX][atY]  = inimg_xy[atX][atY];//medianAtPoint(atX, atY, inimg_xy) - m05;
 					fg_score[atX][atY]  = (fg_score[atX][atY]<0)? 0 : fg_score[atX][atY];
 					fg_score[atX][atY]  = fg_score[atX][atY] / (m95-m05);
 					fg_score[atX][atY]	= (fg_score[atX][atY]>1)? 1 : fg_score[atX][atY];
@@ -147,7 +147,7 @@ public class Masker2D extends Thread {
 				cnt++;
 			}
 		}
-		globalTh = Stat.median(criteria_temp);
+		globalTh = Stat.quantile(criteria_temp, 10, 20);//Stat.median(criteria_temp);
 		IJ.log("th = "+globalTh);
 
 		for (int xx=0; xx<image_width; xx++) {
@@ -310,10 +310,8 @@ public class Masker2D extends Thread {
 			int cnt = 0;
 			for (int dx=-1; dx<=1; dx++) {
 				for (int dy=-1; dy<=1; dy++) {
-
 					nhood[cnt] = _inimg_xy[x+dx][y+dy];
 					cnt++;
-
 				}
 			}
 

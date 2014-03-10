@@ -218,8 +218,11 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
 		IJ.log("export features ");
 		t1 = System.currentTimeMillis();
 
-//        PeakAnalyzer2D.exportNcc(	image_dir+image_name+".feat");
-        String export_path = image_dir+image_name+".feat";
+        String export_path = image_dir+image_name+".ncc";
+        PeakAnalyzer2D.exportNcc(export_path);
+        IJ.log("done exporting to: \t" + export_path + "\n");
+
+        export_path = image_dir+image_name+".feat";
 		PeakAnalyzer2D.exportRatios(export_path);
 		IJ.log("done exporting to: \t" + export_path + "\n");
 
