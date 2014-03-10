@@ -230,9 +230,8 @@ public class FeatureExtractor2D implements PlugInFilter {
         IJ.log(((t2-t1)/1000f)+"sec.");
 
 		IJ.log("exporting...");
-        PeakAnalyzer2D.exportFeatsCsv(   output_dir+image_name+".ncc",
-                                         output_dir+image_name+".ratio"
-                ); // export csv features from PeakAnalyzer2D.feat2 to image_name.feat
+        PeakAnalyzer2D.exportNcc(        output_dir+image_name+".ncc");
+		PeakAnalyzer2D.exportRatios(	 output_dir+image_name+".ratio");
         PeakAnalyzer2D.exportFeatsLegend(output_dir+image_name+".feat.description");
         exportExtractionLegend(          output_dir+image_name+".feat.params");
         Masker2D.exportI2xyCsv(          output_dir+image_name+".i2xy"); // export csv lookup table  from Masker2D.i2xy to image_name.i2xy

@@ -23,6 +23,8 @@ import java.io.File;
 public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMotionListener {
 
     float[][] 	inimg_xy;               // store input image as an array
+	String 		image_dir;
+	String		image_name;
 
     /*
         parameters
@@ -52,6 +54,9 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
         if(imagePlus==null) return DONE;
 
         inimg_xy = new float[imagePlus.getWidth()][imagePlus.getHeight()]; // x~column, y~row
+
+		image_dir = imagePlus.getOriginalFileInfo().directory; //  + File.separator  + image_name
+		image_name = imagePlus.getShortTitle();
 
         if (imagePlus.getType()== ImagePlus.GRAY8) {
             byte[] read = (byte[]) imagePlus.getProcessor().getPixels();
@@ -155,6 +160,7 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
                 e.printStackTrace();
             }
         }
+		Masker2D.defineThreshold();
         Masker2D.formRemainingOutputs();
 		new ImagePlus("MASK", Masker2D.getMask()).show();
         //************************************************
@@ -205,12 +211,27 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
                 e.printStackTrace();
             }
         }
-        IJ.log("export features ");
-        String out_file_fit     = System.getProperty("user.home") + File.separator + "ncc_fit.feat";
-        String out_file_ratio   = System.getProperty("user.home") + File.separator + "ratio_on.feat";
-        PeakAnalyzer2D.exportFeatsCsv(out_file_fit, out_file_ratio); // export features
-        IJ.log("done exporting to: \n" + out_file_fit + "\n" + out_file_ratio + "\n\n");
-        //************************************************
+
+		t2 = System.currentTimeMillis();
+		IJ.log("done. " + ((t2 - t1) / 1000f) + "sec.");
+
+		IJ.log("export features ");
+		t1 = System.currentTimeMillis();
+
+//        PeakAnalyzer2D.exportNcc(	image_dir+image_name+".feat");
+        String export_path = image_dir+image_name+".feat";
+		PeakAnalyzer2D.exportRatios(export_path);
+		IJ.log("done exporting to: \t" + export_path + "\n");
+
+		export_path = image_dir + image_name + ".frame";
+		PeakAnalyzer2D.exportFrames(export_path);
+		IJ.log("done exporting to: \t" + export_path + "\n");
+
+		export_path = image_dir + image_name + ".i2xy";
+		Masker2D.exportI2xyCsv(export_path);
+		IJ.log("done exporting to: \t" + export_path + "\n");
+
+		//************************************************
 
         t2 = System.currentTimeMillis();
         IJ.log("done. " + ((t2 - t1) / 1000f) + "sec.");
@@ -233,10 +254,6 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
 
         int clickX = cnv.offScreenX(e.getX());
         int clickY = cnv.offScreenY(e.getY());
-
-//        FileSaver fs = new FileSaver(pfl_im);
-//        fs.saveAsTiffStack("/home/miroslav/patches.tif");
-//                 IJ.log("saved");
 
         /*
             output Stack with local patches & update window
@@ -266,21 +283,14 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
         int clickX = cnv.offScreenX(e.getX());
         int clickY = cnv.offScreenY(e.getY());
 
-//        Overlay curr_overlay = cnv.getImage().getOverlay(); // get current overlay
-
-        // add new overlay on top of it
-
         /*
             output Overlay & update canvas with the original
          */
         Overlay ov_to_add = PeakAnalyzer2D.getDelineationOverlay(clickX, clickY);
-//        for (int yy=0; yy<ov_to_add.size(); yy++) {
-//            //basic_overlay.add(ov_to_add);
-//        }
 
         // add the whole image on top as overlay each time mouse is moved
         //ImageRoi fgroi = new ImageRoi(0, 0, Masker2D.getMask());    // !!! not very efficient to be done each time
-        //ImageRoi simple_det_roi = new ImageRoi(0, 0, new ByteProcessor(inimg_xy.length, inimg_xy[0].length, SimpleDetector2D.score2));
+        //ImageRoi simple_det_roi = new ImageRoi(0, 0, new ByteProcessor(inimg_xy.length, inimg_xy[0].length, SimpleDetsector2D.score2));
 
         //simple_det_roi.setOpacity(0.1);     // add foreground to know what was removed always
         //ov_to_add.add(simple_det_roi);
@@ -289,8 +299,8 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
 
         cnv.setOverlay(ov_to_add);
 
-		// show data
-		//PeakAnalyzer2D.print(clickX, clickY);
+		// print extracted features
+		PeakAnalyzer2D.print(clickX, clickY);
 
     }
 

@@ -5,6 +5,7 @@ import ij.IJ;
 import ij.ImagePlus;
 import ij.io.FileSaver;
 import ij.process.ByteProcessor;
+import ij.process.FloatProcessor;
 
 import java.io.*;
 import java.util.Arrays;
@@ -15,10 +16,9 @@ import java.util.Arrays;
  * Date: 12/16/13
  * Time: 3:24 PM
  * Parallel threaded implementation of masker module - robust foreground point extraction
- * Separates foreground from the background to reduce the computation by comparing
- * and thresholding the difference between
- * 95th percentile and 50th percentile (median)  of the values within range of radiuses surrounding some location
- * where median is background estimate taken at the smallest radius where the difference above iDiff exists
+ * Separates foreground from the background to reduce the computation by comparing and thresholding the difference between
+ * 95th percentile and 5th percentile of the values within a radius surrounding some location
+ * where 5th percentile is the background estimate
  */
 public class Masker2D extends Thread {
 
@@ -30,20 +30,25 @@ public class Masker2D extends Thread {
 	public static float[][]			inimg_xy;
 
 	private static float            radiusCheck;
-	private static   float 			iDiff;
+	private static float 			globalTh = .5f;
+//	private static   float 			iDiff;
 	private static int              marginPix;
-	private static float[]			rses; // radiuses around the one given as argument
-	private static float			alfa = 0.75f;
-	private static float 			rmin = 2f;
-	private static float			rmax = 20f; // max what you expect the diameter to be
-
+//	private static float[]			rses; // radiuses around the one given as argument
+//	private static float			alfa = 0.75f;
+//	private static float 			rmin = 2f;
+//	private static float			rmax = 20f; // max what you expect the diameter to be
 
 	/*
 	OUTPUT
 	 */
-	public static byte[][]			back_xy;
-	public static boolean[][]		mask_xy;
-	public static int[][] 			i2xy;
+	public static byte[][]			back_xy; 	// background estimate
+
+	public static boolean[][]		mask_xy;    // output mask
+
+	public static float[][] 		fg_score;   //
+	public static float[][]  		criteria;	//
+
+	public static int[][] 			i2xy;       // mapping
 	public static  int[][]			xy2i;
 
 	public Masker2D (int n0, int n1) {
@@ -55,11 +60,11 @@ public class Masker2D extends Thread {
 	{
 
 		radiusCheck     = _radiusNbhoodCheck;
-		iDiff			= _iDiff;
+//		iDiff			= _iDiff;
 
 		marginPix       = (int) Math.ceil(radiusCheck);
 		marginPix = (_margin>marginPix)? _margin : marginPix ;  // narrow down selection in XY plane
-
+		                               IJ.log("mag= "+marginPix);
 		inimg_xy = _inimg_xy;
 		image_height 	= inimg_xy[0].length;
 		image_width 	= inimg_xy.length;
@@ -69,64 +74,93 @@ public class Masker2D extends Thread {
 		 */
 		back_xy = new byte[image_width][image_height];
 		mask_xy = new boolean[image_width][image_height];
+
+		fg_score = new float[image_width][image_height];
+		criteria = new float[image_width][image_height];
+
 		i2xy 	= new int[1][1];  // values known after run()
 		xy2i 	= new int[1][1];  // values known after run()
 
-		/*
-        multiscale : try different radiuses around the one that was set - to cover more scales
-		 */
-		rses = new float[3];
-		rses[0] = radiusCheck*alfa;
-		rses[1] = radiusCheck;
-		rses[2] = radiusCheck*(1f/alfa);
+//		/*
+//        multiscale : try different radiuses around the one that was set - to cover more scales
+//		 */
+//		rses = new float[3];
+//		rses[0] = radiusCheck*alfa;
+//		rses[1] = radiusCheck;
+//		rses[2] = radiusCheck*(1f/alfa);
 
-		// constrain them
-		for (int aa=0; aa<rses.length; aa++) {
-			rses[aa] = (rses[aa]<rmin)? rmin : (rses[aa]>rmax)? rmax : rses[aa];
-			//IJ.log("the neighbourhood diameter is "+rses[aa]);
-		}
+//		// constrain them
+//		for (int aa=0; aa<rses.length; aa++) {
+//			rses[aa] = (rses[aa]<rmin)? rmin : (rses[aa]>rmax)? rmax : rses[aa];
+//			//IJ.log("the neighbourhood diameter is "+rses[aa]);
+//		}
 
 	}
 
 	public void run()
 	{
 
-		//int circNeighSize = sizeCircularNbhood(radiusCheck);
-		//float[] circNeigh = new float[circNeighSize];
+		int circNeighSize = sizeCircularNbhood(radiusCheck);
+		float[] circNeigh = new float[circNeighSize];
 
 		for (int locIdx=begN; locIdx<endN; locIdx++) {
 
 			int atX = locIdx%image_width;
 			int atY = locIdx/image_width;
 
-			boolean processIt = (atX>=marginPix) && (atY>=marginPix) && //(atZ>=marginLay) &&
+			boolean processIt =
+					(atX>=marginPix) && (atY>=marginPix) && //(atZ>=marginLay) &&
 								(atX<image_width-marginPix-1) && (atY<image_height-marginPix-1);// && (atZ<image_length-marginLay-1);
 
 			if (processIt) {
 
-				float iDiffMax = Float.NEGATIVE_INFINITY;
+				//float[] circNeigh = new float[sizeCircularNbhood(radiusCheck)];
+				extractCircularNbhood(atX, atY, radiusCheck, circNeigh);
+				float m05 	= Stat.quantile(circNeigh, 1 , 20);
+				float m95 	= Stat.quantile(circNeigh, 19, 20);
 
-				for(int ridx = 0; ridx<rses.length; ridx++) {  // loop rs radiuses
+				back_xy[atX][atY] 	= (byte) Math.round(m05);
+				criteria[atX][atY] 	= m95 - m05;
 
-					float[] circNeigh = new float[sizeCircularNbhood(rses[ridx])];
-					extractCircularNbhood(atX, atY, rses[ridx], circNeigh);
-					float m50 	= Stat.median(circNeigh);
-					float m95 = Stat.quantile(circNeigh, 19, 20); // quantile ratio: how much signal there has to be
-
-					if (m95 - m50 > iDiffMax) {
-						back_xy[atX][atY] = (byte) Math.round(m50); // background estimate where the difference was the highest
-						iDiffMax = m95 - m50;
-					}
-
-					if (m95 - m50 > iDiff) {
-						mask_xy[atX][atY] = true;
-					}
-
+				if (m95-m05>0.1) {
+					fg_score[atX][atY]  = medianAtPoint(atX, atY, inimg_xy) - m05;
+					fg_score[atX][atY]  = (fg_score[atX][atY]<0)? 0 : fg_score[atX][atY];
+					fg_score[atX][atY]  = fg_score[atX][atY] / (m95-m05);
+					fg_score[atX][atY]	= (fg_score[atX][atY]>1)? 1 : fg_score[atX][atY];
 				}
 
 			}
 
 		}
+
+	}
+
+	public static void defineThreshold()
+	{
+
+		// recompose criteria
+		float[] criteria_temp = new float[criteria.length*criteria[0].length];
+		int cnt = 0;
+		for (int ii=0; ii<criteria.length; ii++) {
+			for (int jj=0; jj<criteria[0].length; jj++) {
+				criteria_temp[cnt] = criteria[ii][jj];
+				cnt++;
+			}
+		}
+		globalTh = Stat.median(criteria_temp);
+		IJ.log("th = "+globalTh);
+
+		for (int xx=0; xx<image_width; xx++) {
+			for (int yy=0; yy<image_height; yy++) {
+				if (criteria[xx][yy] > globalTh) {
+					mask_xy[xx][yy] = true;
+				}
+				else {
+					mask_xy[xx][yy] = false;
+				}
+			}
+		}
+
 	}
 
 	public static void formRemainingOutputs(){
@@ -154,10 +188,10 @@ public class Masker2D extends Thread {
 
 		IJ.log(String.format("%3.2f %% vol. foreground extracted", perc));
 
-		if (perc > 80) {// more than 80 percent is wrong
-			System.out.println("warning: a lot of foreground points...");
-			//return; // return just the lookup table
-		}
+//		if (perc > 80) {// more than 80 percent is wrong
+//			System.out.println("warning: a lot of foreground points...");
+//			//return; // return just the lookup table
+//		}
 
 		// component: foreground point list: locations and background estimates
 		i2xy = new int[cnt][2];
@@ -195,6 +229,16 @@ public class Masker2D extends Thread {
 		}
 		return new ByteProcessor(image_width, image_height, out);
 
+	}
+
+	public static FloatProcessor getCriteria()
+	{
+		return new FloatProcessor(criteria);
+	}
+
+	public static FloatProcessor getFgScore()
+	{
+		return new FloatProcessor(fg_score);
 	}
 
 	public static ByteProcessor getBackground(){
@@ -256,6 +300,32 @@ public class Masker2D extends Thread {
 		}
 
 	}
+
+	private static float medianAtPoint(int x, int y, float[][] _inimg_xy) {
+
+		float[] nhood = new float[9];
+
+		if (x>0 && x<_inimg_xy.length-1 && y>0 && y<_inimg_xy[0].length-1) {
+
+			int cnt = 0;
+			for (int dx=-1; dx<=1; dx++) {
+				for (int dy=-1; dy<=1; dy++) {
+
+					nhood[cnt] = _inimg_xy[x+dx][y+dy];
+					cnt++;
+
+				}
+			}
+
+		}
+
+		return Stat.median(nhood);
+
+	}
+
+	/*
+		EXPORT FILE
+	 */
 
     public static void exportI2xyCsv(String file_path) {
 

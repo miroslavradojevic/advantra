@@ -96,7 +96,7 @@ public class Masker2DDemo implements PlugInFilter {
                 e.printStackTrace();
             }
         }
-
+		Masker2D.defineThreshold();
 		Masker2D.formRemainingOutputs();
 
         t2 = System.currentTimeMillis();
@@ -108,64 +108,14 @@ public class Masker2DDemo implements PlugInFilter {
         ImagePlus outback = new ImagePlus("background", Masker2D.getBackground());
 		outback.show();
 
+		ImagePlus outcrit = new ImagePlus("criteria", Masker2D.getCriteria());
+		outcrit.show();
+
+		ImagePlus outfgscore = new ImagePlus("fg_score", Masker2D.getFgScore());
+		outfgscore.show();
+
 		IJ.log("\ntotal "+Masker2D.i2xy.length+" locations extracted.\n"+"elapsed: "+((t2-t1)/1000f)+ " seconds.");
 
     }
 
-//	public void mouseClicked(MouseEvent e) {
-//		int offscreenX = incanvas.offScreenX(e.getX());
-//		int offscreenY = incanvas.offScreenY(e.getY());
-//		int radiusToCheck = (int) Math.ceil(nhoodRadius);
-//		float[] circVals = Masker.extractCircleVals(offscreenX, offscreenY, radiusToCheck, Masker.circleElements(radiusToCheck));
-//		Arrays.sort(circVals);
-//		float[] x = new float[circVals.length];
-//		for (int i=0; i<x.length; i++) x[i] = i+1;
-//
-//		Plot p = new Plot("", "", "", x, circVals);
-//
-//		float avg =  Masker.average(circVals);
-//		float[] med = Masker.medianVec(circVals);
-//		float[] std = Masker.stdVec(circVals, avg); for (int i=0; i<circVals.length; i++) std[i] = avg + 2*std[i];
-//        float[] q3 = Masker.quartile3Vec(circVals);
-//
-//
-//        float diff = std[0]-med[0];  // std , q3
-//		float margin = (diff<=iDiff)?
-//							   iDiff :
-//							   0;//Masker.I_DIFF*(float)Math.exp(-0.5*(diff-Masker.I_DIFF)) ;
-//		float[] mg = new float[circVals.length];
-//		for (int i=0; i<circVals.length; i++) mg[i] = med[0] + margin;
-//
-//		p.setLimits(1, x.length, circVals[0], Math.max(circVals[circVals.length-1], Math.max(std[0], mg[0]))+5);
-//
-//        /*
-//        BGRD
-//         */
-//
-//		p.draw(); p.setLineWidth(2); p.setColor(Color.BLUE);
-//		p.addPoints(x, med, Plot.LINE);
-//
-//        /*
-//        LEVEL
-//         */
-//		p.draw(); p.setLineWidth(2); p.setColor(Color.GREEN);
-//		p.addPoints(x, std, Plot.LINE);  // std, q3
-//
-//        /*
-//        THRESHOLD
-//         */
-//		p.draw(); p.setLineWidth(2); p.setColor(Color.RED);
-//		p.addPoints(x, mg, Plot.LINE);
-//
-//		IJ.log("median(R): "+med[0]+", upper limit(G): "+std[0]+", margin: "+mg[0]+", value:"+inimg.getProcessor().getf(offscreenX, offscreenY));
-//
-//		if (pw == null) pw = p.show();
-//		pw.drawPlot(p);
-//		pw.setTitle("x = " + offscreenX + ", y = " + offscreenY + ", r = " + nhoodRadius);
-//
-//		OvalRoi ring = new OvalRoi(offscreenX-nhoodRadius+.5, offscreenY-nhoodRadius+.5, 2*nhoodRadius, 2*nhoodRadius);
-//		Overlay ov = new Overlay(); ov.add(ring);
-//		incanvas.setOverlay(ov);
-//
-//	}
 }

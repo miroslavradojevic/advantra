@@ -3,6 +3,7 @@ package detection2d;
 import aux.Stat;
 import detection.Interpolator;
 import fit.Fitter1D;
+import ij.IJ;
 import ij.ImageStack;
 import ij.gui.*;
 import ij.process.ByteProcessor;
@@ -60,7 +61,7 @@ public class PeakAnalyzer2D extends Thread {
     public static int[][][]     delin2;                     // N(foreground locs.) x 4(max. threads) x M(follow-up locs) contains index for each location
 	// features
     public static float[][][]   feat2;						// N(foreground locs.) x 4 x (M x L) fit scores
-    public static float[][]     ratio2;                     // N(foreground locs.) x 4 ratio of those above the threshold
+    public static float[][]     ratio2;                     // N(foreground locs.) x 4 + 1 ratio of those above the threshold and score for the point
 
     // PROCESSING UNITS
     private static Fitter1D fitter;                         // class used to calculate fitting scores
@@ -97,8 +98,6 @@ public class PeakAnalyzer2D extends Thread {
         scatterDist = _scatterDist;
 		thresholdNCC = _thresholdNCC;
 
-        System.out.println("thre set to: "+thresholdNCC);
-
         // allocate output -> set to -1
         delin2 = new int[i2xy.length][4][M];
         for (int ii=0; ii<delin2.length; ii++)
@@ -107,7 +106,7 @@ public class PeakAnalyzer2D extends Thread {
                     delin2[ii][jj][kk] = -1;
 
 		feat2   = new float[i2xy.length][4][M*L]; // fitting scores
-        ratio2  = new float[i2xy.length][4];      // ratio of ON NCC scores (higher than threshold)
+        ratio2  = new float[i2xy.length][4+1];      // ratio of ON NCC scores (higher than threshold)
 
     }
 
@@ -169,45 +168,29 @@ public class PeakAnalyzer2D extends Thread {
 
     }
 
-	// debug
-//	public static void print(int atX, int atY) {
-//
-//		int atLoc = xy2i[atX][atY];
-//
-//        IJ.log(String.format("/**** LOC (%5d, %5d) [%10d] ****/", atX, atY, atLoc));
-//
-//		if (atLoc != -1) {
-//
-//			IJ.log("DELINEATION INDEXES:");
-//            for (int ii=0; ii<delin2[atLoc].length; ii++) {
-//				IJ.log("-> "+Arrays.toString(delin2[atLoc][ii]));
-//			}
-//
-//			float[][] test = takeMinMax(delin2[atLoc], atLoc, true);
-//			IJ.log("CALCULATED FEATURES:");
-//			for (int ii=0; ii<test.length; ii++) {
-//				IJ.log("MIN/MAX-> "+Arrays.toString(test[ii]));
-//			}
-//
-//            IJ.log("FEATURE VECTOR(TH11, TH12, TH21, TH22, TH31, TH32, C):");
-//			String plot_feats = "[";
-//			for (int kk = 0; kk<feat2[atLoc].length; kk++) {
-//				plot_feats += IJ.d2s(feat2[atLoc][kk], 2);
-//				if(kk<feat2[atLoc].length-1) {
-//					plot_feats += ", ";
-//				}
-//				else {
-//					plot_feats += "]";
-//				}
-//			}
-//			IJ.log(plot_feats); // Arrays.toString(feat2[atLoc])
-//
-//        }
-//		else {
-//			IJ.log("background point, no data!");
-//		}
-//
-//	}
+	public static void print(int atX, int atY)
+	{
+
+		int atLoc = xy2i[atX][atY];
+
+        IJ.log(String.format("/**** LOC (%5d, %5d) [%10d] ****/", atX, atY, atLoc));
+
+		if (atLoc != -1) {
+
+			IJ.log("DELINEATION INDEXES:");
+            for (int ii=0; ii<delin2[atLoc].length; ii++) IJ.log("-> " + Arrays.toString(delin2[atLoc][ii]));
+
+			IJ.log("NCC:");
+			for (int ii=0; ii<feat2[atLoc][ii].length; ii++) IJ.log("B "+ii+" -> " + Arrays.toString(feat2[atLoc][ii]));
+
+			IJ.log("RATIO -> " + Arrays.toString(ratio2[atLoc]));
+
+        }
+		else {
+			IJ.log("background point, no data!");
+		}
+
+	}
 
  /*
  * the "spatial consistency" is checked to account for the peak robustness (it's neighbours have to point to the spatially close location)
@@ -334,28 +317,6 @@ public class PeakAnalyzer2D extends Thread {
         }
 
         return -1; // checked all
-
-    }
-
-    private static float medianAtPoint(int x, int y, float[][] _inimg_xy) {
-
-        float[] nhood = new float[9];
-
-        if (x>0 && x<_inimg_xy.length-1 && y>0 && y<_inimg_xy[0].length-1) {
-
-            int cnt = 0;
-            for (int dx=-1; dx<=1; dx++) {
-                for (int dy=-1; dy<=1; dy++) {
-
-                    nhood[cnt] = _inimg_xy[x+dx][y+dy];
-                    cnt++;
-
-                }
-            }
-
-        }
-
-        return Stat.median(nhood);
 
     }
 
@@ -655,14 +616,16 @@ public class PeakAnalyzer2D extends Thread {
     public static ImageStack plotDelineationFeatures(int atX, int atY)
     {
 
+		// just read from the feat2 and ratio2
         ImageStack is_out = new ImageStack(528, 255);
         int loc_idx = xy2i[atX][atY];
 
+		int nrFeats = 5;
         int perBin = 40;
-        float[] xaxis2 = new float[4*perBin];
-        float[] yaxis2 = new float[4*perBin];
+        float[] xaxis2 = new float[nrFeats*perBin];
+        float[] yaxis2 = new float[nrFeats*perBin];
         for (int i=0; i<xaxis2.length; i++) {
-            xaxis2[i] = i * (4 / (float)(4*perBin));
+            xaxis2[i] = i * (nrFeats / (float)(nrFeats*perBin));
             if (Math.abs(xaxis2[i]-Math.round(xaxis2[i]))<0.1) {
                 yaxis2[i] = 0;
             }
@@ -672,7 +635,7 @@ public class PeakAnalyzer2D extends Thread {
         }
 
         Plot feature_plot1 = new Plot("", "", "ratio");
-        feature_plot1.setLimits(0, 4, 0, 1);
+        feature_plot1.setLimits(0, nrFeats, 0, 1);
         feature_plot1.addPoints(xaxis2, yaxis2, Plot.LINE);
         feature_plot1.setColor(Color.BLACK);
         feature_plot1.draw();
@@ -681,7 +644,6 @@ public class PeakAnalyzer2D extends Thread {
         feature_plot1.draw();
         is_out.addSlice("ratioON", feature_plot1.getProcessor());
 
-        // just read from the feat2 and ratio2
         // plot fit scores for each branch + one plot with ratios
         float[] xaxis1 = new float[M*L];
         for (int i=0; i<M*L; i++) xaxis1[i] = i;
@@ -708,7 +670,7 @@ public class PeakAnalyzer2D extends Thread {
         // will calculate the features (fitting scores of the gaussian profiles along the delineated branch, M*L cross-section fits)
         // & store them in (M*L) dimensional vector, with the first one being the closest to the central root location
         // 4*(M*L) fit scores
-        // 4 ratio scores
+        // 4 ratio scores + 1 value saying how high above the background
         // every cross section line has one score for fit and one for overlap with the highest one from the other branches
 		// there are max 4 branches in 2D, in case they are missing - the rest of the features are filled with modelled values - modeling bad scores
 
@@ -755,13 +717,16 @@ public class PeakAnalyzer2D extends Thread {
             }
 
             // 2 calculate ratios in every branch
-            for (int b=0; b<fitNCC.length; b++) {
+            for (int b=0; b<4; b++) {
                 int cntON = 0;
-                for (int l=0; l<fitNCC[0].length; l++) {
+                for (int l=0; l<fitNCC[b].length; l++) {
                     if (fitNCC[b][l]>=thresholdNCC) cntON++;
                 }
                 ratioON[b] = cntON / (float) fitNCC[0].length;
             }
+
+			// last feature
+			ratioON[4] = Masker2D.fg_score[atX][atY];
 
         }
 
@@ -770,41 +735,6 @@ public class PeakAnalyzer2D extends Thread {
 	/*
 		score calculation
 	 */
-	private static float score_bias(float theta, float threshold) { // theta is foreground-background
-
-		if (theta<=0) {
-			return 0;
-		}
-		else if (theta>=threshold) {
-			return 1;
-		}
-		else {
-			return (float) (1 / (1 + Math.exp( -(theta-threshold/2) / (threshold/10) )));
-		}
-
-	}
-
-	private static float score_var(float theta, float sigma) {
-
-		float theta1 = 1, sigma1 = 1;
-
-		if (theta>1) {
-			theta1 = theta;
-		}
-
-		if (sigma>1) {
-			sigma1 = sigma;
-		}
-
-		float sigma_over_theta = sigma1 / theta1;
-
-		float out = (float) (1f - 1f/(1f+Math.exp(-(sigma_over_theta - 1f/2) / (1f/10)) ));
-
-//		IJ.log("s/d="+sigma_over_theta+", out="+out);
-
-		return out;
-
-	}
 
 	public static float medianAlongLine(float x1, float y1, float x2, float y2, float[][] inimg_xy) {
 
@@ -840,25 +770,19 @@ public class PeakAnalyzer2D extends Thread {
 
 	}
 
-	public static void exportFeatsCsv(String file_path_fits, String file_path_ratios) {
-
-        /*
-            output the ncc fit scores
-         */
-
-        PrintWriter logWriter = null; //initialize writer
-
+	public static void exportNcc(String file_path)
+	{
+        PrintWriter logWriter = null;
         try {
-            logWriter = new PrintWriter(file_path_fits);
+            logWriter = new PrintWriter(file_path);
             logWriter.print("");
             logWriter.close();
-        } catch (FileNotFoundException ex) {}   // empty the file before logging...
+        } catch (FileNotFoundException ex) {}
 
-        try {                                   // initialize detection log file
-            logWriter = new PrintWriter(new BufferedWriter(new FileWriter(file_path_fits, true)));
+        try {
+            logWriter = new PrintWriter(new BufferedWriter(new FileWriter(file_path, true)));
         } catch (IOException e) {}
 
-        //main loop
         for (int ii=0; ii<feat2.length; ii++) {
             for (int jj=0; jj<feat2[ii].length; jj++) {
                 for (int kk=0; kk<feat2[ii][jj].length; kk++) {
@@ -869,23 +793,22 @@ public class PeakAnalyzer2D extends Thread {
             }
         }
 
-        logWriter.close(); // close log
+        logWriter.close();
+	}
 
-        /*
-            output ratio scores
-         */
-        logWriter = null;
+	public static void exportRatios(String file_path)
+	{
+        PrintWriter logWriter = null;
         try {
-            logWriter = new PrintWriter(file_path_ratios);
+            logWriter = new PrintWriter(file_path);
             logWriter.print("");
             logWriter.close();
-        } catch (FileNotFoundException ex) {}   // empty the file before logging...
+        } catch (FileNotFoundException ex) {}
 
-        try {                                   // initialize detection log file
-            logWriter = new PrintWriter(new BufferedWriter(new FileWriter(file_path_ratios, true)));
+        try {
+            logWriter = new PrintWriter(new BufferedWriter(new FileWriter(file_path, true)));
         } catch (IOException e) {}
 
-        //main loop
         for (int ii=0; ii<ratio2.length; ii++) {
             for (int jj=0; jj<ratio2[ii].length; jj++) {
                     logWriter.print(String.format("%1.2f", ratio2[ii][jj]));
@@ -894,11 +817,11 @@ public class PeakAnalyzer2D extends Thread {
             }
         }
 
-        logWriter.close(); // close log again
+        logWriter.close();
+	}
 
-    }
-
-    public static void exportFrames(String file_path) {
+    public static void exportFrames(String file_path)
+	{
 
         PrintWriter logWriter = null; //initialize writer
 
@@ -931,7 +854,8 @@ public class PeakAnalyzer2D extends Thread {
 
     }
 
-    public static void exportFeatsLegend(String file_path) {
+    public static void exportFeatsLegend(String file_path)
+	{
 
         PrintWriter logWriter = null; //initialize writer
 
@@ -1198,7 +1122,7 @@ public class PeakAnalyzer2D extends Thread {
     // method that calculates overlap of two line segments
 
 	/*
-		methods that deal with local line (defined with prev_xy and curr_xy)
+		methods that deal with local line (defined with prev_xy and curr_xy)    // TODO put it to misc
 	 */
 //    private static ArrayList<OvalRoi> localLineLocs(float x1, float y1, float x2, float y2) {
 //
@@ -1236,32 +1160,32 @@ public class PeakAnalyzer2D extends Thread {
 //        return pts;
 //    }
 
-    private static float[] localLineVals(float x1, float y1, float x2, float y2, float[][] inimg_xy) {
-
-        float dist = (float) Math.sqrt(Math.pow(x2-x1, 2) + Math.pow(y2-y1, 2)); //  + Math.pow(z2lay-z1lay, 2)
-
-        int elementsInLine = (int) (dist / samplingStep);  // how many increment can safely fit between
-        float[] valuesAlongLine = new float[elementsInLine];
-
-        float dx = (x2 - x1) / dist;
-        float dy = (y2 - y1) / dist;
-        // [dx, dy] is unit vector
-
-        dx *= samplingStep;
-        dy *= samplingStep;
-
-        for (int cc = 0; cc<elementsInLine; cc++) {
-
-            float atX = x1      + cc * dx;
-            float atY = y1      + cc * dy;
-//			float atZ = z1lay   + cc * dz;
-
-            valuesAlongLine[cc] = Interpolator.interpolateAt(atX, atY, inimg_xy);
-
-        }
-
-        return valuesAlongLine;
-
-    }
+//    private static float[] localLineVals(float x1, float y1, float x2, float y2, float[][] inimg_xy) {
+//
+//        float dist = (float) Math.sqrt(Math.pow(x2-x1, 2) + Math.pow(y2-y1, 2)); //  + Math.pow(z2lay-z1lay, 2)
+//
+//        int elementsInLine = (int) (dist / samplingStep);  // how many increment can safely fit between
+//        float[] valuesAlongLine = new float[elementsInLine];
+//
+//        float dx = (x2 - x1) / dist;
+//        float dy = (y2 - y1) / dist;
+//        // [dx, dy] is unit vector
+//
+//        dx *= samplingStep;
+//        dy *= samplingStep;
+//
+//        for (int cc = 0; cc<elementsInLine; cc++) {
+//
+//            float atX = x1      + cc * dx;
+//            float atY = y1      + cc * dy;
+////			float atZ = z1lay   + cc * dz;
+//
+//            valuesAlongLine[cc] = Interpolator.interpolateAt(atX, atY, inimg_xy);
+//
+//        }
+//
+//        return valuesAlongLine;
+//
+//    }
 
 }
