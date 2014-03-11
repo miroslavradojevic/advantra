@@ -158,7 +158,7 @@ public class FeatureExtractor2D implements PlugInFilter {
         t1 = System.currentTimeMillis();
 
         /********************************/
-        Masker2D.loadTemplate(inimg_xy, 0, sph2d.getOuterRadius(), iDiff);
+        Masker2D.loadTemplate(inimg_xy, 0, sph2d.getOuterRadius());
         int totalLocs = inimg_xy.length * inimg_xy[0].length;
 
         Masker2D ms_jobs[] = new Masker2D[CPU_NR];
@@ -177,7 +177,7 @@ public class FeatureExtractor2D implements PlugInFilter {
         Masker2D.formRemainingOutputs();
 		new ImagePlus("MASK", Masker2D.getMask()).show();
         /********************************/
-        Profiler2D.loadTemplate(sph2d, Masker2D.i2xy, inimg_xy);
+        Profiler2D.loadTemplate(sph2d, Masker2D.i2xy, Masker2D.xy2i, inimg_xy);
         int totalProfileComponents = sph2d.getProfileLength();
 
         Profiler2D pf_jobs[] = new Profiler2D[CPU_NR];

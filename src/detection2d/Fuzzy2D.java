@@ -44,14 +44,6 @@ public class Fuzzy2D {
         System.out.println(""+step);
         for (int i=0; i<L; i++) {out_idxs[i] = i*step;System.out.println(i+" "+x[out_idxs[i]]);}
 
-//        System.out.println(Arrays.toString(x));
-//        System.out.println(""+x[0]);
-//        System.out.println(""+x[25]);
-//        System.out.println(""+x[50]);
-//        System.out.println(""+x[75]);
-//        System.out.println(""+x[100]);
-
-
         // output membership functions
         q_NON = new float[N];
         for (int i=0; i<N; i++) {
@@ -241,7 +233,7 @@ public class Fuzzy2D {
         mu = min (h_on(theta1), h_on(theta2),  h_on(theta3),  h_off(theta4),  h_on(theta5)) ; cur = fi_BIF(mu); accumulate(cur, agg);
         mu = min (h_on(theta1), h_on(theta2),  h_on(theta3),  h_on(theta4),   h_on(theta5)) ; cur = fi_CRS(mu); accumulate(cur, agg);
 
-        mu = 1-h_on(theta5); cur = fi_NON(mu); accumulate(cur, agg);
+        mu = h_off(theta5); cur = fi_NON(mu); accumulate(cur, agg);
         // finished rules
 
 //        if (true) {
@@ -281,6 +273,5 @@ public class Fuzzy2D {
     {
         for (int i=0; i<N; i++) if (values[i]>accumulator[i]) accumulator[i] = values[i];
     }
-
 
 }

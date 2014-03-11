@@ -1,6 +1,7 @@
 package detection2d;
 
 import detection3d.Sphere3D;
+import ij.ImageStack;
 import ij.gui.Plot;
 import ij.process.ImageProcessor;
 
@@ -15,9 +16,10 @@ public class Profiler2D extends Thread {
 
 	private int begN, endN;
 
-	public static float[][] inimg_xy;
-    public static Sphere2D  sph2d;
-    public static int[][] 	i2xy;                       // selected locations
+	public static float[][] inimg_xy;                   // input image
+    public static Sphere2D  sph2d;                      // sphere class - spherical computations
+    public static int[][] 	i2xy;                       // selected locations mapping
+    public static int[][]   xy2i;                       // mapping
 
     // output
     public static short[][]	prof2;
@@ -28,14 +30,15 @@ public class Profiler2D extends Thread {
         this.endN = n1;
     }
 
-    public static void loadTemplate(Sphere2D _sph2d, int[][] _i2xy, float[][] _inimg_xy){
+    public static void loadTemplate(Sphere2D _sph2d, int[][] _i2xy, int[][] _xy2i, float[][] _inimg_xy){
 
-        sph2d = _sph2d; // just assign link, no allocation necessary since there will be one Sphere3D instance for all
-        i2xy = _i2xy;
-        inimg_xy = _inimg_xy;
+        sph2d = _sph2d;                     // there will be one Sphere3D instance created at the beginning and
+        i2xy = _i2xy;                       // list of foreground locations with corresponding x and y
+        xy2i = _xy2i;                       // mapping assign
+        inimg_xy = _inimg_xy;               // input image
 
         // allocate output
-        prof2 = new short[i2xy.length][sph2d.getProfileLength()];
+        prof2 = new short[i2xy.length][sph2d.getProfileLength()]; // output profiles
 
     }
 
@@ -56,12 +59,14 @@ public class Profiler2D extends Thread {
     }
 
     /*
-        various versions of the output (plot imageprocessor, just an array with corresponding thetas in degs)
+        various versions of the output (plot ImageProcessor, just an array with corresponding thetas in degs)
      */
 
-    public static ImageProcessor getProfile(int atX, int atY, int[][] _xy2i){  // reads from prof2 array class member
+    public static ImageStack getProfile(int atX, int atY){  // reads from prof2 array class member
 
-        int idx = _xy2i[atX][atY];
+        ImageStack is_out = new ImageStack(528, 255);
+
+        int idx = xy2i[atX][atY];
         if (idx != -1) {
             int len = prof2[0].length;
             float[] f = new float[len];
@@ -71,17 +76,20 @@ public class Profiler2D extends Thread {
                 f[i] = ((prof2[idx][i] & 0xffff) / 65535f) * 255f; // retrieve the profile
                 //fx[i] = i; // abscissa in cnt
                 fx[i] = (i / (float) len) * 360; // abscissa in degs
-
             }
 
             Plot p = new Plot("profile at ("+atX+","+atY+")", "", "filtered", fx, f);
-            p.setSize(600, 300);
-
-            return p.getProcessor();
+            is_out.addSlice(p.getProcessor());
         }
         else {
-            return null;
+
+            float[] fx = new float[sph2d.getProfileLength()];
+            for (int i=0; i<fx.length; i++) fx[i] = ((i/(float)fx.length)*360);
+            Plot p = new Plot("", "", "", fx, new float[fx.length]);
+            is_out.addSlice(p.getProcessor());
         }
+
+        return is_out;
 
     }
 

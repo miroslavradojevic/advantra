@@ -2,6 +2,7 @@ package detection2d;
 
 import ij.IJ;
 import ij.ImagePlus;
+import ij.ImageStack;
 import ij.Prefs;
 import ij.gui.GenericDialog;
 import ij.gui.ImageCanvas;
@@ -35,7 +36,7 @@ public class Profiler2DDemo implements PlugInFilter, MouseListener, MouseMotionL
 	interface things
 	 */
 	ImagePlus       pfl_im = new ImagePlus();
-	ImageProcessor  pfl_ip = null;
+	ImageStack      pfl_ip = null;
 	ImageWindow     pfl_iw;
 	ImageCanvas 	cnv;
 
@@ -108,7 +109,7 @@ public class Profiler2DDemo implements PlugInFilter, MouseListener, MouseMotionL
          */
         t1 = System.currentTimeMillis();
 
-        Masker2D.loadTemplate(inimg_xy, 0, sph2d.getOuterRadius(), iDiff);
+        Masker2D.loadTemplate(inimg_xy, 0, sph2d.getOuterRadius());
         int totalLocs = inimg_xy.length * inimg_xy[0].length;
 
         Masker2D ms_jobs[] = new Masker2D[CPU_NR];
@@ -126,7 +127,7 @@ public class Profiler2DDemo implements PlugInFilter, MouseListener, MouseMotionL
 
         Masker2D.formRemainingOutputs();
 
-        Profiler2D.loadTemplate(sph2d, Masker2D.i2xy, inimg_xy);
+        Profiler2D.loadTemplate(sph2d, Masker2D.i2xy, Masker2D.xy2i, inimg_xy);
         int totalProfileComponents = sph2d.getProfileLength();
 
         Profiler2D pf_jobs[] = new Profiler2D[CPU_NR];
@@ -160,24 +161,11 @@ public class Profiler2DDemo implements PlugInFilter, MouseListener, MouseMotionL
 		int clickX = cnv.offScreenX(e.getX());
 		int clickY = cnv.offScreenY(e.getY());
 
-		pfl_ip = Profiler2D.getProfile(clickX, clickY, Masker2D.xy2i);
+		pfl_ip = Profiler2D.getProfile(clickX, clickY);
+        pfl_im.setStack(pfl_ip);
 
-		if (pfl_ip == null) {
-			pfl_ip = new ShortProcessor(1, 1);
-			pfl_im.setTitle("background");
-		}
-		else {
-			pfl_im.setTitle("foreground");
-		}
-
-		pfl_im.setProcessor(pfl_ip);
-
-		if (pfl_iw==null) {
-			pfl_iw = new ImageWindow(pfl_im);
-		}
-		else {
-			pfl_iw.setImage(pfl_im);
-		}
+		if (pfl_iw==null) pfl_iw = new ImageWindow(pfl_im);
+		else pfl_iw.setImage(pfl_im);
 
 		//pfl_iw.setSize(600, 300);
 		//pfl_iw.getCanvas().fitToWindow();

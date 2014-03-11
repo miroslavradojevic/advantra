@@ -31,7 +31,6 @@ public class PeakExtractor2D extends Thread {
     public static float[][][]	peaks_theta;                // N x (4x1)   4 selected peaks in abscissa coordinates X
     public static int[][][]     peaks_xy;             		// N x (4x2)   main output  4 selected peaks in XY format (TODO: can be only index to save memory)
     // peaks_xy are the best rounded locations found close to the spots determined with peaks_theta
-    // TODO MAYBE: add another output - peak strength (useful for plot and for later tracing usage)
 
     public PeakExtractor2D(int n0, int n1)
     {

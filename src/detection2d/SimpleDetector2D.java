@@ -2,9 +2,13 @@ package detection2d;
 
 import conn.Find_Connected_Regions;
 import ij.ImagePlus;
+import ij.gui.OvalRoi;
 import ij.gui.Overlay;
 import ij.gui.PointRoi;
 import ij.process.ByteProcessor;
+
+import java.awt.*;
+import java.util.ArrayList;
 
 /**
  * Created by miroslav on 1/9/14.
@@ -22,16 +26,21 @@ public class SimpleDetector2D extends Thread {
 
     // VARIABLES
     public static int[][] 	    i2xy;                   // selected locations
+    public static int[][]       xy2i;                   // legend, map
     public static int           W, H;                   // range for x and y
 
     // INPUT: list of extracted peaks' indexes
-    public static int[][][]     delin2;             	// N x 4(max. threads) x M   every FG location with 4 selected peaks in XY format
+    public static int[][][]     delin2;             	// N x 4(max. threads) x M, every FG location with 4 selected peaks in XY format
+    public static float[][]     lhood2;                 // N x 5, PeakAnalyzer2D fuzzy logic output, 5 outputs with likelihood
 
     // PARAMETERS
-    // no parameters here - just check the structure
+    static int min_size = 1;                                   // when extracting connected components
+    static float min_lhood = .5f;                              // when discarding those that are not certain enough
+    static int nbhood_size = 0;
 
     // OUTPUT
     public static byte[]      score2;
+    public static float[]     lhoods;
 
     public SimpleDetector2D(int n0, int n1)
     {
@@ -39,31 +48,62 @@ public class SimpleDetector2D extends Thread {
         this.endN = n1;
     }
 
-    public static void loadTemplate(int _W, int _H, int[][] _i2xy, int[][][] _delin2) {
+    public static void loadTemplate(int _W, int _H, int[][] _i2xy, int[][] _xy2i, int[][][] _delin2, float[][] _lhood2) {
 
         W       = _W;
         H       = _H;
         i2xy    = _i2xy;
+        xy2i    = _xy2i;
         delin2  = _delin2;
+        lhood2  = _lhood2;
 
         /*
             allocate output
          */
         score2 = new byte[W*H];
+        lhoods = new float[W*H];
 
     }
 
     public void run() {
 
-        // loop through all the locations and decide (if at least three complete branches exist)
+        // loop through all the locations and decide
         for (int locationIdx = begN; locationIdx < endN; locationIdx++) {
 
             int atX = i2xy[locationIdx][0];
             int atY = i2xy[locationIdx][1];
 
-            if (simpleDecision(locationIdx)) {
-                score2[atY*W+atX] = (byte) 255; // row by row align
+            // check the neighbours to make majority voting decision
+            // take the best decision from the local neighbourhood
+            int     curr_label = -1; // 0-4
+            float   curr_lhood = -1;
+
+
+
+            for (int xx=atX-nbhood_size; xx<=atX+nbhood_size; xx++) {
+                for (int yy=atY-nbhood_size; yy<=atY+nbhood_size; yy++) {
+                    if (xy2i[xx][yy]!=-1) { // point is in the foreground
+
+                        float[] nbr_lhood_list = lhood2[xy2i[xx][yy]];
+
+                        for (int kk=0; kk<nbr_lhood_list.length; kk++) {
+
+                            if (nbr_lhood_list[kk]>curr_lhood) {
+                                curr_lhood = nbr_lhood_list[kk];
+                                curr_label = kk;
+                            }
+
+                        }
+                    }
+                }
             }
+
+            score2[atY*W+atX] = (byte) curr_label;
+            lhoods[atY*W+atX] = curr_lhood;
+
+//            if (simpleDecision(locationIdx)) {
+//                score2[atY*W+atX] = (byte) 255; // row by row align
+//            }
 
         }
 
@@ -93,26 +133,71 @@ public class SimpleDetector2D extends Thread {
 
     }
 
-    public static void drawDetections(){
+    public static Overlay drawDetections(){
 
-        ByteProcessor bp = new ByteProcessor(W, H, score2);
+        // eliminate those lower than min_lhood
+        byte[] out_labels = new byte[W*H];
+
+        for (int ii=0; ii<W*H; ii++) {
+
+            if (lhoods[ii]>min_lhood) {
+                if (score2[ii]==(byte)1) out_labels[ii] = (byte)127;
+                if (score2[ii]==(byte)3 || score2[ii]==(byte)4) out_labels[ii] = (byte)255;
+            }
+
+        }
+
+        ByteProcessor bp = new ByteProcessor(W, H, out_labels);
         ImagePlus ip = new ImagePlus("DET", bp);
         ip.show();
 
-        Overlay ov = new Overlay();
-
         // take detections (binary image), find connected regions, and extract out the overlay with the detections
-
         //ByteProcessor score = new ByteProcessor(W, H);
         //for (int ii=0; ii<W*H; ii++) if (score2[ii]) score.set(ii, 255);
         Find_Connected_Regions conn_reg = new Find_Connected_Regions(new ImagePlus("", bp), true);
         conn_reg.run("");
-//        detectionOverlay = formPointOverlay(conn_reg.getConnectedRegions(), MIN_SIZE);
-//        for (int ii=0; ii<imp.getWidth()*imp.getHeight(); ii++) {
-//            if (score.get(ii)>=255) detectionOverlay.add(new PointRoi(ii%imp.getWidth()+.5, ii/imp.getWidth()+.5));
-//        }
+        conn_reg.showLabels().show();
 
-//        return ov;
+        Overlay ov = formPointOverlay(conn_reg.getConnectedRegions(), min_size);
+
+        ip.setOverlay(ov);
+
+        return ov;
+
+    }
+
+    private static Overlay formPointOverlay(ArrayList<ArrayList<int[]>> regs, int minSize)
+    {
+
+        Overlay detections = new Overlay();
+
+        for (int i=0; i<regs.size(); i++) {
+            if (regs.get(i).size()>minSize) {
+
+                float Cx=0, Cy=0, R= (float) Math.sqrt((float)regs.get(i).size()/Math.PI);
+                R = (R<1)? 1 : R ;
+
+                for (int aa=0; aa<regs.get(i).size(); aa++) {
+                    Cx += regs.get(i).get(aa)[1];
+                    Cy += regs.get(i).get(aa)[0];
+                }
+                Cx /= regs.get(i).size();
+                Cy /= regs.get(i).size();
+
+                OvalRoi ovroi = new OvalRoi(Cx-R+.5, Cy-R+.5, 2*R, 2*R);
+                ovroi.setStrokeWidth(2);
+
+
+                int firstY = regs.get(i).get(0)[0];
+                int firstX = regs.get(i).get(0)[1];
+                if (score2[firstY*W+firstX]==(byte)1) ovroi.setStrokeColor(Color.YELLOW);
+                else ovroi.setStrokeColor(Color.RED);
+                detections.add(ovroi);
+
+            }
+        }
+
+        return detections;
 
     }
 

@@ -21,7 +21,7 @@ public class Masker2DDemo implements PlugInFilter {
     /*
     parameters
      */
-    float       nhoodRadius, iDiff;
+    float       nhoodRadius; //, iDiff
     int         CPU_NR;
 
     public int setup(String s, ImagePlus imagePlus) {
@@ -52,11 +52,11 @@ public class Masker2DDemo implements PlugInFilter {
         Generic Dialog
 		 *****************************/
 		nhoodRadius             = (float)   Prefs.get("advantra.critpoint.mask.nhoodRadius", 5);
-		iDiff 					= (float)   Prefs.get("advantra.critpoint.mask.iDiff", 5);
+//		iDiff 					= (float)   Prefs.get("advantra.critpoint.mask.iDiff", 5);
 
 		GenericDialog gd = new GenericDialog("MASKER2DDEMO");
-		gd.addNumericField("n'hood r.", 	nhoodRadius, 	0, 10, "(common 1,5xD)");
-		gd.addNumericField("iDiff         ", 	iDiff, 			0, 10, "intensity margin");
+		gd.addNumericField("n'hood r.", 	nhoodRadius, 	0, 10, "~neuron diam");
+//		gd.addNumericField("iDiff         ", 	iDiff, 			0, 10, "intensity margin");
 
 		gd.showDialog();
 		if (gd.wasCanceled()) return DONE;
@@ -64,8 +64,8 @@ public class Masker2DDemo implements PlugInFilter {
 		nhoodRadius      = (float) gd.getNextNumber();
 		Prefs.set("advantra.critpoint.mask.nhoodRadius",	nhoodRadius);
 
-		iDiff       	= (float) gd.getNextNumber();
-		Prefs.set("advantra.critpoint.mask.iDiff", 	    	iDiff);
+//		iDiff       	= (float) gd.getNextNumber();
+//		Prefs.set("advantra.critpoint.mask.iDiff", 	    	iDiff);
 
 		CPU_NR = Runtime.getRuntime().availableProcessors();
 
@@ -81,7 +81,7 @@ public class Masker2DDemo implements PlugInFilter {
          */
 		t1 = System.currentTimeMillis();
 
-        Masker2D.loadTemplate(inimg_xy, 0, nhoodRadius, iDiff);
+        Masker2D.loadTemplate(inimg_xy, 0, nhoodRadius); // margin = 0
         int totalLocs = inimg_xy.length * inimg_xy[0].length;
 
         Masker2D ms_jobs[] = new Masker2D[CPU_NR];
@@ -102,7 +102,7 @@ public class Masker2DDemo implements PlugInFilter {
         t2 = System.currentTimeMillis();
         IJ.log("done. "+((t2-t1)/1000f)+"sec.");
 
-        ImagePlus outmask = new ImagePlus("mask,R="+IJ.d2s(nhoodRadius,1)+",iDiff="+IJ.d2s(iDiff,2), Masker2D.getMask());
+        ImagePlus outmask = new ImagePlus("mask,R="+IJ.d2s(nhoodRadius,1), Masker2D.getMask());
         outmask.show();
 
         ImagePlus outback = new ImagePlus("background", Masker2D.getBackground());

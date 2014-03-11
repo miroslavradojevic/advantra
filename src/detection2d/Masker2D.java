@@ -56,7 +56,7 @@ public class Masker2D extends Thread {
 		this.endN = n1;
 	}
 
-	public static void loadTemplate(float[][] _inimg_xy, int _margin, float _radiusNbhoodCheck, float _iDiff)
+	public static void loadTemplate(float[][] _inimg_xy, int _margin, float _radiusNbhoodCheck)
 	{
 
 		radiusCheck     = _radiusNbhoodCheck;
@@ -147,7 +147,7 @@ public class Masker2D extends Thread {
 				cnt++;
 			}
 		}
-		globalTh = Stat.quantile(criteria_temp, 10, 20);//Stat.median(criteria_temp);
+		globalTh = Stat.quantile(criteria_temp, 8, 20);//Stat.median(criteria_temp);
 		IJ.log("th = "+globalTh);
 
 		for (int xx=0; xx<image_width; xx++) {

@@ -89,7 +89,7 @@ public class PeakAnalyzer2D extends Thread {
         fitter = new Fitter1D(dim, false); // dim = profile width with current samplingStep, verbose = false
         fitter.showTemplates();
 
-        fuzzy_logic_system = new Fuzzy2D(101, 0.25f);
+        fuzzy_logic_system = new Fuzzy2D(4*5+1, 0.25f);
         fuzzy_logic_system.showFuzzification();
         fuzzy_logic_system.showDefuzzification();
 
@@ -182,12 +182,41 @@ public class PeakAnalyzer2D extends Thread {
         IJ.log(String.format("/**** LOC (%5d, %5d) [%10d] ****/", atX, atY, atLoc));
 
 		if (atLoc != -1) {
-			IJ.log("DELINEATION INDEXES:");
-            for (int ii=0; ii<delin2[atLoc].length; ii++) IJ.log("-> " + Arrays.toString(delin2[atLoc][ii]));
-            IJ.log("RATIO -> " + Arrays.toString(ratio2[atLoc]));
-			IJ.log("NCC:");
-			for (int ii=0; ii<feat2[atLoc].length; ii++) IJ.log("B "+ii+" -> " + Arrays.toString(feat2[atLoc][ii]));
-            IJ.log("FUZZY LIKELIHOODS -> " + Arrays.toString(lhood2[atLoc]));
+            String printout = "";
+
+            printout += "\nDELINEATION:\n";
+            for (int ii=0; ii<delin2[atLoc].length; ii++) {
+                printout += ii+"\t->\t";
+                for (int jj=0; jj<delin2[atLoc][ii].length; jj++) {
+                    printout += (delin2[atLoc][ii][jj]!=-1)? IJ.d2s(delin2[atLoc][ii][jj], 2) : "NONE";
+                    if (jj==delin2[atLoc][ii].length-1) printout += "\n";
+                    else printout += ", ";
+                }
+            }
+
+            printout += "\nNCC:\n";
+            for (int ii=0; ii<feat2[atLoc].length; ii++) {
+                printout += ii+"\t->\t";
+                for (int jj=0; jj<feat2[atLoc][ii].length; jj++) {
+                    printout += IJ.d2s(feat2[atLoc][ii][jj], 2);
+                    if (jj==feat2[atLoc][ii].length-1) printout += "\n";
+                    else printout += ", ";
+                }
+            }
+
+            printout += "\nRATIO (NCC ABOVE "+IJ.d2s(thresholdNCC, 2)+"):\n";
+            for (int ii=0; ii<ratio2[atLoc].length; ii++) {
+                printout += (ii+1) +"\t->\t" + IJ.d2s(ratio2[atLoc][ii], 2) + "\n";
+            }
+
+            printout += "\nFUZZY LIKELIHOODS:\n";
+            printout += "NON -> " + IJ.d2s(lhood2[atLoc][0], 2) + "\n";
+            printout += "END -> " + IJ.d2s(lhood2[atLoc][1], 2) + "\n";
+            printout += "BDY -> " + IJ.d2s(lhood2[atLoc][2], 2) + "\n";
+            printout += "BIF -> " + IJ.d2s(lhood2[atLoc][3], 2) + "\n";
+            printout += "CRS -> " + IJ.d2s(lhood2[atLoc][4], 2) + "\n";
+
+            IJ.log(printout);
 
         }
 		else {
@@ -289,22 +318,22 @@ public class PeakAnalyzer2D extends Thread {
 
         // check peaks at curr
         int[][] pks4xXY = peaks_xy[curr_index];
-        for (int pkIdx = 0; pkIdx<pks4xXY.length; pkIdx++) { // loops them by rank - those with highest weight first, to pick the first one that points outwards
+        for (int pkIdx = 0; pkIdx<pks4xXY.length; pkIdx++) { // loops them by rank - those with highest weight first, to pick the first one with good angle
 
             if (pks4xXY[pkIdx][0] != -1) {
-                // there is a peak to check - needs to be pointing outwards
+                // there is a peak to check - needs to be pointing outwards more than defined
 
                 int nextX = pks4xXY[pkIdx][0];
                 int nextY = pks4xXY[pkIdx][1];
 
                 double cosAng =
                         (
-                        	(currX-prevX)*(nextX-currX) + (currY-prevY)*(nextY-currY)                               // + (currZ-prevZ)*(nextZ-currZ)
+                        	(currX-prevX)*(nextX-currX) + (currY-prevY)*(nextY-currY)           // + (currZ-prevZ)*(nextZ-currZ)
                         )
                         /
                         (
-                        	Math.sqrt( Math.pow(currX-prevX, 2) + Math.pow(currY-prevY, 2) ) *             //  + Math.pow(currZ-prevZ, 2)
-                            Math.sqrt( Math.pow(nextX-currX, 2) + Math.pow(nextY-currY, 2) )        //  + Math.pow(nextZ-currZ, 2)
+                        	Math.sqrt( Math.pow(currX-prevX, 2) + Math.pow(currY-prevY, 2) ) *  //  + Math.pow(currZ-prevZ, 2)
+                            Math.sqrt( Math.pow(nextX-currX, 2) + Math.pow(nextY-currY, 2) )    //  + Math.pow(nextZ-currZ, 2)
                         );
 
                 if (cosAng>minCos) {

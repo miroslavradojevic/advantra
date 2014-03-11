@@ -30,7 +30,7 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
         parameters
      */
     float       s = 1.2f;               // scale is fixed
-    float       iDiff, D, minCos, scatterDist;
+    float       D, minCos, scatterDist=10f; // iDiff,
     int         M = 2;
 	float 		threshold; 				// used for NCC fit measure
 
@@ -42,10 +42,12 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
     ImagePlus       pfl_im  = new ImagePlus();    // used with live inspections (viz patches)
     ImagePlus       pfl_im1 = new ImagePlus();    // used with live inspections (plot)
     ImagePlus       pfl_im2 = new ImagePlus();
+    ImagePlus       pfl_im3 = new ImagePlus();
 
     ImageStack      pfl_is  = null;
     ImageStack      pfl_is1 = null;
     ImageStack      pfl_is2 = null;
+    ImageStack      pfl_is3 = null;
 
     ImageCanvas cnv;
 
@@ -79,27 +81,27 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
         /******************************
          Generic Dialog
          *****************************/
-        this.iDiff 					    	= (float)   Prefs.get("advantra.critpoint.mask.iDiff", 5);
+//        this.iDiff 					    	= (float)   Prefs.get("advantra.critpoint.mask.iDiff", 5);
         this.D 					        	= (float)   Prefs.get("advantra.critpoint.profile.d", 4);
         this.M 					        	= (int)     Prefs.get("advantra.critpoint.analyze.m", 2);
-        this.minCos 					    = (float)   Prefs.get("advantra.critpoint.analyze.min_cos", 0.5f);
-        this.scatterDist                    = (float)   Prefs.get("advantra.critpoint.analyze.scatter_d", 5f);
-		this.threshold						= (float) 	Prefs.get("advantra.critpoint.analyze.threshold", 10f);
+        this.minCos 					    = (float)   Prefs.get("advantra.critpoint.analyze.min_cos", -0.5f);
+//        this.scatterDist                    = (float)   Prefs.get("advantra.critpoint.analyze.scatter_d", 10f);
+		this.threshold						= (float) 	Prefs.get("advantra.critpoint.analyze.threshold", 0.85f);
 
         GenericDialog gd = new GenericDialog("PROFILER2DDEMO");
-        gd.addNumericField("iDiff ", 	iDiff, 			0, 10, "intensity margin");
+//        gd.addNumericField("iDiff ", 	iDiff, 			0, 10, "intensity margin");
         gd.addNumericField("D ", 	    D, 			    0, 10, "neuron diameter[pix]");
         gd.addNumericField("M ", 	    M, 			    0, 10, "branch len.");
         gd.addNumericField("min cos ", 	minCos, 	    1, 10, "alignment parameter.");
-        gd.addNumericField("scatter d ",scatterDist, 	1, 10, "max allowed scatter (robustness test)");
-		gd.addMessage("feat. calculation");
+//        gd.addNumericField("scatter d ",scatterDist, 	1, 10, "max allowed scatter (robustness test)");
+//		gd.addMessage("feat. calculation");
 		gd.addNumericField("threshold ",threshold, 		2, 10, "intensity margin");
 
         gd.showDialog();
         if (gd.wasCanceled()) return DONE;
 
-        iDiff       	= (float) gd.getNextNumber();
-        Prefs.set("advantra.critpoint.mask.iDiff", 	    	iDiff);
+//        iDiff       	= (float) gd.getNextNumber();
+//        Prefs.set("advantra.critpoint.mask.iDiff", 	    	iDiff);
 
         D       	    = (float) gd.getNextNumber();
         Prefs.set("advantra.critpoint.profile.d", 	    	D);
@@ -110,8 +112,8 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
         minCos       	= (float) gd.getNextNumber();
         Prefs.set("advantra.critpoint.analyze.min_cos", 	minCos);
 
-        scatterDist     = (float) gd.getNextNumber();
-        Prefs.set("advantra.critpoint.analyze.scatter_d", 	scatterDist);
+//        scatterDist     = (float) gd.getNextNumber();
+//        Prefs.set("advantra.critpoint.analyze.scatter_d", 	scatterDist);
 
 		threshold		= (float) gd.getNextNumber();
 		Prefs.set("advantra.critpoint.analyze.threshold", 	threshold);
@@ -127,7 +129,6 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
     public void run(ImageProcessor imageProcessor) {
 
         Sphere2D sph2d = new Sphere2D(D, s);
-
 
         ImagePlus samplingScheme =  sph2d.showSampling();
         samplingScheme.show();
@@ -146,7 +147,7 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
         t1 = System.currentTimeMillis();
         //************************************************
         IJ.log("extracting mask...");
-        Masker2D.loadTemplate(inimg_xy, 0, sph2d.getOuterRadius(), iDiff);
+        Masker2D.loadTemplate(inimg_xy, sph2d.getOuterRadius(), D); //margin = sph2d.getOuterRadius()
         int totalLocs = inimg_xy.length * inimg_xy[0].length;
         Masker2D ms_jobs[] = new Masker2D[CPU_NR];
         for (int i = 0; i < ms_jobs.length; i++) {
@@ -165,7 +166,7 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
 		new ImagePlus("MASK", Masker2D.getMask()).show();
         //************************************************
         IJ.log("calculating profiles...");
-        Profiler2D.loadTemplate(sph2d, Masker2D.i2xy, inimg_xy);
+        Profiler2D.loadTemplate(sph2d, Masker2D.i2xy, Masker2D.xy2i, inimg_xy);
         int totalProfileComponents = sph2d.getProfileLength();
         Profiler2D pf_jobs[] = new Profiler2D[CPU_NR];
         for (int i = 0; i < pf_jobs.length; i++) {
@@ -211,8 +212,30 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
                 e.printStackTrace();
             }
         }
+        //************************************************
+        IJ.log("simple detector...");
+        SimpleDetector2D.loadTemplate(inimg_xy.length, inimg_xy[0].length, Masker2D.i2xy, Masker2D.xy2i, PeakAnalyzer2D.delin2, PeakAnalyzer2D.lhood2);
+        int totalSimpleDetectComponents = Masker2D.i2xy.length;
+        SimpleDetector2D sd_jobs[] = new SimpleDetector2D[CPU_NR];
+        for (int i=0; i<sd_jobs.length; i++) {
+            sd_jobs[i] = new SimpleDetector2D(i*totalSimpleDetectComponents/CPU_NR, (i+1)*totalSimpleDetectComponents/CPU_NR);
+            sd_jobs[i].start();
+        }
+        for (int i=0; i<sd_jobs.length; i++) {
+            try {
+                sd_jobs[i].join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
 
-		t2 = System.currentTimeMillis();
+        Overlay overlay_with_detections = SimpleDetector2D.drawDetections();
+        ImagePlus final_det = cnv.getImage().duplicate();
+        final_det.show();
+        final_det.setOverlay(overlay_with_detections); // add the mto the original image
+
+
+        t2 = System.currentTimeMillis();
 		IJ.log("done. " + ((t2 - t1) / 1000f) + "sec.");
 
 		IJ.log("export features ");
@@ -304,6 +327,13 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
 
 		// print extracted features
 		PeakAnalyzer2D.print(clickX, clickY);
+
+        /*
+         output stack with local profile
+        */
+        pfl_is3 = Profiler2D.getProfile(clickX, clickY);
+        pfl_im3.setStack("local_profile", pfl_is3);
+        pfl_im3.show();
 
     }
 
