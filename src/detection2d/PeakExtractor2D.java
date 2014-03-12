@@ -38,7 +38,8 @@ public class PeakExtractor2D extends Thread {
         this.endN = n1;
     }
 
-	public static void loadTemplate(Sphere2D _sph2d, int[][] _i2xy, short[][] _extracted_profiles, float[][] _inimg_xy, int[][] _xy2i) {
+	public static void loadTemplate(Sphere2D _sph2d, int[][] _i2xy, short[][] _extracted_profiles, float[][] _inimg_xy, int[][] _xy2i)
+	{
 
 		sph2d           = _sph2d;
 		inimg_xy        = _inimg_xy;                        // just necessary to rank peaks

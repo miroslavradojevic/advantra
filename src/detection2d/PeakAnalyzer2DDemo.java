@@ -334,6 +334,10 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
         pfl_is3 = Profiler2D.getProfile(clickX, clickY);
         pfl_im3.setStack("local_profile", pfl_is3);
         pfl_im3.show();
+		/*
+			output stackk: local profile with peaks detected
+		 */
+
 
     }
 

@@ -297,7 +297,8 @@ public class Sphere2D {
                                 int[] start_pts, int[] end_pts,          		// aux. arrays (to avoid allocating them inside method each time) - end_pts is also an output
                                 int atX, int atY,                           	// for global coordinate outputs
                                 float[][] _inimg_xy, int[][] _xy2i,         	// to calculate median() along line
-                                int[][] peaks_loc_xy, float[][] peaks_ang_theta){	// outputs
+                                int[][] peaks_loc_xy, float[][] peaks_ang_theta)
+	{	// outputs
 
         // this is the block that extracts 4 strongest peaks in global 2d coordinates (that's why atX, atY at the input) and profile indexes
         // ranking can be based on median between locations of number of points that converged to each cluster
