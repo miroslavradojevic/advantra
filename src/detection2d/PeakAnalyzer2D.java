@@ -37,7 +37,7 @@ public class PeakAnalyzer2D extends Thread {
     public static int[][]     	xy2i;                   // need for recursion
 
     // INPUT:
-    public static int[][][]     peaks_xy;             	// list of extracted peaks: N x 4(max. threads) x 2   every FG location with 4 selected peaks in XY format
+    public static int[][]       peaks_i;             	// list of extracted peaks: N x 4 every FG location with 4 extracted peaks in indexed format
 	public static float[][]		inimg_xy;				// input image (necessary for feature extraction)
 	public static byte[][]		backg_xy;				// background estimation (for feature extraction)
 
@@ -74,7 +74,7 @@ public class PeakAnalyzer2D extends Thread {
         this.endN = n1;
     }
 
-    public static void loadTemplate(int[][] _i2xy, int[][] _xy2i, int[][][] _peaks_xy, float[][] _inimg_xy, byte[][] _backgr_xy,
+    public static void loadTemplate(int[][] _i2xy, int[][] _xy2i, int[][] _peaks_i, float[][] _inimg_xy, byte[][] _backgr_xy,
 									int _M, float _minCos, float _scatterDist, float _thresholdNCC, float _D)
     {
 
@@ -95,7 +95,7 @@ public class PeakAnalyzer2D extends Thread {
 
         i2xy = _i2xy;
         xy2i = _xy2i;
-        peaks_xy = _peaks_xy;
+        peaks_i = _peaks_i;
 		inimg_xy = _inimg_xy;
 		backg_xy = _backgr_xy;
         M = _M;
@@ -120,17 +120,19 @@ public class PeakAnalyzer2D extends Thread {
     {
         for (int locationIdx = begN; locationIdx < endN; locationIdx++) {
 
-            int[][] peaks_at_loc = peaks_xy[locationIdx];
+            int[] peaks_at_loc = peaks_i[locationIdx];
 
             // access individual peaks at this point
             for (int pp = 0; pp<peaks_at_loc.length; pp++) {  // loop 4 allocated branches
 
-                if (peaks_at_loc[pp][0] != -1) { // if the peak exists (X coord. is != -1)
+                if (peaks_at_loc[pp] != -1) { // if the peak exists
 
-                    int pkX = peaks_at_loc[pp][0]; // store the index value of this peak
-                    int pkY = peaks_at_loc[pp][1];
-                    int indexValue = xy2i[pkX][pkY];
-                    delin2[locationIdx][pp][0] = indexValue; // STORE IT! m=0, don't check "robustness" here, as later on
+//                    int pkX = i2xy[peaks_at_loc[pp]][0];
+//                    int pkY = i2xy[peaks_at_loc[pp]][1];
+
+                    int indexValue = peaks_at_loc[pp];//xy2i[pkX][pkY];
+
+                    delin2[locationIdx][pp][0] = indexValue;
 
                     int curr_index, prev_index, next_index;
 
@@ -144,12 +146,14 @@ public class PeakAnalyzer2D extends Thread {
 
                         if (next_index!=-1) { // -1 will be if the next one is not found
 
-                            if (true) { // isRobust(next_index, curr_index, scatterDist)
-                                delin2[locationIdx][pp][m] = next_index;     // store it in output matrix
-                            }
-                            else {
-                                break; // stop going further with delineating if it is not robust
-                            }
+                            delin2[locationIdx][pp][m] = next_index;     // store it in output matrix
+
+//                            if (true) { // isRobust(next_index, curr_index, scatterDist)
+//                                delin2[locationIdx][pp][m] = next_index;     // store it in output matrix
+//                            }
+//                            else {
+//                                break; // stop going further with delineating if it is not robust
+//                            }
 
                         }
                         else { // follow-up does not exist, break looping m (extending further) but continue looping branches
@@ -160,7 +164,7 @@ public class PeakAnalyzer2D extends Thread {
 
                 }
                 else { // it was -1 and the rest are not found
-                    break; // stop for() loop - there are no more branches (already aligned)
+                    break; // stop for() loop - there are no more branches
                 }
 
             } // delin2[locationIdx] is fully formed
@@ -267,7 +271,11 @@ public class PeakAnalyzer2D extends Thread {
 
             if (neigbr_i != -1) {
 
-                int[][] get_peaks_nbr = peaks_xy[neigbr_i]; // peak signature of the neighbour
+                int[][] get_peaks_nbr = new int[4][2];// peaks_xy[neigbr_i]; // peak signature of the neighbour
+                for (int ii=0; ii<4; ii++) {
+                    get_peaks_nbr[ii][0] = i2xy[peaks_i[neigbr_i][ii]][0];
+                    get_peaks_nbr[ii][1] = i2xy[peaks_i[neigbr_i][ii]][1];
+                }
 
                 // pick the closest one
                 for (int k=0; k<get_peaks_nbr.length; k++) {
@@ -316,15 +324,20 @@ public class PeakAnalyzer2D extends Thread {
         int currX = i2xy[curr_index][0];    // X
         int currY = i2xy[curr_index][1];    // Y
 
+        int next_index = -1;
+        int next_weight = -1;
+
         // check peaks at curr
-        int[][] pks4xXY = peaks_xy[curr_index];
-        for (int pkIdx = 0; pkIdx<pks4xXY.length; pkIdx++) { // loops them by rank - those with highest weight first, to pick the first one with good angle
+//        int[][] pks4xXY = peaks_xy[curr_index];
+        int[]   pks4xI  = peaks_i[curr_index]; // list all indexes
 
-            if (pks4xXY[pkIdx][0] != -1) {
-                // there is a peak to check - needs to be pointing outwards more than defined
+        for (int pkIdx = 0; pkIdx<pks4xI.length; pkIdx++) { // loops them by rank - those with highest weight first, to pick the first one with good angle
 
-                int nextX = pks4xXY[pkIdx][0];
-                int nextY = pks4xXY[pkIdx][1];
+            if (pks4xI[pkIdx] != -1) { // follow up has to be foreground
+
+                // there is a peak to check - needs to be pointing outwards more than pre-defined threshold
+                int nextX = i2xy[pks4xI[pkIdx]][0];
+                int nextY = i2xy[pks4xI[pkIdx]][1];
 
                 double cosAng =
                         (
@@ -336,7 +349,8 @@ public class PeakAnalyzer2D extends Thread {
                             Math.sqrt( Math.pow(nextX-currX, 2) + Math.pow(nextY-currY, 2) )    //  + Math.pow(nextZ-currZ, 2)
                         );
 
-                if (cosAng>minCos) {
+                if (cosAng>minCos && next_weight) {
+                    next_index = xy2i[nextX][nextY];
                     return xy2i[nextX][nextY]; // it is aligned - add it, find its index and return as output
                 }
                 else {

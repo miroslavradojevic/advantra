@@ -37,17 +37,19 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
     int         CPU_NR;
 
     /*
-    interface things (patches of the delineated spatial frame)
+    interface elements - all the windows that pop up as you click/move with mouse
      */
     ImagePlus       pfl_im  = new ImagePlus();    // used with live inspections (viz patches)
     ImagePlus       pfl_im1 = new ImagePlus();    // used with live inspections (plot)
     ImagePlus       pfl_im2 = new ImagePlus();
     ImagePlus       pfl_im3 = new ImagePlus();
+    ImagePlus       pfl_im4 = new ImagePlus();
 
     ImageStack      pfl_is  = null;
     ImageStack      pfl_is1 = null;
     ImageStack      pfl_is2 = null;
     ImageStack      pfl_is3 = null;
+    ImageStack      pfl_is4 = null;
 
     ImageCanvas cnv;
 
@@ -337,7 +339,9 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
 		/*
 			output stackk: local profile with peaks detected
 		 */
-
+        pfl_is4 = PeakExtractor2D.getProfileWithPeaks(clickX, clickY);
+        pfl_im4.setStack("local_profile_with_peaks", pfl_is4);
+        pfl_im4.show();
 
     }
 

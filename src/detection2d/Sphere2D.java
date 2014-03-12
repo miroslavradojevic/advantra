@@ -26,9 +26,8 @@ import java.util.Arrays;
 public class Sphere2D {
 
     private static float    arcRes 	        = 0.7f;
-    private static float 	arcNbhood       = 2*arcRes;
-    private static float    samplingStep    = 0.5f;
-    private static boolean  CHECK_NBRS_WHEN_ASSIGNING_PEAK_LOCS = false;
+    public static float 	arcNbhood       = 2*arcRes;
+    private static float    samplingStep    = 0.7f;
 
 //    public static float     R_FULL 	        = 1.00f;
     public static float     T_HALF 	        = 0.50f;
@@ -46,30 +45,25 @@ public class Sphere2D {
 	private static float TWO_PI = (float) (2 * Math.PI);
 	private static float ONE_PI = (float) (1 * Math.PI);
 
-    //
     // all discretized angle (theta) values will be indexed in a list
     // masks will contain indexes of local neighbours (necessary for peak extraction and clustering)
     // offsets used in oriented filtering are precomputed for each indexed angle
     // there is also a symmetric table that stores precomputed distance differences between each indexed direction (used in clustering methods after converging the indexes)
-    //
 
-    private static ArrayList<Float>         theta = new ArrayList<Float>(); 	        // list of elements (theta) covering the circle
-
-    private static ArrayList<int[]> 		masks = new ArrayList<int[]>(); 	    // list of list indexes of the neighbours for each list element
-
+    public static ArrayList<Float>          theta = new ArrayList<Float>(); 	        // list of elements (theta) covering the circle
+    public static ArrayList<int[]> 		    masks = new ArrayList<int[]>(); 	    // list of list indexes of the neighbours for each list element
     private static ArrayList<float[][]> 	offstXY = new ArrayList<float[][]>(); 	// list of filter offsets for each direction
 
     private static float[] weights;
 
-    private static float[][] diffs;
+    public static float[][] diffs;
 
-	private static float[] localPatch; // used to store image values before estimating background at the spot of the local patch (defined with 2 points)
-	                                   // to avoid allocation each time
     /*
     *********************************************************************
      */
 
-    public Sphere2D(float neuronDiam, float scale) {
+    public Sphere2D(float neuronDiam, float scale)
+    {
 
         this.radius 	= scale * neuronDiam;
         this.neuronDiameter = neuronDiam;
@@ -201,7 +195,8 @@ public class Sphere2D {
 
     }
 
-    public ImagePlus showSampling(){
+    public ImagePlus showSampling()
+    {
 
         int DIM = 2 * (int) Math.ceil(Math.sqrt(Math.pow(neuronDiameter*T_HALF,2)+Math.pow(radius, 2))) + 1;
         int CX = DIM/2;
@@ -240,14 +235,16 @@ public class Sphere2D {
 
     }
 
-	public void exportSampling(String file_path) {
+	public void exportSampling(String file_path)
+    {
 
 		FileSaver fs = new FileSaver(showSampling());
 		fs.saveAsTiffStack(file_path);
 
 	}
 
-    public ImagePlus showWeights(){
+    public ImagePlus showWeights()
+    {
 
         float sum = 0;
         for (int k=0; k<weights.length; k++) sum += weights[k];
@@ -255,7 +252,8 @@ public class Sphere2D {
 
     }
 
-	public void exportWeights(String file_path) {
+	public void exportWeights(String file_path)
+    {
 
 		FileSaver fs = new FileSaver(showWeights());
 		fs.saveAsTiff(file_path);
@@ -267,11 +265,13 @@ public class Sphere2D {
         return offstXY.size();
     }
 
-    public int getOuterRadius(){
+    public int getOuterRadius()
+    {
         return (int) Math.ceil(Math.sqrt(Math.pow(neuronDiameter*T_HALF, 2)+Math.pow(radius, 2)));
     }
 
-    public short extractProfile(int profileIdx, float atX, float atY, float[][] _inimg_xy) {
+    public short extractProfile(int profileIdx, float atX, float atY, float[][] _inimg_xy)
+    {
         // one element filter output (indexed with profileIdx)
 
         float value = 0;
@@ -290,186 +290,183 @@ public class Sphere2D {
 
     }
 
-	// TODO peakCoords_4xXY() should go to PeakExtractor2D instead to be consistent this way
-	// method medianAlongLine() used to weight clusters to be appended
-	// imlemented in PeakAnalyzer2D to extract the features actually (PeakAnalyzer2D also does feature extraction)
-	public void peakCoords_4xXY(short[] _profile,                           	// main input
-                                int[] start_pts, int[] end_pts,          		// aux. arrays (to avoid allocating them inside method each time) - end_pts is also an output
-                                int atX, int atY,                           	// for global coordinate outputs
-                                float[][] _inimg_xy, int[][] _xy2i,         	// to calculate median() along line
-                                int[][] peaks_loc_xy, float[][] peaks_ang_theta)
-	{	// outputs
-
-        // this is the block that extracts 4 strongest peaks in global 2d coordinates (that's why atX, atY at the input) and profile indexes
-        // ranking can be based on median between locations of number of points that converged to each cluster
-        // in order to rank using medians - image array, look-up tables are added to be able to compute medians
-        // otherwise ranking can be based on number of convergence points - then all the image data is not necessary (position is enough)
-        // this implementation will have the number of convergence points but use median along the line as ranking estimate finally
-        runLineSearch(
-                start_pts,
-                _profile,
-                MAX_ITER,
-                EPSILON,
-                end_pts);
-
-        // cluster end_pts together
-		int[] labs = clustering(end_pts, diffs, arcNbhood);
-
-		// extract the cluster centroids out  -> <theta, weight>
-		ArrayList<float[]> clss = extracting(labs, end_pts, theta);
-
-		appendClusters(atX, atY, _xy2i, _inimg_xy, clss, peaks_loc_xy, peaks_ang_theta);
-
-	}
+//	public void peakCoords_4xXY(short[] _profile,                           	// main input
+//                                int[] start_pts, int[] end_pts,          		// aux. arrays (to avoid allocating them inside method each time) - end_pts is also an output
+//                                int atX, int atY,                           	// for global coordinate outputs
+//                                float[][] _inimg_xy, int[][] _xy2i,         	// to calculate median() along line
+//                                int[][] peaks_loc_xy, float[][] peaks_ang_theta)
+//	{	// outputs
+//
+//        // this is the block that extracts 4 strongest peaks in global 2d coordinates (that's why atX, atY at the input) and profile indexes
+//        // ranking can be based on median between locations of number of points that converged to each cluster
+//        // in order to rank using medians - image array, look-up tables are added to be able to compute medians
+//        // otherwise ranking can be based on number of convergence points - then all the image data is not necessary (position is enough)
+//        // this implementation will have the number of convergence points but use median along the line as ranking estimate finally
+//        runLineSearch(
+//                start_pts,
+//                _profile,
+//                MAX_ITER,
+//                EPSILON,
+//                end_pts);
+//
+//        // cluster end_pts together
+//		int[] labs = clustering(end_pts, diffs, arcNbhood);
+//
+//		// extract the cluster centroids out  -> <theta, weight>
+//		ArrayList<float[]> clss = extracting(labs, end_pts, theta);
+//
+//		appendClusters(atX, atY, _xy2i, _inimg_xy, clss, peaks_loc_xy, peaks_ang_theta);
+//
+//	}
 
     /*
     *********************************************************************
      */
 
-	private void appendClusters(
-									   int atX, int atY,
-									   int[][] 		_xy2i,  						// lookup table
-									   float[][] 	_inimg_xy,                     	// input image
-									   ArrayList<float[]> clusters_to_append,       // <theta, weight>
-									   int[][] 		destination_locs,               // 4x2
-									   float[][] 	destination_angs)               // 4x1
-	{
-
-        // _inimg_xy was used just to be input for median along the line anf to
-        // be aware of the image dimensions - check if the appended location is within the image
-        int W = _inimg_xy.length;
-        int H = _inimg_xy[0].length;
-
-		// take top 4 and store them according to the importance (criteria: median along the connecting line, or convergence iterations)
-		float[] medAlongLin = new float[destination_locs.length];
-		Arrays.fill(medAlongLin, -1f);
-
-		for (int t=0; t<clusters_to_append.size(); t++) { // check every peak theta angle
-
-			float peak_theta = clusters_to_append.get(t)[0];   // value in [rad] theta !!!!!!!!!
-            int[] currentPeaksXY   = new int[2];
-
-			float x_peak_pix = atX + getX(radius, peak_theta);
-			float y_peak_pix = atY + getY(radius, peak_theta);
-
-            boolean modified = false;
-            float maxWeight = Float.MIN_VALUE;
-
-            if (CHECK_NBRS_WHEN_ASSIGNING_PEAK_LOCS) {
-
-                /*
-				pick the best out of 4 neighbours (compensate location inaccuracy), can be nothing if it's either in background or out of the image
-			    */
-
-                int x_peak_pix_base = (int) Math.floor(x_peak_pix);
-                int y_peak_pix_base = (int) Math.floor(y_peak_pix);
-
-                for (int ii = 0; ii <= 1; ii++) { // check around peak
-                    for (int jj = 0; jj <= 1; jj++) {
-
-                        int check_x = x_peak_pix_base + ii;
-                        int check_y = y_peak_pix_base + jj;
-
-                        if (check_x>=0 && check_x<W && check_y>=0 && check_y<H) { // is in image
-
-                            float currMedian = PeakAnalyzer2D.medianAlongLine(	atX, atY, check_x, check_y, _inimg_xy );
-
-                            if (_xy2i[check_x][check_y]!=-1)  {  // ensures retrieval from the list
-
-                                if (currMedian>maxWeight) {
-                                    // set this one as peak
-                                    currentPeaksXY[0] = check_x;
-                                    currentPeaksXY[1] = check_y;
-
-                                    modified = true;
-
-                                    // update maxMedian
-                                    maxWeight = currMedian;
-                                }
-
-                            }
-                        }
-                    }
-                }
-
-            }
-            else {
-
-                // rounded locations, don't check the neighbours
-                int x_peak_pix_rounded = (int) Math.round(x_peak_pix);
-                int y_peak_pix_rounded = (int) Math.round(y_peak_pix);
-
-                if (x_peak_pix_rounded>=0 && x_peak_pix_rounded<W && y_peak_pix_rounded>=0 && y_peak_pix_rounded<H) {
-                    float currMedian = PeakAnalyzer2D.medianAlongLine(	atX, atY, x_peak_pix_rounded, y_peak_pix_rounded, _inimg_xy );
-                    if (_xy2i[x_peak_pix_rounded][y_peak_pix_rounded]!=-1) {
-                        if (currMedian>maxWeight) { // dummy thing, just to be consistent
-                            currentPeaksXY[0] = x_peak_pix_rounded;
-                            currentPeaksXY[1] = y_peak_pix_rounded;
-                            modified = true;
-                            maxWeight = currMedian;
-                        }
-                    }
-                }
-
-            }
-
-			if (modified) {
-
-			    // if there was a result append it to sorted list of peaks around this location
-				// insert currentPeaksXY and peak_theta -> to the list of 4 (destination_locs, destination_angs)
-				for (int k = 0; k < 4; k++) {
-
-					if (medAlongLin[k] == -1f) {            			// store immediately
-
-						destination_locs[k][0]    = currentPeaksXY[0];
-						destination_locs[k][1]    = currentPeaksXY[1];
-
-						medAlongLin[k]  = maxWeight;
-
-						destination_angs[k][0]     = peak_theta;
-
-						break;
-
-					}
-					else if (maxWeight > medAlongLin[k]) {
-
-						// shift the rest first
-						for (int kk = 4-2; kk>=k; kk--) {   // shift them from the one before last, shift back (last one dissapears)
-
-							destination_locs[kk+1][0] = destination_locs[kk][0];
-							destination_locs[kk+1][1] = destination_locs[kk][1];
-
-							medAlongLin[kk+1] = medAlongLin[kk];
-
-							destination_angs[kk+1][0] = destination_angs[kk][0];
-
-						}
-
-						// store it at k
-						destination_locs[k][0] = currentPeaksXY[0];
-						destination_locs[k][1] = currentPeaksXY[1];
-
-						medAlongLin[k] = maxWeight;
-
-						destination_angs[k][0] = peak_theta;
-
-						break;
-
-					}
-					else {
-
-						// if smaller, loop further
-
-					}
-
-				}
-
-			} // modified
-
-		}
-
-
-	}
+//	private void appendClusters(
+//									   int atX, int atY,
+//									   int[][] 		_xy2i,  						// lookup table
+//									   float[][] 	_inimg_xy,                     	// input image
+//									   ArrayList<float[]> clusters_to_append,       // <theta, weight>
+//									   int[][] 		destination_locs,               // 4x2
+//									   float[][] 	destination_angs)               // 4x1
+//	{
+//
+//        // _inimg_xy was used just to be input for median along the line anf to
+//        // be aware of the image dimensions - check if the appended location is within the image
+//        int W = _inimg_xy.length;
+//        int H = _inimg_xy[0].length;
+//
+//		// take top 4 and store them according to the importance (criteria: median along the connecting line, or convergence iterations)
+//		float[] medAlongLin = new float[destination_locs.length];
+//		Arrays.fill(medAlongLin, -1f);
+//
+//		for (int t=0; t<clusters_to_append.size(); t++) { // check every peak theta angle
+//
+//			float peak_theta = clusters_to_append.get(t)[0];   // value in [rad] theta !!!!!!!!!
+//            int[] currentPeaksXY   = new int[2];
+//
+//			float x_peak_pix = atX + getX(peak_theta);
+//			float y_peak_pix = atY + getY(peak_theta);
+//
+//            boolean modified = false;
+//            float maxWeight = Float.MIN_VALUE;
+//
+//            if (CHECK_NBRS_WHEN_ASSIGNING_PEAK_LOCS) {
+//
+//                /*
+//				pick the best out of 4 neighbours (compensate location inaccuracy), can be nothing if it's either in background or out of the image
+//			    */
+//
+//                int x_peak_pix_base = (int) Math.floor(x_peak_pix);
+//                int y_peak_pix_base = (int) Math.floor(y_peak_pix);
+//
+//                for (int ii = 0; ii <= 1; ii++) { // check around peak
+//                    for (int jj = 0; jj <= 1; jj++) {
+//
+//                        int check_x = x_peak_pix_base + ii;
+//                        int check_y = y_peak_pix_base + jj;
+//
+//                        if (check_x>=0 && check_x<W && check_y>=0 && check_y<H) { // is in image
+//
+//                            float currMedian = PeakAnalyzer2D.medianAlongLine(	atX, atY, check_x, check_y, _inimg_xy );
+//
+//                            if (_xy2i[check_x][check_y]!=-1)  {  // ensures retrieval from the list
+//
+//                                if (currMedian>maxWeight) {
+//                                    // set this one as peak
+//                                    currentPeaksXY[0] = check_x;
+//                                    currentPeaksXY[1] = check_y;
+//
+//                                    modified = true;
+//
+//                                    // update maxMedian
+//                                    maxWeight = currMedian;
+//                                }
+//
+//                            }
+//                        }
+//                    }
+//                }
+//
+//            }
+//            else {
+//
+//                // rounded locations, don't check the neighbours
+//                int x_peak_pix_rounded = (int) Math.round(x_peak_pix);
+//                int y_peak_pix_rounded = (int) Math.round(y_peak_pix);
+//
+//                if (x_peak_pix_rounded>=0 && x_peak_pix_rounded<W && y_peak_pix_rounded>=0 && y_peak_pix_rounded<H) {
+//                    float currMedian = PeakAnalyzer2D.medianAlongLine(	atX, atY, x_peak_pix_rounded, y_peak_pix_rounded, _inimg_xy );
+//                    if (_xy2i[x_peak_pix_rounded][y_peak_pix_rounded]!=-1) {
+//                        if (currMedian>maxWeight) { // dummy thing, just to be consistent
+//                            currentPeaksXY[0] = x_peak_pix_rounded;
+//                            currentPeaksXY[1] = y_peak_pix_rounded;
+//                            modified = true;
+//                            maxWeight = currMedian;
+//                        }
+//                    }
+//                }
+//
+//            }
+//
+//			if (modified) {
+//
+//			    // if there was a result append it to sorted list of peaks around this location
+//				// insert currentPeaksXY and peak_theta -> to the list of 4 (destination_locs, destination_angs)
+//				for (int k = 0; k < 4; k++) {
+//
+//					if (medAlongLin[k] == -1f) {            			// store immediately
+//
+//						destination_locs[k][0]    = currentPeaksXY[0];
+//						destination_locs[k][1]    = currentPeaksXY[1];
+//
+//						medAlongLin[k]  = maxWeight;
+//
+//						destination_angs[k][0]     = peak_theta;
+//
+//						break;
+//
+//					}
+//					else if (maxWeight > medAlongLin[k]) {
+//
+//						// shift the rest first
+//						for (int kk = 4-2; kk>=k; kk--) {   // shift them from the one before last, shift back (last one dissapears)
+//
+//							destination_locs[kk+1][0] = destination_locs[kk][0];
+//							destination_locs[kk+1][1] = destination_locs[kk][1];
+//
+//							medAlongLin[kk+1] = medAlongLin[kk];
+//
+//							destination_angs[kk+1][0] = destination_angs[kk][0];
+//
+//						}
+//
+//						// store it at k
+//						destination_locs[k][0] = currentPeaksXY[0];
+//						destination_locs[k][1] = currentPeaksXY[1];
+//
+//						medAlongLin[k] = maxWeight;
+//
+//						destination_angs[k][0] = peak_theta;
+//
+//						break;
+//
+//					}
+//					else {
+//
+//						// if smaller, loop further
+//
+//					}
+//
+//				}
+//
+//			} // modified
+//
+//		}
+//
+//
+//	}
 
     private void rotZ(float ang, float[][] coords) {
         for (int i=0; i<coords.length; i++) {
@@ -512,133 +509,26 @@ public class Sphere2D {
 
     }
 
-    private float arcBetweenDirections(float theta1, float theta2){
+    private float arcBetweenDirections(float theta1, float theta2)
+    {
 
-        float x1 = getX(radius, theta1);
-        float y1 = getY(radius, theta1);
+        float x1 = getX(theta1);
+        float y1 = getY(theta1);
 
-        float x2 = getX(radius, theta2);
-        float y2 = getY(radius, theta2);
+        float x2 = getX(theta2);
+        float y2 = getY(theta2);
 
         return radius * (float) Math.acos( (x1*x2+y1*y2)/(radius * radius) );
 
     }
 
-    private float getX(float r, float theta){return (-1) * r * (float) Math.sin(theta);}
+//    private static float getX(float r, float theta){return (-1) * r * (float) Math.sin(theta);}
+//
+//    private static float getY(float r, float theta){return (+1) * r * (float) Math.cos(theta);}
 
-    private float getY(float r, float theta){return (+1) * r * (float) Math.cos(theta);}
+    public float getX(float theta) {return (-1) * radius * (float) Math.sin(theta);}
 
-    private static int runOneMax(int curr_pos, short[] _input_profile) {
-        int 	    new_pos     = curr_pos;
-        int 		max	 		= Integer.MIN_VALUE;
-
-        // curr_pos will define the set of neighbouring indexes
-        int[] neighbour_idxs = masks.get(curr_pos);
-
-        for (int i=0; i<neighbour_idxs.length; i++) {
-            int neighbour_idx = neighbour_idxs[i];
-            int read_value = (int) (_input_profile[neighbour_idx] & 0xffff);
-            if (read_value>max) {
-                max = read_value;
-                new_pos = neighbour_idx;
-            }
-        }
-
-        return new_pos;
-    }
-
-    private static void runLineSearch(
-            int[] 	    start_idxs,
-            short[] 	input_profile,
-            int 		max_iter,
-            int 	    epsilon,
-            int[] 	    end_idxs // same length as start (this would be output)
-    )
-    {
-
-        // initialize output array
-        for (int i = 0; i < end_idxs.length; i++) {
-            end_idxs[i] = start_idxs[i];
-        }
-
-        // iterate each of the elements of the output
-        for (int i = 0; i < end_idxs.length; i++) {
-
-            int iter = 0;
-            int d;
-
-            do{
-
-                int new_pos = runOneMax(end_idxs[i], input_profile);
-                int pre_value = input_profile[end_idxs[i]] & 0xffff;
-                int new_value = input_profile[new_pos]     & 0xffff;
-                d = Math.abs(new_value - pre_value);
-                end_idxs[i] = new_pos;
-                iter++;
-            }
-            while(iter < max_iter && d > epsilon);
-
-        }
-
-    }
-
-    private static int[] clustering(int[] idxs, float[][] dists, float threshold_dists)   // essentially clustering of the indexes
-    {
-        // indxs represent indexes of values that need to be clustered
-        // intended to place here indexes after the convergence
-        // dists are the distances
-        // threshold_dists is the distance limit
-        // output is list of unique labels
-
-        int[] labels = new int[idxs.length];
-        for (int i = 0; i < labels.length; i++) labels[i] = i;  // initialize the output
-
-        //System.out.println("INIT. LABELS:");
-        //System.out.println(Arrays.toString(labels));
-
-        for (int i = 0; i < idxs.length; i++) {
-
-            // one versus the rest
-            for (int j = 0; j < idxs.length; j++) {
-
-                // check the rest of the values
-                if (i != j) {
-
-                    int idx_i = idxs[i]; // will be used to read diff from the table
-                    int idx_j = idxs[j]; //
-
-                    if (dists[idx_i][idx_j]<=threshold_dists) {
-
-                        if (labels[j] != labels[i]) {
-                            // propagate the label
-                            int currLabel = labels[j];
-                            int newLabel  = labels[i];
-
-                            labels[j] = newLabel;
-
-                            //set all that also were currLabel to newLabel
-                            for (int k = 0; k < labels.length; k++)
-                                if (labels[k]==currLabel)
-                                    labels[k] = newLabel;
-
-                        }
-
-                    }
-
-                }
-
-            }
-
-        }
-
-        //System.out.println("OUT LABELS:");
-//		for (int ii = 0; ii < labels.length; ii++)
-//			System.out.print(labels[ii]+" ");
-        //System.out.println(Arrays.toString(labels));
-
-        return labels;
-
-    }
+    public float getY(float theta) {return (+1) * radius * (float) Math.cos(theta);}
 
     public static ArrayList<float[]> extracting(int[] labels, int[] idxs, ArrayList<Float> vals) {
 
@@ -661,33 +551,33 @@ public class Sphere2D {
                         if (labels[j]==labels[i]) {
 
                             // clustering said they're together
-							// important that vals and centroid values are all wrapped in [0, 2PI) range
+                            // important that vals and centroid values are all wrapped in [0, 2PI) range
                             float add_value = vals.get(idxs[j]);
-							float add_diff = wrap_diff(centroid, add_value);
-							if (centroid<ONE_PI) {
-								// there is always pi values on right
-								if (add_value>=centroid & add_value<centroid+ONE_PI) {
-									// sign is (+)
-								}
-								else {
-									// sign is (-)
-									add_diff = (-1) * add_diff;
-								}
+                            float add_diff = wrap_diff(centroid, add_value);
+                            if (centroid<ONE_PI) {
+                                // there is always pi values on right
+                                if (add_value>=centroid & add_value<centroid+ONE_PI) {
+                                    // sign is (+)
+                                }
+                                else {
+                                    // sign is (-)
+                                    add_diff = (-1) * add_diff;
+                                }
 
-							}
-							else {
-								// >= ONE_PI
-								// there is always pi values on left
-								if (add_value<=centroid & add_value>centroid-ONE_PI) {
-									// sign is (-)
-									add_diff = (-1) * add_diff;
-								}
-								else {
-									// sign in (+)
-								}
-							}
+                            }
+                            else {
+                                // >= ONE_PI
+                                // there is always pi values on left
+                                if (add_value<=centroid & add_value>centroid-ONE_PI) {
+                                    // sign is (-)
+                                    add_diff = (-1) * add_diff;
+                                }
+                                else {
+                                    // sign in (+)
+                                }
+                            }
 
-							shifts += add_diff;
+                            shifts += add_diff;
                             count++;
                             checked[j] = true;
 
@@ -718,15 +608,127 @@ public class Sphere2D {
 
     }
 
-	private static float wrap_0_2PI(float ang) {
-		float out = ang;
-		while (out<0) {
-			out += TWO_PI;
-		}
-		while (out>=TWO_PI) {
-			out -= TWO_PI;
-		}
-		return out;
-	}
+    private static float wrap_0_2PI(float ang) {
+        float out = ang;
+        while (out<0) {
+            out += TWO_PI;
+        }
+        while (out>=TWO_PI) {
+            out -= TWO_PI;
+        }
+        return out;
+    }
+
+//    private static int runOneMax(int curr_pos, short[] _input_profile) {
+//        int 	    new_pos     = curr_pos;
+//        int 		max	 		= Integer.MIN_VALUE;
+//
+//        // curr_pos will define the set of neighbouring indexes
+//        int[] neighbour_idxs = masks.get(curr_pos);
+//
+//        for (int i=0; i<neighbour_idxs.length; i++) {
+//            int neighbour_idx = neighbour_idxs[i];
+//            int read_value = (int) (_input_profile[neighbour_idx] & 0xffff);
+//            if (read_value>max) {
+//                max = read_value;
+//                new_pos = neighbour_idx;
+//            }
+//        }
+//
+//        return new_pos;
+//    }
+
+//    private static void runLineSearch(
+//            int[] 	    start_idxs,
+//            short[] 	input_profile,
+//            int 		max_iter,
+//            int 	    epsilon,
+//            int[] 	    end_idxs // same length as start (this would be output)
+//    )
+//    {
+//
+//        // initialize output array
+//        for (int i = 0; i < end_idxs.length; i++) {
+//            end_idxs[i] = start_idxs[i];
+//        }
+//
+//        // iterate each of the elements of the output
+//        for (int i = 0; i < end_idxs.length; i++) {
+//
+//            int iter = 0;
+//            int d;
+//
+//            do{
+//
+//                int new_pos = runOneMax(end_idxs[i], input_profile);
+//                int pre_value = input_profile[end_idxs[i]] & 0xffff;
+//                int new_value = input_profile[new_pos]     & 0xffff;
+//                d = Math.abs(new_value - pre_value);
+//                end_idxs[i] = new_pos;
+//                iter++;
+//            }
+//            while(iter < max_iter && d > epsilon);
+//
+//        }
+//
+//    }
+
+//    private static int[] clustering(int[] idxs, float[][] dists, float threshold_dists)   // essentially clustering of the indexes
+//    {
+//        // indxs represent indexes of values that need to be clustered
+//        // intended to place here indexes after the convergence
+//        // dists are the distances
+//        // threshold_dists is the distance limit
+//        // output is list of unique labels
+//
+//        int[] labels = new int[idxs.length];
+//        for (int i = 0; i < labels.length; i++) labels[i] = i;  // initialize the output
+//
+//        //System.out.println("INIT. LABELS:");
+//        //System.out.println(Arrays.toString(labels));
+//
+//        for (int i = 0; i < idxs.length; i++) {
+//
+//            // one versus the rest
+//            for (int j = 0; j < idxs.length; j++) {
+//
+//                // check the rest of the values
+//                if (i != j) {
+//
+//                    int idx_i = idxs[i]; // will be used to read diff from the table
+//                    int idx_j = idxs[j]; //
+//
+//                    if (dists[idx_i][idx_j]<=threshold_dists) {
+//
+//                        if (labels[j] != labels[i]) {
+//                            // propagate the label
+//                            int currLabel = labels[j];
+//                            int newLabel  = labels[i];
+//
+//                            labels[j] = newLabel;
+//
+//                            //set all that also were currLabel to newLabel
+//                            for (int k = 0; k < labels.length; k++)
+//                                if (labels[k]==currLabel)
+//                                    labels[k] = newLabel;
+//
+//                        }
+//
+//                    }
+//
+//                }
+//
+//            }
+//
+//        }
+//
+//        //System.out.println("OUT LABELS:");
+////		for (int ii = 0; ii < labels.length; ii++)
+////			System.out.print(labels[ii]+" ");
+//        //System.out.println(Arrays.toString(labels));
+//
+//        return labels;
+//
+//    }
 
 }

@@ -1,10 +1,15 @@
 package detection2d;
 
+import ij.IJ;
+import ij.ImageStack;
+import ij.gui.OvalRoi;
 import ij.gui.Overlay;
 import ij.gui.Plot;
 import ij.process.ImageProcessor;
 
 import java.awt.*;
+import java.util.ArrayList;
+import java.util.Arrays;
 
 /**
  * Created with IntelliJ IDEA.
@@ -18,19 +23,21 @@ public class PeakExtractor2D extends Thread {
     private int begN, endN;
 
     public static Sphere2D      sph2d;
-
     public static float[][]     inimg_xy;
-
     public static int[][] 	    i2xy;                       // selected locations
-
     public static int[][]     	xy2i;
+    public static short[][]	    prof2;                      // profiles
 
-    public static short[][]	    extracted_profiles;         // profiles
+    public static int       MAX_ITER        = 20;
+    public static int       EPSILON         = 0;
 
-    // outputs are lists of selected peaks
-    public static float[][][]	peaks_theta;                // N x (4x1)   4 selected peaks in abscissa coordinates X
-    public static int[][][]     peaks_xy;             		// N x (4x2)   main output  4 selected peaks in XY format (TODO: can be only index to save memory)
-    // peaks_xy are the best rounded locations found close to the spots determined with peaks_theta
+    private static float TWO_PI = (float) (2 * Math.PI);
+    private static float ONE_PI = (float) (1 * Math.PI);
+
+    // OUTPUTS
+    public static float[][][]	peaks_theta;                // N x (4x1)    4 selected peaks in abscissa coordinates X
+    public static int[][]       peaks_i;             		// N x 4        4 selected peaks in indexed format (rounded locs)
+    public static float[]       peaks_w;                    // N x 4
 
     public PeakExtractor2D(int n0, int n1)
     {
@@ -38,25 +45,23 @@ public class PeakExtractor2D extends Thread {
         this.endN = n1;
     }
 
-	public static void loadTemplate(Sphere2D _sph2d, int[][] _i2xy, short[][] _extracted_profiles, float[][] _inimg_xy, int[][] _xy2i)
+	public static void loadTemplate(Sphere2D _sph2d, int[][] _i2xy, short[][] _prof2, float[][] _inimg_xy, int[][] _xy2i)
 	{
 
 		sph2d           = _sph2d;
 		inimg_xy        = _inimg_xy;                        // just necessary to rank peaks
 		i2xy      		= _i2xy;
-		extracted_profiles = _extracted_profiles;
+		prof2           = _prof2;
 		xy2i 			= _xy2i;
 
 		// allocate output -> set to -1
-		peaks_xy  		= new int[i2xy.length][4][2];
+		peaks_i  		= new int[i2xy.length][4];
 		peaks_theta  	= new float[i2xy.length][4][1];
 
 		for (int ii = 0; ii<i2xy.length; ii++) {
 			for (int jj = 0; jj<4; jj++) {
 
-				for (int kk = 0; kk<2; kk++) {
-					peaks_xy[ii][jj][kk] = -1;
-				}
+                peaks_i[ii][jj] = -1;
 
 				for (int kk=0; kk<1; kk++) {
 					peaks_theta[ii][jj][kk] = -1;
@@ -73,32 +78,297 @@ public class PeakExtractor2D extends Thread {
         int[] start_indexes = new int[sph2d.getProfileLength()];
         for (int i = 0; i < start_indexes.length; i++) start_indexes[i] = i;    // zero indexing is used
         int[] end_indexes = new int[sph2d.getProfileLength()];                  // zeros at the beginning
-        // end allocation
 
 		for (int locationIdx = begN; locationIdx < endN; locationIdx++) {
 
 			int atX = i2xy[locationIdx][0];
 			int atY = i2xy[locationIdx][1];
 
-			sph2d.peakCoords_4xXY(
-                    extracted_profiles[locationIdx],
+            extractPeaks(
+                    prof2[locationIdx],
+                    sph2d,
                     start_indexes, end_indexes,
                     atX, atY,
-                    inimg_xy, xy2i,
-                    peaks_xy[locationIdx], peaks_theta[locationIdx]); // peaks_* will fill up (hopefully)
+                    peaks_i[locationIdx],
+                    peaks_theta[locationIdx]);
 
 		}
 
 	}
 
-    public static ImageProcessor getProfileWithPeaks(int atX, int atY, int[][] _xy2i){
+    private void extractPeaks(  short[]     _profile,                           // profile input
+                                Sphere2D    _profile_sphere,                    // sphere used for this profile
+                                int[]       start_pts,
+                                int[]       end_pts,          		// aux. arrays (to avoid allocating them inside method each time) - end_pts is also an output
+                                int         atX,
+                                int         atY,                           	// for global coordinate outputs
+                                int[]       peaks_loc_i,
+                                float[][]   peaks_ang_theta
+    )
+    {
 
-        // reads from prof2 array, Profiler2D static class member
-        // reads from peaks_*, PeakExtractor2D class member
+        // this is the block that extracts 4 strongest peaks in global 2d coordinates (that's why atX, atY at the input) and profile indexes
+        // ranking can be based on number of convergence points - then all the image data is not necessary (position is enough)
+        // this implementation will have the number of convergence points but use median along the line as ranking estimate finally
+        runLineSearch(
+                start_pts,
+                _profile,
+                _profile_sphere,
+                MAX_ITER,
+                EPSILON,
+                end_pts);
 
-        int idx = _xy2i[atX][atY];
+        int[] labs = clustering(end_pts, _profile_sphere.diffs, _profile_sphere.arcNbhood);// cluster end_pts together
+
+        // extract the cluster centroids out  -> <theta, weight>
+        ArrayList<float[]> clss = extracting(labs, end_pts, _profile_sphere.theta);
+
+        appendClusters(atX, atY, _profile_sphere, clss, peaks_loc_i, peaks_ang_theta); // output is stored in peaks_loc_i and peaks_ang_theta
+
+    }
+
+    private static void runLineSearch(
+            int[] 	    start_idxs,
+            short[] 	input_profile,
+            Sphere2D    input_profile_sphere,
+            int 		max_iter,
+            int 	    epsilon,
+            int[] 	    end_idxs // same length as start (this would be output)
+    )
+    {
+
+        // initialize output array
+        for (int i = 0; i < end_idxs.length; i++) {
+            end_idxs[i] = start_idxs[i];
+        }
+
+        // iterate each of the elements of the output
+        for (int i = 0; i < end_idxs.length; i++) {
+
+            int iter = 0;
+            int d;
+
+            do{
+
+                int new_pos = runOneMax(end_idxs[i], input_profile, input_profile_sphere);
+                int pre_value = input_profile[end_idxs[i]] & 0xffff;
+                int new_value = input_profile[new_pos]     & 0xffff;
+                d = Math.abs(new_value - pre_value);
+                end_idxs[i] = new_pos;
+                iter++;
+            }
+            while(iter < max_iter && d > epsilon);
+
+        }
+
+    }
+
+    private static int[] clustering(int[] idxs, float[][] dists, float threshold_dists)   // essentially clustering of the indexes
+    {
+        // indxs represent indexes of values that need to be clustered
+        // intended to place here indexes after the convergence
+        // dists are the distances
+        // threshold_dists is the distance limit
+        // output is list of unique labels
+
+        int[] labels = new int[idxs.length];
+        for (int i = 0; i < labels.length; i++) labels[i] = i;  // initialize the output
+
+        //System.out.println("INIT. LABELS:");
+        //System.out.println(Arrays.toString(labels));
+
+        for (int i = 0; i < idxs.length; i++) {
+
+            // one versus the rest
+            for (int j = 0; j < idxs.length; j++) {
+
+                // check the rest of the values
+                if (i != j) {
+
+                    int idx_i = idxs[i]; // will be used to read diff from the table
+                    int idx_j = idxs[j]; //
+
+                    if (dists[idx_i][idx_j]<=threshold_dists) {
+
+                        if (labels[j] != labels[i]) {
+                            // propagate the label
+                            int currLabel = labels[j];
+                            int newLabel  = labels[i];
+
+                            labels[j] = newLabel;
+
+                            //set all that also were currLabel to newLabel
+                            for (int k = 0; k < labels.length; k++)
+                                if (labels[k]==currLabel)
+                                    labels[k] = newLabel;
+
+                        }
+
+                    }
+
+                }
+
+            }
+
+        }
+
+        //System.out.println("OUT LABELS:");
+//		for (int ii = 0; ii < labels.length; ii++)
+//			System.out.print(labels[ii]+" ");
+        //System.out.println(Arrays.toString(labels));
+
+        return labels;
+
+    }
+
+    private void appendClusters(
+            int                 atX,
+            int                 atY,
+            Sphere2D            sphere_atXY,
+            ArrayList<float[]>  clusters_to_append,         // <theta, weight>
+            int[]  		        destination_locs,           // 4x1
+            float[][] 	        destination_angs            // 4x1
+    )
+    {
+
+        float[] weights = new float[destination_locs.length];
+        Arrays.fill(weights, -1f);
+
+        for (int t=0; t<clusters_to_append.size(); t++) { // check every peak theta angle
+
+            float peak_theta    = clusters_to_append.get(t)[0];   // value in [rad] theta
+            float peak_weight   = clusters_to_append.get(t)[1];   // convergence score
+
+            int[] currentPeaksXY   = new int[2];
+
+            boolean isValid = false;
+
+            int x_peak_pix_rounded = Math.round(atX + sphere_atXY.getX(peak_theta));
+            int y_peak_pix_rounded = Math.round(atY + sphere_atXY.getY(peak_theta));
+
+            if (xy2i[x_peak_pix_rounded][y_peak_pix_rounded]!=-1) {
+                currentPeaksXY[0] = x_peak_pix_rounded;
+                currentPeaksXY[1] = y_peak_pix_rounded;
+                isValid = true;
+            }
+
+            if (isValid) {
+
+                boolean added = false;
+
+                for (int k = 0; k < 4; k++) { // add it to the first available place
+
+                    if (weights[k] == -1f) { // store immediately
+                        destination_locs[k]         = xy2i[x_peak_pix_rounded][y_peak_pix_rounded];
+//                        destination_locs[k][1]    = y_peak_pix_rounded;
+                        destination_angs[k][0]      = peak_theta;
+                        weights[k] = peak_weight;
+                        added = true;
+                        break;
+                    }
+
+                }
+
+                if (!added) { // no available slot
+
+                    // loop once more and put it instead of the one with lower weight
+                    // WARNING! goes instead of the first one that is lower which is not optimal
+                    for (int kk=0; kk<4; kk++) {
+                        if (peak_weight>weights[kk]) {
+                            // add it instead
+                            destination_locs[kk] = xy2i[x_peak_pix_rounded][y_peak_pix_rounded];
+//                            destination_locs[kk][1] = y_peak_pix_rounded;
+                            destination_angs[kk][0] = peak_theta;
+                            weights[kk] = peak_weight;
+                            break;
+                        }
+                    }
+
+                }
+
+            }
+
+        }
+
+
+    }
+
+    public static ArrayList<float[]> extracting(int[] labels, int[] idxs, ArrayList<Float> vals)
+    {
+
+        // loop obtained labels (labels & idxs should have the same length)
+
+        boolean[] checked = new boolean[idxs.length];      // aux
+        ArrayList<float[]> out = new ArrayList<float[]>(); // allocate the output
+
+        for (int i = 0; i < idxs.length; i++) {
+            if (!checked[i]) {
+                // this is the first value
+                float centroid  = vals.get(idxs[i]); // vals[ idxs[i] ];
+                float shifts    = 0; // naturally 0 shift for the first one
+                int count = 1;
+                checked[i] = true;
+
+                // check the rest
+                for (int j = i+1; j < idxs.length; j++) {
+                    if (!checked[j]) {
+                        if (labels[j]==labels[i]) {
+
+                            // clustering said they're together
+                            // important that vals and centroid values are all wrapped in [0, 2PI) range
+                            float add_value = vals.get(idxs[j]);
+                            float add_diff = wrap_diff(centroid, add_value);
+                            if (centroid<ONE_PI) {
+                                // there is always pi values on right
+                                if (add_value>=centroid & add_value<centroid+ONE_PI) {
+                                    // sign is (+)
+                                }
+                                else {
+                                    // sign is (-)
+                                    add_diff = (-1) * add_diff;
+                                }
+
+                            }
+                            else {
+                                // >= ONE_PI
+                                // there is always pi values on left
+                                if (add_value<=centroid & add_value>centroid-ONE_PI) {
+                                    // sign is (-)
+                                    add_diff = (-1) * add_diff;
+                                }
+                                else {
+                                    // sign in (+)
+                                }
+                            }
+
+                            shifts += add_diff;
+                            count++;
+                            checked[j] = true;
+
+                        }
+                    }
+                }
+
+                centroid += shifts/count;
+                out.add(new float[]{wrap_0_2PI(centroid), count});  // outputs centroid in [rad]
+
+            }
+        }
+
+        return out;
+
+    }
+
+
+    public static ImageStack getProfileWithPeaks(int atX, int atY)
+    {
+
+        // reads from prof2 array
+        ImageStack is_out = new ImageStack(528, 255);
+
+        int idx = xy2i[atX][atY];
         if (idx != -1) {
-            int len = Profiler2D.prof2[0].length;
+            int len = prof2[0].length;
             float[] f = new float[len];
             float[] fx = new float[len];
 
@@ -114,42 +384,34 @@ public class PeakExtractor2D extends Thread {
             }
 
             Plot p = new Plot("profile at ("+atX+","+atY+")", "", "filtered", fx, f);
-            p.setSize(600, 300);
 
             // add detected peaks on top of the profile plot using addPoints
             float[][] get_thetas = peaks_theta[idx];  // 4 x 1
+
+            IJ.log("peaks theta:");
+            for (int ii=0; ii<get_thetas.length; ii++) IJ.log(Arrays.toString(get_thetas[ii]));
 
             for (int k=0; k<get_thetas.length; k++) {
                 if (get_thetas[k][0] != -1) {
                     float curr_theta_degs = rad2deg(get_thetas[k][0]);
                     float[][] pks_abscissa = new float[][]{ {curr_theta_degs, curr_theta_degs}, {profile_min, profile_max} }; // 0 -> abscissa, 1 -> limits
-
-                    Color c = Color.BLACK;
-                    if(k==0) {
-                        c = Color.RED;
-                    }
-                    else if (k==1) {
-                        c = Color.YELLOW;
-                    }
-                    else if (k==2) {
-                        c = Color.GREEN;
-                    }
-                    else if (k==3) {
-                        c = Color.BLUE;
-                    }
-
-                    p.setColor(c);
+                    p.setColor(Color.RED);
+                    p.setLineWidth(2);
                     p.addPoints(pks_abscissa[0], pks_abscissa[1], Plot.LINE);
                     p.setColor(Color.BLACK);
-
                 }
             }
 
-            return p.getProcessor();
+            is_out.addSlice(p.getProcessor());
         }
         else {
-            return null;
+            float[] fx = new float[sph2d.getProfileLength()];
+            for (int i=0; i<fx.length; i++) fx[i] = ((i/(float)fx.length)*360);
+            Plot p = new Plot("", "", "", fx, new float[fx.length]);
+            is_out.addSlice(p.getProcessor());
         }
+
+        return is_out;
 
     }
 
@@ -157,13 +419,78 @@ public class PeakExtractor2D extends Thread {
     {
 
         Overlay ov = new Overlay();
+
+        float R = 1;
+        OvalRoi ovalroi = new OvalRoi(atX-(R/2)+.5f, atY-(R/2)+.5f, R, R);
+        ov.add(ovalroi);
+
+        int idx = xy2i[atX][atY];
+
+        if (idx!=-1) {
+            int[] pk_locs_i = peaks_i[idx];
+
+            for (int i = 0; i<pk_locs_i.length; i++) {
+
+                if (pk_locs_i[i]!=-1) { // peak exists
+
+                    int pk_x = i2xy[pk_locs_i[i]][0];
+                    int pk_y = i2xy[pk_locs_i[i]][1];
+
+                    ovalroi = new OvalRoi(pk_x-(R/2)+.5f, pk_y-(R/2)+.5f, R, R);
+                    ovalroi.setFillColor(Color.GREEN);
+
+                }
+
+                ov.add(ovalroi);
+            }
+
+        }
+
         return ov;
 
     }
 
-    /*
-        auxiliary stuff
-     */
+    private static int runOneMax(int curr_pos, short[] _input_profile, Sphere2D _input_profile_sphere) {
+        int 	    new_pos     = curr_pos;
+        int 		max	 		= Integer.MIN_VALUE;
+
+        // curr_pos will define the set of neighbouring indexes
+        int[] neighbour_idxs = _input_profile_sphere.masks.get(curr_pos);
+
+        for (int i=0; i<neighbour_idxs.length; i++) {
+            int neighbour_idx = neighbour_idxs[i];
+            int read_value = (int) (_input_profile[neighbour_idx] & 0xffff);
+            if (read_value>max) {
+                max = read_value;
+                new_pos = neighbour_idx;
+            }
+        }
+
+        return new_pos;
+    }
+
+    private static float wrap_diff(float theta_1, float theta_2) { // wraps the angle difference theta_1, theta_2 range [0, 2PI)
+
+        float d = theta_1 - theta_2;
+
+        d = (d>0)? d : (-d) ;
+
+        d = (d>Math.PI)? (float) (2*Math.PI-d) : d ;
+
+        return d;
+
+    }
+
+    private static float wrap_0_2PI(float ang) {
+        float out = ang;
+        while (out<0) {
+            out += TWO_PI;
+        }
+        while (out>=TWO_PI) {
+            out -= TWO_PI;
+        }
+        return out;
+    }
 
     private static final float rad2deg(float ang_rad){
         return (ang_rad / (float) Math.PI) * 180f;

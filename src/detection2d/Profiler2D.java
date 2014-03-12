@@ -79,6 +79,7 @@ public class Profiler2D extends Thread {
             }
 
             Plot p = new Plot("profile at ("+atX+","+atY+")", "", "filtered", fx, f);
+            p.setLineWidth(2);
             is_out.addSlice(p.getProcessor());
         }
         else {
