@@ -58,10 +58,6 @@ public class Profiler2D extends Thread {
         }
     }
 
-    /*
-        various versions of the output (plot ImageProcessor, just an array with corresponding thetas in degs)
-     */
-
     public static ImageStack getProfile(int atX, int atY){  // reads from prof2 array class member
 
         ImageStack is_out = new ImageStack(528, 255);

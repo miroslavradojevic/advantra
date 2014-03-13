@@ -36,8 +36,8 @@ public class PeakExtractor2D extends Thread {
 
     // OUTPUTS
     public static float[][][]	peaks_theta;                // N x (4x1)    4 selected peaks in abscissa coordinates X
-    public static int[][]       peaks_i;             		// N x 4        4 selected peaks in indexed format (rounded locs)
-    public static float[]       peaks_w;                    // N x 4
+    public static int[][]       peaks_i;             		// N x 4        4 selected peaks in indexed format (rounded locations)
+    public static int[][]       peaks_w;                    // N x 4        peak weights
 
     public PeakExtractor2D(int n0, int n1)
     {
@@ -57,6 +57,7 @@ public class PeakExtractor2D extends Thread {
 		// allocate output -> set to -1
 		peaks_i  		= new int[i2xy.length][4];
 		peaks_theta  	= new float[i2xy.length][4][1];
+		peaks_w 		= new int[i2xy.length][4];
 
 		for (int ii = 0; ii<i2xy.length; ii++) {
 			for (int jj = 0; jj<4; jj++) {
@@ -66,6 +67,8 @@ public class PeakExtractor2D extends Thread {
 				for (int kk=0; kk<1; kk++) {
 					peaks_theta[ii][jj][kk] = -1;
 				}
+
+				peaks_w[ii][jj] = -1;
 
 			}
 		}
@@ -90,20 +93,23 @@ public class PeakExtractor2D extends Thread {
                     start_indexes, end_indexes,
                     atX, atY,
                     peaks_i[locationIdx],
-                    peaks_theta[locationIdx]);
+                    peaks_theta[locationIdx],
+					peaks_w[locationIdx]
+			);
 
 		}
 
 	}
 
-    private void extractPeaks(  short[]     _profile,                           // profile input
-                                Sphere2D    _profile_sphere,                    // sphere used for this profile
+    private void extractPeaks(  short[]     _profile,           // profile input
+                                Sphere2D    _profile_sphere,	// sphere used for this profile
                                 int[]       start_pts,
-                                int[]       end_pts,          		// aux. arrays (to avoid allocating them inside method each time) - end_pts is also an output
+                                int[]       end_pts,          	// aux. arrays (to avoid allocating them inside method each time) - end_pts is also an output
                                 int         atX,
-                                int         atY,                           	// for global coordinate outputs
-                                int[]       peaks_loc_i,
-                                float[][]   peaks_ang_theta
+                                int         atY,
+                                int[]       peaks_loc_i,        // out
+                                float[][]   peaks_ang_theta,    // out
+								int[]		peaks_weight        // out
     )
     {
 
@@ -118,12 +124,16 @@ public class PeakExtractor2D extends Thread {
                 EPSILON,
                 end_pts);
 
-        int[] labs = clustering(end_pts, _profile_sphere.diffs, _profile_sphere.arcNbhood);// cluster end_pts together
+        int[] labs = clustering(end_pts, _profile_sphere.diffs, _profile_sphere.arcNbhood);// cluster the end_pts together
 
         // extract the cluster centroids out  -> <theta, weight>
         ArrayList<float[]> clss = extracting(labs, end_pts, _profile_sphere.theta);
 
-        appendClusters(atX, atY, _profile_sphere, clss, peaks_loc_i, peaks_ang_theta); // output is stored in peaks_loc_i and peaks_ang_theta
+        appendClusters(atX, atY, _profile_sphere, clss,
+							  peaks_loc_i,		// out
+							  peaks_ang_theta,  // out
+							  peaks_weight      // out
+		);
 
     }
 
@@ -227,43 +237,37 @@ public class PeakExtractor2D extends Thread {
             Sphere2D            sphere_atXY,
             ArrayList<float[]>  clusters_to_append,         // <theta, weight>
             int[]  		        destination_locs,           // 4x1
-            float[][] 	        destination_angs            // 4x1
+            float[][] 	        destination_angs,            // 4x1
+			int[] 				destination_weights
     )
     {
 
-        float[] weights = new float[destination_locs.length];
-        Arrays.fill(weights, -1f);
+        int[] weights = new int[destination_locs.length];
+        Arrays.fill(weights, -1);
 
         for (int t=0; t<clusters_to_append.size(); t++) { // check every peak theta angle
 
-            float peak_theta    = clusters_to_append.get(t)[0];   // value in [rad] theta
-            float peak_weight   = clusters_to_append.get(t)[1];   // convergence score
-
-            int[] currentPeaksXY   = new int[2];
-
-            boolean isValid = false;
+            float 	peak_theta    = clusters_to_append.get(t)[0];   				// value in [rad] theta
+            int 	peak_weight   = Math.round(clusters_to_append.get(t)[1]);   	// convergence score
 
             int x_peak_pix_rounded = Math.round(atX + sphere_atXY.getX(peak_theta));
             int y_peak_pix_rounded = Math.round(atY + sphere_atXY.getY(peak_theta));
 
             if (xy2i[x_peak_pix_rounded][y_peak_pix_rounded]!=-1) {
-                currentPeaksXY[0] = x_peak_pix_rounded;
-                currentPeaksXY[1] = y_peak_pix_rounded;
-                isValid = true;
-            }
-
-            if (isValid) {
 
                 boolean added = false;
 
                 for (int k = 0; k < 4; k++) { // add it to the first available place
 
-                    if (weights[k] == -1f) { // store immediately
-                        destination_locs[k]         = xy2i[x_peak_pix_rounded][y_peak_pix_rounded];
-//                        destination_locs[k][1]    = y_peak_pix_rounded;
+                    if (weights[k] == -1) { // store immediately
+
+						destination_locs[k]         = xy2i[x_peak_pix_rounded][y_peak_pix_rounded];
                         destination_angs[k][0]      = peak_theta;
-                        weights[k] = peak_weight;
-                        added = true;
+						destination_weights[k]      = peak_weight;
+
+                        weights[k] 					= peak_weight;
+
+						added = true;
                         break;
                     }
 
@@ -271,25 +275,29 @@ public class PeakExtractor2D extends Thread {
 
                 if (!added) { // no available slot
 
-                    // loop once more and put it instead of the one with lower weight
-                    // WARNING! goes instead of the first one that is lower which is not optimal
-                    for (int kk=0; kk<4; kk++) {
-                        if (peak_weight>weights[kk]) {
-                            // add it instead
-                            destination_locs[kk] = xy2i[x_peak_pix_rounded][y_peak_pix_rounded];
-//                            destination_locs[kk][1] = y_peak_pix_rounded;
-                            destination_angs[kk][0] = peak_theta;
-                            weights[kk] = peak_weight;
-                            break;
-                        }
-                    }
+                    // loop once more and put it instead of the one with lowest weight
+					int min_weight_idx 	= -1;
+					int min_weight 		= Integer.MAX_VALUE;
+
+					for (int kk=0; kk<4; kk++) {
+						if (weights[kk]<min_weight) {
+							min_weight = weights[kk];
+							min_weight_idx = kk;
+						}
+					}
+
+					// add it instead
+					destination_locs[min_weight_idx] = xy2i[x_peak_pix_rounded][y_peak_pix_rounded];
+					destination_angs[min_weight_idx][0] = peak_theta;
+					destination_weights[min_weight_idx] = peak_weight;
+
+					weights[min_weight_idx] = peak_weight;
 
                 }
 
             }
 
         }
-
 
     }
 
@@ -415,12 +423,12 @@ public class PeakExtractor2D extends Thread {
 
     }
 
-    public Overlay getPeaks(int atX, int atY)
+    public static Overlay getPeaks(int atX, int atY)
     {
 
         Overlay ov = new Overlay();
 
-        float R = 1;
+        float R = 0.5f;
         OvalRoi ovalroi = new OvalRoi(atX-(R/2)+.5f, atY-(R/2)+.5f, R, R);
         ov.add(ovalroi);
 

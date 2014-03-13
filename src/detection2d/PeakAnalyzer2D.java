@@ -38,6 +38,7 @@ public class PeakAnalyzer2D extends Thread {
 
     // INPUT:
     public static int[][]       peaks_i;             	// list of extracted peaks: N x 4 every FG location with 4 extracted peaks in indexed format
+	public static int[][]		peaks_w;                // weight assigned to each peak (for expansion)
 	public static float[][]		inimg_xy;				// input image (necessary for feature extraction)
 	public static byte[][]		backg_xy;				// background estimation (for feature extraction)
 
@@ -74,7 +75,7 @@ public class PeakAnalyzer2D extends Thread {
         this.endN = n1;
     }
 
-    public static void loadTemplate(int[][] _i2xy, int[][] _xy2i, int[][] _peaks_i, float[][] _inimg_xy, byte[][] _backgr_xy,
+    public static void loadTemplate(int[][] _i2xy, int[][] _xy2i, int[][] _peaks_i, int[][] _peaks_w, float[][] _inimg_xy, byte[][] _backgr_xy,
 									int _M, float _minCos, float _scatterDist, float _thresholdNCC, float _D)
     {
 
@@ -96,6 +97,7 @@ public class PeakAnalyzer2D extends Thread {
         i2xy = _i2xy;
         xy2i = _xy2i;
         peaks_i = _peaks_i;
+		peaks_w = _peaks_w;
 		inimg_xy = _inimg_xy;
 		backg_xy = _backgr_xy;
         M = _M;
@@ -324,48 +326,81 @@ public class PeakAnalyzer2D extends Thread {
         int currX = i2xy[curr_index][0];    // X
         int currY = i2xy[curr_index][1];    // Y
 
-        int next_index = -1;
-        int next_weight = -1;
-
         // check peaks at curr
 //        int[][] pks4xXY = peaks_xy[curr_index];
         int[]   pks4xI  = peaks_i[curr_index]; // list all indexes
+		int[] 	pks4xW	= peaks_w[curr_index];
 
-        for (int pkIdx = 0; pkIdx<pks4xI.length; pkIdx++) { // loops them by rank - those with highest weight first, to pick the first one with good angle
+		// take the one with highest weight that is above minCos
+		int next_index = -1;
+		int next_weight = -1;
 
-            if (pks4xI[pkIdx] != -1) { // follow up has to be foreground
+		for (int p = 0; p<pks4xI.length; p++) {
+			if (pks4xI[p]!=-1) {
+				// peak in foreground
+				int check_I = pks4xI[p];
+				int next_X 	= i2xy[check_I][0];
+				int next_Y	= i2xy[check_I][1];
 
-                // there is a peak to check - needs to be pointing outwards more than pre-defined threshold
-                int nextX = i2xy[pks4xI[pkIdx]][0];
-                int nextY = i2xy[pks4xI[pkIdx]][1];
+				double cosAng =
+						(
+								(currX-prevX)*(next_X-currX) + (currY-prevY)*(next_Y-currY)           // + (currZ-prevZ)*(nextZ-currZ)
+						)
+								/
+								(
+										Math.sqrt( Math.pow(currX-prevX, 2) + Math.pow(currY-prevY, 2) ) *  //  + Math.pow(currZ-prevZ, 2)
+												Math.sqrt( Math.pow(next_X-currX, 2) + Math.pow(next_Y-currY, 2) )    //  + Math.pow(nextZ-currZ, 2)
+								);
 
-                double cosAng =
-                        (
-                        	(currX-prevX)*(nextX-currX) + (currY-prevY)*(nextY-currY)           // + (currZ-prevZ)*(nextZ-currZ)
-                        )
-                        /
-                        (
-                        	Math.sqrt( Math.pow(currX-prevX, 2) + Math.pow(currY-prevY, 2) ) *  //  + Math.pow(currZ-prevZ, 2)
-                            Math.sqrt( Math.pow(nextX-currX, 2) + Math.pow(nextY-currY, 2) )    //  + Math.pow(nextZ-currZ, 2)
-                        );
+				if (cosAng>minCos) {
+					// peak is outwards pointing
+					if (pks4xW[p]>next_weight) {
+						next_weight = pks4xW[p];
+						next_index 	= pks4xI[p];
+					}
+				}
 
-                if (cosAng>minCos && next_weight) {
-                    next_index = xy2i[nextX][nextY];
-                    return xy2i[nextX][nextY]; // it is aligned - add it, find its index and return as output
-                }
-                else {
-                    // if not pointing outwards, continue further down the rank till it reaches -1 or checks all
-                }
-            }
-            else {
-                return -1; // no more peaks to search
-            }
+			}
+		}
 
-        }
+		return next_index;
 
-        return -1; // checked all
+	}
 
-    }
+
+//		for (int pkIdx = 0; pkIdx<pks4xI.length; pkIdx++) {
+//
+//            if (pks4xI[pkIdx] != -1) { // follow up has to be foreground
+//
+//                // there is a peak to check - needs to be pointing outwards more than pre-defined threshold
+//                int nextX = i2xy[pks4xI[pkIdx]][0];
+//                int nextY = i2xy[pks4xI[pkIdx]][1];
+//
+//                double cosAng =
+//                        (
+//                        	(currX-prevX)*(nextX-currX) + (currY-prevY)*(nextY-currY)           // + (currZ-prevZ)*(nextZ-currZ)
+//                        )
+//                        /
+//                        (
+//                        	Math.sqrt( Math.pow(currX-prevX, 2) + Math.pow(currY-prevY, 2) ) *  //  + Math.pow(currZ-prevZ, 2)
+//                            Math.sqrt( Math.pow(nextX-currX, 2) + Math.pow(nextY-currY, 2) )    //  + Math.pow(nextZ-currZ, 2)
+//                        );
+//
+//                if (cosAng>minCos && ) {
+//                    next_index = xy2i[nextX][nextY];
+//                    return xy2i[nextX][nextY]; // it is aligned - add it, find its index and return as output
+//                }
+//                else {
+//                    // if not pointing outwards, continue further down the rank till it reaches -1 or checks all
+//                }
+//            }
+//            else {
+//                //return -1; // no more peaks to search
+//            }
+//
+//        }
+
+//        return -1; // checked all
 
     /*
         outputs (to visualize delineation and extracted features)
@@ -375,33 +410,30 @@ public class PeakAnalyzer2D extends Thread {
 
         // return the delineated local structure Overlay for visualization
         Overlay ov = new Overlay();
-        float R = 0.5f; // radius of the circles written
+		Overlay ov_temp;
+		float R = 1f; // radius of the circles written
+
+		// central location
         OvalRoi ovalroi = new OvalRoi(atX-(R/2)+.5f, atY-(R/2)+.5f, R, R);
+		ovalroi.setFillColor(Color.RED);
+		ovalroi.setStrokeWidth(1);
         ov.add(ovalroi);
 
-        // read extracted peaks at this location
-        int idx = Masker2D.xy2i[atX][atY];
+		// read extracted peaks at this location
+        int idx = xy2i[atX][atY];
 
-        /*
-            show selected points
-         */
-
+        // show delineation
         if (idx!=-1) {
 
-            int[][] delin_at_loc = PeakAnalyzer2D.delin2[idx];
+            int[][] delin_at_loc = delin2[idx];
 
             for (int b = 0; b<delin_at_loc.length; b++) {           // loop 4 branches, b index defines the branch "strength"
-
-                boolean complete = true;
 
                 for (int m=0; m<M; m++) {
 
                     if (delin_at_loc[b][m] != -1) {
 
-                        // there is a point to add
-
-                        int pt_idx = delin_at_loc[b][m];
-
+                        int pt_idx = delin_at_loc[b][m]; // there is a point to add
                         int pt_x = i2xy[pt_idx][0];
                         int pt_y = i2xy[pt_idx][1];
 
@@ -410,41 +442,24 @@ public class PeakAnalyzer2D extends Thread {
                         ovalroi.setStrokeWidth(1);
                         ov.add(ovalroi);
 
-                    }
-                    else {
-                        complete = false;
-                        break; // stop with the branch
-                    }
+						// find previous indexes
+						int prev_i, prev_x, prev_y;
 
-                }
+						if (m==0) {
+							prev_x = atX;
+							prev_y = atY;
+						}
+						else{
+							prev_i = delin_at_loc[b][m-1];
+							prev_x = i2xy[prev_i][0];
+							prev_y = i2xy[prev_i][1];
+						}
 
-                // finished along the branch
-                if (complete) {    // add lines along complete lines
-
-                    for (int m=0; m<M; m++) {
-                        int curr_i = delin_at_loc[b][m];
-                        int curr_x = i2xy[curr_i][0];
-                        int curr_y = i2xy[curr_i][1];
-
-                        int prev_i, prev_x, prev_y;
-
-                        if (m==0) {
-                            prev_x = atX;
-                            prev_y = atY;
-                        }
-                        else{
-                            prev_i = delin_at_loc[b][m-1];
-                            prev_x = i2xy[prev_i][0];
-                            prev_y = i2xy[prev_i][1];
-                        }
-
-                        // add the points for the line connecting prev_xy and curr_xy
-                        ArrayList<OvalRoi> line_pts = localPatchCrossProfilesLocs(prev_x, prev_y, curr_x, curr_y);
-                        for (int aa = 0; aa < line_pts.size(); aa++) ov.add(line_pts.get(aa));
-
-                        // add the patch locations
-                        ArrayList<PointRoi> pts = localPatchValsLocs(prev_x, prev_y, curr_x, curr_y);
-                        for (int aa=0; aa<pts.size(); aa++) ov.add(pts.get(aa));
+						// add local cross profile plots and patch locations
+						ArrayList<OvalRoi> line_pts = localPatchCrossProfilesLocs(prev_x, prev_y, pt_x, pt_y);
+						for (int aa = 0; aa < line_pts.size(); aa++) ov.add(line_pts.get(aa));
+						ArrayList<PointRoi> pts = localPatchValsLocs(prev_x, prev_y, pt_x, pt_y);
+						for (int aa=0; aa<pts.size(); aa++) ov.add(pts.get(aa));
 
                     }
 
@@ -452,21 +467,12 @@ public class PeakAnalyzer2D extends Thread {
 
             }
 
-        }
+            // peaks of the peaks whether they were in delin or not
+			ov_temp = PeakExtractor2D.getPeaks(atX, atY);
+			for (int xx=0; xx<ov_temp.size(); xx++) ov.add(ov_temp.get(xx)); // add it to the final overlay
 
-        /*
-            show cloud of peak points
-         */
+			int m = 1;
 
-        if (idx != -1) {
-
-            // establish the overlay with the cloud of recursively traced profile peaks
-            // trace works M times recursively (that is the full choice)
-
-            /*
-                initialize
-             */
-            int m = 1;
             ArrayList<int[]> next_pts_xy = new ArrayList<int[]>();
             next_pts_xy.clear();
             next_pts_xy.add(i2xy[idx]);     // xy
@@ -509,7 +515,7 @@ public class PeakAnalyzer2D extends Thread {
 
                 m++;
 
-            } // loop
+            } // loop m
 
         }
 
