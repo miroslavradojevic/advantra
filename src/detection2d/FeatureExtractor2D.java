@@ -209,7 +209,7 @@ public class FeatureExtractor2D implements PlugInFilter {
             }
         }
         /********************************/
-        PeakAnalyzer2D.loadTemplate(Masker2D.i2xy, Masker2D.xy2i, PeakExtractor2D.peaks_xy, inimg_xy, Masker2D.back_xy, M, minCos, scatterDist, threshold, D); // initialize peak analyzer parameters
+        PeakAnalyzer2D.loadTemplate(Masker2D.i2xy, Masker2D.xy2i, PeakExtractor2D.peaks_i, PeakExtractor2D.peaks_w, inimg_xy, Masker2D.back_xy, M, minCos, scatterDist, threshold, D); // initialize peak analyzer parameters
         int totalPeakAnalyzeComponents = Masker2D.i2xy.length; // number of locations
 
         PeakAnalyzer2D pa_jobs[] = new PeakAnalyzer2D[CPU_NR];

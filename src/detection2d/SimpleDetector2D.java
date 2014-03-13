@@ -35,7 +35,7 @@ public class SimpleDetector2D extends Thread {
 
     // PARAMETERS
     static int min_size = 1;                                   // when extracting connected components
-    static float min_lhood = .5f;                              // when discarding those that are not certain enough
+    static float min_lhood = .6f;                              // when discarding those that are not certain enough
     static int nbhood_size = 0;
 
     // OUTPUT
@@ -77,8 +77,6 @@ public class SimpleDetector2D extends Thread {
             // take the best decision from the local neighbourhood
             int     curr_label = -1; // 0-4
             float   curr_lhood = -1;
-
-
 
             for (int xx=atX-nbhood_size; xx<=atX+nbhood_size; xx++) {
                 for (int yy=atY-nbhood_size; yy<=atY+nbhood_size; yy++) {

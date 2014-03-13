@@ -53,6 +53,8 @@
         <pathelement location="${env.HOME}/jarlib/jfreechart-1.0.14.jar"/>
         <pathelement location="${env.HOME}/jarlib/jcommon-1.0.17.jar"/>
         <pathelement location="${env.HOME}/jarlib/VIB-lib.jar"/>
+        <pathelement location="${env.HOME}/jarlib/fiji.jar"/>
+        <pathelement location="${env.HOME}/jarlib/imglib1.jar"/>
     </path>
 
     <path id="sourcepath">

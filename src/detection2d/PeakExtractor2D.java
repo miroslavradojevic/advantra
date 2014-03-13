@@ -5,6 +5,7 @@ import ij.ImageStack;
 import ij.gui.OvalRoi;
 import ij.gui.Overlay;
 import ij.gui.Plot;
+import ij.gui.PointRoi;
 import ij.process.ImageProcessor;
 
 import java.awt.*;
@@ -28,7 +29,7 @@ public class PeakExtractor2D extends Thread {
     public static int[][]     	xy2i;
     public static short[][]	    prof2;                      // profiles
 
-    public static int       MAX_ITER        = 20;
+    public static int       MAX_ITER        = 40;
     public static int       EPSILON         = 0;
 
     private static float TWO_PI = (float) (2 * Math.PI);
@@ -102,11 +103,11 @@ public class PeakExtractor2D extends Thread {
 	}
 
     private void extractPeaks(  short[]     _profile,           // profile input
-                                Sphere2D    _profile_sphere,	// sphere used for this profile
-                                int[]       start_pts,
+                                Sphere2D    _profile_sphere,	// sphere used for this profile (defines resolution and the metrics)
+                                int[]       start_pts,          //
                                 int[]       end_pts,          	// aux. arrays (to avoid allocating them inside method each time) - end_pts is also an output
-                                int         atX,
-                                int         atY,
+                                int         atX,                //
+                                int         atY,                //
                                 int[]       peaks_loc_i,        // out
                                 float[][]   peaks_ang_theta,    // out
 								int[]		peaks_weight        // out
@@ -124,7 +125,7 @@ public class PeakExtractor2D extends Thread {
                 EPSILON,
                 end_pts);
 
-        int[] labs = clustering(end_pts, _profile_sphere.diffs, _profile_sphere.arcNbhood);// cluster the end_pts together
+        int[] labs = clustering(end_pts, _profile_sphere.diffs, 2*_profile_sphere.arcNbhood);// cluster the end_pts together
 
         // extract the cluster centroids out  -> <theta, weight>
         ArrayList<float[]> clss = extracting(labs, end_pts, _profile_sphere.theta);
@@ -184,9 +185,6 @@ public class PeakExtractor2D extends Thread {
         int[] labels = new int[idxs.length];
         for (int i = 0; i < labels.length; i++) labels[i] = i;  // initialize the output
 
-        //System.out.println("INIT. LABELS:");
-        //System.out.println(Arrays.toString(labels));
-
         for (int i = 0; i < idxs.length; i++) {
 
             // one versus the rest
@@ -222,10 +220,10 @@ public class PeakExtractor2D extends Thread {
 
         }
 
-        //System.out.println("OUT LABELS:");
+//      System.out.println("OUT LABELS:");
 //		for (int ii = 0; ii < labels.length; ii++)
-//			System.out.print(labels[ii]+" ");
-        //System.out.println(Arrays.toString(labels));
+//	    System.out.print(labels[ii]+" ");
+//      System.out.println(Arrays.toString(labels));
 
         return labels;
 
@@ -358,7 +356,8 @@ public class PeakExtractor2D extends Thread {
                 }
 
                 centroid += shifts/count;
-                out.add(new float[]{wrap_0_2PI(centroid), count});  // outputs centroid in [rad]
+                if (count>1)
+                    out.add(new float[]{wrap_0_2PI(centroid), count});  // outputs centroid in [rad]
 
             }
         }
@@ -393,11 +392,16 @@ public class PeakExtractor2D extends Thread {
 
             Plot p = new Plot("profile at ("+atX+","+atY+")", "", "filtered", fx, f);
 
-            // add detected peaks on top of the profile plot using addPoints
-            float[][] get_thetas = peaks_theta[idx];  // 4 x 1
+            float[][] get_thetas = peaks_theta[idx];
+//            IJ.log("peaks theta:");
+//            for (int ii=0; ii<get_thetas.length; ii++) IJ.log(Arrays.toString(get_thetas[ii]));
+//            int[] get_weights = peaks_w[idx];
+//            IJ.log("peaks wieghts:");
+//            for (int ii=0; ii<get_weights.length; ii++) IJ.log(IJ.d2s(get_weights[ii], 2));
+//            int[] get_idxs = peaks_i[idx];
+//            IJ.log("peaks idxs:");
+//            for (int ii=0; ii<get_idxs.length; ii++) IJ.log(IJ.d2s(get_idxs[ii], 2));
 
-            IJ.log("peaks theta:");
-            for (int ii=0; ii<get_thetas.length; ii++) IJ.log(Arrays.toString(get_thetas[ii]));
 
             for (int k=0; k<get_thetas.length; k++) {
                 if (get_thetas[k][0] != -1) {
@@ -457,6 +461,57 @@ public class PeakExtractor2D extends Thread {
         return ov;
 
     }
+
+    public static void getPeaks(int atX, int atY, int N, Overlay out_ov)
+    {
+        // plot features
+        float R = 0.5f;
+        Color c = Color.GREEN;
+        float w = .25f;
+
+        if (N==0) {
+
+            int point_idx = xy2i[atX][atY];
+
+            if (point_idx!=-1) {
+                OvalRoi pt = new OvalRoi(atX-(R/2)+.5f, atY-(R/2)+.5f, R, R);
+                pt.setFillColor(c);
+                pt.setStrokeWidth(w);
+                out_ov.add(pt);
+            }
+        }
+        else {
+
+            int point_idx = xy2i[atX][atY];
+
+            // add current point
+            if (point_idx!=-1) {
+
+                OvalRoi pt = new OvalRoi(atX-(R/2)+.5f, atY-(R/2)+.5f, R, R);
+                pt.setFillColor(c);
+                pt.setStrokeWidth(w);
+                out_ov.add(pt);
+
+                for (int p = 0; p<peaks_i[point_idx].length; p++) {
+
+                    int peak_idx = peaks_i[point_idx][p];
+
+                    if (peak_idx!=-1) {
+
+                        // corresponding x, y
+                        int peak_x = i2xy[peak_idx][0];
+                        int peak_y = i2xy[peak_idx][1];
+
+                        getPeaks(peak_x, peak_y, N-1, out_ov);
+
+                    }
+
+                }
+            }
+        }
+    }
+
+
 
     private static int runOneMax(int curr_pos, short[] _input_profile, Sphere2D _input_profile_sphere) {
         int 	    new_pos     = curr_pos;

@@ -243,7 +243,13 @@ public class Fitter1D {
             f_sub_f_mean_sumsqr += (f[aa]-f_mean) * (f[aa]-f_mean);
         }
 
-        return sc / (float) Math.sqrt(f_sub_f_mean_sumsqr * sumsqr_t_tM);
+        if (f_sub_f_mean_sumsqr>Float.MIN_VALUE) {
+            return sc / (float) Math.sqrt(f_sub_f_mean_sumsqr * sumsqr_t_tM);
+        }
+        else {
+            return 0;
+        }
+
 
     }
 

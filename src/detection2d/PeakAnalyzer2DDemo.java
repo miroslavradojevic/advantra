@@ -200,7 +200,7 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
         }
         //************************************************
         IJ.log("analyzing peaks + extracting features ...");
-        PeakAnalyzer2D.loadTemplate(Masker2D.i2xy, Masker2D.xy2i, PeakExtractor2D.peaks_xy, inimg_xy, Masker2D.back_xy, M, minCos, scatterDist, threshold, D); // initialize peak analyzer parameters
+        PeakAnalyzer2D.loadTemplate(Masker2D.i2xy, Masker2D.xy2i, PeakExtractor2D.peaks_i, PeakExtractor2D.peaks_w, inimg_xy, Masker2D.back_xy, M, minCos, scatterDist, threshold, D); // initialize peak analyzer parameters
         int totalPeakAnalyzeComponents = Masker2D.i2xy.length; // number of locations
         PeakAnalyzer2D pa_jobs[] = new PeakAnalyzer2D[CPU_NR];
         for (int i = 0; i < pa_jobs.length; i++) {
@@ -240,29 +240,32 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
         t2 = System.currentTimeMillis();
 		IJ.log("done. " + ((t2 - t1) / 1000f) + "sec.");
 
-		IJ.log("export features ");
-		t1 = System.currentTimeMillis();
+        if (false) {
 
-        String export_path = image_dir+image_name+".ncc";
-        PeakAnalyzer2D.exportNcc(export_path);
-        IJ.log("done exporting to: \t" + export_path + "\n");
+            IJ.log("export features ");
+            t1 = System.currentTimeMillis();
 
-        export_path = image_dir+image_name+".feat";
-		PeakAnalyzer2D.exportRatios(export_path);
-		IJ.log("done exporting to: \t" + export_path + "\n");
+            String export_path = image_dir+image_name+".ncc";
+            PeakAnalyzer2D.exportNcc(export_path);
+            IJ.log("done exporting to: \t" + export_path + "\n");
 
-		export_path = image_dir + image_name + ".frame";
-		PeakAnalyzer2D.exportFrames(export_path);
-		IJ.log("done exporting to: \t" + export_path + "\n");
+            export_path = image_dir+image_name+".feat";
+            PeakAnalyzer2D.exportRatios(export_path);
+            IJ.log("done exporting to: \t" + export_path + "\n");
 
-		export_path = image_dir + image_name + ".i2xy";
-		Masker2D.exportI2xyCsv(export_path);
-		IJ.log("done exporting to: \t" + export_path + "\n");
+            export_path = image_dir + image_name + ".frame";
+            PeakAnalyzer2D.exportFrames(export_path);
+            IJ.log("done exporting to: \t" + export_path + "\n");
 
+            export_path = image_dir + image_name + ".i2xy";
+            Masker2D.exportI2xyCsv(export_path);
+            IJ.log("done exporting to: \t" + export_path + "\n");
+
+            t2 = System.currentTimeMillis();
+            IJ.log("done. " + ((t2 - t1) / 1000f) + "sec.");
+
+        }
 		//************************************************
-
-        t2 = System.currentTimeMillis();
-        IJ.log("done. " + ((t2 - t1) / 1000f) + "sec.");
 
         /*
 			mouse listeners after processing
