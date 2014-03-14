@@ -34,6 +34,8 @@ public class Fitter1D {
 			start_width, d_width, end_width, // basic width
 			start_shift, d_shift, end_shift; // sift from middle
 
+    static float low_boundary = 0.01f;
+
     public Fitter1D(int _vector_len, boolean verbose){
 
 		// parameters
@@ -47,7 +49,7 @@ public class Fitter1D {
 		// width
 		start_width = 0;
 		d_width     = vector_len*0.05f;
-		end_width   = vector_len*0.45f;
+		end_width   = vector_len*0.35f;
 		//shift
 		start_shift	= -vector_len*0.15f;
 		d_shift		= vector_len*0.05f;
@@ -94,7 +96,7 @@ public class Fitter1D {
 					}
 
                     // check boundary elements are low enough
-                    if (templates_element[0] < 0.2f && templates_element[vector_len-1] < 0.2f) {
+                    if (templates_element[0] < low_boundary && templates_element[vector_len-1] < low_boundary) {
 
                         templates.add(templates_element.clone());
 

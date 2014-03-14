@@ -1,5 +1,6 @@
 package detection2d;
 
+import graphcut.Graph_Cut;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
@@ -239,6 +240,22 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
 
         t2 = System.currentTimeMillis();
 		IJ.log("done. " + ((t2 - t1) / 1000f) + "sec.");
+
+        ImagePlus end_lhood = SimpleDetector2D.showEndLhood();
+        end_lhood.show();
+        ImagePlus jun_lhood = SimpleDetector2D.showJunctionLhood();
+        jun_lhood.show();
+        ImagePlus model_grad = SimpleDetector2D.showModelGradient();
+        model_grad.show();
+
+        // use Graphcut to get segment out stable regions // TODO put it in SimpleDetector2D
+        Graph_Cut gc = new Graph_Cut();
+        ImagePlus out = gc.processSingleChannelImage(jun_lhood, null, 500, 500, 500);
+        out.setTitle("GCsegmentation");
+        out.show();
+
+
+
 
         if (false) {
 

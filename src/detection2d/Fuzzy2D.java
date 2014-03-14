@@ -219,15 +219,15 @@ public class Fuzzy2D {
 
         // apply rules
         mu = min (h_off(theta1), h_off(theta2), h_off(theta3), h_off(theta4)                  ) ; cur = fi_NON(mu); accumulate(cur, agg); // h_on(theta5)
-        mu = min (h_off(theta1), h_off(theta2), h_off(theta3), h_on(theta4),   1-h_off(theta5)) ; cur = fi_END(mu); accumulate(cur, agg);
-        mu = min (h_off(theta1), h_off(theta2), h_on(theta3),  h_off(theta4),  1-h_off(theta5)) ; cur = fi_END(mu); accumulate(cur, agg);
+        mu = min (h_off(theta1), h_off(theta2), h_off(theta3), h_on(theta4)                   ) ; cur = fi_END(mu); accumulate(cur, agg); //1-h_off(theta5)
+        mu = min (h_off(theta1), h_off(theta2), h_on(theta3),  h_off(theta4)                  ) ; cur = fi_END(mu); accumulate(cur, agg); //    ,  1-h_off(theta5)
         mu = min (h_off(theta1), h_off(theta2), h_on(theta3),  h_on(theta4)                   ) ; cur = fi_BDY(mu); accumulate(cur, agg); // 1-h_off(theta5)
-        mu = min (h_off(theta1), h_on(theta2),  h_off(theta3), h_off(theta4),  1-h_off(theta5)) ; cur = fi_END(mu); accumulate(cur, agg);
+        mu = min (h_off(theta1), h_on(theta2),  h_off(theta3), h_off(theta4)                  ) ; cur = fi_END(mu); accumulate(cur, agg); //,  1-h_off(theta5)
         mu = min (h_off(theta1), h_on(theta2),  h_off(theta3), h_on(theta4)                   ) ; cur = fi_BDY(mu); accumulate(cur, agg); // h_on(theta5)
         mu = min (h_off(theta1), h_on(theta2),  h_on(theta3),  h_off(theta4)                  ) ; cur = fi_BDY(mu); accumulate(cur, agg); // h_on(theta5)
         mu = min (               h_on(theta2),  h_on(theta3),  h_on(theta4)                   ) ; cur = fi_BIF(mu); accumulate(cur, agg); // h_off(theta1), h_on(theta5)
 
-        mu = min (h_on(theta1), h_off(theta2), h_off(theta3), h_off(theta4),  1-h_off(theta5) ) ; cur = fi_END(mu); accumulate(cur, agg);
+        mu = min (h_on(theta1), h_off(theta2), h_off(theta3), h_off(theta4)                   ) ; cur = fi_END(mu); accumulate(cur, agg); //,  1-h_off(theta5)
         mu = min (h_on(theta1), h_off(theta2), h_off(theta3), h_on(theta4)                    ) ; cur = fi_BDY(mu); accumulate(cur, agg); // ,   h_on(theta5)
         mu = min (h_on(theta1), h_off(theta2), h_on(theta3),  h_off(theta4)                   ) ; cur = fi_BDY(mu); accumulate(cur, agg); // ,  h_on(theta5)
         mu = min (h_on(theta1),                h_on(theta3),  h_on(theta4)                    ) ; cur = fi_BIF(mu); accumulate(cur, agg);  //h_off(theta2), ,   h_on(theta5)
@@ -236,7 +236,7 @@ public class Fuzzy2D {
         mu = min (h_on(theta1), h_on(theta2),  h_on(theta3)                                   ) ; cur = fi_BIF(mu); accumulate(cur, agg);  //h_off(theta4),h_on(theta5)
         mu = min (h_on(theta1), h_on(theta2),  h_on(theta3),  h_on(theta4)                    ) ; cur = fi_CRS(mu); accumulate(cur, agg);  // ,   h_on(theta5)
 
-        mu = h_off(theta5); cur = fi_NON(mu); accumulate(cur, agg);
+        //mu = h_off(theta5); cur = fi_NON(mu); accumulate(cur, agg);
         // finished rules
 
 //        if (true) {

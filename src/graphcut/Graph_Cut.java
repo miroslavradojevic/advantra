@@ -732,6 +732,12 @@ public class Graph_Cut<T extends RealType<T>> implements PlugIn {
      */
     public void processSingleChannelImage(ImagePlus imp, ImagePlus edge, float dataWeight, float pottsWeight, float edgeWeight, ImagePlus seg) {
 
+        IJ.log("-------\nmy modification\n");
+        IJ.log("dataWeight: "+dataWeight);
+        IJ.log("pottsWeight: "+pottsWeight);
+        IJ.log("edgeWeight: "+edgeWeight);
+        IJ.log("-------\nmy modification\n");
+
         float maxValue     = (float)Math.pow(2, imp.getBitDepth());
         Image<T> image     = ImagePlusAdapter.wrap(imp);
         Image<T> edgeImage = null;

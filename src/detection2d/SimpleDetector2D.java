@@ -4,8 +4,8 @@ import conn.Find_Connected_Regions;
 import ij.ImagePlus;
 import ij.gui.OvalRoi;
 import ij.gui.Overlay;
-import ij.gui.PointRoi;
 import ij.process.ByteProcessor;
+import ij.process.FloatProcessor;
 
 import java.awt.*;
 import java.util.ArrayList;
@@ -33,14 +33,25 @@ public class SimpleDetector2D extends Thread {
     public static int[][][]     delin2;             	// N x 4(max. threads) x M, every FG location with 4 selected peaks in XY format
     public static float[][]     lhood2;                 // N x 5, PeakAnalyzer2D fuzzy logic output, 5 outputs with likelihood
 
+    static float[]      Gx;                             // derivative filter weights (Sobel)
+    static float[]      Gy;                             // derivative filter weights (Sobel)
+    static int[][]      Gx_dXdY;                        // filter offsets
+    static int[][]      Gy_dXdY;                        // filter offsets
+
     // PARAMETERS
-    static int min_size = 1;                                   // when extracting connected components
-    static float min_lhood = .6f;                              // when discarding those that are not certain enough
+    static int min_size = 1;                            // when extracting connected components
+    static float min_lhood = .6f;                       // when discarding those that are not certain enough
     static int nbhood_size = 0;
 
     // OUTPUT
-    public static byte[]      score2;
-    public static float[]     lhoods;
+    //public static byte[]      score2;
+    //public static float[]     lhoods;
+
+    public static float[]   jun_lhood; // W x H matrix with junction (bif. and cross.) fuzzy likelihoods
+    public static float[]   end_lhood; // W x H matrix with end-point fuzzy likelihoods per pixel
+    public static float[]   model_grad;// intensity of the model change (expressed in terms of change of # patches)
+    // fuzzy scores turn out to be instable - therefore the regions with consistent detections need to be extracted
+    // consistent regions meaning those where the model stays the same and the score is high
 
     public SimpleDetector2D(int n0, int n1)
     {
@@ -55,49 +66,86 @@ public class SimpleDetector2D extends Thread {
         i2xy    = _i2xy;
         xy2i    = _xy2i;
         delin2  = _delin2;
-        lhood2  = _lhood2;
+        lhood2  = _lhood2; // 0-NON, 1-END, 2-BDY, 3,4-JUN
+
+        // filter
+        Gx = new float[6];
+        Gy = new float[6];
+        Gx_dXdY = new int[6][2]; // X (column), Y (row)
+        Gy_dXdY = new int[6][2]; // X (column), Y (row)
+
+        Gy[0] = 1;     Gy_dXdY[0][0] = -1; Gy_dXdY[0][1] = -1;
+        Gy[1] = 2;     Gy_dXdY[1][0] =  0; Gy_dXdY[1][1] = -1;
+        Gy[2] = 1;     Gy_dXdY[2][0] =  1; Gy_dXdY[2][1] = -1;
+        Gy[3] = -1;    Gy_dXdY[3][0] = -1; Gy_dXdY[3][1] =  1;
+        Gy[4] = -2;    Gy_dXdY[4][0] =  0; Gy_dXdY[4][1] =  1;
+        Gy[5] = -1;    Gy_dXdY[5][0] =  1; Gy_dXdY[5][1] =  1;
+
+        Gx[0] = 1;     Gx_dXdY[0][0] =  1; Gx_dXdY[0][1] = -1;
+        Gx[1] = 2;     Gx_dXdY[1][0] =  1; Gx_dXdY[1][1] =  0;
+        Gx[2] = 1;     Gx_dXdY[2][0] =  1; Gx_dXdY[2][1] =  1;
+        Gx[3] = -1;    Gx_dXdY[3][0] = -1; Gx_dXdY[3][1] = -1;
+        Gx[4] = -2;    Gx_dXdY[4][0] = -1; Gx_dXdY[4][1] =  0;
+        Gx[5] = -1;    Gx_dXdY[5][0] = -1; Gx_dXdY[5][1] =  1;
 
         /*
             allocate output
          */
-        score2 = new byte[W*H];
-        lhoods = new float[W*H];
-
+        jun_lhood   = new float[W*H];// initialize with zero l'hoods
+        end_lhood   = new float[W*H];
+        model_grad  = new float[W*H];
     }
 
     public void run() {
 
-        // loop through all the locations and decide
+        // loop through all the locations and generate images:
+        // likelihood for being bifurcation (fuzzy logic output)
+        // likelihood for being endpoint    (fuzzy logic too)
+        // delineation model change intensity (gradient of the model description - # patches)
         for (int locationIdx = begN; locationIdx < endN; locationIdx++) {
 
             int atX = i2xy[locationIdx][0];
             int atY = i2xy[locationIdx][1];
 
-            // check the neighbours to make majority voting decision
-            // take the best decision from the local neighbourhood
-            int     curr_label = -1; // 0-4
-            float   curr_lhood = -1;
+            if (atX<1 || atX>W-2 || atY<1 || atY>H-2) continue;
 
-            for (int xx=atX-nbhood_size; xx<=atX+nbhood_size; xx++) {
-                for (int yy=atY-nbhood_size; yy<=atY+nbhood_size; yy++) {
-                    if (xy2i[xx][yy]!=-1) { // point is in the foreground
+            // junction l'hood - read it directly from lhood2
+            jun_lhood[atY*W+atX] = Math.max(lhood2[locationIdx][3], lhood2[locationIdx][4]);
+            end_lhood[atY*W+atX] = lhood2[locationIdx][1];
 
-                        float[] nbr_lhood_list = lhood2[xy2i[xx][yy]];
-
-                        for (int kk=0; kk<nbr_lhood_list.length; kk++) {
-
-                            if (nbr_lhood_list[kk]>curr_lhood) {
-                                curr_lhood = nbr_lhood_list[kk];
-                                curr_label = kk;
-                            }
-
-                        }
-                    }
-                }
+            float GradX = 0;
+            float GradY = 0;
+            // model gradient calculate
+            for (int kk = 0; kk<6; kk++) {
+                GradX += Gx[kk] * modelValue(atX+Gx_dXdY[kk][0], atY+Gx_dXdY[kk][1]);
+                GradY += Gy[kk] * modelValue(atX+Gy_dXdY[kk][0], atY+Gy_dXdY[kk][1]);
             }
 
-            score2[atY*W+atX] = (byte) curr_label;
-            lhoods[atY*W+atX] = curr_lhood;
+            model_grad[atY*W+atX] = (float) Math.sqrt(GradX*GradX+GradY*GradY);
+
+            // check the neighbours to make majority voting decision
+            // take the best decision from the local neighbourhood
+//            int     curr_label = -1; // 0-4
+//            float   curr_lhood = -1;
+
+//            for (int xx=atX-nbhood_size; xx<=atX+nbhood_size; xx++) {
+//                for (int yy=atY-nbhood_size; yy<=atY+nbhood_size; yy++) {
+//                    if (xy2i[xx][yy]!=-1) { // point is in the foreground
+//
+//                        float[] nbr_lhood_list = lhood2[xy2i[xx][yy]];
+//
+//                        for (int kk=0; kk<nbr_lhood_list.length; kk++) {
+//
+//                            if (nbr_lhood_list[kk]>curr_lhood) {
+//                                curr_lhood = nbr_lhood_list[kk];
+//                                curr_label = kk;
+//                            }
+//
+//                        }
+//                    }
+//                }
+//            }
+
 
 //            if (simpleDecision(locationIdx)) {
 //                score2[atY*W+atX] = (byte) 255; // row by row align
@@ -107,43 +155,71 @@ public class SimpleDetector2D extends Thread {
 
     }
 
-    private boolean simpleDecision(int idx){
+    private float modelValue(int atX, int atY)
+    {
 
-        int cnt = 0;
+        int idx = xy2i[atX][atY];
 
-        for (int i=0; i<delin2[idx].length; i++) {
+        if (idx!=-1) {
 
-            int last_idx = delin2[idx][i].length - 1;
-
-            if (delin2[idx][i][last_idx] != -1) {
-                // means that it reached the end, converged, branch is complete
-                cnt++;
+            float score = 0;
+            // read the model from delin2
+            // count the # patches here
+            for (int ii=0; ii<delin2[idx].length; ii++) {
+                for (int jj=0; jj<delin2[idx][ii].length; jj++) {
+                    if (delin2[idx][ii][jj]!=-1) {
+                        score += .5f;
+                    }
+                }
             }
 
-        }
+            return score;
 
-        if (cnt >= 3) {
-            return true;
         }
         else {
-            return false;
+            // it is in the background
+            return 0;
         }
 
     }
+
+//    private boolean simpleDecision(int idx){
+//
+//        int cnt = 0;
+//
+//        for (int i=0; i<delin2[idx].length; i++) {
+//
+//            int last_idx = delin2[idx][i].length - 1;
+//
+//            if (delin2[idx][i][last_idx] != -1) {
+//                // means that it reached the end, converged, branch is complete
+//                cnt++;
+//            }
+//
+//        }
+//
+//        if (cnt >= 3) {
+//            return true;
+//        }
+//        else {
+//            return false;
+//        }
+//
+//    }
 
     public static Overlay drawDetections(){
 
         // eliminate those lower than min_lhood
         byte[] out_labels = new byte[W*H];
 
-        for (int ii=0; ii<W*H; ii++) {
-
-            if (lhoods[ii]>min_lhood) {
-                if (score2[ii]==(byte)1) out_labels[ii] = (byte)127;
-                if (score2[ii]==(byte)3 || score2[ii]==(byte)4) out_labels[ii] = (byte)255;
-            }
-
-        }
+//        for (int ii=0; ii<W*H; ii++) {
+//
+//            if (lhoods[ii]>min_lhood) {
+//                if (score2[ii]==(byte)1) out_labels[ii] = (byte)127;
+//                if (score2[ii]==(byte)3 || score2[ii]==(byte)4) out_labels[ii] = (byte)255;
+//            }
+//
+//        }
 
         ByteProcessor bp = new ByteProcessor(W, H, out_labels);
         ImagePlus ip = new ImagePlus("DET", bp);
@@ -188,8 +264,8 @@ public class SimpleDetector2D extends Thread {
 
                 int firstY = regs.get(i).get(0)[0];
                 int firstX = regs.get(i).get(0)[1];
-                if (score2[firstY*W+firstX]==(byte)1) ovroi.setStrokeColor(Color.YELLOW);
-                else ovroi.setStrokeColor(Color.RED);
+//                if (score2[firstY*W+firstX]==(byte)1) ovroi.setStrokeColor(Color.YELLOW);
+//                else ovroi.setStrokeColor(Color.RED);
                 detections.add(ovroi);
 
             }
@@ -197,6 +273,27 @@ public class SimpleDetector2D extends Thread {
 
         return detections;
 
+    }
+
+    public static ImagePlus showJunctionLhood()
+    {
+        FloatProcessor fp = new FloatProcessor(W, H, jun_lhood);
+        ImagePlus im_out = new ImagePlus("JunctionLikelihood", fp);
+        return im_out;
+    }
+
+    public static ImagePlus showEndLhood()
+    {
+        FloatProcessor fp = new FloatProcessor(W, H, end_lhood);
+        ImagePlus im_out = new ImagePlus("EndLikelihood", fp);
+        return im_out;
+    }
+
+    public static ImagePlus showModelGradient()
+    {
+        FloatProcessor fp = new FloatProcessor(W, H, model_grad);
+        ImagePlus im_out = new ImagePlus("ModelGradient", fp);
+        return im_out;
     }
 
 }
