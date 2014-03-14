@@ -46,15 +46,15 @@
 
     <path id="classpath">
         <!-- external modules -->
+        <!--<pathelement location="${env.HOME}/jarlib/weka.jar"/>-->
+        <!--<pathelement location="${env.HOME}/jarlib/jfreechart-1.0.14.jar"/>-->
+        <!--<pathelement location="${env.HOME}/jarlib/jcommon-1.0.17.jar"/>-->
+        <!--<pathelement location="${env.HOME}/jarlib/VIB-lib.jar"/>-->
         <pathelement location="${env.HOME}/jarlib/ij.jar"/>
-        <pathelement location="${env.HOME}/jarlib/imagescience.jar"/>
-        <pathelement location="${env.HOME}/jarlib/flanagan.jar"/>
-        <pathelement location="${env.HOME}/jarlib/weka.jar"/>
-        <pathelement location="${env.HOME}/jarlib/jfreechart-1.0.14.jar"/>
-        <pathelement location="${env.HOME}/jarlib/jcommon-1.0.17.jar"/>
-        <pathelement location="${env.HOME}/jarlib/VIB-lib.jar"/>
         <pathelement location="${env.HOME}/jarlib/fiji.jar"/>
         <pathelement location="${env.HOME}/jarlib/imglib1.jar"/>
+        <pathelement location="${env.HOME}/jarlib/imagescience.jar"/>
+        <pathelement location="${env.HOME}/jarlib/flanagan.jar"/>
     </path>
 
     <path id="sourcepath">
@@ -69,9 +69,7 @@
     <!--target="1.5" -->
     <target name="compile" description="Compile module">
 
-
-
-        <javac target="1.5" destdir="${build}" srcdir="${src}" debug="true" debuglevel="lines,vars,source">
+        <javac target="1.7" destdir="${build}" srcdir="${src}" debug="true" debuglevel="lines,vars,source">
             <classpath refid="classpath"/>
             <src refid="sourcepath"/>
         </javac>
