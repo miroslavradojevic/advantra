@@ -61,10 +61,7 @@ public class PeakAnalyzer2D extends Thread {
     public static int[][][]     delin2;                     // N(foreground locs.) x 4(max. threads) x M(follow-up locs) contains index for each location
 	// features
     public static float[][][]   feat2;						// N(foreground locs.) x 4 x (M x L) fit scores
-    // todo
-//    ArrayList<>
-
-    public static float[][]     ratio2;                     // N(foreground locs.) x 4 + 1 ratio of those above the threshold and score for the point
+    public static float[][]     mean2;                      // N(foreground locs.) x 4 ratio of those above the threshold and score for the point
     public static float[][]     lhood2;                     // fuzzy logic output is stored here
 
     // PROCESSING UNITS
@@ -114,9 +111,9 @@ public class PeakAnalyzer2D extends Thread {
                 for (int kk = 0; kk < delin2[0][0].length; kk++)
                     delin2[ii][jj][kk] = -1;
 
-		feat2   = new float[i2xy.length][4][M*L]; // fitting scores
-        ratio2  = new float[i2xy.length][4+1];      // ratio of ON NCC scores (higher than threshold)
-        lhood2  = new float[i2xy.length][fuzzy_logic_system.L];
+		feat2   = new float[i2xy.length][4][];                  // fitting scores   M*L
+        mean2  = new float[i2xy.length][];                  // ratio of ON NCC scores (higher than threshold)
+        lhood2  = new float[i2xy.length][fuzzy_logic_system.L]; //
 
     }
 
