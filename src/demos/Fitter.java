@@ -1,17 +1,19 @@
-package fit;
+package demos;
 
+import fit.Fitter1D;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.Plot;
 
 import java.awt.*;
-import java.util.Random;
+//import java.util.Random;
 
 /**
  * Created by miroslav on 2/27/14.
+ * java -cp "$HOME/critpoint/*:$HOME/jarlib/*" demos.Fitter
  */
-public class Fitter1DDemo {
+public class Fitter {
 
     public static void main(String[] args) {
 

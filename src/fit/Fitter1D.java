@@ -22,11 +22,11 @@ public class Fitter1D {
     int vector_len;
 
     // template profiles
-    ArrayList<float[]> 	templates;
-	ArrayList<Float> 	templates_mean;
-	ArrayList<float[]>	templates_mean_subtr;
-	ArrayList<Float> 	templates_mean_subtr_sumsqr;
-	ArrayList<String>	template_legend;
+    public ArrayList<float[]> 	templates;
+	public ArrayList<Float> 	templates_mean;
+	public ArrayList<float[]>	templates_mean_subtr;
+	public ArrayList<Float> 	templates_mean_subtr_sumsqr;
+	public ArrayList<String>	template_legend;
 
     // middle
     float middle_idx,
