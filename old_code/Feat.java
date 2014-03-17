@@ -5,7 +5,7 @@ import ij.gui.PointRoi;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
-import detection.Interpolator;
+import aux.Interpolator;
 
 import java.awt.*;
 import java.util.ArrayList;
@@ -609,7 +609,7 @@ public class Feat {
 //                            ov.add(new PointRoi(locX+0.5, locY+0.5));
 //                        }
 //
-//                        patches3[dir][row][col] = detection.Interpolator.interpolateAt(locX, locY, inip);
+//                        patches3[dir][row][col] = aux.Interpolator.interpolateAt(locX, locY, inip);
 //
 //                    }
 //                }

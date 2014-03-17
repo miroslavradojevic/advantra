@@ -1,5 +1,6 @@
 package detection;
 
+import aux.Interpolator;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.Overlay;
@@ -311,10 +312,10 @@ public class Profiler extends Thread {
 
 			// calculate weighted response
 			for (int k=0; k<offsets.get(offsetIdx).size(); k++) {
-				profileOut[offsetIdx] += Interpolator.interpolateAt(atX+offsets.get(offsetIdx).get(k)[0],
-																	atY+offsets.get(offsetIdx).get(k)[1],
-																	inip1
-				) * weights.get(offsetIdx).get(k);
+				profileOut[offsetIdx] += Interpolator.interpolateAt(atX + offsets.get(offsetIdx).get(k)[0],
+                        atY + offsets.get(offsetIdx).get(k)[1],
+                        inip1
+                ) * weights.get(offsetIdx).get(k);
 			}
 
 			//profileOut[offsetIdx] /= offsets.get(offsetIdx).size();

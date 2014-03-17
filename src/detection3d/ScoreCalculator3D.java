@@ -1,7 +1,7 @@
 package detection3d;
 
 import aux.Stat;
-import detection.Interpolator;
+import aux.Interpolator;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.process.ByteProcessor;

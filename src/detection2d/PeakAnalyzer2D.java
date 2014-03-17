@@ -1,7 +1,7 @@
 package detection2d;
 
 import aux.Stat;
-import detection.Interpolator;
+import aux.Interpolator;
 import fit.Fitter1D;
 import ij.IJ;
 import ij.ImageStack;
@@ -12,7 +12,6 @@ import ij.process.FloatProcessor;
 import java.awt.*;
 import java.io.*;
 import java.util.ArrayList;
-import java.util.Arrays;
 
 /**
  * Created by miroslav on 1/6/14.
@@ -62,8 +61,11 @@ public class PeakAnalyzer2D extends Thread {
     public static int[][][]     delin2;                     // N(foreground locs.) x 4(max. threads) x M(follow-up locs) contains index for each location
 	// features
     public static float[][][]   feat2;						// N(foreground locs.) x 4 x (M x L) fit scores
+    // todo
+//    ArrayList<>
+
     public static float[][]     ratio2;                     // N(foreground locs.) x 4 + 1 ratio of those above the threshold and score for the point
-    public static float[][]     lhood2;
+    public static float[][]     lhood2;                     // fuzzy logic output is stored here
 
     // PROCESSING UNITS
     private static Fitter1D fitter;                         // class used to calculate fitting scores
@@ -724,40 +726,6 @@ public class PeakAnalyzer2D extends Thread {
 		score calculation
 	 */
 
-    // todo add to misc repository
-//	public static float medianAlongLine(float x1, float y1, float x2, float y2, float[][] inimg_xy) {
-//
-//		float increment_length = .7f;
-//
-//		float dist = (float) Math.sqrt(Math.pow(x2-x1, 2) + Math.pow(y2-y1, 2)); //  + Math.pow(z2lay-z1lay, 2)
-//
-//		int elementsInLine = (int) (dist / increment_length);  // how many increment can safely fit between
-//		float[] valuesAlongLine = new float[elementsInLine];
-//
-//		float dx = (x2 - x1) / dist;
-//		float dy = (y2 - y1) / dist;
-//		// [dx, dy] is unit vector
-//
-//		dx *= increment_length;
-//		dy *= increment_length;
-//
-//		for (int cc = 0; cc<elementsInLine; cc++) {
-//
-//			float atX = x1      + cc * dx;
-//			float atY = y1      + cc * dy;
-////			float atZ = z1lay   + cc * dz;
-//
-////			if (atX<0 || atX>inimg_xy.length-1 || atY<0 || atY>inimg_xy[0].length-1) {
-////				System.out.println(String.format("\n%5d.(%4d) element (X, Y) was set wrong: (%5.2f, %5.2f) when sampling values between (%5.2f, %5.2f)->(%5.2f, %5.2f)\n", cc, elementsInLine, atX, atY, x1, y1, x2, y2));
-////			}
-//
-//			valuesAlongLine[cc] = Interpolator.interpolateAt(atX, atY, inimg_xy);
-//
-//		}
-//
-//		return Stat.median(valuesAlongLine);
-//
-//	}
 
 	public static void exportNcc(String file_path)
 	{
@@ -1124,82 +1092,9 @@ public class PeakAnalyzer2D extends Thread {
 ////            fit_scores[ii] = dummy[1];
 //
 //        }
-//
-//
-//
 //        return geom;
-//
-//
-//
 //    }
 
     // method that calculates overlap of two line segments
-
-	/*
-		methods that deal with local line (defined with prev_xy and curr_xy)    // TODO put it to misc
-	 */
-//    private static ArrayList<OvalRoi> localLineLocs(float x1, float y1, float x2, float y2) {
-//
-//        float R = 0.5f; // radius of the oval circles
-//
-//        float dist = (float) Math.sqrt(Math.pow(x2-x1, 2) + Math.pow(y2-y1, 2)); //  + Math.pow(z2lay-z1lay, 2)
-//
-//        int elementsInLine = (int) (dist / samplingStep);  // how many increment can safely fit between
-////        float[] valuesAlongLine = new float[elementsInLine];
-//
-//        float dx = (x2 - x1) / dist;
-//        float dy = (y2 - y1) / dist;
-//        // [dx, dy] is unit vector
-//
-//        dx *= samplingStep;
-//        dy *= samplingStep;
-//
-//        ArrayList<OvalRoi> pts = new ArrayList<OvalRoi>(elementsInLine);
-//
-//        for (int cc = 0; cc<elementsInLine; cc++) {
-//
-//            float atX = x1      + cc * dx;
-//            float atY = y1      + cc * dy;
-////			float atZ = z1lay   + cc * dz;
-//
-////            valuesAlongLine[cc] = Interpolator.interpolateAt(atX, atY, inimg_xy);
-//
-//            OvalRoi ovroi = new OvalRoi(atX-(R/2)+.5f, atY-(R/2)+.5f, R, R);
-//            ovroi.setStrokeWidth(R/2);
-//            ovroi.setStrokeColor(Color.BLUE);
-//            pts.add(ovroi);
-//
-//        }
-//
-//        return pts;
-//    }
-
-//    private static float[] localLineVals(float x1, float y1, float x2, float y2, float[][] inimg_xy) {
-//
-//        float dist = (float) Math.sqrt(Math.pow(x2-x1, 2) + Math.pow(y2-y1, 2)); //  + Math.pow(z2lay-z1lay, 2)
-//
-//        int elementsInLine = (int) (dist / samplingStep);  // how many increment can safely fit between
-//        float[] valuesAlongLine = new float[elementsInLine];
-//
-//        float dx = (x2 - x1) / dist;
-//        float dy = (y2 - y1) / dist;
-//        // [dx, dy] is unit vector
-//
-//        dx *= samplingStep;
-//        dy *= samplingStep;
-//
-//        for (int cc = 0; cc<elementsInLine; cc++) {
-//
-//            float atX = x1      + cc * dx;
-//            float atY = y1      + cc * dy;
-////			float atZ = z1lay   + cc * dz;
-//
-//            valuesAlongLine[cc] = Interpolator.interpolateAt(atX, atY, inimg_xy);
-//
-//        }
-//
-//        return valuesAlongLine;
-//
-//    }
 
 }

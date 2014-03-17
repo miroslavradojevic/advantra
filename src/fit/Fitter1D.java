@@ -34,7 +34,7 @@ public class Fitter1D {
 			start_width, d_width, end_width, // basic width
 			start_shift, d_shift, end_shift; // sift from middle
 
-    static float low_boundary = 0.01f;
+    static float low_boundary = 0.01f;          // bottom limit at the boundary
 
     public Fitter1D(int _vector_len, boolean verbose){
 

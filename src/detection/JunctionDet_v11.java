@@ -1,5 +1,6 @@
 package detection;
 
+import aux.Interpolator;
 import aux.Tools;
 import conn.Find_Connected_Regions;
 import ij.IJ;

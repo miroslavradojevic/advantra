@@ -1,7 +1,6 @@
 package detection2d;
 
-import aux.Stat;
-import detection.Interpolator;
+import aux.Interpolator;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.OvalRoi;
@@ -13,7 +12,6 @@ import ij.process.FloatProcessor;
 
 import java.awt.*;
 import java.util.ArrayList;
-import java.util.Arrays;
 
 /**
  * Created with IntelliJ IDEA.

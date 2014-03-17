@@ -31,12 +31,7 @@ public class Masker2D extends Thread {
 
 	private static float            radiusCheck;
 	private static float 			globalTh = .5f;
-//	private static   float 			iDiff;
 	private static int              marginPix;
-//	private static float[]			rses; // radiuses around the one given as argument
-//	private static float			alfa = 0.75f;
-//	private static float 			rmin = 2f;
-//	private static float			rmax = 20f; // max what you expect the diameter to be
 
 	/*
 	OUTPUT
@@ -60,12 +55,11 @@ public class Masker2D extends Thread {
 	{
 
 		radiusCheck     = _radiusNbhoodCheck;
-//		iDiff			= _iDiff;
 
 		marginPix       = (int) Math.ceil(radiusCheck);
 		marginPix = (_margin>marginPix)? _margin : marginPix ;  // narrow down selection in XY plane
-		                               IJ.log("mag= "+marginPix);
-		inimg_xy = _inimg_xy;
+
+        inimg_xy = _inimg_xy;
 		image_height 	= inimg_xy[0].length;
 		image_width 	= inimg_xy.length;
 
@@ -80,20 +74,6 @@ public class Masker2D extends Thread {
 
 		i2xy 	= new int[1][1];  // values known after run()
 		xy2i 	= new int[1][1];  // values known after run()
-
-//		/*
-//        multiscale : try different radiuses around the one that was set - to cover more scales
-//		 */
-//		rses = new float[3];
-//		rses[0] = radiusCheck*alfa;
-//		rses[1] = radiusCheck;
-//		rses[2] = radiusCheck*(1f/alfa);
-
-//		// constrain them
-//		for (int aa=0; aa<rses.length; aa++) {
-//			rses[aa] = (rses[aa]<rmin)? rmin : (rses[aa]>rmax)? rmax : rses[aa];
-//			//IJ.log("the neighbourhood diameter is "+rses[aa]);
-//		}
 
 	}
 

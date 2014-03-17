@@ -1,5 +1,6 @@
 package detection;
 
+import aux.Interpolator;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
