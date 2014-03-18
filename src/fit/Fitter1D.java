@@ -129,48 +129,22 @@ public class Fitter1D {
 
     }
 
-//	public float[] fit_ncc(float[] profile) {
-//
-//        // returns the fitting result
-//        // index of the profile, fitting score
-//
-//		float[] out = new float[]{Float.NaN, Float.NEGATIVE_INFINITY};
-//
-//        // profile has to have the same length as the templates
-//
-//        // loop the templates
-//        for (int i=0; i<templates.size(); i++) {
-//
-//            // calculate NCC score (use precalculated values for the profile - submitted as arguments to ncc())
-//            float curr_score = ncc(profile, templates_mean_subtr.get(i), templates_mean_subtr_sumsqr.get(i));
-////            System.out.print(i + "->" + curr_score + ", ");
-//            if (curr_score > out[1]) {
-//                out[1] = curr_score;
-//                out[0] = i;
-//            }
-//
-//        }
-//
-//		return out;
-//
-//	}
-
     public float[] fit(float[] profile, String mode) {
 
         // returns the fitting result: (index of the profile, fitting score)
         float[] out = new float[2];
         out[0] = Float.NaN;
         if (
-                mode.equalsIgnoreCase("SAD")  ||
-                mode.equalsIgnoreCase("SSD")  ||
-                mode.equalsIgnoreCase("NSAD") ||
-                mode.equalsIgnoreCase("NSSD")
+                mode.equalsIgnoreCase("MSE") // ||
+                //mode.equalsIgnoreCase("SSD")  ||
+                //mode.equalsIgnoreCase("NSAD") ||
+                //mode.equalsIgnoreCase("NSSD")
                 )
         {
             out[1] = Float.POSITIVE_INFINITY; // looking for smallest
         }
         else if (mode.equalsIgnoreCase("NCC")) {
-            out[1] = Float.NEGATIVE_INFINITY;
+            out[1] = Float.NEGATIVE_INFINITY; // looking for highest
         }
         else {
             out[1] = Float.NaN;
@@ -183,20 +157,8 @@ public class Fitter1D {
             // calculate score
             float curr_score;
 
-            if (mode.equalsIgnoreCase("SAD")) {
-                curr_score = sad(profile, templates.get(i));
-                if (curr_score < out[1]) {out[0]=i; out[1]=curr_score;}
-            }
-            else if (mode.equalsIgnoreCase("SSD")) {
-                curr_score = ssd(profile, templates.get(i));
-                if (curr_score < out[1]) {out[0]=i; out[1]=curr_score;}
-            }
-            else if (mode.equalsIgnoreCase("NSAD")) {
-                curr_score = nsad(profile, templates.get(i));
-                if (curr_score < out[1]) {out[0]=i; out[1]=curr_score;}
-            }
-            else if (mode.equalsIgnoreCase("NSSD")) {
-                curr_score = nssd(profile, templates.get(i));
+            if (mode.equalsIgnoreCase("MSE")) {
+                curr_score = mse(profile, templates.get(i));
                 if (curr_score < out[1]) {out[0]=i; out[1]=curr_score;}
             }
             else if (mode.equalsIgnoreCase("NCC")) {
@@ -211,21 +173,16 @@ public class Fitter1D {
     }
 
     /*
-        sum of absolute differences
+        mean squared error
      */
-    private float sad(float[] f, float[] t) { // both f[] and t[] are normalized 0-1
+    private float mse(float[] f, float[] t) { // both f[] and t[] are normalized 0-1
         float sc = 0;
-        for (int aa=0; aa<vector_len; aa++) sc += Math.abs(f[aa] - t[aa]);  // score computation
-        return sc;
-    }
-
-    /*
-        sum of squared differences
-     */
-    private float ssd(float[] f, float[] t){
-        float sc = 0;
-        for (int aa=0; aa<vector_len; aa++) sc += (f[aa]-t[aa]) *(f[aa]-t[aa]);
-        return sc;
+        int cnt = 0;
+        for (int aa=0; aa<vector_len; aa++) {
+            sc += Math.pow(f[aa] - t[aa], 2);  // score computation
+            cnt++;
+        }
+        return sc/cnt;
     }
 
     /*
@@ -252,7 +209,6 @@ public class Fitter1D {
             return 0;
         }
 
-
     }
 
     /*
@@ -261,12 +217,14 @@ public class Fitter1D {
         0 - absolute fit
         1 - discrepancy is comparable to the amount of signal
      */
+    /*
     private float nsad(float[] f, float[] t) {
         float sc = 0;
         float norm = 0;
         for (int aa=0; aa<vector_len; aa++) {sc+=Math.abs(f[aa]-t[aa]); norm+=Math.abs(t[aa]);}
         return sc / norm;
     }
+    */
 
     /*
         normalized sum of squared differences
@@ -274,14 +232,14 @@ public class Fitter1D {
         0 - absolute fit
         1 - discrepancy comparable to the amount of signal (higher differences weighted more)
      */
+    /*
     private float nssd(float[] f, float[] t) {
         float sc = 0;
         float norm = 0;
         for (int aa=0; aa<vector_len; aa++) {sc+=(f[aa]-t[aa])*(f[aa]-t[aa]); norm+=t[aa]*t[aa];}
         return sc / norm;
     }
-
-    // TODO possible to add weighted version for nssd() nsad()
+    */
 
     public void showTemplates() {
 
@@ -297,19 +255,6 @@ public class Fitter1D {
 
         ImagePlus img_out = new ImagePlus("templates", is_out);
         img_out.show();
-
-//        is_out = new ImageStack(528, 255);
-//
-//        for (int aa= 0; aa<templates_mean_subtr.size(); aa++) { // plot each template
-//
-//            Plot p = new Plot("", "idx", "value", xaxis, templates_mean_subtr.get(aa));
-//            is_out.addSlice(template_legend.get(aa), p.getProcessor());
-//            System.out.print(templates_mean_subtr_sumsqr.get(aa)+",");
-//
-//        }
-//
-//        img_out = new ImagePlus("templates", is_out);
-//        img_out.show();
 
     }
 

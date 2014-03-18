@@ -95,5 +95,14 @@ public class Stat {
         return std;
     }
 
+    public static float var(float[] in, float avg)
+    {
+        float var = 0;
+        for (int i=0; i<in.length; i++) {
+            var += (in[i]-avg)*(in[i]-avg);
+        }
+        var /= in.length;
+        return var;
+    }
 
 }

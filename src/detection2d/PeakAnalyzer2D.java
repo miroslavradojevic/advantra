@@ -54,15 +54,22 @@ public class PeakAnalyzer2D extends Thread {
     private static int      dim;                            // cross profile length
 	private static int      dim_half;                       // cross profile half-length
 
-	public static float     thresholdNCC = .85f;			// to threshold the NCC scores in two sets (ON, OFF)
+//	public static float     thresholdNCC = .85f;			// to threshold the NCC scores in two sets (ON, OFF)
+    private static String mode = "MSE";
+    private static int nr_points = 4*5+1;    // todo agruments of loadTemplate() because they are likelihood extraction parameteres
+    private static float mu_ON = 0;
+    private static float sig_ON = 0.25f;
+    private static float mu_OFF = 0.5f;
+    private static float sig_OFF = 0.25f;
+
 
     // OUTPUT
     // associate the peaks and link follow-up points
     public static int[][][]     delin2;                     // N(foreground locs.) x 4(max. threads) x M(follow-up locs) contains index for each location
-	// features
-    public static float[][][]   feat2;						// N(foreground locs.) x 4 x (M x L) fit scores
-    public static float[][]     mean2;                      // N(foreground locs.) x 4 ratio of those above the threshold and score for the point
-    public static float[][]     lhood2;                     // fuzzy logic output is stored here
+	// FEATURES, F. DESCRIPTOR, OUT LIKELIHOODS
+    public static float[][][]   feat2;						// N(foreground locs.) x 4 x ((1..M) x L)       fit scores
+    public static float[][][]   desc2;                      // N(foreground locs.) x 4 x 2 (mean,variance)  description
+    public static float[][]     lhood2;                     // N(foreground locs.) x 5 (NON..CRS) fuzzy logic output is stored here
 
     // PROCESSING UNITS
     private static Fitter1D fitter;                         // class used to calculate fitting scores
@@ -89,7 +96,7 @@ public class PeakAnalyzer2D extends Thread {
         fitter = new Fitter1D(dim, false); // dim = profile width with current samplingStep, verbose = false
         fitter.showTemplates();
 
-        fuzzy_logic_system = new Fuzzy2D(4*5+1, 0.25f);
+        fuzzy_logic_system = new Fuzzy2D(nr_points, mu_ON, sig_ON, mu_OFF, sig_OFF);
         fuzzy_logic_system.showFuzzification();
         fuzzy_logic_system.showDefuzzification();
 
@@ -102,7 +109,6 @@ public class PeakAnalyzer2D extends Thread {
         M = _M;
         minCos = _minCos;
         scatterDist = _scatterDist;
-		thresholdNCC = _thresholdNCC;
 
         // allocate output -> set to -1
         delin2 = new int[i2xy.length][4][M];
@@ -111,9 +117,9 @@ public class PeakAnalyzer2D extends Thread {
                 for (int kk = 0; kk < delin2[0][0].length; kk++)
                     delin2[ii][jj][kk] = -1;
 
-		feat2   = new float[i2xy.length][4][];                  // fitting scores   M*L
-        mean2  = new float[i2xy.length][];                  // ratio of ON NCC scores (higher than threshold)
-        lhood2  = new float[i2xy.length][fuzzy_logic_system.L]; //
+		feat2   = new float[i2xy.length][4][];                      // fitting scores
+        desc2  = new float[i2xy.length][4][];                       // description of the fit scores
+        lhood2  = new float[i2xy.length][fuzzy_logic_system.L];     // fuzzy likelihood output
 
     }
 
@@ -127,9 +133,6 @@ public class PeakAnalyzer2D extends Thread {
             for (int pp = 0; pp<peaks_at_loc.length; pp++) {  // loop 4 allocated branches
 
                 if (peaks_at_loc[pp] != -1) { // if the peak exists
-
-//                    int pkX = i2xy[peaks_at_loc[pp]][0];
-//                    int pkY = i2xy[peaks_at_loc[pp]][1];
 
                     int indexValue = peaks_at_loc[pp];//xy2i[pkX][pkY];
 
@@ -163,10 +166,8 @@ public class PeakAnalyzer2D extends Thread {
 
             } // delin2[locationIdx] is fully formed
 
-            /*	calculate features	*/
-            int atX = i2xy[locationIdx][0];
-            int atY = i2xy[locationIdx][1];
-            getDelineationFeatures(atX, atY, feat2[locationIdx], ratio2[locationIdx], lhood2[locationIdx]);
+            /*	calculate features, descriptors and likelihoods	*/
+            getDelineationFeatures(locationIdx, mode);
 
 		}
 
@@ -192,27 +193,50 @@ public class PeakAnalyzer2D extends Thread {
                 }
             }
 
-            printout += "\nNCC:\n";
-            for (int ii=0; ii<feat2[atLoc].length; ii++) {
-                printout += ii+"\t->\t";
-                for (int jj=0; jj<feat2[atLoc][ii].length; jj++) {
-                    printout += IJ.d2s(feat2[atLoc][ii][jj], 2);
-                    if (jj==feat2[atLoc][ii].length-1) printout += "\n";
-                    else printout += ", ";
+            printout += "\nFEATURES:\n";
+            for (int b=0; b<feat2[atLoc].length; b++) {
+                printout += b+"\t->\t";
+
+                if (feat2[atLoc][b] != null) {
+
+                    for (int l=0; l<feat2[atLoc][b].length; l++) {
+                        printout += IJ.d2s(feat2[atLoc][b][l], 2);
+                        if (l==feat2[atLoc][b].length-1) printout += "\n";
+                        else printout += ", ";
+                    }
+
                 }
+                else {
+                    printout += "NONE\n";
+                }
+
             }
 
-            printout += "\nRATIO (NCC ABOVE "+IJ.d2s(thresholdNCC, 2)+"):\n";
-            for (int ii=0; ii<ratio2[atLoc].length; ii++) {
-                printout += (ii+1) +"\t->\t" + IJ.d2s(ratio2[atLoc][ii], 2) + "\n";
+            printout += "\nDESCRIPTORS:\n";
+            for (int b=0; b<desc2[atLoc].length; b++) {
+                printout += (b+1) +"\t->\t"; //+ IJ.d2s(ratio2[atLoc][ii], 2) + "\n"
+
+                if (desc2[atLoc][b] != null) {
+
+                    for (int l=0; l<desc2[atLoc][b].length; l++) {
+                        printout += IJ.d2s(desc2[atLoc][b][l], 2);
+                        if (l==desc2[atLoc][b].length-1) printout += "\n";
+                        else printout += ",\t";
+                    }
+
+                }
+                else {
+                    printout += "NONE\n";
+                }
+
             }
 
             printout += "\nFUZZY LIKELIHOODS:\n";
-            printout += "NON -> " + IJ.d2s(lhood2[atLoc][0], 2) + "\n";
-            printout += "END -> " + IJ.d2s(lhood2[atLoc][1], 2) + "\n";
-            printout += "BDY -> " + IJ.d2s(lhood2[atLoc][2], 2) + "\n";
-            printout += "BIF -> " + IJ.d2s(lhood2[atLoc][3], 2) + "\n";
-            printout += "CRS -> " + IJ.d2s(lhood2[atLoc][4], 2) + "\n";
+            printout += "NON -> " + IJ.d2s(lhood2[atLoc][0], 2) + " "; // "\n";
+            printout += "END -> " + IJ.d2s(lhood2[atLoc][1], 2) + " "; //"\n";
+            printout += "BDY -> " + IJ.d2s(lhood2[atLoc][2], 2) + " ";
+            printout += "BIF -> " + IJ.d2s(lhood2[atLoc][3], 2) + " ";
+            printout += "CRS -> " + IJ.d2s(lhood2[atLoc][4], 2) + " ";
 
             IJ.log(printout);
 
@@ -229,6 +253,7 @@ public class PeakAnalyzer2D extends Thread {
  * isRobust() gives out the filtered version of delin2 where only the stable ones are taken
  */
 
+    /*
     private static boolean isRobust(int test_idx, int mother_idx, float scatter_th) {
 
         // check for robustness
@@ -304,10 +329,11 @@ public class PeakAnalyzer2D extends Thread {
         }
 
     }
+    */
 
-    private static float dist(int a_x, int a_y, int b_x, int b_y){
-        return (float) Math.sqrt( Math.pow(a_x-b_x, 2) + Math.pow(a_y-b_y, 2) );
-    }
+//    private static float dist(int a_x, int a_y, int b_x, int b_y){
+//        return (float) Math.sqrt( Math.pow(a_x-b_x, 2) + Math.pow(a_y-b_y, 2) );
+//    }
 
     private static int getNext(int prev_index, int curr_index) {
 
@@ -319,7 +345,6 @@ public class PeakAnalyzer2D extends Thread {
         int currY = i2xy[curr_index][1];    // Y
 
         // check peaks at curr
-//        int[][] pks4xXY = peaks_xy[curr_index];
         int[]   pks4xI  = peaks_i[curr_index]; // list all indexes
 		int[] 	pks4xW	= peaks_w[curr_index];
 
@@ -504,19 +529,18 @@ public class PeakAnalyzer2D extends Thread {
 
         ImageStack isOut = new ImageStack(528, 255);
 
-        int idx = Masker2D.xy2i[atX][atY]; // read extracted peaks at this location
+        int idx = xy2i[atX][atY]; // read extracted peaks at this location
 
         if (idx!=-1) {
 
-            int[][] delin_at_loc = PeakAnalyzer2D.delin2[idx];
+            int[][] delin_at_loc = delin2[idx];
+            ArrayList<float[]> profiles_along = new ArrayList<float[]>(); // list of profiles for all branches
 
             for (int b = 0; b<delin_at_loc.length; b++) {           // loop 4 branches, b index defines the strength
 
-                if (delin_at_loc[b][M-1] != -1) { // if the last one is there - it is complete
+                for (int m = 0; m<M; m++) {
 
-                    ArrayList<float[]> profiles_along = new ArrayList<float[]>(); // list of profiles along the branch
-
-                    for (int m = 0; m<M; m++) {
+                    if (delin_at_loc[b][m] != -1) {
 
                         int curr_i = delin_at_loc[b][m];
                         int curr_x = i2xy[curr_i][0];
@@ -542,29 +566,28 @@ public class PeakAnalyzer2D extends Thread {
 
                     }
 
-                    // profiles_along with M*L profiles
-                    float[] xx = new float[dim];  // xaxis plot
-                    for (int aa=0; aa<dim; aa++) xx[aa] = aa;
+                } // l loop
 
-                    Plot plt = new Plot("", "", "");
-                    plt.setLimits(0, dim-1, 0, 1);
-                    for (int aaa=0; aaa<profiles_along.size(); aaa++)
-                        plt.addPoints(xx, profiles_along.get(aaa), Plot.LINE);
-                    plt.draw();
+            } // b loop
 
-                    // fitting gaussians
-                    plt.setColor(Color.RED);
-                    plt.setLineWidth(2);
-                    for (int aaa=0; aaa<profiles_along.size(); aaa++) { // add the fittings to the plot
-                        float[] out_idx_scr = fitter.fit(profiles_along.get(aaa), "NCC");
-                        float[] curr_fit = fitter.getTemplate((int)out_idx_scr[0]);
-                        plt.addPoints(xx, curr_fit, Plot.LINE);
-                    }
-                    plt.draw();
-                    isOut.addSlice("bch " + b + "", plt.getProcessor());
 
-                }
+            // plot
+            float[] xx = new float[dim];  // xaxis plot
+            for (int aa=0; aa<dim; aa++) xx[aa] = aa;
 
+            for (int aaa=0; aaa<profiles_along.size(); aaa++) {
+                Plot plt = new Plot("", "", "");
+                plt.setLimits(0, dim-1, 0, 1);
+                plt.addPoints(xx, profiles_along.get(aaa), Plot.LINE);
+                plt.draw();
+                // fitting templates
+                plt.setColor(Color.RED);
+                plt.setLineWidth(2);
+                float[] out_idx_scr = fitter.fit(profiles_along.get(aaa), mode);
+                float[] curr_fit = fitter.getTemplate((int)out_idx_scr[0]);
+                plt.addPoints(xx, curr_fit, Plot.LINE);
+                plt.draw();
+                isOut.addSlice("feat="+IJ.d2s(out_idx_scr[1], 2), plt.getProcessor());
             }
 
         }
@@ -580,85 +603,105 @@ public class PeakAnalyzer2D extends Thread {
     public static ImageStack plotDelineationFeatures(int atX, int atY)
     {
 
-		// just read from the feat2 and ratio2
+		// just read from the feat2 and desc2
         ImageStack is_out = new ImageStack(528, 255);
         int loc_idx = xy2i[atX][atY];
 
-		int nrFeats = 5;
-        int perBin = 40;
-        float[] xaxis2 = new float[nrFeats*perBin];
-        float[] yaxis2 = new float[nrFeats*perBin];
-        for (int i=0; i<xaxis2.length; i++) {
-            xaxis2[i] = i * (nrFeats / (float)(nrFeats*perBin));
-            if (Math.abs(xaxis2[i]-Math.round(xaxis2[i]))<0.1) {
-                yaxis2[i] = 0;
+        // calculate total nr. feats
+        if (loc_idx != -1) {
+
+            int totalFeats = 0;
+            for (int b=0; b<feat2[loc_idx].length; b++) {
+
+                if (feat2[loc_idx][b] != null) {
+                    totalFeats += feat2[loc_idx][b].length;
+                }
+
             }
-            else {
-                yaxis2[i] = ratio2[loc_idx][i/perBin];
+
+            float[] xaxis   = new float[totalFeats];
+            float[] yaxis1  = new float[totalFeats];
+            float[] yaxis2  = new float[totalFeats];
+
+            int cnt = 0;
+            for (int b=0; b<feat2[loc_idx].length; b++) {
+                if (feat2[loc_idx][b] != null) {
+                    for (int l=0; l<feat2[loc_idx][b].length; l++) {
+                        xaxis[cnt]  = cnt;
+                        yaxis1[cnt] = feat2[loc_idx][b][l];
+                        yaxis2[cnt] = desc2[loc_idx][b][0];
+                        cnt++;
+                    }
+                }
             }
+
+            Plot p = new Plot("", "", "");
+            p.setLimits(0, cnt-1, mu_ON, mu_OFF);
+            p.addPoints(xaxis, yaxis1, Plot.X);
+            p.draw();
+            p.setColor(Color.RED);
+            p.setLineWidth(3);
+            p.addPoints(xaxis, yaxis2, Plot.LINE);
+            is_out.addSlice("features, descriptors", p.getProcessor());
+
         }
-
-        Plot feature_plot1 = new Plot("", "", "ratio");
-        feature_plot1.setLimits(0, nrFeats, 0, 1);
-        feature_plot1.addPoints(xaxis2, yaxis2, Plot.LINE);
-        feature_plot1.setColor(Color.BLACK);
-        feature_plot1.draw();
-        feature_plot1.setLineWidth(3);
-        feature_plot1.addPoints(xaxis2, yaxis2, Plot.LINE);
-        feature_plot1.draw();
-        is_out.addSlice("ratioON", feature_plot1.getProcessor());
-
-        // plot fit scores for each branch + one plot with ratios
-        float[] xaxis1 = new float[M*L];
-        for (int i=0; i<M*L; i++) xaxis1[i] = i;
-        float[] thNCC = new float[M*L];
-        for (int i=0; i<M*L; i++) thNCC[i] = thresholdNCC;
-
-        for (int b= 0; b < 4; b++) {
-            Plot feature_plot = new Plot("", "#", "NCC");
-            feature_plot.setLimits(0, M*L-1, 0, 1);
-            feature_plot.addPoints(xaxis1, feat2[loc_idx][b], Plot.LINE);
-            feature_plot.draw();
-            feature_plot.setColor(Color.RED);
-            feature_plot.setLineWidth(3);
-            feature_plot.addPoints(xaxis1, thNCC, Plot.LINE);
-            is_out.addSlice("bch="+b, feature_plot.getProcessor());
+        else {
+            is_out.addSlice(new ByteProcessor(528,255));
         }
-
         return is_out;
-
     }
 
-    public static void getDelineationFeatures(int atX, int atY, float[][] fitNCC, float[] ratioON, float[] lhood) // feat2[locIdx] ratio2[locIdx]
+//        // plot fit scores for each branch + one plot with ratios
+//        float[] xaxis1 = new float[M*L];
+//        for (int i=0; i<M*L; i++) xaxis1[i] = i;
+//        float[] thNCC = new float[M*L];
+//        for (int i=0; i<M*L; i++) thNCC[i] = thresholdNCC;
+//
+//        for (int b= 0; b < 4; b++) {
+//            Plot feature_plot = new Plot("", "#", "NCC");
+//            feature_plot.setLimits(0, M*L-1, 0, 1);
+//            feature_plot.addPoints(xaxis1, feat2[loc_idx][b], Plot.LINE);
+//            feature_plot.draw();
+//            feature_plot.setColor(Color.RED);
+//            feature_plot.setLineWidth(3);
+//            feature_plot.addPoints(xaxis1, thNCC, Plot.LINE);
+//            is_out.addSlice("bch="+b, feature_plot.getProcessor());
+//        }
+//
+//        return is_out;
+
+
+    public static void getDelineationFeatures(int loc_idx, String mode) // feat2[locIdx] ratio2[locIdx]
     {
-        // will calculate the features (fitting scores of the gaussian profiles along the delineated branch, M*L cross-section fits)
-        // & store them in (M*L) dimensional vector, with the first one being the closest to the central root location
-        // 4*(M*L) fit scores
-        // 4 ratio scores + 1 value saying how high above the background
-        // every cross section line has one score for fit and one for overlap with the highest one from the other branches
-		// there are max 4 branches in 2D, in case they are missing - the rest of the features are filled with modelled values - modeling bad scores
+        if (loc_idx!=-1) {       // location is in foreground, there is a delineation there, fill 'features' and 'descriptors' up
 
-        int idx = Masker2D.xy2i[atX][atY]; // read extracted peaks at this location
-
-        if (idx!=-1) {       // location is in foreground, there is a delineation there, change fitNCC and ratioON
-
-            int[][] delin_at_loc = delin2[idx];
+            int[][] delin_at_loc = delin2[loc_idx];
 
             // loop branches twice:
-            // 1 - to extract cross-profiles' locations and to extract their fit scores
-            // 2 - to extract ratio of those higher than threshold
+            // 1 - to extract cross-profiles' geometry and to extract their fit scores (features)
+            // 2 - to extract descriptors
 
             // 1
             for (int b = 0; b<delin_at_loc.length; b++) {           // loop 4 branches, b index defines the strength
 
                 if (delin_at_loc[b][0]==-1) {
-                    // whole streamline is missing, leave default values (zeros) in feat2
+                    // whole streamline is missing - first one was -1, recursion was stopped
+                    feat2[loc_idx][b] = null;  // float[] is null
                 }
                 else {
 
                     // there is at least one patch in the streamline
+                    // loop the rest to count how many patches there are to allocate the array
+                    int count_patches = 1;
+                    for (int m=1; m<M; m++) {
+                        if (delin_at_loc[b][m] != -1) count_patches++;
+                        else break;
+                    }
 
-                    for (int m = 0; m<M; m++) {      				// loop patches outwards
+                    // allocate
+                    feat2[loc_idx][b] = new float[count_patches*L];
+
+                    for (int m = 0; m<M; m++) {      				// loop patches outwards, from the beginning
 
                         if (delin_at_loc[b][m]!=-1) {
 
@@ -670,8 +713,8 @@ public class PeakAnalyzer2D extends Thread {
                             int prev_i, prev_x, prev_y;
 
                             if (m==0) {
-                                prev_x = atX;
-                                prev_y = atY;
+                                prev_x = i2xy[loc_idx][0];  // cnetral locaiton
+                                prev_y = i2xy[loc_idx][1];
                             }
                             else{
                                 prev_i = delin_at_loc[b][m-1];
@@ -680,15 +723,11 @@ public class PeakAnalyzer2D extends Thread {
                             }
 
                             // get cross-profile values sampled from the local patch (aligned with the patch) store them in fitNCC
-                            localPatchCrossProfileFitScores(prev_x, prev_y, curr_x, curr_y, b, m, fitNCC); // b and m represent branch and patch index, x, and y are there to sample
+                            int init = m * L;
+                            localPatchFeatures(prev_x, prev_y, curr_x, curr_y, mode, feat2[loc_idx][b], init); // will fill L values starting from init index
 
                         }
-                        else {
-
-                            // there is NO patch, fill the features as NaN (they won't affect the score that way)
-                            localPatchNaNScores(b, m, fitNCC);
-
-                        }
+                        else break;
 
                     }
 
@@ -696,24 +735,55 @@ public class PeakAnalyzer2D extends Thread {
 
             }
 
-            // 2 calculate ratios in every branch
-            for (int b=0; b<4; b++) {
-                int total = 0;
-                int cntON = 0;
-                for (int l=0; l<fitNCC[b].length; l++) {
-                    if (!Float.isNaN(fitNCC[b][l])) {
-                        total++;
-                        if (fitNCC[b][l]>=thresholdNCC) cntON++;
-                    }
+            // 2 calculate feature descriptors in every branch at loc_idx location
+            ArrayList<Integer> branches_found = new ArrayList<Integer>(4);
+            for (int b=0; b<delin_at_loc.length; b++) {
+
+                if (feat2[loc_idx][b] != null) {
+
+                    desc2[loc_idx][b]       = new float[2];
+                    desc2[loc_idx][b][0]    = Stat.average(feat2[loc_idx][b]);
+                    desc2[loc_idx][b][1]    = Stat.var(feat2[loc_idx][b], desc2[loc_idx][b][0]);
+
+                    branches_found.add(b);
 
                 }
-                ratioON[b] = cntON / (float) total; // fitNCC[0].length;
+                else { // it is null there is nothing
+
+                    desc2[loc_idx][b] = null;
+
+                }
+
             }
 
-			// last feature
-			ratioON[4] = Masker2D.fg_score[atX][atY];
-
-            fuzzy_logic_system.critpointScores(ratioON[0], ratioON[1], ratioON[2], ratioON[3], ratioON[4], lhood);
+            // calculate fuzzy likelihoods
+            if (branches_found.size()==4) {
+                // desc2[loc][branch][mean value descriptor index]
+                fuzzy_logic_system.critpointScores(
+                        desc2[loc_idx][0][0],
+                        desc2[loc_idx][1][0],
+                        desc2[loc_idx][2][0],
+                        desc2[loc_idx][3][0],
+                        lhood2[loc_idx]);
+            }
+            else if (branches_found.size()==3) {
+                fuzzy_logic_system.critpointScores(
+                        desc2[loc_idx][branches_found.get(0)][0],
+                        desc2[loc_idx][branches_found.get(1)][0],
+                        desc2[loc_idx][branches_found.get(2)][0],
+                        lhood2[loc_idx]);
+            }
+            else if (branches_found.size()==2) {
+                fuzzy_logic_system.critpointScores(
+                        desc2[loc_idx][branches_found.get(0)][0],
+                        desc2[loc_idx][branches_found.get(1)][0],
+                        lhood2[loc_idx]);
+            }
+            else if (branches_found.size()==1) {
+                fuzzy_logic_system.critpointScores(
+                        desc2[loc_idx][branches_found.get(0)][0],
+                        lhood2[loc_idx]);
+            }
 
         }
 
@@ -724,7 +794,7 @@ public class PeakAnalyzer2D extends Thread {
 	 */
 
 
-	public static void exportNcc(String file_path)
+	public static void exportFeats(String file_path)
 	{
         PrintWriter logWriter = null;
         try {
@@ -739,18 +809,24 @@ public class PeakAnalyzer2D extends Thread {
 
         for (int ii=0; ii<feat2.length; ii++) {
             for (int jj=0; jj<feat2[ii].length; jj++) {
-                for (int kk=0; kk<feat2[ii][jj].length; kk++) {
-                    logWriter.print(String.format("%1.2f", feat2[ii][jj][kk]));
-                    if (jj==feat2[ii].length-1 && kk==feat2[ii][jj].length-1) logWriter.print("\n");
-                    else logWriter.print(",\t");
+
+                if (feat2[ii][jj] != null) {
+
+                    for (int kk=0; kk<feat2[ii][jj].length; kk++) {
+                        logWriter.print(String.format("%1.2f", feat2[ii][jj][kk]));
+                        if (jj==feat2[ii].length-1 && kk==feat2[ii][jj].length-1) logWriter.print("\n");
+                        else logWriter.print(", ");
+                    }
+
                 }
+
             }
         }
 
         logWriter.close();
 	}
 
-	public static void exportRatios(String file_path)
+	public static void exportDescripts(String file_path)
 	{
         PrintWriter logWriter = null;
         try {
@@ -763,12 +839,22 @@ public class PeakAnalyzer2D extends Thread {
             logWriter = new PrintWriter(new BufferedWriter(new FileWriter(file_path, true)));
         } catch (IOException e) {}
 
-        for (int ii=0; ii<ratio2.length; ii++) {
-            for (int jj=0; jj<ratio2[ii].length; jj++) {
-                    logWriter.print(String.format("%1.2f", ratio2[ii][jj]));
-                    if (jj==ratio2[ii].length-1) logWriter.print("\n");
-                    else logWriter.print(",\t");
+        for (int ii=0; ii<desc2.length; ii++) {
+            for (int jj=0; jj<desc2[ii].length; jj++) {
+
+                if (desc2[ii][jj] != null) {
+
+                    for (int kk=0; kk<desc2[ii][jj].length; kk++) {
+                        logWriter.print(String.format("%1.2f, ", desc2[ii][jj][kk]));
+                        //if (jj==desc2[ii].length-1) logWriter.print("\n");
+                        //else logWriter.print(", ");
+                    }
+
+                }
+
+
             }
+            logWriter.print("\n");
         }
 
         logWriter.close();
@@ -823,19 +909,19 @@ public class PeakAnalyzer2D extends Thread {
             logWriter = new PrintWriter(new BufferedWriter(new FileWriter(file_path, true)));
         } catch (IOException e) {}
 
-        logWriter.println("strength: branch 0 > branch 1 > branch 2");
-        logWriter.println("score_at_point = median_along_line_ending at_point(or in the point neighbourhood) - background_estimate_at_point");
-
-        logWriter.println("feature 0: \tbranch 0 min score");
-        logWriter.println("feature 1: \tbranch 0 max score");
-
-        logWriter.println("feature 2: \tbranch 1 min score");
-        logWriter.println("feature 3: \tbranch 1 max score");
-
-        logWriter.println("feature 4: \tbranch 2 min score");
-        logWriter.println("feature 5: \tbranch 2 max score");
-
-        logWriter.println("feature 6: \tcenter       score");
+//        logWriter.println("strength: branch 0 > branch 1 > branch 2");
+//        logWriter.println("score_at_point = median_along_line_ending at_point(or in the point neighbourhood) - background_estimate_at_point");
+//
+//        logWriter.println("feature 0: \tbranch 0 min score");
+//        logWriter.println("feature 1: \tbranch 0 max score");
+//
+//        logWriter.println("feature 2: \tbranch 1 min score");
+//        logWriter.println("feature 3: \tbranch 1 max score");
+//
+//        logWriter.println("feature 4: \tbranch 2 min score");
+//        logWriter.println("feature 5: \tbranch 2 max score");
+//
+//        logWriter.println("feature 6: \tcenter       score");
 
         logWriter.close(); // close log
 
@@ -982,7 +1068,7 @@ public class PeakAnalyzer2D extends Thread {
     }
 
     // (CALC) calculation of the fitting scores for every local patch cross profile
-    private static void localPatchCrossProfileFitScores(float x1, float y1, float x2, float y2, int branch_idx, int patch_idx, float[][] fit_scores_out)
+    private static void localPatchFeatures(float x1, float y1, float x2, float y2, String mode, float[] feats_out, int init_index) // L values per patch in feat_out
     {
 
         float l = (float) Math.sqrt(Math.pow(x2-x1, 2)+Math.pow(y2-y1, 2));
@@ -1035,8 +1121,8 @@ public class PeakAnalyzer2D extends Thread {
             }
 
             // fit the normalized profile
-            dummy = fitter.fit(val, "NCC");
-            fit_scores_out[branch_idx][patch_idx*L + ii] = dummy[1];
+            dummy = fitter.fit(val, mode);
+            feats_out[init_index + ii] = dummy[1];
 
         }
 

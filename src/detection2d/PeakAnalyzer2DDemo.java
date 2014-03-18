@@ -33,7 +33,7 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
     float       s = 1.2f;               // scale is fixed
     float       D, minCos, scatterDist=10f; // iDiff,
     int         M = 2;
-	float 		threshold; 				// used for NCC fit measure
+	float 		threshold;
 
     int         CPU_NR;
 
@@ -245,14 +245,14 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
         end_lhood.show();
         ImagePlus jun_lhood = SimpleDetector2D.showJunctionLhood();
         jun_lhood.show();
-        ImagePlus model_grad = SimpleDetector2D.showModelGradient();
-        model_grad.show();
+//        ImagePlus model_grad = SimpleDetector2D.showModelGradient();
+//        model_grad.show();
 
         // use Graphcut to get segment out stable regions // TODO put it in SimpleDetector2D
-        Graph_Cut gc = new Graph_Cut();
-        ImagePlus out = gc.processSingleChannelImage(jun_lhood, null, 500, 500, 500);
-        out.setTitle("GCsegmentation");
-        out.show();
+//        Graph_Cut gc = new Graph_Cut();
+//        ImagePlus out = gc.processSingleChannelImage(jun_lhood, null, 500, 500, 500);
+//        out.setTitle("GCsegmentation");
+//        out.show();
 
 
 
@@ -262,12 +262,12 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
             IJ.log("export features ");
             t1 = System.currentTimeMillis();
 
-            String export_path = image_dir+image_name+".ncc";
-            PeakAnalyzer2D.exportNcc(export_path);
+            String export_path = image_dir+image_name+".feat";
+            PeakAnalyzer2D.exportFeats(export_path);
             IJ.log("done exporting to: \t" + export_path + "\n");
 
-            export_path = image_dir+image_name+".feat";
-            PeakAnalyzer2D.exportRatios(export_path);
+            export_path = image_dir+image_name+".desc";
+            PeakAnalyzer2D.exportDescripts(export_path);
             IJ.log("done exporting to: \t" + export_path + "\n");
 
             export_path = image_dir + image_name + ".frame";
@@ -292,6 +292,7 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
 
 		IJ.selectWindow(cnv.getImage().getWindow().getTitle());
 		IJ.setTool("hand");
+        IJ.selectWindow(cnv.getImage().getTitle());
 
     }
 
