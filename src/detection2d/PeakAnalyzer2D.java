@@ -42,12 +42,10 @@ public class PeakAnalyzer2D extends Thread {
 	public static byte[][]		backg_xy;				// background estimation (for feature extraction)
 
     // PARAMETERS
-    public static float     D           = 4f;
-    public static int       M           = 2;              // how much it expands recursively from the center
-    public static float     minCos      = 0.6f;             // allowed derail
-    public static float     scatterDist = 5;                // allowed scatter dist, upper limit, half of the neighbouring peaks should be within
-
-
+    public static float     D;
+    public static int       M;              // how much it expands recursively from the center
+    public static float     minCos;             // allowed derail
+//    public static float     scatterDist = 5;                // allowed scatter dist, upper limit, half of the neighbouring peaks should be within
     private static float    samplingStep = 0.6f;            // when sampling image values to extract features
     private static int		L;                              // will define how many are taken along the diameter, in radial direction
     private static float    samplingStepLongitudinal;       // sampling along the streamline of patches
@@ -108,7 +106,7 @@ public class PeakAnalyzer2D extends Thread {
 		backg_xy = _backgr_xy;
         M = _M;
         minCos = _minCos;
-        scatterDist = _scatterDist;
+//        scatterDist = _scatterDist;
 
         // allocate output -> set to -1
         delin2 = new int[i2xy.length][4][M];

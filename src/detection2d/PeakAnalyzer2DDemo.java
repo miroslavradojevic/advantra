@@ -133,15 +133,17 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
 
         Sphere2D sph2d = new Sphere2D(D, s);
 
-        ImagePlus samplingScheme =  sph2d.showSampling();
-        samplingScheme.show();
-        samplingScheme.getWindow().setSize(200, 200);
-        samplingScheme.getCanvas().fitToWindow();
+		if (false) {
+        	ImagePlus samplingScheme =  sph2d.showSampling();
+        	samplingScheme.show();
+        	samplingScheme.getWindow().setSize(200, 200);
+        	samplingScheme.getCanvas().fitToWindow();
 
-        ImagePlus weightScheme = sph2d.showWeights();
-        weightScheme.show();
-        weightScheme.getWindow().setSize(200, 200);
-        weightScheme.getCanvas().fitToWindow();
+        	ImagePlus weightScheme = sph2d.showWeights();
+        	weightScheme.show();
+        	weightScheme.getWindow().setSize(200, 200);
+        	weightScheme.getCanvas().fitToWindow();
+		}
 
         /*
         main
@@ -241,10 +243,10 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
         t2 = System.currentTimeMillis();
 		IJ.log("done. " + ((t2 - t1) / 1000f) + "sec.");
 
-        ImagePlus end_lhood = SimpleDetector2D.showEndLhood();
-        end_lhood.show();
-        ImagePlus jun_lhood = SimpleDetector2D.showJunctionLhood();
-        jun_lhood.show();
+//        ImagePlus end_lhood = SimpleDetector2D.showEndLhood();
+//        end_lhood.show();
+//        ImagePlus jun_lhood = SimpleDetector2D.showJunctionLhood();
+//        jun_lhood.show();
 //        ImagePlus model_grad = SimpleDetector2D.showModelGradient();
 //        model_grad.show();
 
@@ -253,9 +255,6 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
 //        ImagePlus out = gc.processSingleChannelImage(jun_lhood, null, 500, 500, 500);
 //        out.setTitle("GCsegmentation");
 //        out.show();
-
-
-
 
         if (false) {
 
