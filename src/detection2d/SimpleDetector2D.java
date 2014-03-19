@@ -45,11 +45,11 @@ public class SimpleDetector2D extends Thread {
 
     // OUTPUT
     //public static byte[]      score2;
-    //public static float[]     lhoods;
+    public static float[][]     lhoods;                 // W*H x 5
 
-    public static float[]   jun_lhood; // W x H matrix with junction (bif. and cross.) fuzzy likelihoods
-    public static float[]   end_lhood; // W x H matrix with end-point fuzzy likelihoods per pixel
-    public static float[]   model_grad;// intensity of the model change (expressed in terms of change of # patches)
+    public static float[]   jun_lhood;                  // W x H matrix with junction (bif. and cross.) fuzzy likelihoods
+    public static float[]   end_lhood;                  // W x H matrix with end-point fuzzy likelihoods per pixel
+    public static float[]   model_grad;                 // intensity of the model change (expressed in terms of change of # patches)
     // fuzzy scores turn out to be instable - therefore the regions with consistent detections need to be extracted
     // consistent regions meaning those where the model stays the same and the score is high
 

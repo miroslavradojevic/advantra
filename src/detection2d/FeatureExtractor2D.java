@@ -209,7 +209,8 @@ public class FeatureExtractor2D implements PlugInFilter {
             }
         }
         /********************************/
-        PeakAnalyzer2D.loadTemplate(Masker2D.i2xy, Masker2D.xy2i, PeakExtractor2D.peaks_i, PeakExtractor2D.peaks_w, inimg_xy, Masker2D.back_xy, M, minCos, scatterDist, threshold, D); // initialize peak analyzer parameters
+        PeakAnalyzer2D.loadTemplate(Masker2D.i2xy, Masker2D.xy2i, PeakExtractor2D.peaks_i, PeakExtractor2D.peaks_w, inimg_xy, Masker2D.back_xy,
+                M, minCos, D, 0f, 1f, .1f, .1f, 4, .3f, "ncc");
         int totalPeakAnalyzeComponents = Masker2D.i2xy.length; // number of locations
 
         PeakAnalyzer2D pa_jobs[] = new PeakAnalyzer2D[CPU_NR];
@@ -267,7 +268,7 @@ public class FeatureExtractor2D implements PlugInFilter {
         logWriter.println("advantra.critpoint.profile.s:        \t"+        this.s);
         logWriter.println("advantra.critpoint.analyze.m:        \t"+        PeakAnalyzer2D.M            + this.M);
         logWriter.println("advantra.critpoint.analyze.min_cos:  \t"+        PeakAnalyzer2D.minCos       + this.minCos);
-        logWriter.println("advantra.critpoint.analyze.scatter_d:\t"+        PeakAnalyzer2D.scatterDist  + this.scatterDist);
+//        logWriter.println("advantra.critpoint.analyze.scatter_d:\t"+        PeakAnalyzer2D.scatterDist  + this.scatterDist);
         logWriter.close(); // close log
 
     }

@@ -23,14 +23,14 @@ public class PeakExtractor2D extends Thread {
 
     private int begN, endN;
 
-    public static Sphere2D      sph2d;
-    public static float[][]     inimg_xy;
+    public static Sphere2D      sph2d;                      //
+    public static float[][]     inimg_xy;                   //
     public static int[][] 	    i2xy;                       // selected locations
-    public static int[][]     	xy2i;
+    public static int[][]     	xy2i;                       //
     public static short[][]	    prof2;                      // profiles
 
-    public static int       MAX_ITER        = 40;
-    public static int       EPSILON         = 0;
+    public static int       MAX_ITER        = 40;           //
+    public static int       EPSILON         = 0;            //
 
     private static float TWO_PI = (float) (2 * Math.PI);
     private static float ONE_PI = (float) (1 * Math.PI);
@@ -50,7 +50,7 @@ public class PeakExtractor2D extends Thread {
 	{
 
 		sph2d           = _sph2d;
-		inimg_xy        = _inimg_xy;                        // just necessary to rank peaks
+		inimg_xy        = _inimg_xy;
 		i2xy      		= _i2xy;
 		prof2           = _prof2;
 		xy2i 			= _xy2i;

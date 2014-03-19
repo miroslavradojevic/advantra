@@ -140,7 +140,7 @@ public class Fuzzy2D {
         for (int ii=0; ii<xx.length; ii++) yy_on[ii] = h_on(xx[ii]);
         //off
         float[] yy_off = new float[NN];
-        for (int ii=0; ii<xx.length; ii++) yy_off[ii] = h_off(xx[ii]);
+        for (int ii=0; ii<xx.length; ii++) yy_off[ii] = 1-h_on(xx[ii]);
 
         Plot p = new Plot("fuzzification", "", "", xx, yy_on, Plot.LINE);
         p.setColor(Color.RED);
@@ -238,9 +238,9 @@ public class Fuzzy2D {
         float[] cur;
         float mu;
 
-        // apply rules
-        mu = h_off(theta1); cur = fi_NON(mu); accumulate(cur, agg);
-        mu = h_on(theta1);  cur = fi_END(mu); accumulate(cur, agg);
+        // apply rules (END only)
+        mu = 1-h_on(theta1);    cur = fi_NON(mu); accumulate(cur, agg);
+        mu = h_on(theta1);      cur = fi_END(mu); accumulate(cur, agg);
         // finished rules
 
         for (int i=0; i<L; i++) out[i] = agg[out_idxs[i]];
@@ -253,12 +253,12 @@ public class Fuzzy2D {
         float[] cur;
         float mu;
 
-        // apply rules
-        mu = min (h_off(theta1), h_off(theta2)                 ) ; cur = fi_NON(mu); accumulate(cur, agg);
-        mu = min (h_off(theta1), h_on(theta2)                  ) ; cur = fi_END(mu); accumulate(cur, agg);
+        // apply rules (BDY, no END here)
+        mu = min (1-h_on(theta1),   1-h_on(theta2)  ) ; cur = fi_NON(mu); accumulate(cur, agg);
+        mu = min (1-h_on(theta1),   h_on(theta2)    ) ; cur = fi_NON(mu); accumulate(cur, agg);
 
-        mu = min (h_on(theta1),  h_off(theta2)                 ) ; cur = fi_END(mu); accumulate(cur, agg);
-        mu = min (h_on(theta1),  h_on(theta2)                  ) ; cur = fi_BDY(mu); accumulate(cur, agg);
+        mu = min (h_on(theta1),     1-h_on(theta2)  ) ; cur = fi_NON(mu); accumulate(cur, agg);
+        mu = min (h_on(theta1),     h_on(theta2)    ) ; cur = fi_BDY(mu); accumulate(cur, agg);
         // finished rules
 
         for (int i=0; i<L; i++) out[i] = agg[out_idxs[i]];
@@ -271,16 +271,16 @@ public class Fuzzy2D {
         float[] cur;
         float mu;
 
-        // apply rules
-        mu = min (h_off(theta1), h_off(theta2), h_off(theta3)                  ) ; cur = fi_NON(mu); accumulate(cur, agg);
-        mu = min (h_off(theta1), h_off(theta2), h_on(theta3)                   ) ; cur = fi_END(mu); accumulate(cur, agg);
-        mu = min (h_off(theta1), h_on(theta2),  h_off(theta3)                  ) ; cur = fi_END(mu); accumulate(cur, agg);
-        mu = min (h_off(theta1), h_on(theta2),  h_on(theta3)                   ) ; cur = fi_BDY(mu); accumulate(cur, agg);
+        // apply rules (BIF or BDY)
+        mu = min (1-h_on(theta1),   1-h_on(theta2),     1-h_on(theta3)  ) ; cur = fi_NON(mu); accumulate(cur, agg);
+        mu = min (1-h_on(theta1),   1-h_on(theta2),     h_on(theta3)    ) ; cur = fi_NON(mu); accumulate(cur, agg);
+        mu = min (1-h_on(theta1),   h_on(theta2),       1-h_on(theta3)  ) ; cur = fi_NON(mu); accumulate(cur, agg);
+        mu = min (1-h_on(theta1),   h_on(theta2),       h_on(theta3)    ) ; cur = fi_BDY(mu); accumulate(cur, agg);
 
-        mu = min (h_on(theta1),  h_off(theta2), h_off(theta3)                  ) ; cur = fi_END(mu); accumulate(cur, agg);
-        mu = min (h_on(theta1),  h_off(theta2), h_on(theta3)                   ) ; cur = fi_BDY(mu); accumulate(cur, agg);
-        mu = min (h_on(theta1),  h_on(theta2),  h_off(theta3)                  ) ; cur = fi_BDY(mu); accumulate(cur, agg);
-        mu = min (h_on(theta1),  h_on(theta2),  h_on(theta3)                   ) ; cur = fi_BIF(mu); accumulate(cur, agg);
+        mu = min (h_on(theta1),     1-h_on(theta2),     1-h_on(theta3)  ) ; cur = fi_NON(mu); accumulate(cur, agg);
+        mu = min (h_on(theta1),     1-h_on(theta2),     h_on(theta3)    ) ; cur = fi_BDY(mu); accumulate(cur, agg);
+        mu = min (h_on(theta1),     h_on(theta2),       1-h_on(theta3)  ) ; cur = fi_BDY(mu); accumulate(cur, agg);
+        mu = min (h_on(theta1),     h_on(theta2),       h_on(theta3)    ) ; cur = fi_BIF(mu); accumulate(cur, agg);
         // finished rules
 
         for (int i=0; i<L; i++) out[i] = agg[out_idxs[i]];
@@ -294,23 +294,23 @@ public class Fuzzy2D {
         float mu;
 
         // apply rules
-        mu = min (h_off(theta1), h_off(theta2), h_off(theta3), h_off(theta4)                  ) ; cur = fi_NON(mu); accumulate(cur, agg); // h_on(theta5)
-        mu = min (h_off(theta1), h_off(theta2), h_off(theta3), h_on(theta4)                   ) ; cur = fi_END(mu); accumulate(cur, agg); //1-h_off(theta5)
-        mu = min (h_off(theta1), h_off(theta2), h_on(theta3),  h_off(theta4)                  ) ; cur = fi_END(mu); accumulate(cur, agg); //    ,  1-h_off(theta5)
-        mu = min (h_off(theta1), h_off(theta2), h_on(theta3),  h_on(theta4)                   ) ; cur = fi_BDY(mu); accumulate(cur, agg); // 1-h_off(theta5)
-        mu = min (h_off(theta1), h_on(theta2),  h_off(theta3), h_off(theta4)                  ) ; cur = fi_END(mu); accumulate(cur, agg); //,  1-h_off(theta5)
-        mu = min (h_off(theta1), h_on(theta2),  h_off(theta3), h_on(theta4)                   ) ; cur = fi_BDY(mu); accumulate(cur, agg); // h_on(theta5)
-        mu = min (h_off(theta1), h_on(theta2),  h_on(theta3),  h_off(theta4)                  ) ; cur = fi_BDY(mu); accumulate(cur, agg); // h_on(theta5)
-        mu = min (h_off(theta1), h_on(theta2),  h_on(theta3),  h_on(theta4)                   ) ; cur = fi_BIF(mu); accumulate(cur, agg); //  h_on(theta5)
+        mu = min (1-h_on(theta1),   1-h_on(theta2),     1-h_on(theta3),     1-h_on(theta4) ) ; cur = fi_NON(mu); accumulate(cur, agg);
+        mu = min (1-h_on(theta1),   1-h_on(theta2),     1-h_on(theta3),     h_on(theta4)   ) ; cur = fi_NON(mu); accumulate(cur, agg);
+        mu = min (1-h_on(theta1),   1-h_on(theta2),     h_on(theta3),       1-h_on(theta4) ) ; cur = fi_NON(mu); accumulate(cur, agg);
+        mu = min (1-h_on(theta1),   1-h_on(theta2),     h_on(theta3),       h_on(theta4)   ) ; cur = fi_NON(mu); accumulate(cur, agg);
+        mu = min (1-h_on(theta1),   h_on(theta2),       1-h_on(theta3),     1-h_on(theta4) ) ; cur = fi_NON(mu); accumulate(cur, agg);
+        mu = min (1-h_on(theta1),   h_on(theta2),       1-h_on(theta3),     h_on(theta4)   ) ; cur = fi_NON(mu); accumulate(cur, agg);
+        mu = min (1-h_on(theta1),   h_on(theta2),       h_on(theta3),       1-h_on(theta4) ) ; cur = fi_NON(mu); accumulate(cur, agg);
+        mu = min (1-h_on(theta1),   h_on(theta2),       h_on(theta3),       h_on(theta4)   ) ; cur = fi_BIF(mu); accumulate(cur, agg);
 
-        mu = min (h_on(theta1), h_off(theta2),  h_off(theta3), h_off(theta4)                   ) ; cur = fi_END(mu); accumulate(cur, agg); //,  1-h_off(theta5)
-        mu = min (h_on(theta1), h_off(theta2),  h_off(theta3), h_on(theta4)                    ) ; cur = fi_BDY(mu); accumulate(cur, agg); // ,   h_on(theta5)
-        mu = min (h_on(theta1), h_off(theta2),  h_on(theta3),  h_off(theta4)                   ) ; cur = fi_BDY(mu); accumulate(cur, agg); // ,  h_on(theta5)
-        mu = min (h_on(theta1), h_off(theta2),  h_on(theta3),  h_on(theta4)                    ) ; cur = fi_BIF(mu); accumulate(cur, agg); //   h_on(theta5)
-        mu = min (h_on(theta1), h_on(theta2),   h_off(theta3), h_off(theta4)                   ) ; cur = fi_BDY(mu); accumulate(cur, agg); // ,  h_on(theta5)
-        mu = min (h_on(theta1), h_on(theta2),   h_off(theta3), h_on(theta4)                    ) ; cur = fi_BIF(mu); accumulate(cur, agg);  //,   h_on(theta5)
-        mu = min (h_on(theta1), h_on(theta2),   h_on(theta3),  h_off(theta4)                   ) ; cur = fi_BIF(mu); accumulate(cur, agg); //,h_on(theta5)
-        mu = min (h_on(theta1), h_on(theta2),   h_on(theta3),  h_on(theta4)                    ) ; cur = fi_CRS(mu); accumulate(cur, agg); // ,   h_on(theta5)
+        mu = min (h_on(theta1),     1-h_on(theta2),     1-h_on(theta3),     1-h_on(theta4) ) ; cur = fi_NON(mu); accumulate(cur, agg);
+        mu = min (h_on(theta1),     1-h_on(theta2),     1-h_on(theta3),     h_on(theta4)   ) ; cur = fi_NON(mu); accumulate(cur, agg);
+        mu = min (h_on(theta1),     1-h_on(theta2),     h_on(theta3),       1-h_on(theta4) ) ; cur = fi_NON(mu); accumulate(cur, agg);
+        mu = min (h_on(theta1),     1-h_on(theta2),     h_on(theta3),       h_on(theta4)   ) ; cur = fi_BIF(mu); accumulate(cur, agg);
+        mu = min (h_on(theta1),     h_on(theta2),       1-h_on(theta3),     1-h_on(theta4) ) ; cur = fi_NON(mu); accumulate(cur, agg);
+        mu = min (h_on(theta1),     h_on(theta2),       1-h_on(theta3),     h_on(theta4)   ) ; cur = fi_BIF(mu); accumulate(cur, agg);
+        mu = min (h_on(theta1),     h_on(theta2),       h_on(theta3),       1-h_on(theta4) ) ; cur = fi_BIF(mu); accumulate(cur, agg);
+        mu = min (h_on(theta1),     h_on(theta2),       h_on(theta3),       h_on(theta4)   ) ; cur = fi_CRS(mu); accumulate(cur, agg);
         // finished rules
 
         for (int i=0; i<L; i++) out[i] = agg[out_idxs[i]];

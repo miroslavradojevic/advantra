@@ -1,6 +1,7 @@
 package fit;
 
 import aux.Stat;
+import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.Plot;
@@ -45,15 +46,15 @@ public class Fitter1D {
 		// sigma
 		start_sigma = vector_len*0.02f;
 		d_sigma     = vector_len*0.02f;
-		end_sigma   = vector_len*0.12f;
+		end_sigma   = vector_len*0.16f;
 		// width
 		start_width = 0;
 		d_width     = vector_len*0.05f;
 		end_width   = vector_len*0.35f;
 		//shift
-		start_shift	= -vector_len*0.15f;
+		start_shift	= 0;//-vector_len*0.15f;
 		d_shift		= vector_len*0.05f;
-		end_shift	= -start_shift;
+		end_shift	= 0;//-start_shift;
 
 		// variables will be stored in:
 		// templates                                  	(vector)
@@ -113,7 +114,7 @@ public class Fitter1D {
 
                         templates_mean_subtr.add(templates_element.clone());
                         templates_mean_subtr_sumsqr.add(sum);
-                        template_legend.add("wdt="+width+","+"sig="+sigma+","+"shf="+shift);
+                        template_legend.add("wdt="+ IJ.d2s(width, 2)+","+"sig="+IJ.d2s(sigma, 2)+","+"shf="+IJ.d2s(shift,2));
 
                     }
 
@@ -134,17 +135,12 @@ public class Fitter1D {
         // returns the fitting result: (index of the profile, fitting score)
         float[] out = new float[2];
         out[0] = Float.NaN;
-        if (
-                mode.equalsIgnoreCase("MSE") // ||
-                //mode.equalsIgnoreCase("SSD")  ||
-                //mode.equalsIgnoreCase("NSAD") ||
-                //mode.equalsIgnoreCase("NSSD")
-                )
+        if (mode.equalsIgnoreCase("MSE"))
         {
             out[1] = Float.POSITIVE_INFINITY; // looking for smallest
         }
         else if (mode.equalsIgnoreCase("NCC")) {
-            out[1] = Float.NEGATIVE_INFINITY; // looking for highest
+            out[1] = Float.POSITIVE_INFINITY; // looking for highest
         }
         else {
             out[1] = Float.NaN;
@@ -163,7 +159,7 @@ public class Fitter1D {
             }
             else if (mode.equalsIgnoreCase("NCC")) {
                 curr_score = ncc(profile, templates_mean_subtr.get(i), templates_mean_subtr_sumsqr.get(i));
-                if (curr_score > out[1]) {out[0]=i; out[1]=curr_score;}
+                if (curr_score < out[1]) {out[0]=i; out[1]=curr_score;}
             }
 
         }
@@ -202,11 +198,15 @@ public class Fitter1D {
             f_sub_f_mean_sumsqr += (f[aa]-f_mean) * (f[aa]-f_mean);
         }
 
+        float ncc_val;
+
         if (f_sub_f_mean_sumsqr>Float.MIN_VALUE) {
-            return sc / (float) Math.sqrt(f_sub_f_mean_sumsqr * sumsqr_t_tM);
+            ncc_val = sc / (float) Math.sqrt(f_sub_f_mean_sumsqr * sumsqr_t_tM);
+            return 1- ncc_val;
         }
         else {
-            return 0;
+            ncc_val = 0;
+            return 1 - ncc_val;
         }
 
     }

@@ -12,6 +12,7 @@ import ij.process.FloatProcessor;
 import java.awt.*;
 import java.io.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 /**
  * Created by miroslav on 1/6/14.
@@ -43,27 +44,24 @@ public class PeakAnalyzer2D extends Thread {
 
     // PARAMETERS
     public static float     D;
-    public static int       M;              // how much it expands recursively from the center
-    public static float     minCos;             // allowed derail
-//    public static float     scatterDist = 5;                // allowed scatter dist, upper limit, half of the neighbouring peaks should be within
-    private static float    samplingStep = 0.6f;            // when sampling image values to extract features
+    public static int       M;                              // how much it expands recursively from the center
+    public static float     minCos;                         // allowed derail
+    private static float    samplingStep;                   // when sampling image values to extract features
     private static int		L;                              // will define how many are taken along the diameter, in radial direction
     private static float    samplingStepLongitudinal;       // sampling along the streamline of patches
     private static int      dim;                            // cross profile length
 	private static int      dim_half;                       // cross profile half-length
-
-//	public static float     thresholdNCC = .85f;			// to threshold the NCC scores in two sets (ON, OFF)
-    private static String mode = "MSE";
-    private static int nr_points = 4*5+1;    // todo agruments of loadTemplate() because they are likelihood extraction parameteres
-    private static float mu_ON = 0;
-    private static float sig_ON = 0.25f;
-    private static float mu_OFF = 0.5f;
-    private static float sig_OFF = 0.25f;
-
+    private static String   mode;                           // fitting score
+    private static int      nr_points = 4*5+1;              // number of the points given in fuzzy logic system
+    private static float    mu_ON;
+    private static float    sig_ON;
+    private static float    mu_OFF;
+    private static float    sig_OFF;
 
     // OUTPUT
     // associate the peaks and link follow-up points
     public static int[][][]     delin2;                     // N(foreground locs.) x 4(max. threads) x M(follow-up locs) contains index for each location
+
 	// FEATURES, F. DESCRIPTOR, OUT LIKELIHOODS
     public static float[][][]   feat2;						// N(foreground locs.) x 4 x ((1..M) x L)       fit scores
     public static float[][][]   desc2;                      // N(foreground locs.) x 4 x 2 (mean,variance)  description
@@ -80,15 +78,33 @@ public class PeakAnalyzer2D extends Thread {
     }
 
     public static void loadTemplate(int[][] _i2xy, int[][] _xy2i, int[][] _peaks_i, int[][] _peaks_w, float[][] _inimg_xy, byte[][] _backgr_xy,
-									int _M, float _minCos, float _scatterDist, float _thresholdNCC, float _D)
+									int     _M,
+                                    float   _minCos,
+                                    float   _D,
+                                    float   _mu_ON,
+                                    float   _mu_OFF,
+                                    float   _sig_ON,
+                                    float   _sig_OFF,
+                                    int     _L,                         // will define sampling longitudinal
+                                    float   _sampling_crosswise,
+                                    String  _mode)
     {
 
-        D = _D;
+        M               = _M;
+        minCos          = _minCos;
+        D               = _D;
+        L               = _L;
+        mu_ON           = _mu_ON;
+        mu_OFF          = _mu_OFF;
+        sig_ON          = _sig_ON;
+        sig_OFF         = _sig_OFF;
+        samplingStep    = _sampling_crosswise;
+        mode            = _mode;
+
         dim = (int) Math.ceil( D / (samplingStep*2) );
         dim_half = dim;
         dim = 2*dim + 1;
 
-        L = Math.round(1.5f*D);
         samplingStepLongitudinal = D / (float)(L-1);
 
         fitter = new Fitter1D(dim, false); // dim = profile width with current samplingStep, verbose = false
@@ -104,9 +120,6 @@ public class PeakAnalyzer2D extends Thread {
 		peaks_w = _peaks_w;
 		inimg_xy = _inimg_xy;
 		backg_xy = _backgr_xy;
-        M = _M;
-        minCos = _minCos;
-//        scatterDist = _scatterDist;
 
         // allocate output -> set to -1
         delin2 = new int[i2xy.length][4][M];
@@ -230,11 +243,11 @@ public class PeakAnalyzer2D extends Thread {
             }
 
             printout += "\nFUZZY LIKELIHOODS:\n";
-            printout += "NON -> " + IJ.d2s(lhood2[atLoc][0], 2) + " "; // "\n";
-            printout += "END -> " + IJ.d2s(lhood2[atLoc][1], 2) + " "; //"\n";
-            printout += "BDY -> " + IJ.d2s(lhood2[atLoc][2], 2) + " ";
-            printout += "BIF -> " + IJ.d2s(lhood2[atLoc][3], 2) + " ";
-            printout += "CRS -> " + IJ.d2s(lhood2[atLoc][4], 2) + " ";
+            printout += "NON->" + IJ.d2s(lhood2[atLoc][0], 2) + "\t";
+            printout += "END->" + IJ.d2s(lhood2[atLoc][1], 2) + "\t";
+            printout += "BDY->" + IJ.d2s(lhood2[atLoc][2], 2) + "\t";
+            printout += "BIF->" + IJ.d2s(lhood2[atLoc][3], 2) + "\t";
+            printout += "CRS->" + IJ.d2s(lhood2[atLoc][4], 2) + "\t";
 
             IJ.log(printout);
 
@@ -244,94 +257,6 @@ public class PeakAnalyzer2D extends Thread {
 		}
 
 	}
-
- /*
- * the "spatial consistency" is checked to account for the peak robustness (it's neighbours have to point to the spatially close location)
- * to avoid having some outlier peaks included but have groups of peaks pointing together, agreeing on the same information
- * isRobust() gives out the filtered version of delin2 where only the stable ones are taken
- */
-
-    /*
-    private static boolean isRobust(int test_idx, int mother_idx, float scatter_th) {
-
-        // check for robustness
-        // check if the mother-peak's neighbours agree with the follow-up
-        // take the 4 or 8 neighbourhood of the mother peak and take
-        // 4 or 8 euclidean-wise closest peaks to the one being checked
-        // if the median of them is close enough (if they're not too scattered)
-        // then consider the peak follow-up spatially robust
-
-        int test_x = i2xy[test_idx][0];
-        int test_y = i2xy[test_idx][1];
-
-        // check how many agree-points (scatter) there can be
-
-        // 4 neighbours
-        int[][] dx_dy = new int[][]{
-                {-1, 0},
-                { 0,-1},
-                { 1, 0},
-                { 0, 1}
-        };
-        float[] scatter_dists = new float[dx_dy.length];
-
-        int mother_x = i2xy[mother_idx][0];
-        int mother_y = i2xy[mother_idx][1];
-
-        for (int i=0; i<dx_dy.length; i++) {
-
-            int neigbr_x = mother_x + dx_dy[i][0];
-            int neigbr_y = mother_y + dx_dy[i][1];
-            int neigbr_i = xy2i[neigbr_x][neigbr_y];
-
-            scatter_dists[i] = xy2i.length; // max dist
-
-            if (neigbr_i != -1) {
-
-                int[][] get_peaks_nbr = new int[4][2];// peaks_xy[neigbr_i]; // peak signature of the neighbour
-                for (int ii=0; ii<4; ii++) {
-                    get_peaks_nbr[ii][0] = i2xy[peaks_i[neigbr_i][ii]][0];
-                    get_peaks_nbr[ii][1] = i2xy[peaks_i[neigbr_i][ii]][1];
-                }
-
-                // pick the closest one
-                for (int k=0; k<get_peaks_nbr.length; k++) {
-
-                    if (get_peaks_nbr[k][0] != -1) {
-
-                        int scatter_x = get_peaks_nbr[k][0];
-                        int scatter_y = get_peaks_nbr[k][1];
-
-                        float d = dist(test_x, test_y, scatter_x, scatter_y);
-
-                        if (d<scatter_dists[i]) {
-                            scatter_dists[i] = d;
-                        }
-
-                    }
-                    else {
-                        break;
-                    }
-
-                }
-
-            }
-
-        }
-
-        if (Stat.median(scatter_dists)<=scatter_th) {
-            return true;
-        }
-        else {
-            return false;
-        }
-
-    }
-    */
-
-//    private static float dist(int a_x, int a_y, int b_x, int b_y){
-//        return (float) Math.sqrt( Math.pow(a_x-b_x, 2) + Math.pow(a_y-b_y, 2) );
-//    }
 
     private static int getNext(int prev_index, int curr_index) {
 
@@ -472,12 +397,14 @@ public class PeakAnalyzer2D extends Thread {
 
             for (int b = 0; b<delin_at_loc.length; b++) {           // loop 4 branches, b index defines the strength
 
-                if (delin_at_loc[b][M-1] != -1) {                   // if the last one is there - it is complete
+
 
 					float[] concat = new float[M*dim*dim];
 					int cnt = 0;
 
-                    for (int m = M-1; m>=0; m--) { // align them backwards
+                    for (int m = 0; m<M; m++) { // align them backwards
+
+                        if (delin_at_loc[b][m] != -1) {                   // if the last one is there - it is complete
 
                         int curr_i = delin_at_loc[b][m];
                         int curr_x = i2xy[curr_i][0];
@@ -502,13 +429,15 @@ public class PeakAnalyzer2D extends Thread {
                             cnt++;
 						}
 
+                        }
+
                     }
 
 					// add slice after looping
 					FloatProcessor patch = new FloatProcessor(dim, M*dim, concat);
 					isOut.addSlice("bch "+b+")", patch); // .resize(patch_size, patch_size)
 
-				}
+
 
             }
 
@@ -617,29 +546,76 @@ public class PeakAnalyzer2D extends Thread {
 
             }
 
-            float[] xaxis   = new float[totalFeats];
-            float[] yaxis1  = new float[totalFeats];
-            float[] yaxis2  = new float[totalFeats];
+            float[] xaxis       = new float[totalFeats];
+            float[] yaxis1      = new float[totalFeats];
+            float[] yaxis2      = new float[totalFeats];
+            float[] yaxisON     = new float[totalFeats];
+            float[] yaxisOFF    = new float[totalFeats];
 
             int cnt = 0;
             for (int b=0; b<feat2[loc_idx].length; b++) {
                 if (feat2[loc_idx][b] != null) {
                     for (int l=0; l<feat2[loc_idx][b].length; l++) {
-                        xaxis[cnt]  = cnt;
-                        yaxis1[cnt] = feat2[loc_idx][b][l];
-                        yaxis2[cnt] = desc2[loc_idx][b][0];
+
+                        if (l==0) {
+                            if (cnt==0) {
+                                xaxis[cnt]  = 0;
+                            }
+                            else {
+                                xaxis[cnt]  = xaxis[cnt-1] + 20;
+                            }
+                        }
+                        else {
+                            xaxis[cnt] = xaxis[cnt-1] + 1;
+                        }
+
+                        yaxis1[cnt]     = feat2[loc_idx][b][l]; // features
+                        yaxis2[cnt]     = desc2[loc_idx][b][0]; // mean estimate
+                        yaxisON[cnt]    = mu_ON;
+                        yaxisOFF[cnt]   = mu_OFF;
                         cnt++;
+
                     }
                 }
             }
 
+            // find limits for the features
+            float min_feat = Float.MAX_VALUE;
+            float max_feat = Float.NEGATIVE_INFINITY;
+            float max_axis = Float.NEGATIVE_INFINITY;
+
+            for (int ii=0; ii<yaxis1.length; ii++) {
+                if (yaxis1[ii]<min_feat) {
+                    min_feat = yaxis1[ii];
+                }
+                if (yaxis1[ii]>max_feat) {
+                    max_feat = yaxis1[ii];
+                }
+                if (xaxis[ii]>max_axis) {
+                    max_axis = xaxis[ii];
+                }
+            }
+
             Plot p = new Plot("", "", "");
-            p.setLimits(0, cnt-1, mu_ON, mu_OFF);
-            p.addPoints(xaxis, yaxis1, Plot.X);
+            p.setLimits(0, max_axis, Math.min(min_feat, mu_ON-.1f), Math.max(max_feat, mu_OFF+.1f));
+            p.addPoints(xaxis, yaxis1, Plot.BOX);
             p.draw();
+
+            p.setLineWidth(4);
+            p.setColor(Color.GREEN);
+            p.addPoints(xaxis, yaxisON, Plot.DOT);
+            p.draw();
+
+            p.setLineWidth(4);
+            p.setColor(Color.BLUE);
+            p.addPoints(xaxis, yaxisOFF, Plot.DOT);
+            p.draw();
+
+            p.setLineWidth(4);
             p.setColor(Color.RED);
-            p.setLineWidth(3);
-            p.addPoints(xaxis, yaxis2, Plot.LINE);
+            p.addPoints(xaxis, yaxis2, Plot.DOT);
+            p.draw();
+
             is_out.addSlice("features, descriptors", p.getProcessor());
 
         }
@@ -649,27 +625,7 @@ public class PeakAnalyzer2D extends Thread {
         return is_out;
     }
 
-//        // plot fit scores for each branch + one plot with ratios
-//        float[] xaxis1 = new float[M*L];
-//        for (int i=0; i<M*L; i++) xaxis1[i] = i;
-//        float[] thNCC = new float[M*L];
-//        for (int i=0; i<M*L; i++) thNCC[i] = thresholdNCC;
-//
-//        for (int b= 0; b < 4; b++) {
-//            Plot feature_plot = new Plot("", "#", "NCC");
-//            feature_plot.setLimits(0, M*L-1, 0, 1);
-//            feature_plot.addPoints(xaxis1, feat2[loc_idx][b], Plot.LINE);
-//            feature_plot.draw();
-//            feature_plot.setColor(Color.RED);
-//            feature_plot.setLineWidth(3);
-//            feature_plot.addPoints(xaxis1, thNCC, Plot.LINE);
-//            is_out.addSlice("bch="+b, feature_plot.getProcessor());
-//        }
-//
-//        return is_out;
-
-
-    public static void getDelineationFeatures(int loc_idx, String mode) // feat2[locIdx] ratio2[locIdx]
+    private static void getDelineationFeatures(int loc_idx, String mode)
     {
         if (loc_idx!=-1) {       // location is in foreground, there is a delineation there, fill 'features' and 'descriptors' up
 
@@ -711,7 +667,7 @@ public class PeakAnalyzer2D extends Thread {
                             int prev_i, prev_x, prev_y;
 
                             if (m==0) {
-                                prev_x = i2xy[loc_idx][0];  // cnetral locaiton
+                                prev_x = i2xy[loc_idx][0];  // central location
                                 prev_y = i2xy[loc_idx][1];
                             }
                             else{
@@ -790,8 +746,6 @@ public class PeakAnalyzer2D extends Thread {
 	/*
 		score calculation
 	 */
-
-
 	public static void exportFeats(String file_path)
 	{
         PrintWriter logWriter = null;
@@ -925,35 +879,42 @@ public class PeakAnalyzer2D extends Thread {
 
     }
 
-    /*
-        methods that deal with local image patch - (rectangle defined with prev_x,y and curr_x,y)
-     */
-
-    // (VIZ) extract set of PointRoi-s used for local patch sampling
-    private static ArrayList<PointRoi> localPatchValsLocs(float x1, float y1, float x2, float y2)
+    public static ImageStack exportLikelihoods(int[] choice)
     {
 
-        float l = (float) Math.sqrt(Math.pow(x2-x1, 2)+Math.pow(y2-y1,2));
-        float vx = (x2-x1)/l;
-		float vy = (y2-y1)/l;
-		float wx = vy;
-		float wy = -vx;
+        int w = inimg_xy.length;
+        int h = inimg_xy[0].length;
+        ImageStack is_out = new ImageStack(w, h);
 
-        ArrayList<PointRoi> pts = new ArrayList<PointRoi>(dim*dim);
+        for (int i=0; i<choice.length; i++) {
+            if (choice[i] >=0 && choice[i]<fuzzy_logic_system.L) {
 
-        for (int ii=0; ii<=2*dim_half; ii++) { // loops vector v
-            for (int jj=-dim_half; jj<=dim_half; jj++) { // loops vector w
-                float curr_x = x2 - ii * samplingStep * vx + jj * samplingStep * vy;
-                float curr_y = y2 - ii * samplingStep * wx + jj * samplingStep * wy;
-                PointRoi pt = new PointRoi(curr_x+.5f, curr_y+.5f);
-                pt.setFillColor(Color.DARK_GRAY);
-                pts.add(pt);
+                float[][] t = new float[w][h];
+
+                for (int ii = 0; ii<lhood2.length; ii++) {
+
+                    int x = i2xy[ii][0];
+                    int y = i2xy[ii][1];
+
+                    boolean isMax = true;
+                    for (int k=0; k<fuzzy_logic_system.L; k++) {
+                        if (k!=choice[i] && lhood2[ii][k]>lhood2[ii][choice[i]]) {
+                            isMax = false;
+                        }
+                    }
+                    t[x][y] = (isMax)? lhood2[ii][choice[i]] : 0;
+                }
+
+                is_out.addSlice(""+IJ.d2s(choice[i], 0), new FloatProcessor(t));
             }
         }
 
-        return pts;
-
+        return is_out;
     }
+
+    /*
+        methods that deal with local image patch - (rectangle defined with prev_x,y and curr_x,y)
+     */
 
     // (VIZ) extract array with local patch sampled values
     private static float[] localPatchVals(float x1, float y1, float x2, float y2)
@@ -965,13 +926,18 @@ public class PeakAnalyzer2D extends Thread {
         float wx = vy;
         float wy = -vx;
 
+        float x_root = x2 - vx * D;
+        float y_root = y2 - wx * D;
+
         float[] vals = new float[dim*dim];
         int cnt = 0;
 
         for (int ii=0; ii<=2*dim_half; ii++) { // loops vector v
             for (int jj=-dim_half; jj<=dim_half; jj++) { // loops vector w
-                float curr_x = x2 - ii * samplingStep * vx + jj * samplingStep * vy;
-                float curr_y = y2 - ii * samplingStep * wx + jj * samplingStep * wy;
+
+                float curr_x = x_root + ii * samplingStep * vx + jj * samplingStep * vy;
+                float curr_y = y_root + ii * samplingStep * wx + jj * samplingStep * wy;
+
                 vals[cnt] = Interpolator.interpolateAt(curr_x, curr_y, inimg_xy);
                 cnt++;
             }
@@ -991,6 +957,9 @@ public class PeakAnalyzer2D extends Thread {
         float wx = vy;
         float wy = -vx;
 
+        float x_root = x2 - vx * D;
+        float y_root = y2 - wx * D;
+
         ArrayList<float[]> vals            = new ArrayList<float[]>();
 
         for (int ii=0; ii<L; ii++) { // loops L of them in radial direction
@@ -1001,8 +970,9 @@ public class PeakAnalyzer2D extends Thread {
 			float val_max = Float.NEGATIVE_INFINITY;
 
             for (int jj=-dim_half; jj<=dim_half; jj++) { // loops vector w
-                float curr_x = x2 - ii * samplingStepLongitudinal * vx + jj * samplingStep * vy;
-                float curr_y = y2 - ii * samplingStepLongitudinal * wx + jj * samplingStep * wy;
+
+                float curr_x = x_root + ii * samplingStepLongitudinal * vx + jj * samplingStep * vy;
+                float curr_y = y_root + ii * samplingStepLongitudinal * wx + jj * samplingStep * wy;
 
                 val[cnt] = Interpolator.interpolateAt(curr_x, curr_y, inimg_xy);
 
@@ -1012,10 +982,10 @@ public class PeakAnalyzer2D extends Thread {
                 cnt++;
             }
 
-			// normalize min-max so that they're from 0 to 1
-			for (int iii = 0; iii<val.length; iii++){
-				val[iii] = (val[iii]-val_min)/(val_max-val_min);
-			}
+            if (Math.abs(val_max-val_min)<Float.MIN_VALUE) Arrays.fill(val, 0f);
+            else {
+                for (int iii = 0; iii<val.length; iii++) val[iii] = (val[iii] - val_min) / (val_max - val_min);
+            }
 
             vals.add(val);
 
@@ -1035,19 +1005,24 @@ public class PeakAnalyzer2D extends Thread {
 		float wx = vy;
 		float wy = -vx;
 
-        float R = .5f;
+        float x_root = x2 - vx * D;
+        float y_root = y2 - wx * D;
+
+        float R = samplingStep/2;
 
 		ArrayList<OvalRoi> pts = new ArrayList<OvalRoi>(dim*L);
 
 		for (int ii=0; ii<L; ii++) { // loops L of them in radial direction
 
 			for (int jj=-dim_half; jj<=dim_half; jj++) { // loops vector w
-				float curr_x = x2 - ii * samplingStepLongitudinal * vx + jj * samplingStep * vy;
-				float curr_y = y2 - ii * samplingStepLongitudinal * wx + jj * samplingStep * wy;
+
+                float curr_x = x_root + ii * samplingStepLongitudinal * vx + jj * samplingStep * vy;
+				float curr_y = y_root + ii * samplingStepLongitudinal * wx + jj * samplingStep * wy;
 
 				OvalRoi pt = new OvalRoi(curr_x+.5f-(R/2), curr_y+.5f-(R/2), R, R);
 				pt.setFillColor(Color.BLUE);
-				pts.add(pt);
+				pt.setStrokeWidth(R/2);
+                pts.add(pt);
 
 			}
 
@@ -1056,14 +1031,6 @@ public class PeakAnalyzer2D extends Thread {
 		return pts;
 
 	}
-
-    // (CALC) NaN fitting scores for local patch cross profile
-    private static void localPatchNaNScores(int branch_idx, int patch_idx, float[][] fit_scores_out)
-    {
-        for (int ii=0; ii<L; ii++) {
-            fit_scores_out[branch_idx][patch_idx*L + ii] = Float.NaN;
-        }
-    }
 
     // (CALC) calculation of the fitting scores for every local patch cross profile
     private static void localPatchFeatures(float x1, float y1, float x2, float y2, String mode, float[] feats_out, int init_index) // L values per patch in feat_out
@@ -1078,6 +1045,9 @@ public class PeakAnalyzer2D extends Thread {
         float[] dummy;
         float[] val = new float[dim];
 
+        float x_root = x2 - vx * D;
+        float y_root = y2 - wx * D;
+
         for (int ii=0; ii<L; ii++) { // loops L of them in radial direction
 
             int cnt = 0;
@@ -1085,8 +1055,9 @@ public class PeakAnalyzer2D extends Thread {
             float val_max = Float.NEGATIVE_INFINITY;
 
             for (int jj=-dim_half; jj<=dim_half; jj++) { // loops vector w
-                float curr_x = x2 - ii * samplingStepLongitudinal * vx + jj * samplingStep * vy;
-                float curr_y = y2 - ii * samplingStepLongitudinal * wx + jj * samplingStep * wy;
+
+                float curr_x = x_root + ii * samplingStepLongitudinal * vx + jj * samplingStep * vy;
+                float curr_y = y_root + ii * samplingStepLongitudinal * wx + jj * samplingStep * wy;
 
                 val[cnt] = Interpolator.interpolateAt(curr_x, curr_y, inimg_xy);
 
@@ -1096,26 +1067,9 @@ public class PeakAnalyzer2D extends Thread {
                 cnt++;
             }
 
-            // normalize min-max so that they're from 0 to 1
-            for (int iii = 0; iii<val.length; iii++){
-                val[iii] = (val[iii]-val_min)/(val_max-val_min);
-            }
-
-            // WARNING - tricky normalization if they are all completely the same
-            if (Math.abs(val_max-val_min)<1) {
-
-                // in case they are as close as 1 measure of 8bit level, then give the predefined profile
-                // filled with zeros
-                for (int iii = 0; iii<val.length; iii++){
-                    val[iii] = 0f;
-                }
-
-            }
+            if (Math.abs(val_max-val_min)<Float.MIN_VALUE) Arrays.fill(val, 0f);
             else {
-                // normalize min-max so that they're from 0 to 1
-                for (int iii = 0; iii<val.length; iii++){
-                    val[iii] = (val[iii]-val_min)/(val_max-val_min);
-                }
+                for (int iii = 0; iii<val.length; iii++) val[iii] = (val[iii] - val_min) / (val_max - val_min);
             }
 
             // fit the normalized profile

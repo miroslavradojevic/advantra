@@ -21,7 +21,7 @@ import java.io.File;
  * Demo usage of PeakAnalyzer2D: uses also Masker2D, Profiler2D, and PeakExtractor2D shows delineated
  * branching structure extracted on all foreground locations as a joint Overlay on the image
  */
-public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMotionListener {
+public class Examiner implements PlugInFilter, MouseListener, MouseMotionListener {
 
     float[][] 	inimg_xy;               // store input image as an array
 	String 		image_dir;
@@ -30,10 +30,17 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
     /*
         parameters
      */
-    float       s = 1.2f;               // scale is fixed
-    float       D, minCos, scatterDist=10f; // iDiff,
-    int         M = 2;
-	float 		threshold;
+    float       s = 1.1f;
+    float       D;
+    float       minCos;
+    int         M;
+    float       mu_ON;
+    float       mu_OFF;
+    float       sig_ON;
+    float       sig_OFF;
+    int         L;
+    float       sampling_crosswise;
+    String      mode;
 
     int         CPU_NR;
 
@@ -84,44 +91,65 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
         /******************************
          Generic Dialog
          *****************************/
-//        this.iDiff 					    	= (float)   Prefs.get("advantra.critpoint.mask.iDiff", 5);
-        this.D 					        	= (float)   Prefs.get("advantra.critpoint.profile.d", 4);
-        this.M 					        	= (int)     Prefs.get("advantra.critpoint.analyze.m", 2);
-        this.minCos 					    = (float)   Prefs.get("advantra.critpoint.analyze.min_cos", -0.5f);
-//        this.scatterDist                    = (float)   Prefs.get("advantra.critpoint.analyze.scatter_d", 10f);
-		this.threshold						= (float) 	Prefs.get("advantra.critpoint.analyze.threshold", 0.85f);
+        this.D 					        	= (float)   Prefs.get("advantra.critpoint.detection2d.d", 4);
+        this.M 					        	= (int)     Prefs.get("advantra.critpoint.detection2d.m", 2);
+        this.minCos 					    = (float)   Prefs.get("advantra.critpoint.detection2d.min_cos", -0.5f);
+        this.mu_ON                          = (float)   Prefs.get("advantra.critpoint.detection2d.mu_on", 0f);
+        this.mu_OFF 					    = (float)   Prefs.get("advantra.critpoint.detection2d.mu_off", 0.5f);
+		this.sig_ON						    = (float) 	Prefs.get("advantra.critpoint.detection2d.sig_on", 0.1f);
+		this.sig_OFF						= (float) 	Prefs.get("advantra.critpoint.detection2d.sig_off", 0.1f);
+		this.L						        = (int) 	Prefs.get("advantra.critpoint.detection2d.l", 4);
+		this.sampling_crosswise			    = (float) 	Prefs.get("advantra.critpoint.detection2d.sampling_crosswise", 0.3f);
+		this.mode			                = (String) 	Prefs.get("advantra.critpoint.detection2d.mode", "NCC");
 
-        GenericDialog gd = new GenericDialog("PROFILER2DDEMO");
-//        gd.addNumericField("iDiff ", 	iDiff, 			0, 10, "intensity margin");
-        gd.addNumericField("D ", 	    D, 			    0, 10, "neuron diameter[pix]");
-        gd.addNumericField("M ", 	    M, 			    0, 10, "branch len.");
-        gd.addNumericField("min cos ", 	minCos, 	    1, 10, "alignment parameter.");
-//        gd.addNumericField("scatter d ",scatterDist, 	1, 10, "max allowed scatter (robustness test)");
-//		gd.addMessage("feat. calculation");
-		gd.addNumericField("threshold ",threshold, 		2, 10, "intensity margin");
+
+        GenericDialog gd = new GenericDialog("EXAMINER");
+        gd.addNumericField("D ", 	                D, 			        0,  10, "neuron diameter[pix]");
+        gd.addNumericField("M ", 	                M, 			        0,  10, "");
+        gd.addNumericField("min cos ", 	            minCos, 	        1,  10, "");
+        gd.addNumericField("mu_ON ", 	            mu_ON, 			    1,  10, "");
+        gd.addNumericField("mu_OFF ",               mu_OFF, 	        1,  10, "");
+		gd.addNumericField("sig_ON ",               sig_ON, 		    1,  10, "");
+		gd.addNumericField("sig_OFF ",              sig_OFF, 		    1,  10, "");
+		gd.addNumericField("L ",                    L, 		            0,  10, "");
+		gd.addNumericField("sampling_crosswise ",   sampling_crosswise, 1,  10, "");
+        gd.addStringField("mode ",                  mode,                   10);
 
         gd.showDialog();
         if (gd.wasCanceled()) return DONE;
 
-//        iDiff       	= (float) gd.getNextNumber();
-//        Prefs.set("advantra.critpoint.mask.iDiff", 	    	iDiff);
 
         D       	    = (float) gd.getNextNumber();
-        Prefs.set("advantra.critpoint.profile.d", 	    	D);
+        Prefs.set("advantra.critpoint.detection2d.d", 	    	D);
 
         M       	    = (int) gd.getNextNumber();
-        Prefs.set("advantra.critpoint.analyze.m", 	    	M);
+        Prefs.set("advantra.critpoint.detection2d.m", 	    	M);
 
         minCos       	= (float) gd.getNextNumber();
-        Prefs.set("advantra.critpoint.analyze.min_cos", 	minCos);
+        Prefs.set("advantra.critpoint.detection2d.min_cos", 	minCos);
 
-//        scatterDist     = (float) gd.getNextNumber();
-//        Prefs.set("advantra.critpoint.analyze.scatter_d", 	scatterDist);
+        mu_ON       	= (float) gd.getNextNumber();
+        Prefs.set("advantra.critpoint.detection2d.mu_on", 	    mu_ON);
 
-		threshold		= (float) gd.getNextNumber();
-		Prefs.set("advantra.critpoint.analyze.threshold", 	threshold);
+        mu_OFF          = (float) gd.getNextNumber();
+        Prefs.set("advantra.critpoint.detection2d.mu_off", 	    mu_OFF);
 
-        CPU_NR = Runtime.getRuntime().availableProcessors();
+		sig_ON		= (float) gd.getNextNumber();
+		Prefs.set("advantra.critpoint.detection2d.sig_on", 	    sig_ON);
+
+        sig_OFF		= (float) gd.getNextNumber();
+        Prefs.set("advantra.critpoint.detection2d.sig_off", 	sig_OFF);
+
+        L		    = (int) gd.getNextNumber();
+        Prefs.set("advantra.critpoint.detection2d.l", 	        L);
+
+        sampling_crosswise		= (float) gd.getNextNumber();
+        Prefs.set("advantra.critpoint.detection2d.sampling_crosswise", 	sampling_crosswise);
+
+        mode		            = gd.getNextString();
+        Prefs.set("advantra.critpoint.detection2d.mode", 	    mode);
+
+        CPU_NR = Runtime.getRuntime().availableProcessors() + 1;
 
         cnv = imagePlus.getCanvas();
 
@@ -203,7 +231,18 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
         }
         //************************************************
         IJ.log("analyzing peaks + extracting features ...");
-        PeakAnalyzer2D.loadTemplate(Masker2D.i2xy, Masker2D.xy2i, PeakExtractor2D.peaks_i, PeakExtractor2D.peaks_w, inimg_xy, Masker2D.back_xy, M, minCos, scatterDist, threshold, D); // initialize peak analyzer parameters
+        PeakAnalyzer2D.loadTemplate(Masker2D.i2xy, Masker2D.xy2i, PeakExtractor2D.peaks_i, PeakExtractor2D.peaks_w, inimg_xy, Masker2D.back_xy,
+                M,
+                minCos,
+                D,
+                mu_ON,
+                mu_OFF,
+                sig_ON,
+                sig_OFF,
+                L,
+                sampling_crosswise,
+                mode
+                );
         int totalPeakAnalyzeComponents = Masker2D.i2xy.length; // number of locations
         PeakAnalyzer2D pa_jobs[] = new PeakAnalyzer2D[CPU_NR];
         for (int i = 0; i < pa_jobs.length; i++) {
@@ -234,11 +273,13 @@ public class PeakAnalyzer2DDemo implements PlugInFilter, MouseListener, MouseMot
             }
         }
 
-        Overlay overlay_with_detections = SimpleDetector2D.drawDetections();
-        ImagePlus final_det = cnv.getImage().duplicate();
-        final_det.show();
-        final_det.setOverlay(overlay_with_detections); // add the mto the original image
+        ImageStack is_lhoods = PeakAnalyzer2D.exportLikelihoods(new int[]{1});
+        new ImagePlus("", is_lhoods).show();
 
+//        Overlay overlay_with_detections = SimpleDetector2D.drawDetections();
+//        ImagePlus final_det = cnv.getImage().duplicate();
+//        final_det.show();
+//        final_det.setOverlay(overlay_with_detections); // add the mto the original image
 
         t2 = System.currentTimeMillis();
 		IJ.log("done. " + ((t2 - t1) / 1000f) + "sec.");
