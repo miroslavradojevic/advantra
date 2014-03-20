@@ -40,7 +40,6 @@ public class PeakAnalyzer2D extends Thread {
     public static int[][]       peaks_i;             	// list of extracted peaks: N x 4 every FG location with 4 extracted peaks in indexed format
 	public static int[][]		peaks_w;                // weight assigned to each peak (for expansion)
 	public static float[][]		inimg_xy;				// input image (necessary for feature extraction)
-	public static byte[][]		backg_xy;				// background estimation (for feature extraction)
 
     // PARAMETERS
     public static float     D;
@@ -68,8 +67,8 @@ public class PeakAnalyzer2D extends Thread {
     public static float[][]     lhood2;                     // N(foreground locs.) x 5 (NON..CRS) fuzzy logic output is stored here
 
     // PROCESSING UNITS
-    private static Fitter1D fitter;                         // class used to calculate fitting scores
-    private static Fuzzy2D  fuzzy_logic_system;             // class used to calculate fuzzy score
+//    private static Fitter1D fitter;                         // class used to calculate fitting scores
+//    private static Fuzzy2D  fuzzy_logic_system;             // class used to calculate fuzzy score
 
     public PeakAnalyzer2D(int n0, int n1)
     {
@@ -107,19 +106,11 @@ public class PeakAnalyzer2D extends Thread {
 
         samplingStepLongitudinal = D / (float)(L-1);
 
-        fitter = new Fitter1D(dim, false); // dim = profile width with current samplingStep, verbose = false
-        fitter.showTemplates();
-
-        fuzzy_logic_system = new Fuzzy2D(nr_points, mu_ON, sig_ON, mu_OFF, sig_OFF);
-        fuzzy_logic_system.showFuzzification();
-        fuzzy_logic_system.showDefuzzification();
-
         i2xy = _i2xy;
         xy2i = _xy2i;
         peaks_i = _peaks_i;
 		peaks_w = _peaks_w;
 		inimg_xy = _inimg_xy;
-		backg_xy = _backgr_xy;
 
         // allocate output -> set to -1
         delin2 = new int[i2xy.length][4][M];
@@ -130,13 +121,26 @@ public class PeakAnalyzer2D extends Thread {
 
 		feat2   = new float[i2xy.length][4][];                      // fitting scores
         desc2  = new float[i2xy.length][4][];                       // description of the fit scores
-        lhood2  = new float[i2xy.length][fuzzy_logic_system.L];     // fuzzy likelihood output
+        lhood2  = new float[i2xy.length][];     					// fuzzy likelihood output
 
     }
 
     public void run()
     {
         for (int locationIdx = begN; locationIdx < endN; locationIdx++) {
+
+			/*
+				processing classes for this run
+				they will interfere with outputs
+				need to be allocated independently
+				for this run interval
+			*/
+
+			Fitter1D fitter  			= new Fitter1D(dim, false); // dim = profile width with current samplingStep, verbose = false
+//			fitter.showTemplates();
+			Fuzzy2D  fls 				= new Fuzzy2D(nr_points, mu_ON, sig_ON, mu_OFF, sig_OFF); // class used to calculate fuzzy score
+//			fuzzy_logic_system.showFuzzification();
+//			fuzzy_logic_system.showDefuzzification();
 
             int[] peaks_at_loc = peaks_i[locationIdx];
 
@@ -177,8 +181,14 @@ public class PeakAnalyzer2D extends Thread {
 
             } // delin2[locationIdx] is fully formed
 
-            /*	calculate features, descriptors and likelihoods	*/
-            getDelineationFeatures(locationIdx, mode);
+            getDelineationFeatures(locationIdx, mode, fitter, fls); // calculate features, descriptors and likelihoods
+
+
+
+
+
+
+
 
 		}
 
@@ -243,11 +253,11 @@ public class PeakAnalyzer2D extends Thread {
             }
 
             printout += "\nFUZZY LIKELIHOODS:\n";
-            printout += "NON->" + IJ.d2s(lhood2[atLoc][0], 2) + "\t";
-            printout += "END->" + IJ.d2s(lhood2[atLoc][1], 2) + "\t";
-            printout += "BDY->" + IJ.d2s(lhood2[atLoc][2], 2) + "\t";
-            printout += "BIF->" + IJ.d2s(lhood2[atLoc][3], 2) + "\t";
-            printout += "CRS->" + IJ.d2s(lhood2[atLoc][4], 2) + "\t";
+            printout += "NON->" + IJ.d2s(lhood2[atLoc][0], 2) + "\t\t";
+            printout += "END->" + IJ.d2s(lhood2[atLoc][1], 2) + "\t\t";
+            printout += "BDY->" + IJ.d2s(lhood2[atLoc][2], 2) + "\t\t";
+            printout += "BIF->" + IJ.d2s(lhood2[atLoc][3], 2) + "\t\t";
+            printout += "CRS->" + IJ.d2s(lhood2[atLoc][4], 2) + "\t\t";
 
             IJ.log(printout);
 
@@ -454,6 +464,12 @@ public class PeakAnalyzer2D extends Thread {
 	public static ImageStack plotDelineationProfiles(int atX, int atY)
     {
 
+
+		/*
+			processing unit
+		 */
+
+		Fitter1D fitter = new Fitter1D(dim, false);
         ImageStack isOut = new ImageStack(528, 255);
 
         int idx = xy2i[atX][atY]; // read extracted peaks at this location
@@ -625,7 +641,7 @@ public class PeakAnalyzer2D extends Thread {
         return is_out;
     }
 
-    private static void getDelineationFeatures(int loc_idx, String mode)
+    private static void getDelineationFeatures(int loc_idx, String mode, Fitter1D _fitter, Fuzzy2D _fls)
     {
         if (loc_idx!=-1) {       // location is in foreground, there is a delineation there, fill 'features' and 'descriptors' up
 
@@ -676,9 +692,9 @@ public class PeakAnalyzer2D extends Thread {
                                 prev_y = i2xy[prev_i][1];
                             }
 
-                            // get cross-profile values sampled from the local patch (aligned with the patch) store them in fitNCC
+                            // get cross-profiles sampled from the local patch (aligned with the patch), and their features
                             int init = m * L;
-                            localPatchFeatures(prev_x, prev_y, curr_x, curr_y, mode, feat2[loc_idx][b], init); // will fill L values starting from init index
+                            localPatchFeatures(prev_x, prev_y, curr_x, curr_y, mode, feat2[loc_idx][b], init, _fitter); // will fill L values starting from init index
 
                         }
                         else break;
@@ -690,8 +706,10 @@ public class PeakAnalyzer2D extends Thread {
             }
 
             // 2 calculate feature descriptors in every branch at loc_idx location
-            ArrayList<Integer> branches_found = new ArrayList<Integer>(4);
-            for (int b=0; b<delin_at_loc.length; b++) {
+            ArrayList<Integer> branches_found = new ArrayList<Integer>();
+			branches_found.clear();
+
+            for (int b=0; b<feat2[loc_idx].length; b++) {
 
                 if (feat2[loc_idx][b] != null) {
 
@@ -710,31 +728,42 @@ public class PeakAnalyzer2D extends Thread {
 
             }
 
+//			if (loc_idx == 9101) {
+//				System.out.println("branches found = "+branches_found.size()+ " at x: "+i2xy[loc_idx][0]+" at y: "+i2xy[loc_idx][1]);
+//				//print();
+//				for (int yy=0; yy<branches_found.size(); yy++)
+//					System.out.println("idx "+branches_found.get(yy)+"  ");
+//			}
+
+			lhood2[loc_idx] = new float[_fls.L]; // allocate in the length of fls output vector
+
             // calculate fuzzy likelihoods
             if (branches_found.size()==4) {
                 // desc2[loc][branch][mean value descriptor index]
-                fuzzy_logic_system.critpointScores(
-                        desc2[loc_idx][0][0],
-                        desc2[loc_idx][1][0],
-                        desc2[loc_idx][2][0],
-                        desc2[loc_idx][3][0],
-                        lhood2[loc_idx]);
+                _fls.critpointScores(
+											desc2[loc_idx][0][0],
+											desc2[loc_idx][1][0],
+											desc2[loc_idx][2][0],
+											desc2[loc_idx][3][0],
+											lhood2[loc_idx]);
             }
             else if (branches_found.size()==3) {
-                fuzzy_logic_system.critpointScores(
+                _fls.critpointScores(
                         desc2[loc_idx][branches_found.get(0)][0],
                         desc2[loc_idx][branches_found.get(1)][0],
                         desc2[loc_idx][branches_found.get(2)][0],
                         lhood2[loc_idx]);
             }
             else if (branches_found.size()==2) {
-                fuzzy_logic_system.critpointScores(
+//				if (loc_idx == 9101) System.out.println("did the right one "+Arrays.toString(lhood2[loc_idx]));
+                _fls.critpointScores(
                         desc2[loc_idx][branches_found.get(0)][0],
                         desc2[loc_idx][branches_found.get(1)][0],
                         lhood2[loc_idx]);
+//				if (loc_idx == 9101) System.out.println("did the right one "+Arrays.toString(lhood2[loc_idx]));
             }
             else if (branches_found.size()==1) {
-                fuzzy_logic_system.critpointScores(
+                _fls.critpointScores(
                         desc2[loc_idx][branches_found.get(0)][0],
                         lhood2[loc_idx]);
             }
@@ -743,9 +772,6 @@ public class PeakAnalyzer2D extends Thread {
 
     }
 
-	/*
-		score calculation
-	 */
 	public static void exportFeats(String file_path)
 	{
         PrintWriter logWriter = null;
@@ -765,13 +791,15 @@ public class PeakAnalyzer2D extends Thread {
                 if (feat2[ii][jj] != null) {
 
                     for (int kk=0; kk<feat2[ii][jj].length; kk++) {
-                        logWriter.print(String.format("%1.2f", feat2[ii][jj][kk]));
-                        if (jj==feat2[ii].length-1 && kk==feat2[ii][jj].length-1) logWriter.print("\n");
-                        else logWriter.print(", ");
+                        logWriter.print(String.format("%1.6f", feat2[ii][jj][kk]));
+                        if (kk<feat2[ii][jj].length-1) logWriter.print(", ");
+                        else logWriter.print("\n");
                     }
 
                 }
-
+				else {
+					logWriter.print("null\n");
+				}
             }
         }
 
@@ -797,16 +825,16 @@ public class PeakAnalyzer2D extends Thread {
                 if (desc2[ii][jj] != null) {
 
                     for (int kk=0; kk<desc2[ii][jj].length; kk++) {
-                        logWriter.print(String.format("%1.2f, ", desc2[ii][jj][kk]));
-                        //if (jj==desc2[ii].length-1) logWriter.print("\n");
-                        //else logWriter.print(", ");
+                        logWriter.print(String.format("%1.6f, ", desc2[ii][jj][kk]));
+                        if (kk<desc2[ii][jj].length-1) logWriter.print(", ");
+                        else logWriter.print("\n");
                     }
 
                 }
-
-
+				else {
+					logWriter.print("null\n");
+				}
             }
-            logWriter.print("\n");
         }
 
         logWriter.close();
@@ -832,12 +860,8 @@ public class PeakAnalyzer2D extends Thread {
             for (int jj=0; jj<delin2[ii].length; jj++) { // loop streamlines
                 for (int kk=0; kk<delin2[ii][jj].length; kk++) { // print M elements in the same streamline
                     logWriter.print(String.format("%6d", delin2[ii][jj][kk]));
-                    if (kk<delin2[ii][jj].length-1) {
-                        logWriter.print(",\t");
-                    }
-                    else {
-                        logWriter.print("\n");
-                    }
+                    if (kk<delin2[ii][jj].length-1) logWriter.print(", ");
+                    else logWriter.print("\n");
                 }
             }
         }
@@ -879,15 +903,46 @@ public class PeakAnalyzer2D extends Thread {
 
     }
 
+	public static void exportLikelihoods(String file_path)
+	{
+
+		PrintWriter logWriter = null; //initialize writer
+
+		try {
+			logWriter = new PrintWriter(file_path);
+			logWriter.print("");
+			logWriter.close();
+		} catch (FileNotFoundException ex) {}   // empty the file before logging...
+
+		try {                                   // initialize
+			logWriter = new PrintWriter(new BufferedWriter(new FileWriter(file_path, true)));
+		} catch (IOException e) {}
+
+		//main loop
+		for (int ii=0; ii<lhood2.length; ii++) {
+			for (int jj=0; jj<lhood2[ii].length; jj++) { // loop streamlines
+//				for (int kk=0; kk<delin2[ii][jj].length; kk++) { // print M elements in the same streamline
+					logWriter.print(String.format("%1.8f", lhood2[ii][jj]));
+					if (jj<lhood2[ii].length-1) logWriter.print(", ");
+					else logWriter.print("\n");
+//				}
+			}
+		}
+
+		logWriter.close();
+
+	}
+
     public static ImageStack exportLikelihoods(int[] choice)
     {
 
         int w = inimg_xy.length;
         int h = inimg_xy[0].length;
+
         ImageStack is_out = new ImageStack(w, h);
 
         for (int i=0; i<choice.length; i++) {
-            if (choice[i] >=0 && choice[i]<fuzzy_logic_system.L) {
+            if (choice[i] >=0 && choice[i]<lhood2[0].length) {
 
                 float[][] t = new float[w][h];
 
@@ -897,12 +952,20 @@ public class PeakAnalyzer2D extends Thread {
                     int y = i2xy[ii][1];
 
                     boolean isMax = true;
-                    for (int k=0; k<fuzzy_logic_system.L; k++) {
+
+					for (int k=0; k<lhood2[0].length; k++) {
                         if (k!=choice[i] && lhood2[ii][k]>lhood2[ii][choice[i]]) {
-                            isMax = false;
+                            //isMax = false;
                         }
                     }
+
                     t[x][y] = (isMax)? lhood2[ii][choice[i]] : 0;
+
+//					if (ii==9101) {
+//						System.out.println("l'hood at" + ii + " is "+ Arrays.toString(lhood2[ii]));
+//						System.out.println("stored " + t[x][y] + " at "+ x + " , " + y);
+//					}
+
                 }
 
                 is_out.addSlice(""+IJ.d2s(choice[i], 0), new FloatProcessor(t));
@@ -1033,7 +1096,7 @@ public class PeakAnalyzer2D extends Thread {
 	}
 
     // (CALC) calculation of the fitting scores for every local patch cross profile
-    private static void localPatchFeatures(float x1, float y1, float x2, float y2, String mode, float[] feats_out, int init_index) // L values per patch in feat_out
+    private static void localPatchFeatures(float x1, float y1, float x2, float y2, String mode, float[] feats_out, int init_index, Fitter1D _fitter) // L values per patch in feat_out
     {
 
         float l = (float) Math.sqrt(Math.pow(x2-x1, 2)+Math.pow(y2-y1, 2));
@@ -1073,7 +1136,7 @@ public class PeakAnalyzer2D extends Thread {
             }
 
             // fit the normalized profile
-            dummy = fitter.fit(val, mode);
+            dummy = _fitter.fit(val, mode);
             feats_out[init_index + ii] = dummy[1];
 
         }

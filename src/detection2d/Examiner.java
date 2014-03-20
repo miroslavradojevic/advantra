@@ -15,6 +15,7 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.io.File;
+import java.util.Random;
 
 /**
  * Created by miroslav on 1/6/14.
@@ -275,6 +276,11 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
 
         ImageStack is_lhoods = PeakAnalyzer2D.exportLikelihoods(new int[]{1});
         new ImagePlus("", is_lhoods).show();
+
+
+		int rn = new Random().nextInt(100);
+		PeakAnalyzer2D.exportLikelihoods("/home/miroslav/Desktop/"+rn+".csv");
+		IJ.log("exported!");
 
 //        Overlay overlay_with_detections = SimpleDetector2D.drawDetections();
 //        ImagePlus final_det = cnv.getImage().duplicate();

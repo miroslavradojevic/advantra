@@ -14,46 +14,49 @@ import java.util.Arrays;
  */
 public class Fuzzy2D {
 
-    static int      N;          // number of points
-    static int[]    out_idxs;   //
-    static int      L = 5;      // number of outputs
+    int      N;         // number of points
+    int[]    out_idxs;  //
+    int      L;			// number of outputs
 
     // fuzzification parameters
-    static float    mu_ON, sig_ON, mu_OFF, sig_OFF;     // gaussian standard deviation
+    float    mu_ON, sig_ON, mu_OFF, sig_OFF;     // gaussian mean, standard deviation
     // defuzzification parameters
-    static float    sig_OUT = 0.25f;
-    static float    mu_NON = 0f;
-    static float    mu_END = 1f;
-    static float    mu_BDY = 2f;
-    static float    mu_BIF = 3f;
-    static float    mu_CRS = 4f;
+    float    sig_OUT, mu_NON, mu_END, mu_BDY, mu_BIF, mu_CRS;
 
-    static float[] 	x;      	    // serve as x axis for membership functions (range 0 to 4)
-    static float[] 	agg;            // serve as aggregation
+    float[] 	x;      	    // serve as x axis for membership functions (range 0 to 4)
+    float[] 	agg;            // serve as aggregation
 
     // L outputs
-    static float[] 	v_NON;
-    static float[] 	v_END;
-    static float[] 	v_BDY;
-    static float[] 	v_BIF;
-    static float[] 	v_CRS;
+    float[] 	v_NON;
+    float[] 	v_END;
+    float[] 	v_BDY;
+    float[] 	v_BIF;
+    float[] 	v_CRS;
 
     // membership fuzzy sets for L outputs (rules will call these categories "NON", "END", "BDY", "BIF", "CRS")
-    private static float[] q_NON;
-    private static float[] q_END;
-    private static float[] q_BDY;
-    private static float[] q_BIF;
-    private static float[] q_CRS;
+    float[] q_NON;
+    float[] q_END;
+    float[] q_BDY;
+    float[] q_BIF;
+    float[] q_CRS;
 
     public Fuzzy2D(int _N, float _mu_ON, float _sig_ON, float _mu_OFF, float _sig_OFF)
     {
         N = _N;
+		L = 5;
 
         mu_ON = _mu_ON;
         sig_ON = _sig_ON;
 
         mu_OFF = _mu_OFF;
         sig_OFF = _sig_OFF;
+
+		sig_OUT = 0.3f;
+		mu_NON = 0f;
+		mu_END = 1f;
+		mu_BDY = 2f;
+		mu_BIF = 3f;
+		mu_CRS = 4f;
 
         x = new float[N];
         for (int i=0; i<N; i++) x[i] = i * ((float)(L-1) / (N-1));
@@ -317,13 +320,6 @@ public class Fuzzy2D {
 
     }
 
-//        if (true) {
-//            Plot p = new Plot("", "", "", x, agg);
-//            p.setLimits(0, (L-1), 0, 1);
-//            p.show();
-//            System.out.println(Arrays.toString(agg));
-//        }
-
     public static final float min(float in1, float in2)
     {
         return Math.min(in1, in2);
@@ -344,9 +340,9 @@ public class Fuzzy2D {
         return Math.min(in1, min(in2, in3, in4, in5));
     }
 
-    public static final void accumulate(float[] values, float[] accumulator)
+    private static final void accumulate(float[] values, float[] accumulator)
     {
-        for (int i=0; i<N; i++) if (values[i]>accumulator[i]) accumulator[i] = values[i];
+        for (int i=0; i<values.length; i++) if (values[i]>accumulator[i]) accumulator[i] = values[i];
     }
 
 }
