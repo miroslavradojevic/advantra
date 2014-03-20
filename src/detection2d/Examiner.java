@@ -278,9 +278,9 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
         new ImagePlus("", is_lhoods).show();
 
 
-		int rn = new Random().nextInt(100);
-		PeakAnalyzer2D.exportLikelihoods("/home/miroslav/Desktop/"+rn+".csv");
-		IJ.log("exported!");
+		//int rn = new Random().nextInt(100);
+		//PeakAnalyzer2D.exportLikelihoods("/home/miroslav/Desktop/"+rn+".csv");
+		//IJ.log("exported!");
 
 //        Overlay overlay_with_detections = SimpleDetector2D.drawDetections();
 //        ImagePlus final_det = cnv.getImage().duplicate();

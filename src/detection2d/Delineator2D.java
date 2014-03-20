@@ -28,18 +28,18 @@ import java.util.Arrays;
  * ratio2:
  *      scores for each branch 4*1 (M*L elements sum up to one number telling the ratio of those above the threshold)
  */
-public class PeakAnalyzer2D extends Thread {
+public class Delineator2D extends Thread {
 
     private int begN, endN;
 
     // VARIABLES (mainly used as a table)
-    public static int[][] 	    i2xy;                   // selected locations
-    public static int[][]     	xy2i;                   // need for recursion
+    public static int[][] 	    i2xy;                       // selected locations
+    public static int[][]     	xy2i;                       // need for recursion
 
     // INPUT:
-    public static int[][]       peaks_i;             	// list of extracted peaks: N x 4 every FG location with 4 extracted peaks in indexed format
-	public static int[][]		peaks_w;                // weight assigned to each peak (for expansion)
-	public static float[][]		inimg_xy;				// input image (necessary for feature extraction)
+    public static int[][]       peaks_i;             	    // list of extracted peaks: N x 4 every FG location with 4 extracted peaks in indexed format
+	public static int[][]		peaks_w;                    // weight assigned to each peak (for expansion)
+	public static float[][]		inimg_xy;				    // input image (necessary for feature extraction)
 
     // PARAMETERS
     public static float     D;
@@ -59,16 +59,14 @@ public class PeakAnalyzer2D extends Thread {
 
     // OUTPUT
     // associate the peaks and link follow-up points
-    public static int[][][]     delin2;                     // N(foreground locs.) x 4(max. threads) x M(follow-up locs) contains index for each location
+    public static int[][][]     delin2;                     // N(foreground locs.) x 4(max. threads) x (1..M) (follow-up locs.) contains index for each location
+    public static float[][][]   streamlin_locs2;            // N(foreground locs.) x 4 x ((1..M) x L) x 2 (2 dimensional geometry)
+    public static float[][][]   streamlin_vecs2;            // N(foreground locs.) x 4 x ((1..M) x L) x 2 (2 dimensional geometry)
 
 	// FEATURES, F. DESCRIPTOR, OUT LIKELIHOODS
     public static float[][][]   feat2;						// N(foreground locs.) x 4 x ((1..M) x L)       fit scores
     public static float[][][]   desc2;                      // N(foreground locs.) x 4 x 2 (mean,variance)  description
     public static float[][]     lhood2;                     // N(foreground locs.) x 5 (NON..CRS) fuzzy logic output is stored here
-
-    // PROCESSING UNITS
-//    private static Fitter1D fitter;                         // class used to calculate fitting scores
-//    private static Fuzzy2D  fuzzy_logic_system;             // class used to calculate fuzzy score
 
     public PeakAnalyzer2D(int n0, int n1)
     {
@@ -112,12 +110,12 @@ public class PeakAnalyzer2D extends Thread {
 		peaks_w = _peaks_w;
 		inimg_xy = _inimg_xy;
 
-        // allocate output -> set to -1
-        delin2 = new int[i2xy.length][4][M];
-        for (int ii=0; ii<delin2.length; ii++)
-            for (int jj = 0; jj < delin2[0].length; jj++)
-                for (int kk = 0; kk < delin2[0][0].length; kk++)
-                    delin2[ii][jj][kk] = -1;
+        // allocate output
+        delin2 = new int[i2xy.length][4][];
+//        for (int ii=0; ii<delin2.length; ii++)
+//            for (int jj = 0; jj < delin2[0].length; jj++)
+//                for (int kk = 0; kk < delin2[0][0].length; kk++)
+//                    delin2[ii][jj][kk] = -1;
 
 		feat2   = new float[i2xy.length][4][];                      // fitting scores
         desc2  = new float[i2xy.length][4][];                       // description of the fit scores
@@ -163,23 +161,53 @@ public class PeakAnalyzer2D extends Thread {
                         // recursion : prev+curr->next index
                         next_index = getNext(prev_index, curr_index); // next follow-up will be calculated and sorted
 
+                        // todo getNext can output 2 values: if it is not found because it was not in the FG (NOT OK) or it did not exist (OK)
+
                         if (next_index!=-1) { // -1 will be if the next one is not found
 
                             delin2[locationIdx][pp][m] = next_index;     // store it in output matrix
 
                         }
                         else { // follow-up does not exist, break looping m (extending further) but continue looping branches
-                            break;
+
+                            //break;
+
+                            // assign the whole delineation as incomplete and finish
+
+
                         }
 
                     }
 
                 }
-                else { // it was -1 and the rest are not found
-                    break; // stop for() loop - there are no more branches
+                else {
+
+                    // peak index was -1 (peak in the background according to the mask)
+                    // this is a case of an incomplete delineation
+                    // it can be anything and mask should not influence the final decision making as it would happen this way
+                    // if the peak was discarded as it does not exist
+                    // fix - this is probably wrong! to stop looping further
+                    //break; // stop looping the branches
+                    continue; // continue checking the peaks further
+
+                    // solution: keep onlu those  delineations unaffected by the mask, where the whole delineation has at least
+                    // the first point of the streamline in foreground (reaching)
+
+
+                    // assign the whole delineation as incomplete and finish
+
+
+
                 }
 
             } // delin2[locationIdx] is fully formed
+
+
+            /*
+                streamlin_locs2, streamlin_vecs2
+            */
+
+
 
             getDelineationFeatures(locationIdx, mode, fitter, fls); // calculate features, descriptors and likelihoods
 
@@ -643,7 +671,7 @@ public class PeakAnalyzer2D extends Thread {
 
     private static void getDelineationFeatures(int loc_idx, String mode, Fitter1D _fitter, Fuzzy2D _fls)
     {
-        if (loc_idx!=-1) {       // location is in foreground, there is a delineation there, fill 'features' and 'descriptors' up
+        //if (loc_idx!=-1) {       // location is in foreground, there is a delineation there, fill 'features' and 'descriptors' up
 
             int[][] delin_at_loc = delin2[loc_idx];
 
@@ -728,13 +756,6 @@ public class PeakAnalyzer2D extends Thread {
 
             }
 
-//			if (loc_idx == 9101) {
-//				System.out.println("branches found = "+branches_found.size()+ " at x: "+i2xy[loc_idx][0]+" at y: "+i2xy[loc_idx][1]);
-//				//print();
-//				for (int yy=0; yy<branches_found.size(); yy++)
-//					System.out.println("idx "+branches_found.get(yy)+"  ");
-//			}
-
 			lhood2[loc_idx] = new float[_fls.L]; // allocate in the length of fls output vector
 
             // calculate fuzzy likelihoods
@@ -755,12 +776,10 @@ public class PeakAnalyzer2D extends Thread {
                         lhood2[loc_idx]);
             }
             else if (branches_found.size()==2) {
-//				if (loc_idx == 9101) System.out.println("did the right one "+Arrays.toString(lhood2[loc_idx]));
                 _fls.critpointScores(
                         desc2[loc_idx][branches_found.get(0)][0],
                         desc2[loc_idx][branches_found.get(1)][0],
                         lhood2[loc_idx]);
-//				if (loc_idx == 9101) System.out.println("did the right one "+Arrays.toString(lhood2[loc_idx]));
             }
             else if (branches_found.size()==1) {
                 _fls.critpointScores(
@@ -768,7 +787,7 @@ public class PeakAnalyzer2D extends Thread {
                         lhood2[loc_idx]);
             }
 
-        }
+        //}
 
     }
 
@@ -921,11 +940,9 @@ public class PeakAnalyzer2D extends Thread {
 		//main loop
 		for (int ii=0; ii<lhood2.length; ii++) {
 			for (int jj=0; jj<lhood2[ii].length; jj++) { // loop streamlines
-//				for (int kk=0; kk<delin2[ii][jj].length; kk++) { // print M elements in the same streamline
 					logWriter.print(String.format("%1.8f", lhood2[ii][jj]));
 					if (jj<lhood2[ii].length-1) logWriter.print(", ");
 					else logWriter.print("\n");
-//				}
 			}
 		}
 
@@ -1095,18 +1112,85 @@ public class PeakAnalyzer2D extends Thread {
 
 	}
 
-    // (CALC) calculation of the fitting scores for every local patch cross profile
-    private static void localPatchFeatures(float x1, float y1, float x2, float y2, String mode, float[] feats_out, int init_index, Fitter1D _fitter) // L values per patch in feat_out
+    /*
+        refined local directions per profile
+     */
+    private static void localPatchRefinedVecs(float[][] refined_centerline_locs_xy, float[][] refined_centerline_vecs_xy)
     {
 
+        // will do local average of directions (average 2 consecutive directions)
+
+        for (int ii=0; ii<refined_centerline_locs_xy.length; ii++) {
+
+
+
+        }
+
+
+    }
+
+    /*
+        refined locations per cross profile
+     */
+    private static void localPatchRefinedLocs(float x1, float y1, float x2, float y2, float[][] refined_centerline_locs_xy, int init_index)
+    {
+        /*
+            standard way to loop through a patch defined with 2 points
+         */
         float l = (float) Math.sqrt(Math.pow(x2-x1, 2)+Math.pow(y2-y1, 2));
         float vx = (x2-x1)/l;
         float vy = (y2-y1)/l;
         float wx = vy;
         float wy = -vx;
 
+        float x_root = x2 - vx * D;
+        float y_root = y2 - wx * D;
+
+        for (int ii=0; ii<L; ii++) {                        // loops L of them in radial direction
+
+            float refined_x = Float.NaN;
+            float refined_y = Float.NaN;
+            float val_max = Float.NEGATIVE_INFINITY;
+
+            for (int jj=-dim_half; jj<=dim_half; jj++) {    // loops vector w
+
+                float curr_x = x_root + ii * samplingStepLongitudinal * vx + jj * samplingStep * vy;
+                float curr_y = y_root + ii * samplingStepLongitudinal * wx + jj * samplingStep * wy;
+
+                /*
+                    find the coordinate of the max for this profile
+                 */
+                float value = Interpolator.interpolateAt(curr_x, curr_y, inimg_xy);
+
+                if (value>val_max) { val_max = value; refined_x = curr_x; refined_y = curr_y; }
+
+            }
+
+            refined_centerline_locs_xy[init_index + ii][0] = refined_x;
+            refined_centerline_locs_xy[init_index + ii][1] = refined_y;
+
+        }
+
+    }
+
+
+
+    // (CALC) calculation of the fitting scores for every local patch cross profile
+    private static void localPatchFeatures(float x1, float y1, float x2, float y2, String mode, float[] feats_out, int init_index, Fitter1D _fitter) // L values per patch in feat_out
+    {
+
         float[] dummy;
         float[] val = new float[dim];
+
+        /*
+            standard scheme to loop through the patch
+         */
+
+        float l = (float) Math.sqrt(Math.pow(x2-x1, 2)+Math.pow(y2-y1, 2));
+        float vx = (x2-x1)/l;
+        float vy = (y2-y1)/l;
+        float wx = vy;
+        float wy = -vx;
 
         float x_root = x2 - vx * D;
         float y_root = y2 - wx * D;
