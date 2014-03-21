@@ -60,16 +60,20 @@ public class PeakExtractor2D extends Thread {
 		peaks_theta  	= new float[i2xy.length][4][1];
 		peaks_w 		= new int[i2xy.length][4];
 
+        // initialization legend:
+        // -2 is assuming that it is not assigned, empty location (all are initialized that way)
+        // -1 will be added if it is in the background
+        // >=0 in case it is some foreground location
 		for (int ii = 0; ii<i2xy.length; ii++) {
 			for (int jj = 0; jj<4; jj++) {
 
-                peaks_i[ii][jj] = -1;
+                peaks_i[ii][jj] = -2;
 
 				for (int kk=0; kk<1; kk++) {
-					peaks_theta[ii][jj][kk] = -1;
+					peaks_theta[ii][jj][kk] = -2;
 				}
 
-				peaks_w[ii][jj] = -1;
+				peaks_w[ii][jj] = -2;
 
 			}
 		}
@@ -251,7 +255,37 @@ public class PeakExtractor2D extends Thread {
             int x_peak_pix_rounded = Math.round(atX + sphere_atXY.getX(peak_theta));
             int y_peak_pix_rounded = Math.round(atY + sphere_atXY.getY(peak_theta));
 
-            if (xy2i[x_peak_pix_rounded][y_peak_pix_rounded]!=-1) {
+            if (xy2i[x_peak_pix_rounded][y_peak_pix_rounded]==-1) {
+                /*
+                 belongs to the mask defined background
+                  */
+
+//                boolean added = false;
+
+                // add it to the first available place if there is such, give priority to those from the foreground
+                for (int k = 0; k < 4; k++) {
+
+                    if (weights[k] == -1) { // store on first available location
+
+                        destination_locs[k]         = -1;//xy2i[x_peak_pix_rounded][y_peak_pix_rounded];
+                        destination_angs[k][0]      = -1;
+                        destination_weights[k]      = peak_weight;
+
+                        weights[k] 					= peak_weight;
+
+//                        added = true;
+                        break;
+                    }
+
+                }
+                // if all th locations are filled up, just ignore the background point
+                // there is enough to make the decision so that the background peaks are not disturbance
+
+            }
+            else {
+                /*
+                 belongs to the mask defined foreground
+                  */
 
                 boolean added = false;
 
@@ -259,13 +293,13 @@ public class PeakExtractor2D extends Thread {
 
                     if (weights[k] == -1) { // store immediately, location is available
 
-						destination_locs[k]         = xy2i[x_peak_pix_rounded][y_peak_pix_rounded];
+                        destination_locs[k]         = xy2i[x_peak_pix_rounded][y_peak_pix_rounded];
                         destination_angs[k][0]      = peak_theta;
-						destination_weights[k]      = peak_weight;
+                        destination_weights[k]      = peak_weight;
 
                         weights[k] 					= peak_weight;
 
-						added = true;
+                        added = true;
                         break;
                     }
 
@@ -274,30 +308,28 @@ public class PeakExtractor2D extends Thread {
                 if (!added) { // no available slot
 
                     // loop once more and put it instead of the one with lowest weight
-					int min_weight_idx 	= -1;
-					int min_weight 		= Integer.MAX_VALUE;
+                    int min_weight_idx 	= -1;
+                    int min_weight 		= Integer.MAX_VALUE;
 
-					for (int kk=0; kk<4; kk++) {
-						if (weights[kk]<min_weight) {
-							min_weight = weights[kk];
-							min_weight_idx = kk;
-						}
-					}
+                    for (int kk=0; kk<4; kk++) {
+                        if (weights[kk]<min_weight) {
+                            min_weight = weights[kk];
+                            min_weight_idx = kk;
+                        }
+                    }
 
-					// add it instead
-					destination_locs[min_weight_idx] = xy2i[x_peak_pix_rounded][y_peak_pix_rounded];
-					destination_angs[min_weight_idx][0] = peak_theta;
-					destination_weights[min_weight_idx] = peak_weight;
+                    // add it instead
+                    destination_locs[min_weight_idx] = xy2i[x_peak_pix_rounded][y_peak_pix_rounded];
+                    destination_angs[min_weight_idx][0] = peak_theta;
+                    destination_weights[min_weight_idx] = peak_weight;
 
-					weights[min_weight_idx] = peak_weight;
+                    weights[min_weight_idx] = peak_weight;
 
                 }
 
             }
-			else {
-				// it is in the background
 
-			}
+            // otherwise the value of the peak stays -2 in case it was not filled up (peak did not exist, value given at initialization stays)
 
         }
 
@@ -468,7 +500,8 @@ public class PeakExtractor2D extends Thread {
 
     public static void getPeaks(int atX, int atY, int N, Overlay out_ov)
     {
-        // plot features
+        // recursively plot peaks of the peaks
+        // if peak was foreground then it's plotted in (in current implementation, background peaks are not saved, memorized as -1 index)
         float R = 0.5f;
         Color c = Color.GREEN;
         float w = .25f;
@@ -477,7 +510,7 @@ public class PeakExtractor2D extends Thread {
 
             int point_idx = xy2i[atX][atY];
 
-            if (point_idx!=-1) {
+            if (point_idx>=0) {
                 OvalRoi pt = new OvalRoi(atX-(R/2)+.5f, atY-(R/2)+.5f, R, R);
                 pt.setFillColor(c);
                 pt.setStrokeWidth(w);
@@ -489,7 +522,7 @@ public class PeakExtractor2D extends Thread {
             int point_idx = xy2i[atX][atY];
 
             // add current point
-            if (point_idx!=-1) {
+            if (point_idx>=0) {
 
                 OvalRoi pt = new OvalRoi(atX-(R/2)+.5f, atY-(R/2)+.5f, R, R);
                 pt.setFillColor(c);
@@ -500,7 +533,7 @@ public class PeakExtractor2D extends Thread {
 
                     int peak_idx = peaks_i[point_idx][p];
 
-                    if (peak_idx!=-1) {
+                    if (peak_idx>=0) {
 
                         // corresponding x, y
                         int peak_x = i2xy[peak_idx][0];

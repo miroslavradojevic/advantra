@@ -232,7 +232,7 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
         }
         //************************************************
         IJ.log("analyzing peaks + extracting features ...");
-        PeakAnalyzer2D.loadTemplate(Masker2D.i2xy, Masker2D.xy2i, PeakExtractor2D.peaks_i, PeakExtractor2D.peaks_w, inimg_xy, Masker2D.back_xy,
+        Delineator2D.loadTemplate(Masker2D.i2xy, Masker2D.xy2i, PeakExtractor2D.peaks_i, PeakExtractor2D.peaks_w, inimg_xy, //Masker2D.back_xy,
                 M,
                 minCos,
                 D,
@@ -245,9 +245,9 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
                 mode
                 );
         int totalPeakAnalyzeComponents = Masker2D.i2xy.length; // number of locations
-        PeakAnalyzer2D pa_jobs[] = new PeakAnalyzer2D[CPU_NR];
+        Delineator2D pa_jobs[] = new Delineator2D[CPU_NR];
         for (int i = 0; i < pa_jobs.length; i++) {
-            pa_jobs[i] = new PeakAnalyzer2D(i*totalPeakAnalyzeComponents/CPU_NR, (i+1)*totalPeakAnalyzeComponents/CPU_NR);
+            pa_jobs[i] = new Delineator2D(i*totalPeakAnalyzeComponents/CPU_NR, (i+1)*totalPeakAnalyzeComponents/CPU_NR);
             pa_jobs[i].start();
         }
         for (int i = 0; i < pa_jobs.length; i++) {
@@ -258,8 +258,9 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
             }
         }
         //************************************************
+        /*
         IJ.log("simple detector...");
-        SimpleDetector2D.loadTemplate(inimg_xy.length, inimg_xy[0].length, Masker2D.i2xy, Masker2D.xy2i, PeakAnalyzer2D.delin2, PeakAnalyzer2D.lhood2);
+        SimpleDetector2D.loadTemplate(inimg_xy.length, inimg_xy[0].length, Masker2D.i2xy, Masker2D.xy2i, Delineator2D.delin2, Delineator2D.lhood2);
         int totalSimpleDetectComponents = Masker2D.i2xy.length;
         SimpleDetector2D sd_jobs[] = new SimpleDetector2D[CPU_NR];
         for (int i=0; i<sd_jobs.length; i++) {
@@ -273,10 +274,12 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
                 e.printStackTrace();
             }
         }
+        */
 
-        ImageStack is_lhoods = PeakAnalyzer2D.exportLikelihoods(new int[]{1});
+        /*
+        ImageStack is_lhoods = Delineator2D.exportLikelihoods(new int[]{1});
         new ImagePlus("", is_lhoods).show();
-
+        */
 
 		//int rn = new Random().nextInt(100);
 		//PeakAnalyzer2D.exportLikelihoods("/home/miroslav/Desktop/"+rn+".csv");
@@ -303,21 +306,22 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
 //        out.setTitle("GCsegmentation");
 //        out.show();
 
+        /*
         if (false) {
 
             IJ.log("export features ");
             t1 = System.currentTimeMillis();
 
             String export_path = image_dir+image_name+".feat";
-            PeakAnalyzer2D.exportFeats(export_path);
+            Delineator2D.exportFeats(export_path);
             IJ.log("done exporting to: \t" + export_path + "\n");
 
             export_path = image_dir+image_name+".desc";
-            PeakAnalyzer2D.exportDescripts(export_path);
+            Delineator2D.exportDescripts(export_path);
             IJ.log("done exporting to: \t" + export_path + "\n");
 
             export_path = image_dir + image_name + ".frame";
-            PeakAnalyzer2D.exportFrames(export_path);
+            Delineator2D.exportFrames(export_path);
             IJ.log("done exporting to: \t" + export_path + "\n");
 
             export_path = image_dir + image_name + ".i2xy";
@@ -328,6 +332,8 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
             IJ.log("done. " + ((t2 - t1) / 1000f) + "sec.");
 
         }
+        */
+
 		//************************************************
 
         /*
@@ -353,6 +359,7 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
         /*
             output Stack with local patches & update window
          */
+        /*
         pfl_is = PeakAnalyzer2D.getDelineationPatches(clickX, clickY);
         pfl_im.setStack("patches", pfl_is);
         pfl_im.show();
@@ -366,7 +373,7 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
         pfl_is2 = PeakAnalyzer2D.plotDelineationFeatures(clickX, clickY);
         pfl_im2.setStack("features", pfl_is2);
         pfl_im2.show();
-
+        */
         IJ.setTool("hand");
 
     }
@@ -381,7 +388,7 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
         /*
             output Overlay & update canvas with the original
          */
-        Overlay ov_to_add = PeakAnalyzer2D.getDelineationOverlay(clickX, clickY);
+        Overlay ov_to_add = Delineator2D.getDelineationOverlay(clickX, clickY);
 
         // add the whole image on top as overlay each time mouse is moved
         //ImageRoi fgroi = new ImageRoi(0, 0, Masker2D.getMask());    // !!! not very efficient to be done each time
@@ -395,7 +402,7 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
         cnv.setOverlay(ov_to_add);
 
 		// print extracted features
-		PeakAnalyzer2D.print(clickX, clickY);
+		Delineator2D.print(clickX, clickY);
 
         /*
          output stack with local profile

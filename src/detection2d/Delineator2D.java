@@ -61,12 +61,15 @@ public class Delineator2D extends Thread {
     // associate the peaks and link follow-up points
     public static int[][][]     delin2;                     // N(foreground locs.) x 4(max. threads) x (1..M) (follow-up locs.) contains index for each location
     public static float[][][][] delin_refined_locs2;        // N(foreground locs.) x 4(max. threads) x 2 x ((1..M) x L) (2 dimensional)
-    public static float[][][][] delin_refined_vecs2;        // N(foreground locs.) x 4(max. threads) x 2 x ((1..M) x L) (2 dimensional)
+//    public static float[][][][] delin_refined_vecs2;        // N(foreground locs.) x 4(max. threads) x 2 x ((1..M) x L) (2 dimensional)
 
 	// FEATURES, F. DESCRIPTOR, OUT LIKELIHOODS
-    public static float[][][][] feat2;						// N(foreground locs.) x 4 x 3 x ((1..M) x L) (offset,fit score,variance)
-    public static float[][][]   desc2;                      // N(foreground locs.) x 4 x 3   (averages)
-    public static float[][]     lhood2;                     // N(foreground locs.) x 5 (NON..CRS) fuzzy logic output is stored here
+    public static float[][][]   offset2;						// N(foreground locs.) x 4 x ((1..M) x L) (offset)
+//    // temporary
+//    public static float[][][]   fitsco2;						// N(foreground locs.) x 4 x ((1..M) x L) (fit score)
+//    public static float[][][]   varian2;						// N(foreground locs.) x 4 x ((1..M) x L) (variance)
+//    public static float[][][]   desc2;                          // N(foreground locs.) x 4 x 3   (averages)
+//    public static float[][]     lhood2;                         // N(foreground locs.) x 5 (NON..CRS) fuzzy logic output is stored here
 
     public Delineator2D(int n0, int n1)
     {
@@ -110,13 +113,23 @@ public class Delineator2D extends Thread {
 		inimg_xy = _inimg_xy;
 
         // allocate output
-        delin2 				= new int[i2xy.length][4][];
-		delin_refined_locs2 = new float[i2xy.length][4][2][];       // (x,y)
-		delin_refined_vecs2 = new float[i2xy.length][4][2][];       // (x,y)
+        delin2 				= new int[i2xy.length][4][M];
+        // initialize with -2 (same meaning as with peaks_i)
+        for (int i=0; i<delin2.length; i++)
+            for (int j=0; j<delin2[i].length; j++)
+                for (int k=0; k<delin2[i][j].length; k++)
+                    delin2[i][j][k] = -2;
 
-		feat2   = new float[i2xy.length][4][3][];                   // (offset,fit score,variance)
-        desc2  	= new float[i2xy.length][4][];                       // description of the fit scores
-        lhood2  = new float[i2xy.length][];     					// fuzzy likelihood output
+		delin_refined_locs2 = new float[i2xy.length][4][2][];       // (x,y)
+//		delin_refined_vecs2 = new float[i2xy.length][4][2][];       // (x,y)
+
+        offset2   = new float[i2xy.length][4][];                    // offset
+//        // temporary
+//        fitsco2   = new float[i2xy.length][4][];                    // fit score
+//        varian2   = new float[i2xy.length][4][];                    // variance
+//
+//        desc2  	= new float[i2xy.length][4][];                      // description of the fit scores
+//        lhood2  = new float[i2xy.length][];     					// fuzzy likelihood output
 
     }
 
@@ -133,64 +146,83 @@ public class Delineator2D extends Thread {
 
 			Fitter1D fitter  			= new Fitter1D(dim, false); // dim = profile width with current samplingStep, verbose = false
 //			fitter.showTemplates();
+            /*
+            central FLS
+             */
 			Fuzzy2D  fls 				= new Fuzzy2D(nr_points, mu_ON, sig_ON, mu_OFF, sig_OFF); // class used to calculate fuzzy score
+            /*
+            stream FLS
+             */
+
 			// todo add another Fuzzy class for the cascade
+//            SegmentFLS
 //			fuzzy_logic_system.showFuzzification();
 //			fuzzy_logic_system.showDefuzzification();
 
             int[] peaks_at_loc = peaks_i[locationIdx];
 
-            // access individual peaks at this point
-            for (int pp = 0; pp<peaks_at_loc.length; pp++) {  // loop 4 allocated branches
+            // access individual peaks at this point (-2:not exist, -1:background, >=0:foreground)
 
-                if (peaks_at_loc[pp] != -1) { // check the 1st generation, if the peak exists
+            /*
+                delin2[locationIdx] calculation
+             */
+            for (int pp = 0; pp<peaks_i[locationIdx].length; pp++) {  // loop 4 allocated branches (1st generation)
 
-                    int indexValue = peaks_at_loc[pp];//xy2i[pkX][pkY];
+                if (peaks_i[locationIdx][pp] >= 0) {
 
-                    delin2[locationIdx][pp][0] = indexValue;
+                    //if the peak exists in the foreground
+                    delin2[locationIdx][pp][0] = peaks_i[locationIdx][pp];
 
                     int curr_index, prev_index, next_index;
-
-                    curr_index = indexValue;
+                    curr_index = peaks_i[locationIdx][pp];
                     prev_index = locationIdx;
 
-                    for (int m=1; m<M; m++) { // follow the rest of the indexes
+                    for (int m=1; m<M; m++) { // follow the recursion for the rest of the indexes
 
-                        // recursion : prev+curr->next index
-                        next_index = getNext(prev_index, curr_index); // next follow-up will be calculated and sorted
+                        next_index = getNext(prev_index, curr_index); // recursion : prev+curr->next index
+                        // >=0 if there was at least one in foreground
+                        // will give -1 if the next one was in the background and there was no other foreground peak
+                        // -2 if it there was no other foreground peak and background either
 
-                        // todo getNext can output 2 values: if it is not found because it was not in the FG (NOT OK) or it did not exist (OK)
-
-                        if (next_index!=-1) { // -1 will be if the next one is not found
-
+                        if (next_index>=0) {
                             delin2[locationIdx][pp][m] = next_index;     // store it in output matrix
-
                         }
-                        else { // follow-up does not exist, break looping m (extending further) but continue looping branches
-
-                            //break;
-
-                            // assign the whole delineation as incomplete and finish
-
-
+                        else if (next_index==-1){ // not found but found in the background
+                            delin2[locationIdx][pp][m] = -1;
+                            // fill the rest with -1 once one fell out
+                            for (int m_aux=m+1; m_aux<M; m_aux++) delin2[locationIdx][pp][m_aux] = -1;
+                            break; // stop looping further along the streamline here
                         }
+                        else if (next_index==-2) { // not found at all
+                            delin2[locationIdx][pp][m] = -2;
+                            // fill the rest with -2 once one had a dead end
+                            for (int m_aux=m+1; m_aux<M; m_aux++) delin2[locationIdx][pp][m_aux] = -2;
+                            break; // stop looping further along the streamline here
+                        }
+
+                        // recursion - to expand further in the next iteration
+                        prev_index = curr_index;
+                        curr_index = next_index;
 
                     }
 
                 }
-                else {
+                else if (peaks_i[locationIdx][pp] == -1) {
 
                     // 1st generation peak index was -1 (peak in the background according to the mask)
-                    // this is a case of an incomplete delineation
-                    // it can be anything and mask should not influence the final decision making as it would happen this way
-                    // if the peak was discarded as it does not exist
-                    // fix - this is probably wrong! to stop looping further
-                    //break; // stop looping the branches
-                    //continue; // continue checking the peaks further
-                    // solution: keep only those  delineations unaffected by the mask, where the whole delineation is in foreground
-                    // assign the whole delineation as incomplete here and finish
-					for (int ii=0; ii<delin2[locationIdx].length; ii++) delin2[locationIdx][ii] = null;
-					break;
+                    // this is a case of an incomplete delineation, having it's parts in the background
+                    // it can be anything and mask should not influence the final decision making
+                    // if the peak was discarded as it did not exist - wrong it can affect the decision
+                    // solution: keep only those delineations unaffected by the mask, where the whole delineation is in foreground
+                    // assign the whole delineation as incomplete here - giving -1 to all elements and finish
+					for (int m=0; m<M; m++) delin2[locationIdx][pp][m] = -1;
+
+                }
+                else if (peaks_i[locationIdx][pp] == -2) {
+
+                    // those are the places that were not filled up with peaks
+                    // propagate it to delin2
+                    for (int m=0; m<M; m++) delin2[locationIdx][pp][m] = -2;
 
                 }
 
@@ -199,21 +231,101 @@ public class Delineator2D extends Thread {
              delin2[locationIdx] is fully formed
              */
 
+            /*
+            examples delin2[locationIdx][][] indexes start from the one defined with the first index
+            (M=3):
+            23  34 56
+            678 -1 -1
+            -2  -2 -2
+            --------------
+            23  -2 -2      -> still extract the features
+            678 -1 -1      -> still extract the features
+            -2  -2 -2
+            --------------
+            23  -2 -2
+            678 -1 -1
+            -1  -1 -1      -> peak in background from the beginning (don't use it, unsure, skip this case in detection)
+            --------------
+            23  90 101    |
+            -2  -2 -2     |-> endpoint candidate
+            -2  -2 -2     |
+             */
 
             /*
-                streamlin_locs2, streamlin_vecs2
+                delin_refined_locs2[locationIdx], offset2[locationIdx]
             */
 
+            for (int b = 0; b<delin2[locationIdx].length; b++) { // loop 4 branches
+
+                if (delin2[locationIdx][b][0]==-1) {
+                    // whole streamline is missing: the first one was -1, recursion was stopped
+                    delin_refined_locs2[locationIdx] = null;
+                    offset2[locationIdx] = null;
+                    break; // stop looping branches further
+                }
+                else if (delin2[locationIdx][b][0]==-2) {
+                    // no streamline here
+                    delin_refined_locs2[locationIdx][b] = null;
+                    offset2[locationIdx][b] = null;
+                }
+                else if (delin2[locationIdx][b][0]>=0) {
+                    // there is at least one patch in the streamline
+                    // loop the rest to count how many patches there are to allocate the array
+                    int count_patches = 1;
+                    for (int m=1; m<M; m++) {
+                        if (delin2[locationIdx][b][m] >= 0) count_patches++;
+                        else break; // because the rest are filled up with -1 or -2 anyway
+                    }
+
+                    // allocate
+                    delin_refined_locs2[locationIdx][b][0] = new float[count_patches*L]; // x coordinates allocate
+                    delin_refined_locs2[locationIdx][b][1] = new float[count_patches*L]; // y coordinates allocate
+                    offset2[locationIdx][b]                = new float[count_patches*L]; //
+
+                    for (int m = 0; m<M; m++) {      				// loop patches outwards, from the beginning
+
+                        if (delin2[locationIdx][b][m]>=0) {
+
+                            // there is a patch, add the features to the matrix
+                            int curr_i = delin2[locationIdx][b][m];
+                            int curr_x = i2xy[curr_i][0];
+                            int curr_y = i2xy[curr_i][1];
+
+                            int prev_i, prev_x, prev_y;
+
+                            if (m==0) {
+                                prev_x = i2xy[locationIdx][0];  // central location
+                                prev_y = i2xy[locationIdx][1];
+                            }
+                            else{
+                                prev_i = delin2[locationIdx][b][m-1];
+                                prev_x = i2xy[prev_i][0];
+                                prev_y = i2xy[prev_i][1];
+                            }
+
+                            // get refined locations sampled from the local patch (aligned with the patch)
+                            int init = m * L;
+                            localPatchRefined(
+                                    prev_x, prev_y, curr_x, curr_y,
+                                    delin_refined_locs2[locationIdx][b], offset2[locationIdx][b], init);
+
+                        }
+                        else break; // because the rest are filled up with -1 or -2 anyway
+
+                    }
 
 
-            getDelineationFeatures(locationIdx, mode, fitter, fls); // calculate features, descriptors and likelihoods
 
+                }
 
+            }
+            /*
+                delin_refined_locs2[locationIdx], offset2[locationIdx] formed
+            */
 
-
-
-
-
+            /*
+                fitsco2[locationIdx], varian2[locationIdx]
+            */
 
 		}
 
@@ -233,56 +345,78 @@ public class Delineator2D extends Thread {
             for (int ii=0; ii<delin2[atLoc].length; ii++) {
                 printout += ii+"\t->\t";
                 for (int jj=0; jj<delin2[atLoc][ii].length; jj++) {
-                    printout += (delin2[atLoc][ii][jj]!=-1)? IJ.d2s(delin2[atLoc][ii][jj], 2) : "NONE";
+
+                    if (delin2[atLoc][ii][jj]==-1) {
+                        printout += "BGRD";
+                    }
+                    else if (delin2[atLoc][ii][jj]==-2) {
+                        printout += "NONE";
+                    }
+                    else {
+                        printout += IJ.d2s(delin2[atLoc][ii][jj], 2);
+                    }
+
                     if (jj==delin2[atLoc][ii].length-1) printout += "\n";
-                    else printout += ", ";
+                    else printout += ",  ";
                 }
             }
 
-            printout += "\nFEATURES:\n";
-            for (int b=0; b<feat2[atLoc].length; b++) {
-                printout += b+"\t->\t";
+            printout += "\nREFINED LOCS:\n";
+            if (delin_refined_locs2[atLoc]!=null) {
 
-                if (feat2[atLoc][b] != null) {
+                for (int b=0; b<delin_refined_locs2[atLoc].length; b++) {
 
-                    for (int l=0; l<feat2[atLoc][b].length; l++) {
-                        printout += IJ.d2s(feat2[atLoc][b][l], 2);
-                        if (l==feat2[atLoc][b].length-1) printout += "\n";
-                        else printout += ", ";
+                    printout += b+"\t->\t";
+
+                    if (delin_refined_locs2[atLoc][b]!=null) {
+
+                        for (int l=0; l<delin_refined_locs2[atLoc][0].length; l++) {
+
+                            printout += "("+IJ.d2s(delin_refined_locs2[atLoc][b][0][l], 2)+", "+IJ.d2s(delin_refined_locs2[atLoc][b][1][l], 2)+")";
+
+                            if (l==delin_refined_locs2[atLoc][b][0].length-1) printout += "\n";
+                            else printout += ", ";
+                        }
+
+                    }
+                    else {
+                        printout += "NONE\n";
                     }
 
                 }
-                else {
-                    printout += "NONE\n";
-                }
 
             }
-
-            printout += "\nDESCRIPTORS:\n";
-            for (int b=0; b<desc2[atLoc].length; b++) {
-                printout += (b+1) +"\t->\t"; //+ IJ.d2s(ratio2[atLoc][ii], 2) + "\n"
-
-                if (desc2[atLoc][b] != null) {
-
-                    for (int l=0; l<desc2[atLoc][b].length; l++) {
-                        printout += IJ.d2s(desc2[atLoc][b][l], 2);
-                        if (l==desc2[atLoc][b].length-1) printout += "\n";
-                        else printout += ",\t";
-                    }
-
-                }
-                else {
-                    printout += "NONE\n";
-                }
-
+            else {
+                printout += "SKIPPED CALCULATING HERE (THERE WAS A THREAD POINTING TO BGRD)\n";
             }
 
-            printout += "\nFUZZY LIKELIHOODS:\n";
-            printout += "NON->" + IJ.d2s(lhood2[atLoc][0], 2) + "\t\t";
-            printout += "END->" + IJ.d2s(lhood2[atLoc][1], 2) + "\t\t";
-            printout += "BDY->" + IJ.d2s(lhood2[atLoc][2], 2) + "\t\t";
-            printout += "BIF->" + IJ.d2s(lhood2[atLoc][3], 2) + "\t\t";
-            printout += "CRS->" + IJ.d2s(lhood2[atLoc][4], 2) + "\t\t";
+
+//            // skip descriptors and likelihoods for now
+//            printout += "\nDESCRIPTORS:\n";
+//            for (int b=0; b<desc2[atLoc].length; b++) {
+//                printout += (b+1) +"\t->\t"; //+ IJ.d2s(ratio2[atLoc][ii], 2) + "\n"
+//
+//                if (desc2[atLoc][b] != null) {
+//
+//                    for (int l=0; l<desc2[atLoc][b].length; l++) {
+//                        printout += IJ.d2s(desc2[atLoc][b][l], 2);
+//                        if (l==desc2[atLoc][b].length-1) printout += "\n";
+//                        else printout += ",\t";
+//                    }
+//
+//                }
+//                else {
+//                    printout += "NONE\n";
+//                }
+//
+//            }
+//
+//            printout += "\nFUZZY LIKELIHOODS:\n";
+//            printout += "NON->" + IJ.d2s(lhood2[atLoc][0], 2) + "\t\t";
+//            printout += "END->" + IJ.d2s(lhood2[atLoc][1], 2) + "\t\t";
+//            printout += "BDY->" + IJ.d2s(lhood2[atLoc][2], 2) + "\t\t";
+//            printout += "BIF->" + IJ.d2s(lhood2[atLoc][3], 2) + "\t\t";
+//            printout += "CRS->" + IJ.d2s(lhood2[atLoc][4], 2) + "\t\t";
 
             IJ.log(printout);
 
@@ -293,7 +427,8 @@ public class Delineator2D extends Thread {
 
 	}
 
-    private static int getNext(int prev_index, int curr_index) {
+    private static int getNext(int prev_index, int curr_index)
+    {
 
         // these are stacked as XY - take care on that
         int prevX = i2xy[prev_index][0];    // X
@@ -307,12 +442,13 @@ public class Delineator2D extends Thread {
 		int[] 	pks4xW	= peaks_w[curr_index];
 
 		// take the one with highest weight that is above minCos
-		int next_index 	= Integer.MIN_VALUE;
+		int next_index 	= -2;
 		int next_weight = Integer.MIN_VALUE;
+        boolean found_valid_followup = false;
 
 		for (int p = 0; p<pks4xI.length; p++) {
 
-			if (pks4xI[p]!=-1) {
+			if (pks4xI[p]>=0) {
 				// peak in foreground
 				int check_I = pks4xI[p];
 				int next_X 	= i2xy[check_I][0];
@@ -331,6 +467,7 @@ public class Delineator2D extends Thread {
 				if (cosAng>minCos) {
 					// peak is outwards pointing
 					if (pks4xW[p]>next_weight) {
+                        found_valid_followup = true;
 						next_weight = pks4xW[p];
 						next_index 	= pks4xI[p];
 					}
@@ -338,14 +475,22 @@ public class Delineator2D extends Thread {
 
 			}
 			else {
-				// peak in the background
-				next_index = -1;
-				//next_weight neutral
+				// peak in the background and there is nothing acceptable in foreground so far
+                if (!found_valid_followup) {
+                    next_index = -1;
+                    //next_weight neutral
+                }
+                else {
+                    // there is a follow up to use, ignore background point
+                }
+
 			}
 		}
 
 		return next_index;
-		// will give -1 if there was no
+		// will give -1 if the next one was in the background and there was no other foreground peak
+        // -2 if it there was no other foreground peak and background either
+        // >=0 if there was at least one in foreground
 
 	}
 
@@ -358,31 +503,35 @@ public class Delineator2D extends Thread {
         // return the delineated local structure Overlay for visualization
         Overlay ov = new Overlay();
 
-        PeakExtractor2D.getPeaks(atX, atY, 3, ov);
+        /*
+            adds generations of peaks in green
+         */
+        PeakExtractor2D.getPeaks(atX, atY, 3, ov);   // peaks will be stored in ov
 
-		float Rd = 1.5f; // radius of the circles written for delineation
+        float Rd = 1.5f; // radius of the circles written for delineation
         Color cd = Color.RED;
         float wd = 0.25f;
 
-		// central location
+		/*
+		 central location
+		  */
         OvalRoi ovalroi = new OvalRoi(atX-(Rd/2)+.5f, atY-(Rd/2)+.5f, Rd, Rd);
 		ovalroi.setFillColor(cd);
 		ovalroi.setStrokeWidth(wd);
         ov.add(ovalroi);
 
-		// read extracted peaks at this location
-        int idx = xy2i[atX][atY];
+        /*
+            add local cross-section locations (re-calculate) and patch delineation spots (delin2)
+         */
+        if (xy2i[atX][atY]>=0) {
 
-        // show delineation
-        if (idx!=-1) {
+            int[][] delin_at_loc = delin2[xy2i[atX][atY]];
 
-            int[][] delin_at_loc = delin2[idx];
-
-            for (int b = 0; b<delin_at_loc.length; b++) {           // loop 4 branches, b index defines the branch "strength"
+            for (int b = 0; b<delin_at_loc.length; b++) {           // loop 4 branches
 
                 for (int m=0; m<M; m++) {
 
-                    if (delin_at_loc[b][m] != -1) {
+                    if (delin_at_loc[b][m] >= 0) {
 
                         int pt_idx = delin_at_loc[b][m]; // there is a point to add
                         int pt_x = i2xy[pt_idx][0];
@@ -406,11 +555,38 @@ public class Delineator2D extends Thread {
 							prev_y = i2xy[prev_i][1];
 						}
 
-						// add local cross profile plots and patch locations
-						ArrayList<OvalRoi> line_pts = localPatchCrossProfilesLocs(prev_x, prev_y, pt_x, pt_y);
+						ArrayList<OvalRoi> line_pts = localPatchCrossProfilesLocs(prev_x, prev_y, pt_x, pt_y);  // will be recalculated
 						for (int aa = 0; aa < line_pts.size(); aa++) ov.add(line_pts.get(aa));
-						//ArrayList<PointRoi> pts = localPatchValsLocs(prev_x, prev_y, pt_x, pt_y);
-						//for (int aa=0; aa<pts.size(); aa++) ov.add(pts.get(aa));
+
+                    }
+
+                }
+
+            }
+
+        }
+
+        /*
+        add refined streamline locations (read from delin_refined_locs2)
+         */
+        if (xy2i[atX][atY]>=0) {
+
+            float[][][] local_refined_locs = delin_refined_locs2[xy2i[atX][atY]];
+
+            for (int b = 0; b<local_refined_locs.length; b++) {
+
+                // check whether there is a refinement at all here, add in case there is
+                if (local_refined_locs[b]!=null) {
+
+                    // loop points to add them
+                    for (int l=0; l<local_refined_locs[b][0].length; l++) {
+
+                        float refined_x = local_refined_locs[b][0][l];
+                        float refined_y = local_refined_locs[b][1][l];
+                        ovalroi = new OvalRoi(refined_x-(Rd/2)+.5f, refined_y-(Rd/2)+.5f, Rd, Rd);
+                        ovalroi.setFillColor(Color.YELLOW);
+                        ovalroi.setStrokeWidth(Rd/2);
+                        ov.add(ovalroi);
 
                     }
 
@@ -424,29 +600,30 @@ public class Delineator2D extends Thread {
 
     }
 
+
+    /*
+    visualize the extracted images of square patches in separate frames
+     */
     public static ImageStack getDelineationPatches(int atX, int atY)
 	{
 
-        // create new ImageStack with every layer corresponding to one patch
-        // involved in modelling the local structure
-        ImageStack isOut = new ImageStack(dim, M*dim);//(patch_size,patch_size);
+        // create new ImageStack with every layer corresponding to one streamline
+        ImageStack isOut = new ImageStack(dim, M*dim);
 
-        int idx = Masker2D.xy2i[atX][atY]; // read extracted peaks at this location
+        int idx = xy2i[atX][atY]; // read extracted peaks at this location
 
-        if (idx!=-1) {
+        if (idx>=0) { // index is foreground
 
-            int[][] delin_at_loc = PeakAnalyzer2D.delin2[idx];      //
+            int[][] delin_at_loc = delin2[idx];
 
-            for (int b = 0; b<delin_at_loc.length; b++) {           // loop 4 branches, b index defines the strength
-
-
+            for (int b = 0; b<delin_at_loc.length; b++) {           // loop 4 branches
 
 					float[] concat = new float[M*dim*dim];
 					int cnt = 0;
 
-                    for (int m = 0; m<M; m++) { // align them backwards
+                    for (int m = 0; m<M; m++) { // outwards loop
 
-                        if (delin_at_loc[b][m] != -1) {                   // if the last one is there - it is complete
+                        if (delin_at_loc[b][m] >= 0) { // add those that exist, the rest stays blank
 
                         int curr_i = delin_at_loc[b][m];
                         int curr_x = i2xy[curr_i][0];
@@ -477,9 +654,7 @@ public class Delineator2D extends Thread {
 
 					// add slice after looping
 					FloatProcessor patch = new FloatProcessor(dim, M*dim, concat);
-					isOut.addSlice("bch "+b+")", patch); // .resize(patch_size, patch_size)
-
-
+					isOut.addSlice("bch "+b+")", patch);
 
             }
 
@@ -575,6 +750,7 @@ public class Delineator2D extends Thread {
 
 	}
 
+    /*
     public static ImageStack plotDelineationFeatures(int atX, int atY)
     {
 
@@ -672,7 +848,9 @@ public class Delineator2D extends Thread {
         }
         return is_out;
     }
+    */
 
+    /*
     private static void getDelineationFeatures(int loc_idx, String mode, Fitter1D _fitter, Fuzzy2D _fls)
     {
         //if (loc_idx!=-1) {       // location is in foreground, there is a delineation there, fill 'features' and 'descriptors' up
@@ -794,7 +972,9 @@ public class Delineator2D extends Thread {
         //}
 
     }
+    */
 
+    /*
 	public static void exportFeats(String file_path)
 	{
         PrintWriter logWriter = null;
@@ -828,7 +1008,10 @@ public class Delineator2D extends Thread {
 
         logWriter.close();
 	}
+	*/
 
+
+    /*
 	public static void exportDescripts(String file_path)
 	{
         PrintWriter logWriter = null;
@@ -862,6 +1045,7 @@ public class Delineator2D extends Thread {
 
         logWriter.close();
 	}
+	*/
 
     public static void exportFrames(String file_path)
 	{
@@ -926,6 +1110,7 @@ public class Delineator2D extends Thread {
 
     }
 
+    /*
 	public static void exportLikelihoods(String file_path)
 	{
 
@@ -953,7 +1138,9 @@ public class Delineator2D extends Thread {
 		logWriter.close();
 
 	}
+	*/
 
+    /*
     public static ImageStack exportLikelihoods(int[] choice)
     {
 
@@ -982,11 +1169,6 @@ public class Delineator2D extends Thread {
 
                     t[x][y] = (isMax)? lhood2[ii][choice[i]] : 0;
 
-//					if (ii==9101) {
-//						System.out.println("l'hood at" + ii + " is "+ Arrays.toString(lhood2[ii]));
-//						System.out.println("stored " + t[x][y] + " at "+ x + " , " + y);
-//					}
-
                 }
 
                 is_out.addSlice(""+IJ.d2s(choice[i], 0), new FloatProcessor(t));
@@ -995,6 +1177,7 @@ public class Delineator2D extends Thread {
 
         return is_out;
     }
+    */
 
     /*
         methods that deal with local image patch - (rectangle defined with prev_x,y and curr_x,y)
@@ -1136,7 +1319,10 @@ public class Delineator2D extends Thread {
     /*
         refined locations per cross profile
      */
-    private static void localPatchRefinedLocs(float x1, float y1, float x2, float y2, float[][] refined_centerline_locs_xy, int init_index)
+    private static void localPatchRefined(float x1, float y1, float x2, float y2,
+                                          float[][] refined_centerline_locs_xy,
+                                          float[] refined_offsets,
+                                          int init_index)
     {
         /*
             standard way to loop through a patch defined with 2 points
@@ -1152,32 +1338,54 @@ public class Delineator2D extends Thread {
 
         for (int ii=0; ii<L; ii++) {                        // loops L of them in radial direction
 
-            float refined_x = Float.NaN;
-            float refined_y = Float.NaN;
-            float val_max = Float.NEGATIVE_INFINITY;
+            // precompute the profile in advance to seek its local maximum
+            float[] patch_profile = new float[2*dim_half+1 +2 +2];
 
-            for (int jj=-dim_half; jj<=dim_half; jj++) {    // loops vector w
+            patch_profile[0] = Float.NEGATIVE_INFINITY;
+            patch_profile[1] = Float.NEGATIVE_INFINITY;
 
+            patch_profile[patch_profile.length-1] = Float.NEGATIVE_INFINITY;
+            patch_profile[patch_profile.length-2] = Float.NEGATIVE_INFINITY;
+
+            for (int jj=-dim_half; jj<=dim_half; jj++) {
                 float curr_x = x_root + ii * samplingStepLongitudinal * vx + jj * samplingStep * vy;
                 float curr_y = y_root + ii * samplingStepLongitudinal * wx + jj * samplingStep * wy;
-
-                /*
-                    find the coordinate of the max for this profile
-                 */
-                float value = Interpolator.interpolateAt(curr_x, curr_y, inimg_xy);
-
-                if (value>val_max) { val_max = value; refined_x = curr_x; refined_y = curr_y; }
-
+                patch_profile[jj+dim_half+2] = Interpolator.interpolateAt(curr_x, curr_y, inimg_xy);
             }
 
-            refined_centerline_locs_xy[init_index + ii][0] = refined_x;
-            refined_centerline_locs_xy[init_index + ii][1] = refined_y;
+            // find local max and take the one with min dist towards center
+            // initialize
+            float refined_x = x_root + ii * samplingStepLongitudinal * vx + (-dim_half-1) * samplingStep * vy;
+            float refined_y = y_root + ii * samplingStepLongitudinal * wx + (-dim_half-1) * samplingStep * wy;
+            float offset_min = Math.abs(1 - (patch_profile.length-1)/2) * samplingStep;
+
+            for (int loop_prof=2; loop_prof<patch_profile.length-2; loop_prof++) {
+                boolean is_local_max =
+                                patch_profile[loop_prof]>=patch_profile[loop_prof-1] &&
+                                patch_profile[loop_prof]>=patch_profile[loop_prof-2] &&
+                                patch_profile[loop_prof]>=patch_profile[loop_prof+1] &&
+                                patch_profile[loop_prof]>=patch_profile[loop_prof+2];
+                if (is_local_max) {
+                    // measure dist
+                    float dist_from_center = Math.abs(loop_prof - (patch_profile.length - 1) / 2) * samplingStep;
+                    if (dist_from_center<offset_min) {
+                        offset_min = dist_from_center;
+
+                        int index_from_center = loop_prof-dim_half-2;
+                        refined_x = x_root + ii * samplingStepLongitudinal * vx + index_from_center * samplingStep * vy;
+                        refined_y = y_root + ii * samplingStepLongitudinal * wx + index_from_center * samplingStep * wy;
+
+                    }
+                }
+            }
+
+            refined_centerline_locs_xy[0][init_index + ii] = refined_x;
+            refined_centerline_locs_xy[1][init_index + ii] = refined_y;
+            refined_offsets[init_index + ii] = offset_min;
 
         }
 
     }
-
-
 
     // (CALC) calculation of the fitting scores for every local patch cross profile
     private static void localPatchFeatures(float x1, float y1, float x2, float y2, String mode, float[] feats_out, int init_index, Fitter1D _fitter) // L values per patch in feat_out
