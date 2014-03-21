@@ -51,7 +51,7 @@ public class Delineator2D extends Thread {
     private static int      dim;                            // cross profile length
 	private static int      dim_half;                       // cross profile half-length
     private static String   mode;                           // fitting score
-    private static int      nr_points = 4*5+1;              // number of the points given in fuzzy logic system
+    private static int      nr_points = 4*1+1;              // number of the points given in fuzzy logic system
     private static float    mu_ON;
     private static float    sig_ON;
     private static float    mu_OFF;
@@ -60,21 +60,21 @@ public class Delineator2D extends Thread {
     // OUTPUT
     // associate the peaks and link follow-up points
     public static int[][][]     delin2;                     // N(foreground locs.) x 4(max. threads) x (1..M) (follow-up locs.) contains index for each location
-    public static float[][][]   streamlin_locs2;            // N(foreground locs.) x 4 x ((1..M) x L) x 2 (2 dimensional geometry)
-    public static float[][][]   streamlin_vecs2;            // N(foreground locs.) x 4 x ((1..M) x L) x 2 (2 dimensional geometry)
+    public static float[][][][] delin_refined_locs2;        // N(foreground locs.) x 4(max. threads) x 2 x ((1..M) x L) (2 dimensional)
+    public static float[][][][] delin_refined_vecs2;        // N(foreground locs.) x 4(max. threads) x 2 x ((1..M) x L) (2 dimensional)
 
 	// FEATURES, F. DESCRIPTOR, OUT LIKELIHOODS
-    public static float[][][]   feat2;						// N(foreground locs.) x 4 x ((1..M) x L)       fit scores
-    public static float[][][]   desc2;                      // N(foreground locs.) x 4 x 2 (mean,variance)  description
+    public static float[][][][] feat2;						// N(foreground locs.) x 4 x 3 x ((1..M) x L) (offset,fit score,variance)
+    public static float[][][]   desc2;                      // N(foreground locs.) x 4 x 3   (averages)
     public static float[][]     lhood2;                     // N(foreground locs.) x 5 (NON..CRS) fuzzy logic output is stored here
 
-    public PeakAnalyzer2D(int n0, int n1)
+    public Delineator2D(int n0, int n1)
     {
         this.begN = n0;
         this.endN = n1;
     }
 
-    public static void loadTemplate(int[][] _i2xy, int[][] _xy2i, int[][] _peaks_i, int[][] _peaks_w, float[][] _inimg_xy, byte[][] _backgr_xy,
+    public static void loadTemplate(int[][] _i2xy, int[][] _xy2i, int[][] _peaks_i, int[][] _peaks_w, float[][] _inimg_xy,// byte[][] _backgr_xy,
 									int     _M,
                                     float   _minCos,
                                     float   _D,
@@ -98,9 +98,8 @@ public class Delineator2D extends Thread {
         samplingStep    = _sampling_crosswise;
         mode            = _mode;
 
-        dim = (int) Math.ceil( D / (samplingStep*2) );
-        dim_half = dim;
-        dim = 2*dim + 1;
+        dim_half = (int) Math.ceil( D / (samplingStep*2) );
+        dim = 2*dim_half + 1;      // number of samples in a cross-profile
 
         samplingStepLongitudinal = D / (float)(L-1);
 
@@ -111,14 +110,12 @@ public class Delineator2D extends Thread {
 		inimg_xy = _inimg_xy;
 
         // allocate output
-        delin2 = new int[i2xy.length][4][];
-//        for (int ii=0; ii<delin2.length; ii++)
-//            for (int jj = 0; jj < delin2[0].length; jj++)
-//                for (int kk = 0; kk < delin2[0][0].length; kk++)
-//                    delin2[ii][jj][kk] = -1;
+        delin2 				= new int[i2xy.length][4][];
+		delin_refined_locs2 = new float[i2xy.length][4][2][];       // (x,y)
+		delin_refined_vecs2 = new float[i2xy.length][4][2][];       // (x,y)
 
-		feat2   = new float[i2xy.length][4][];                      // fitting scores
-        desc2  = new float[i2xy.length][4][];                       // description of the fit scores
+		feat2   = new float[i2xy.length][4][3][];                   // (offset,fit score,variance)
+        desc2  	= new float[i2xy.length][4][];                       // description of the fit scores
         lhood2  = new float[i2xy.length][];     					// fuzzy likelihood output
 
     }
@@ -137,6 +134,7 @@ public class Delineator2D extends Thread {
 			Fitter1D fitter  			= new Fitter1D(dim, false); // dim = profile width with current samplingStep, verbose = false
 //			fitter.showTemplates();
 			Fuzzy2D  fls 				= new Fuzzy2D(nr_points, mu_ON, sig_ON, mu_OFF, sig_OFF); // class used to calculate fuzzy score
+			// todo add another Fuzzy class for the cascade
 //			fuzzy_logic_system.showFuzzification();
 //			fuzzy_logic_system.showDefuzzification();
 
@@ -145,7 +143,7 @@ public class Delineator2D extends Thread {
             // access individual peaks at this point
             for (int pp = 0; pp<peaks_at_loc.length; pp++) {  // loop 4 allocated branches
 
-                if (peaks_at_loc[pp] != -1) { // if the peak exists
+                if (peaks_at_loc[pp] != -1) { // check the 1st generation, if the peak exists
 
                     int indexValue = peaks_at_loc[pp];//xy2i[pkX][pkY];
 
@@ -182,25 +180,24 @@ public class Delineator2D extends Thread {
                 }
                 else {
 
-                    // peak index was -1 (peak in the background according to the mask)
+                    // 1st generation peak index was -1 (peak in the background according to the mask)
                     // this is a case of an incomplete delineation
                     // it can be anything and mask should not influence the final decision making as it would happen this way
                     // if the peak was discarded as it does not exist
                     // fix - this is probably wrong! to stop looping further
                     //break; // stop looping the branches
-                    continue; // continue checking the peaks further
-
-                    // solution: keep onlu those  delineations unaffected by the mask, where the whole delineation has at least
-                    // the first point of the streamline in foreground (reaching)
-
-
-                    // assign the whole delineation as incomplete and finish
-
-
+                    //continue; // continue checking the peaks further
+                    // solution: keep only those  delineations unaffected by the mask, where the whole delineation is in foreground
+                    // assign the whole delineation as incomplete here and finish
+					for (int ii=0; ii<delin2[locationIdx].length; ii++) delin2[locationIdx][ii] = null;
+					break;
 
                 }
 
-            } // delin2[locationIdx] is fully formed
+            }
+            /*
+             delin2[locationIdx] is fully formed
+             */
 
 
             /*
@@ -310,10 +307,11 @@ public class Delineator2D extends Thread {
 		int[] 	pks4xW	= peaks_w[curr_index];
 
 		// take the one with highest weight that is above minCos
-		int next_index = -1;
-		int next_weight = -1;
+		int next_index 	= Integer.MIN_VALUE;
+		int next_weight = Integer.MIN_VALUE;
 
 		for (int p = 0; p<pks4xI.length; p++) {
+
 			if (pks4xI[p]!=-1) {
 				// peak in foreground
 				int check_I = pks4xI[p];
@@ -339,9 +337,15 @@ public class Delineator2D extends Thread {
 				}
 
 			}
+			else {
+				// peak in the background
+				next_index = -1;
+				//next_weight neutral
+			}
 		}
 
 		return next_index;
+		// will give -1 if there was no
 
 	}
 

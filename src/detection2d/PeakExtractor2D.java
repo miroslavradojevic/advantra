@@ -36,7 +36,7 @@ public class PeakExtractor2D extends Thread {
     private static float ONE_PI = (float) (1 * Math.PI);
 
     // OUTPUTS
-    public static float[][][]	peaks_theta;                // N x (4x1)    4 selected peaks in abscissa coordinates X
+    public static float[][][]	peaks_theta;                // N x 4 x 1    4 selected peaks in abscissa coordinates X
     public static int[][]       peaks_i;             		// N x 4        4 selected peaks in indexed format (rounded locations)
     public static int[][]       peaks_w;                    // N x 4        peak weights
 
@@ -257,7 +257,7 @@ public class PeakExtractor2D extends Thread {
 
                 for (int k = 0; k < 4; k++) { // add it to the first available place
 
-                    if (weights[k] == -1) { // store immediately
+                    if (weights[k] == -1) { // store immediately, location is available
 
 						destination_locs[k]         = xy2i[x_peak_pix_rounded][y_peak_pix_rounded];
                         destination_angs[k][0]      = peak_theta;
@@ -294,6 +294,10 @@ public class PeakExtractor2D extends Thread {
                 }
 
             }
+			else {
+				// it is in the background
+
+			}
 
         }
 
