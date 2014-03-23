@@ -61,6 +61,10 @@ public class Delineator2D extends Thread {
     // associate the peaks and link follow-up points
     public static int[][][]     delin2;                     // N(foreground locs.) x 4(max. threads) x (1..M) (follow-up locs.) contains index for each location
     public static float[][][][] delin_refined_locs2;        // N(foreground locs.) x 4(max. threads) x 2 x ((1..M) x L) (2 dimensional)
+    public static float[][][]   delin_refined_dirs2;        // N(foreground locs.) x 4(max. threads) x (2x2) [x0, y0, vx, vy]
+
+
+
 //    public static float[][][][] delin_refined_vecs2;        // N(foreground locs.) x 4(max. threads) x 2 x ((1..M) x L) (2 dimensional)
 
 	// FEATURES, F. DESCRIPTOR, OUT LIKELIHOODS
@@ -121,6 +125,7 @@ public class Delineator2D extends Thread {
                     delin2[i][j][k] = -2;
 
 		delin_refined_locs2 = new float[i2xy.length][4][2][];       // (x,y)
+        delin_refined_dirs2 = new float[i2xy.length][4][];          // (x,y)
 //		delin_refined_vecs2 = new float[i2xy.length][4][2][];       // (x,y)
 
         offset2   = new float[i2xy.length][4][];                    // offset
@@ -252,7 +257,7 @@ public class Delineator2D extends Thread {
              */
 
             /*
-                delin_refined_locs2[locationIdx], offset2[locationIdx]
+                delin_refined_locs2[locationIdx], offset2[locationIdx], delin_refined_dirs2[locationIdx]
             */
 
             for (int b = 0; b<delin2[locationIdx].length; b++) { // loop 4 branches
@@ -260,12 +265,14 @@ public class Delineator2D extends Thread {
                 if (delin2[locationIdx][b][0]==-1) {
                     // whole streamline is missing: the first one was -1, recursion was stopped
                     delin_refined_locs2[locationIdx] = null;
+                    delin_refined_dirs2[locationIdx] = null;
                     offset2[locationIdx] = null;
                     break; // stop looping branches further
                 }
                 else if (delin2[locationIdx][b][0]==-2) {
                     // no streamline here
                     delin_refined_locs2[locationIdx][b] = null;
+                    delin_refined_dirs2[locationIdx][b] = null;
                     offset2[locationIdx][b] = null;
                 }
                 else if (delin2[locationIdx][b][0]>=0) {
@@ -280,8 +287,12 @@ public class Delineator2D extends Thread {
                     // allocate
                     delin_refined_locs2[locationIdx][b][0] = new float[count_patches*L]; // x coordinates allocate
                     delin_refined_locs2[locationIdx][b][1] = new float[count_patches*L]; // y coordinates allocate
+
+                    delin_refined_dirs2[locationIdx][b]    = new float[4];               // x0,y0,vx,vy
+
                     offset2[locationIdx][b]                = new float[count_patches*L]; //
 
+                    // fill  up the allocated arrays
                     for (int m = 0; m<M; m++) {      				// loop patches outwards, from the beginning
 
                         if (delin2[locationIdx][b][m]>=0) {
@@ -304,10 +315,22 @@ public class Delineator2D extends Thread {
                             }
 
                             // get refined locations sampled from the local patch (aligned with the patch)
-                            int init = m * L;
-                            localPatchRefined(
-                                    prev_x, prev_y, curr_x, curr_y,
-                                    delin_refined_locs2[locationIdx][b], offset2[locationIdx][b], init);
+                            if (m==0) { // first patch from the center
+                                localPatchRefined(
+                                        prev_x, prev_y, curr_x, curr_y,
+                                        delin_refined_locs2[locationIdx][b],
+                                        offset2[locationIdx][b],
+                                        m*L,
+                                        delin_refined_dirs2[locationIdx][b]);
+                            }
+                            else {
+                                localPatchRefined(
+                                        prev_x, prev_y, curr_x, curr_y,
+                                        delin_refined_locs2[locationIdx][b],
+                                        offset2[locationIdx][b],
+                                        m*L);
+                            }
+
 
                         }
                         else break; // because the rest are filled up with -1 or -2 anyway
@@ -324,8 +347,16 @@ public class Delineator2D extends Thread {
             */
 
             /*
-                fitsco2[locationIdx], varian2[locationIdx]
+                delin_refined_dirs2[locationIdx]  using delin_refined_locs2[locationIdx]
             */
+
+
+
+            /*
+                delin_refined_dirs2[locationIdx] formed
+            */
+
+
 
 		}
 
@@ -1322,7 +1353,8 @@ public class Delineator2D extends Thread {
     private static void localPatchRefined(float x1, float y1, float x2, float y2,
                                           float[][] refined_centerline_locs_xy,
                                           float[] refined_offsets,
-                                          int init_index)
+                                          int init_index,
+                                          float[] refined_centerline_dir)
     {
         /*
             standard way to loop through a patch defined with 2 points
@@ -1384,6 +1416,36 @@ public class Delineator2D extends Thread {
             refined_offsets[init_index + ii] = offset_min;
 
         }
+
+        /*
+        calculate the direction based on fitting a line through calculated refined_centerline_locs_xy
+         */
+        float l1x, l1y, l2x, l2y;
+        if (refined_centerline_dir!=null) {
+            for (int jj=-dim_half; jj<=dim_half; jj++) { // loop first cross-section points
+                for (int kk=-dim_half; kk<=dim_half; kk++) { // loop last cross-section points
+
+                    //
+
+                }
+
+
+            }
+        }
+
+
+    }
+
+    /*
+        refined locations per cross profile with outward direction estimation, based on the first patch refined points
+     */
+    private static void localPatchRefined(float x1, float y1, float x2, float y2,
+                                          float[][] refined_centerline_locs_xy,
+                                          float[] refined_offsets,
+                                          int init_index,
+                                          float[] refined_dir)
+    {
+
 
     }
 
