@@ -141,6 +141,17 @@ public class Geometry {
         return ax*bx+ay*by;
     }
 
+    public static final void orthogonal(float x1, float x2, float y1, float y2, float[] ort)
+    {
+        //float l = (float) Math.sqrt(Math.pow(x2-x1, 2)+Math.pow(y2-y1, 2));
+        float vx = (x2-x1);///l;
+        float vy = (y2-y1);///l;
+//        float wx = vy;
+        ort[0] = vy;
+//        float wy = -vx;
+        ort[1] = -vx;
+    }
+
 
 
 }

@@ -197,7 +197,7 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
         }
 		Masker2D.defineThreshold();
         Masker2D.formRemainingOutputs();
-		new ImagePlus("MASK", Masker2D.getMask()).show();
+		//new ImagePlus("MASK", Masker2D.getMask()).show();
         //************************************************
         IJ.log("calculating profiles...");
         Profiler2D.loadTemplate(sph2d, Masker2D.i2xy, Masker2D.xy2i, inimg_xy);
