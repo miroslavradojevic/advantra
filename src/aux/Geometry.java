@@ -2,7 +2,7 @@ package aux;
 
 /**
  * Created by miroslav on 3/23/14.
- * some common geometry operations in 2d and 3d
+ * some common euclidean geometry operations in 2d and 3d
  */
 public class Geometry {
 
@@ -39,14 +39,11 @@ public class Geometry {
         // p + tr = q + us
         // t = (q-p) x s / (r x s)
         // u = (q-p) x r / (r x s)
-        float r_cross_s = rx*sy-ry*sx;
-        float tt = (qx-px)*sy-(qy-py)*sx;
-        float uu = (qx-px)*ry-(qy-py)*rx;
-        float t = tt / r_cross_s;
-        float u = uu / r_cross_s;
+        float r_cross_s = cross(rx, ry, sx, sy); //r x s
+        float u = cross(qx-px, qy-py, rx, ry); // u = (q-p) x r
 
         // cases
-        if (Math.abs(r_cross_s)<=Float.MIN_VALUE && Math.abs(uu)<=Float.MIN_VALUE) {
+        if (Math.abs(r_cross_s)<=Float.MIN_VALUE && Math.abs(u)<=Float.MIN_VALUE) {
 
             // two lines are  collinear
             float check_r = dot(qx-px, qy-py, rx, ry); // (q-p).r
@@ -54,33 +51,81 @@ public class Geometry {
 
             if ( (check_r>=0 && check_r<=dot(rx, ry, rx, ry)) || (check_s>=0 && check_s<=dot(sx, sy, sx, sy)) ) {
                 // overlapping and collinear
-                intersec = null;
+                intersec[0] = Float.NaN;
+                intersec[1] = Float.NaN;
             }
             else {
                 // disjoint and collinear
-                intersec = null;
+                intersec[0] = Float.NaN;
+                intersec[1] = Float.NaN;
             }
 
-
-
         }
-        else if (Math.abs(r_cross_s)<=Float.MIN_VALUE && !(Math.abs(uu)<=Float.MIN_VALUE)) {
+        else if (Math.abs(r_cross_s)<=Float.MIN_VALUE && !(Math.abs(u)<=Float.MIN_VALUE)) {
             // parallel and non-intersecting
-            intersec = null;
+            intersec[0] = Float.NaN;
+            intersec[1] = Float.NaN;
         }
-        else if (!(Math.abs(r_cross_s)<=Float.MIN_VALUE)) {
+        else { //Math.abs(r_cross_s)!=0
+
+        	// they are not parallel, and they intersect
+			float t = cross(qx-px, qy-py, sx, sy) / r_cross_s;
+			u = u / r_cross_s;
+
+			if ((t>=0 && t<=1) && (u>=0 && u<=1)) {
+				// segments intersect, store the point p + tr = q + us
+				intersec[0] = px + t * rx;
+				intersec[1] = py + u * ry;
+			}
+			else {
+				// they are not parallel, but do not intersect
+				intersec[0] = Float.NaN;
+				intersec[1] = Float.NaN;
+			}
 
         }
-
-
 
     }
 
-    public static final void line_intersec()
+    public static final void line_intersec(float px, float py, float rx, float ry, float qx, float qy, float sx, float sy, float[] intersec)
     {
         // reference: http://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect
         // points are: p, p+r, q, q+s
+		// p + tr = q + us
+		// t = (q-p) x s / (r x s)
+		// u = (q-p) x r / (r x s)
+		float r_cross_s = cross(rx, ry, sx, sy); //r x s
+		float u = cross(qx-px, qy-py, rx, ry); // u = (q-p) x r
 
+		// cases
+		if (Math.abs(r_cross_s)<=Float.MIN_VALUE && Math.abs(u)<=Float.MIN_VALUE) {
+			// two lines are  collinear
+			intersec[0] = Float.NaN;
+			intersec[1] = Float.NaN;
+		}
+		else if (Math.abs(r_cross_s)<=Float.MIN_VALUE && !(Math.abs(u)<=Float.MIN_VALUE)) {
+			// parallel and non-intersecting
+			intersec[0] = Float.NaN;
+			intersec[1] = Float.NaN;
+		}
+		else { //Math.abs(r_cross_s)!=0
+
+			// segments intersect
+			float t = cross(qx-px, qy-py, sx, sy) / r_cross_s;
+			u = u / r_cross_s;
+
+			// store the point p + tr = q + us
+			intersec[0] = px + t * rx;
+			intersec[1] = py + u * ry;
+
+//			if ((t>=0 && t<=1) && (u>=0 && u<=1)) {
+//			}
+//			else {
+//				intersec[0] = Float.NaN;
+//				intersec[1] = Float.NaN;
+//			}
+
+		}
 
     }
 

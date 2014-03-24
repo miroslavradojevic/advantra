@@ -1,5 +1,6 @@
 package detection2d;
 
+import aux.Geometry;
 import aux.Stat;
 import aux.Interpolator;
 import fit.Fitter1D;
@@ -10,6 +11,7 @@ import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 
 import java.awt.*;
+import java.awt.geom.CubicCurve2D;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -61,11 +63,8 @@ public class Delineator2D extends Thread {
     // associate the peaks and link follow-up points
     public static int[][][]     delin2;                     // N(foreground locs.) x 4(max. threads) x (1..M) (follow-up locs.) contains index for each location
     public static float[][][][] delin_refined_locs2;        // N(foreground locs.) x 4(max. threads) x 2 x ((1..M) x L) (2 dimensional)
-    public static float[][][]   delin_refined_dirs2;        // N(foreground locs.) x 4(max. threads) x (2x2) [x0, y0, vx, vy]
-
-
-
-//    public static float[][][][] delin_refined_vecs2;        // N(foreground locs.) x 4(max. threads) x 2 x ((1..M) x L) (2 dimensional)
+	public static float[][][][] delin_refined_vecs2;        // N(foreground locs.) x 4(max. threads) x 2 x ((1..M) x L) (2 dimensional)
+	public static float[][][]   delin_refined_dirs2;        // N(foreground locs.) x 4(max. threads) x (2x2) [x0, y0, x1, y1]
 
 	// FEATURES, F. DESCRIPTOR, OUT LIKELIHOODS
     public static float[][][]   offset2;						// N(foreground locs.) x 4 x ((1..M) x L) (offset)
@@ -126,7 +125,7 @@ public class Delineator2D extends Thread {
 
 		delin_refined_locs2 = new float[i2xy.length][4][2][];       // (x,y)
         delin_refined_dirs2 = new float[i2xy.length][4][];          // (x,y)
-//		delin_refined_vecs2 = new float[i2xy.length][4][2][];       // (x,y)
+		delin_refined_vecs2 = new float[i2xy.length][4][2][];       // (x,y)
 
         offset2   = new float[i2xy.length][4][];                    // offset
 //        // temporary
@@ -257,7 +256,7 @@ public class Delineator2D extends Thread {
              */
 
             /*
-                delin_refined_locs2[locationIdx], offset2[locationIdx], delin_refined_dirs2[locationIdx]
+                delin_refined_locs2[locationIdx], offset2[locationIdx], delin_refined_dirs2[locationIdx], delin_refined_vecs2[locationIdx] allocated
             */
 
             for (int b = 0; b<delin2[locationIdx].length; b++) { // loop 4 branches
@@ -265,13 +264,15 @@ public class Delineator2D extends Thread {
                 if (delin2[locationIdx][b][0]==-1) {
                     // whole streamline is missing: the first one was -1, recursion was stopped
                     delin_refined_locs2[locationIdx] = null;
-                    delin_refined_dirs2[locationIdx] = null;
+					delin_refined_vecs2[locationIdx] = null;
+					delin_refined_dirs2[locationIdx] = null;
                     offset2[locationIdx] = null;
                     break; // stop looping branches further
                 }
                 else if (delin2[locationIdx][b][0]==-2) {
                     // no streamline here
                     delin_refined_locs2[locationIdx][b] = null;
+					delin_refined_vecs2[locationIdx][b] = null;
                     delin_refined_dirs2[locationIdx][b] = null;
                     offset2[locationIdx][b] = null;
                 }
@@ -287,12 +288,12 @@ public class Delineator2D extends Thread {
                     // allocate
                     delin_refined_locs2[locationIdx][b][0] = new float[count_patches*L]; // x coordinates allocate
                     delin_refined_locs2[locationIdx][b][1] = new float[count_patches*L]; // y coordinates allocate
-
+					delin_refined_vecs2[locationIdx][b][0] = new float[count_patches*L];
+					delin_refined_vecs2[locationIdx][b][1] = new float[count_patches*L];
                     delin_refined_dirs2[locationIdx][b]    = new float[4];               // x0,y0,vx,vy
-
                     offset2[locationIdx][b]                = new float[count_patches*L]; //
 
-                    // fill  up the allocated arrays
+                    // fill  up the allocated arrays for each patch
                     for (int m = 0; m<M; m++) {      				// loop patches outwards, from the beginning
 
                         if (delin2[locationIdx][b][m]>=0) {
@@ -328,7 +329,8 @@ public class Delineator2D extends Thread {
                                         prev_x, prev_y, curr_x, curr_y,
                                         delin_refined_locs2[locationIdx][b],
                                         offset2[locationIdx][b],
-                                        m*L);
+                                        m*L,
+										null);
                             }
 
 
@@ -343,19 +345,24 @@ public class Delineator2D extends Thread {
 
             }
             /*
-                delin_refined_locs2[locationIdx], offset2[locationIdx] formed
+                delin_refined_locs2[locationIdx], offset2[locationIdx], delin_refined_dirs2[locationIdx], delin_refined_vecs2[locationIdx] allocated
             */
 
             /*
-                delin_refined_dirs2[locationIdx]  using delin_refined_locs2[locationIdx]
+                calculate delin_refined_vecs2[locationIdx]  using delin_refined_locs2[locationIdx]
             */
 
+			// todo
 
 
             /*
-                delin_refined_dirs2[locationIdx] formed
+                calculate delin_refined_vecs2[locationIdx]  using delin_refined_locs2[locationIdx]
             */
 
+
+			/*
+
+			*/
 
 
 		}
@@ -1348,7 +1355,7 @@ public class Delineator2D extends Thread {
     }
 
     /*
-        refined locations per cross profile
+        refined locations per cross profile with outward direction estimation, based on the first patch refined points
      */
     private static void localPatchRefined(float x1, float y1, float x2, float y2,
                                           float[][] refined_centerline_locs_xy,
@@ -1420,32 +1427,50 @@ public class Delineator2D extends Thread {
         /*
         calculate the direction based on fitting a line through calculated refined_centerline_locs_xy
          */
-        float l1x, l1y, l2x, l2y;
-        if (refined_centerline_dir!=null) {
-            for (int jj=-dim_half; jj<=dim_half; jj++) { // loop first cross-section points
-                for (int kk=-dim_half; kk<=dim_half; kk++) { // loop last cross-section points
+		if(refined_centerline_dir!=null) {
 
-                    //
+			float l1x, l1y, l2x, l2y, px, py;
+			float min_ssd = Float.POSITIVE_INFINITY;
+			refined_centerline_dir[0] = Float.NaN;
+			refined_centerline_dir[1] = Float.NaN;
+			refined_centerline_dir[2] = Float.NaN;
+			refined_centerline_dir[3] = Float.NaN;
 
-                }
+			for (int jj=-dim_half; jj<=dim_half; jj++) { // loop first cross-section points
+				for (int kk=-dim_half; kk<=dim_half; kk++) { // loop last cross-section points
 
+					// ii=0
+					l1x = x_root + 0 * samplingStepLongitudinal * vx + jj * samplingStep * vy;
+					l1y = y_root + 0 * samplingStepLongitudinal * wx + jj * samplingStep * wy;
+					// ii=L-1
+					l2x = x_root + (L-1) * samplingStepLongitudinal * vx + jj * samplingStep * vy;
+					l2y = y_root + (L-1) * samplingStepLongitudinal * wx + jj * samplingStep * wy;
 
-            }
-        }
+					// calculate m.sq.distance wrt to the rest
+					float curr_ssd = 0;
 
+					for (int ii=0; ii<L; ii++) {
 
-    }
+						px = refined_centerline_locs_xy[0][init_index + ii]; // use the ones calculated in previous loop
+						py = refined_centerline_locs_xy[1][init_index + ii];
 
-    /*
-        refined locations per cross profile with outward direction estimation, based on the first patch refined points
-     */
-    private static void localPatchRefined(float x1, float y1, float x2, float y2,
-                                          float[][] refined_centerline_locs_xy,
-                                          float[] refined_offsets,
-                                          int init_index,
-                                          float[] refined_dir)
-    {
+						float dist = Geometry.point_to_line(px, py, l1x, l1y, l2x, l2y);
+						curr_ssd += dist * dist;
 
+					}
+
+					if (curr_ssd<min_ssd) {
+						min_ssd = curr_ssd;
+						refined_centerline_dir[0] = l1x;
+						refined_centerline_dir[1] = l1y;
+						refined_centerline_dir[2] = l2x;
+						refined_centerline_dir[3] = l2y;
+					}
+
+				}
+			}
+
+		}
 
     }
 
@@ -1500,57 +1525,5 @@ public class Delineator2D extends Thread {
         }
 
     }
-
-    // (CALC) calculation of the line segment geometry for every local patch cross profile
-    // TODO gave this up, add it to misc
-//    private static float[][] localPatchCrossProfileGeometry(float x1, float y1, float x2, float y2)
-//    {
-//        // extract [px py rx ry] describing cross profile at this patch
-//        float l = (float) Math.sqrt(Math.pow(x2-x1, 2)+Math.pow(y2-y1, 2));
-//        float vx = (x2-x1)/l;
-//        float vy = (y2-y1)/l;
-//        float wx = vy;
-//        float wy = -vx;
-//
-//        float[][] geom = new float[L][4];
-//
-//        float samplingStepRadial = D / (float)(L-1);
-//
-//        for (int ii=0; ii<L; ii++) { // loops L of them in radial direction
-//
-//            float[] val = new float[dim];
-//            int cnt = 0;
-//            //float val_min = Float.POSITIVE_INFINITY;
-//            //float val_max = Float.NEGATIVE_INFINITY;
-//
-//            float px = x2 - ii * samplingStepRadial * vx + (-dim_half) * samplingStep * vy;
-//            float py = 99;
-//            float rx = 99;
-//            float ry = 99;
-//
-//            for (int jj=-dim_half; jj<=dim_half; jj++) { // loops vector w
-//
-//                float curr_x = x2 - ii * samplingStepRadial * vx + jj * samplingStep * vy;
-//                float curr_y = y2 - ii * samplingStepRadial * wx + jj * samplingStep * wy;
-//
-////                if (val[cnt]>val_max) val_max = val[cnt];
-////                if (val[cnt]<val_min) val_min = val[cnt];
-//
-//            }
-//
-//            // normalize min-max so that they're from 0 to 1
-////            for (int iii = 0; iii<val.length; iii++){
-////                val[iii] = (val[iii]-val_min)/(val_max-val_min);
-////            }
-//
-//            // fit the normalized profile
-////            dummy = fitter.fit(val, "NSSD");
-////            fit_scores[ii] = dummy[1];
-//
-//        }
-//        return geom;
-//    }
-
-    // method that calculates overlap of two line segments
 
 }
