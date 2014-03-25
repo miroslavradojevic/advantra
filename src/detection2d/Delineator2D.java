@@ -68,10 +68,8 @@ public class Delineator2D extends Thread {
     public static float[][][]   offset2;				    // N(foreground locs.) x 4(max. threads) x (L) (offsets from the first patch only)
     public static float[][][]   fitsco2;					// N(foreground locs.) x 4(max. threads) x ((1..M) x L) (fit scores for the refined locs)
     public static float[][][]   varian2;					// N(foreground locs.) x 4(max. threads) x ((1..M) x L) (variances of real values)
-
-
-//    public static float[][][]   desc2;                          // N(foreground locs.) x 4 x 3   (averages)
-//    public static float[][]     lhood2;                         // N(foreground locs.) x 5 (NON..CRS) fuzzy logic output is stored here
+    public static float[][][]   desc2;                      // N(foreground locs.) x 4 x 4   (averages, medians)
+    public static float[][]     lhood2;                     // N(foreground locs.) x 5 (NON..CRS) fuzzy logic output is stored here
 
     public Delineator2D(int n0, int n1)
     {
@@ -126,11 +124,10 @@ public class Delineator2D extends Thread {
         delin_refined_dirs2 = new float[i2xy.length][4][];          // (x,y)
 		delin_refined_vecs2 = new float[i2xy.length][4][2][];       // (x,y)
         offset2             = new float[i2xy.length][4][];          // offset from the patch center
-//        // temporary
-//        fitsco2   = new float[i2xy.length][4][];                    // fit score
-//        varian2   = new float[i2xy.length][4][];                    // variance
-//        desc2  	= new float[i2xy.length][4][];                      // description of the fit scores
-//        lhood2  = new float[i2xy.length][];     					// fuzzy likelihood output
+        fitsco2   			= new float[i2xy.length][4][];          // fit score
+        varian2   			= new float[i2xy.length][4][];          // variance
+        desc2  				= new float[i2xy.length][4][];          // description of the fit scores
+        lhood2  			= new float[i2xy.length][];     		// fuzzy likelihood output
 
     }
 
@@ -164,9 +161,7 @@ public class Delineator2D extends Thread {
 
             // access individual peaks at this point (-2:not exist, -1:background, >=0:foreground)
 
-            /*
-                delin2[locationIdx] calculation
-             */
+            /* delin2[locationIdx] calculation */
             for (int pp = 0; pp<peaks_i[locationIdx].length; pp++) {  // loop 4 allocated branches (1st generation)
 
                 if (peaks_i[locationIdx][pp] >= 0) {
@@ -228,9 +223,6 @@ public class Delineator2D extends Thread {
                 }
 
             }
-            /*
-             delin2[locationIdx] is fully formed
-             */
 
             /*
             examples delin2[locationIdx][][] indexes start from the one defined with the first index
@@ -252,10 +244,7 @@ public class Delineator2D extends Thread {
             -2  -2 -2     |
              */
 
-            /*
-                delin_refined_locs2[locationIdx], offset2[locationIdx], delin_refined_dirs2[locationIdx]
-            */
-
+            /* delin_refined_locs2[locationIdx], offset2[locationIdx], delin_refined_dirs2[locationIdx] */
             for (int b = 0; b<delin2[locationIdx].length; b++) { // loop 4 branches
 
                 if (delin2[locationIdx][b][0]==-1) {
@@ -335,9 +324,8 @@ public class Delineator2D extends Thread {
 
             }
 
-            /*
-                calculate delin_refined_vecs2[locationIdx]  using delin_refined_locs2[locationIdx]
-            */
+            /* calculate delin_refined_vecs2[locationIdx]  using delin_refined_locs2[locationIdx]*/
+
             if (delin_refined_locs2[locationIdx]!=null) {
                 for (int b = 0; b<delin_refined_locs2[locationIdx].length; b++) {
                     if (delin_refined_locs2[locationIdx][b]!=null) {
@@ -347,34 +335,30 @@ public class Delineator2D extends Thread {
                         delin_refined_vecs2[locationIdx][b][1] = new float[to_allocate]; // y
 
                         // calculate by averaging neighbouring directions
+
+						int windowSize = 5;
+
                         for (int l=0; l<to_allocate; l++) {
 
-                            float[] orth_v_xy = new float[2];
                             float avg_v_x=0, avg_v_y=0;
 
-                            for (int l_nbr=l-2; l_nbr<=l+2; l_nbr++) {
+                            for (int l_nbr=l-windowSize/2; l_nbr<=l+windowSize/2; l_nbr++) {
 
-                                //if (l_nbr!=l) {
-                                    if (l_nbr>=0 && l_nbr+1<to_allocate) {
+                            	if (l_nbr>=0 && l_nbr+1<to_allocate) {
 
-                                        float x1 = delin_refined_locs2[locationIdx][b][0][l_nbr];
-                                        float y1 = delin_refined_locs2[locationIdx][b][1][l_nbr];
-                                        float x2 = delin_refined_locs2[locationIdx][b][0][l_nbr+1];
-                                        float y2 = delin_refined_locs2[locationIdx][b][1][l_nbr+1];
+                                    float x1 = delin_refined_locs2[locationIdx][b][0][l_nbr];
+                                    float y1 = delin_refined_locs2[locationIdx][b][1][l_nbr];
+                                    float x2 = delin_refined_locs2[locationIdx][b][0][l_nbr+1];
+                                    float y2 = delin_refined_locs2[locationIdx][b][1][l_nbr+1];
 
-                                        float norm = (float) Math.sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1));
-                                        float vx = (x2-x1)/norm;///l;
-                                        float vy = (y2-y1)/norm;///l;
-                                        float wx = vy;
-                                        float wy = -vx;
+                                    float norm = (float) Math.sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1));
+                                    float vx = (x2-x1)/norm;
+                                    float vy = (y2-y1)/norm;
 
-//                                        Geometry.orthogonal(x1, y1, x2, y2, orth_v_xy);
+                                    avg_v_x += vy;
+                                	avg_v_y += -vx;
 
-                                        avg_v_x += wx;//orth_v_xy[0];
-                                        avg_v_y += wy;//orth_v_xy[1];
-
-                                    }
-                                //}
+                                }
 
                             }
 
@@ -399,6 +383,47 @@ public class Delineator2D extends Thread {
             else {
                 delin_refined_vecs2[locationIdx] = null;
             }
+
+			/* fitsco2[locationIdx] */
+			//
+			float[] cross_profile = new float[dim];
+			//
+			if (delin_refined_locs2[locationIdx]!=null) {
+				for (int b = 0; b<delin_refined_locs2[locationIdx].length; b++) {
+					if (delin_refined_locs2[locationIdx][b]!=null) {
+
+						int to_allocate = delin_refined_locs2[locationIdx][b][0].length;
+						fitsco2[locationIdx][b] = new float[to_allocate]; // x
+
+						// calculate 1-ncc fit scores at every cross-section defined with the point and the direction
+						for (int l=0; l<to_allocate; l++) {
+
+							int cnt = 0;
+							for (int shift=-dim_half; shift<=dim_half; shift++) {
+								// sample the values using refined points and orthogonal direction
+								float at_x = delin_refined_locs2[locationIdx][b][0][l] + shift * samplingStep * delin_refined_vecs2[locationIdx][b][0][l];
+								float at_y = delin_refined_locs2[locationIdx][b][1][l] + shift * samplingStep * delin_refined_vecs2[locationIdx][b][1][l];
+								cross_profile[cnt] = Interpolator.interpolateAt(at_x, at_y, inimg_xy);
+								cnt++;
+							}
+
+							// todo: cotinue here
+							// profile is formed
+
+							// extract variance
+
+							// normalize it
+
+							// calculate the fit
+
+
+
+						}
+
+					}
+				}
+			}
+
 
 		}
 
@@ -704,11 +729,11 @@ public class Delineator2D extends Thread {
          */
         if (delin_refined_vecs2[locationIdx]!=null) {
 
-            for (int b=0; b<delin_refined_vecs2[locationIdx].length; b++) { //
+            for (int b=0; b<delin_refined_vecs2[locationIdx].length; b++) {
 
                 if (delin_refined_vecs2[locationIdx][b]!=null) {
 
-                    for (int l=0; l<2; l++) { //delin_refined_vecs2[locationIdx][b][0].length
+                    for (int l=0; l<delin_refined_vecs2[locationIdx][b][0].length; l++) {
 
                         float end_1_x = delin_refined_locs2[locationIdx][b][0][l] - dim_half * samplingStep * delin_refined_vecs2[locationIdx][b][0][l];
                         float end_1_y = delin_refined_locs2[locationIdx][b][1][l] - dim_half * samplingStep * delin_refined_vecs2[locationIdx][b][1][l];
@@ -1521,8 +1546,8 @@ public class Delineator2D extends Thread {
 					l1x = x_root + 0 * samplingStepLongitudinal * vx + jj * samplingStep * vy;
 					l1y = y_root + 0 * samplingStepLongitudinal * wx + jj * samplingStep * wy;
 					// ii=L-1
-					l2x = x_root + (L-1) * samplingStepLongitudinal * vx + jj * samplingStep * vy;
-					l2y = y_root + (L-1) * samplingStepLongitudinal * wx + jj * samplingStep * wy;
+					l2x = x_root + (L-1) * samplingStepLongitudinal * vx + kk * samplingStep * vy;
+					l2y = y_root + (L-1) * samplingStepLongitudinal * wx + kk * samplingStep * wy;
 
 					// calculate m.sq.distance wrt to the rest
 					float curr_ssd = 0;
