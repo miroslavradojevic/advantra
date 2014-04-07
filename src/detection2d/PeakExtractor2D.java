@@ -1,11 +1,13 @@
 package detection2d;
 
 import ij.IJ;
+import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.OvalRoi;
 import ij.gui.Overlay;
 import ij.gui.Plot;
 import ij.gui.PointRoi;
+import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 
 import java.awt.*;
@@ -29,7 +31,7 @@ public class PeakExtractor2D extends Thread {
     public static int[][]     	xy2i;                       //
     public static short[][]	    prof2;                      // profiles
 
-    public static int       MAX_ITER        = 40;           //
+    public static int       MAX_ITER        = 50;           //
     public static int       EPSILON         = 0;            //
 
     private static float TWO_PI = (float) (2 * Math.PI);
@@ -39,6 +41,8 @@ public class PeakExtractor2D extends Thread {
     public static float[][][]	peaks_theta;                // N x 4 x 1    4 selected peaks in abscissa coordinates X
     public static int[][]       peaks_i;             		// N x 4        4 selected peaks in indexed format (rounded locations)
     public static int[][]       peaks_w;                    // N x 4        peak weights
+    public static float[]       entropy;                    // N            entropy of the profile at this location
+    public static float[]       kurtosis;                   // N            kurtosis of the profile at this location
 
     public PeakExtractor2D(int n0, int n1)
     {
@@ -59,6 +63,8 @@ public class PeakExtractor2D extends Thread {
 		peaks_i  		= new int[i2xy.length][4];
 		peaks_theta  	= new float[i2xy.length][4][1];
 		peaks_w 		= new int[i2xy.length][4];
+        entropy         = new float[i2xy.length];
+        kurtosis        = new float[i2xy.length];
 
         // initialization legend:
         // -2 is assuming that it is not assigned, empty location (all are initialized that way)
@@ -87,7 +93,7 @@ public class PeakExtractor2D extends Thread {
         for (int i = 0; i < start_indexes.length; i++) start_indexes[i] = i;    // zero indexing is used
         int[] end_indexes = new int[sph2d.getProfileLength()];                  // zeros at the beginning
 
-		for (int locationIdx = begN; locationIdx < endN; locationIdx++) {
+		for (int locationIdx = begN; locationIdx < endN; locationIdx++) { // all foreground locations
 
 			int atX = i2xy[locationIdx][0];
 			int atY = i2xy[locationIdx][1];
@@ -101,6 +107,26 @@ public class PeakExtractor2D extends Thread {
                     peaks_theta[locationIdx],
 					peaks_w[locationIdx]
 			);
+
+            /* entropy[locationIdx] */
+            //
+            float profile_mass = 0;  // set it to zero at every location
+            //
+            for (int ii=0; ii<prof2[locationIdx].length; ii++)    // one loop to calculate the mass
+                profile_mass += ((prof2[locationIdx][ii] & 0xffff) / 65535f) * 255f;
+
+            entropy[locationIdx] = 0;
+            for (int ii=0; ii<prof2[locationIdx].length; ii++) {
+                float Px = (((prof2[locationIdx][ii] & 0xffff) / 65535f) * 255f) / profile_mass; // (0,1)
+                entropy[locationIdx] += Px * Math.log(Px);
+            }
+            entropy[locationIdx] = -entropy[locationIdx];
+
+            /* kurtosis[locationIdx] */
+            //
+            float ;
+            //
+
 
 		}
 
@@ -426,7 +452,7 @@ public class PeakExtractor2D extends Thread {
                 if (f[i]<profile_min) profile_min = f[i];
             }
 
-            Plot p = new Plot("profile at ("+atX+","+atY+")", "", "filtered", fx, f);
+            Plot p = new Plot("", "", "entropy="+IJ.d2s(entropy[idx],2), fx, f);
 
             float[][] get_thetas = peaks_theta[idx];
 //            IJ.log("peaks theta:");
@@ -548,7 +574,50 @@ public class PeakExtractor2D extends Thread {
         }
     }
 
+    public static ImagePlus getEntropy(){
 
+        int w = inimg_xy.length;
+        int h = inimg_xy[0].length;
+
+        float[][] t = new float[w][h];
+
+        float min_entropy = Float.NEGATIVE_INFINITY;
+        float max_entropy = Float.POSITIVE_INFINITY;
+
+        for (int ii = 0; ii<entropy.length; ii++) {
+
+            int x = i2xy[ii][0];
+            int y = i2xy[ii][1];
+
+            if (entropy[ii]>max_entropy) max_entropy = entropy[ii];
+            if (entropy[ii]<min_entropy) min_entropy = entropy[ii];
+
+//            boolean isMax = true;
+//            for (int k=0; k<lhood2[0].length; k++) {
+//                if (k!=choice[i] && lhood2[ii][k]>lhood2[ii][choice[i]]) {
+//                    isMax = false;
+//                }
+//            }
+
+            //t[x][y] = entropy[ii]; //(isMax)? lhood2[ii][choice[i]] : 0;
+
+        }
+
+        for (int xx=0; xx<w; xx++) {
+            for (int yy=0; yy<h; yy++) {
+                int idx = xy2i[xx][yy];
+                if (idx!=-1) {
+                    t[xx][yy] = entropy[idx];
+                }
+                else {
+                    t[xx][yy] = max_entropy;
+                }
+            }
+        }
+
+        return new ImagePlus("profile_entropy", new FloatProcessor(t));
+
+    }
 
     private static int runOneMax(int curr_pos, short[] _input_profile, Sphere2D _input_profile_sphere) {
         int 	    new_pos     = curr_pos;

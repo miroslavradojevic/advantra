@@ -29,7 +29,7 @@ public class Sphere2D {
 
 //    public static float     R_FULL 	        = 1.00f;
     public static float     T_HALF 	        = 0.50f;
-    public static int 		weightStdRatioToD = 5;                  // could be a parameter
+    public static int 		weightStdRatioToD = 6;                  // could be a parameter
 //    public static int       MAX_ITER        = 15;
 //    public static int       EPSILON         = 0;
 

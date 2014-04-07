@@ -31,7 +31,7 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
     /*
         parameters
      */
-    float       s = 1.1f;
+    float       s = 1.3f;
     float       D;
     float       minCos;
     int         M;
@@ -160,7 +160,7 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
 
         Sphere2D sph2d = new Sphere2D(D, s);
 
-		if (false) {
+		if (true) {
         	ImagePlus samplingScheme =  sph2d.showSampling();
         	samplingScheme.show();
         	samplingScheme.getWindow().setSize(200, 200);
@@ -228,8 +228,9 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
                 e.printStackTrace();
             }
         }
+        PeakExtractor2D.getEntropy().show();
         //************************************************
-        IJ.log("analyzing peaks + extracting features ...");
+        IJ.log("analyzing peaks + extracting features & descriptors...");
         Delineator2D.loadTemplate(Masker2D.i2xy, Masker2D.xy2i, PeakExtractor2D.peaks_i, PeakExtractor2D.peaks_w, inimg_xy, //Masker2D.back_xy,
                 M,
                 minCos,
@@ -274,12 +275,12 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
         }
         */
 
-        /*
         ImageStack is_lhoods = Delineator2D.exportLikelihoods(new int[]{1});
-        new ImagePlus("", is_lhoods).show();
-        */
+        new ImagePlus("ENDPOINTS", is_lhoods).show();
+        is_lhoods = Delineator2D.exportLikelihoods(new int[]{3, 4});
+        new ImagePlus("JUNCTIONS", is_lhoods).show();
 
-		//int rn = new Random().nextInt(100);
+        //int rn = new Random().nextInt(100);
 		//PeakAnalyzer2D.exportLikelihoods("/home/miroslav/Desktop/"+rn+".csv");
 		//IJ.log("exported!");
 
@@ -403,9 +404,9 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
         /*
          output stack with local profile
         */
-        pfl_is3 = Profiler2D.getProfile(clickX, clickY);
-        pfl_im3.setStack("local_profile", pfl_is3);
-        pfl_im3.show();
+//        pfl_is3 = Profiler2D.getProfile(clickX, clickY);
+//        pfl_im3.setStack("local_profile", pfl_is3);
+//        pfl_im3.show();
 		/*
 			output stack: local profile with peaks detected
 		 */
