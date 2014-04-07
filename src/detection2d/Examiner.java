@@ -92,17 +92,16 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
         /******************************
          Generic Dialog
          *****************************/
-        this.D 					        	= (float)   Prefs.get("advantra.critpoint.detection2d.d", 4);
-        this.M 					        	= (int)     Prefs.get("advantra.critpoint.detection2d.m", 2);
-        this.minCos 					    = (float)   Prefs.get("advantra.critpoint.detection2d.min_cos", -0.5f);
-        this.mu_ON                          = (float)   Prefs.get("advantra.critpoint.detection2d.mu_on", 0f);
-        this.mu_OFF 					    = (float)   Prefs.get("advantra.critpoint.detection2d.mu_off", 0.5f);
-		this.sig_ON						    = (float) 	Prefs.get("advantra.critpoint.detection2d.sig_on", 0.1f);
-		this.sig_OFF						= (float) 	Prefs.get("advantra.critpoint.detection2d.sig_off", 0.1f);
-		this.L						        = (int) 	Prefs.get("advantra.critpoint.detection2d.l", 4);
-		this.sampling_crosswise			    = (float) 	Prefs.get("advantra.critpoint.detection2d.sampling_crosswise", 0.3f);
-		this.mode			                = (String) 	Prefs.get("advantra.critpoint.detection2d.mode", "NCC");
-
+        this.D 					        	= (float)   Prefs.get("critpoint.detection2d.d", 4);
+        this.M 					        	= (int)     Prefs.get("critpoint.detection2d.m", 2);
+        this.minCos 					    = (float)   Prefs.get("critpoint.detection2d.min_cos", -0.5f);
+        this.mu_ON                          = (float)   Prefs.get("critpoint.detection2d.mu_on", 0f);
+        this.mu_OFF 					    = (float)   Prefs.get("critpoint.detection2d.mu_off", 0.5f);
+		this.sig_ON						    = (float) 	Prefs.get("critpoint.detection2d.sig_on", 0.1f);
+		this.sig_OFF						= (float) 	Prefs.get("critpoint.detection2d.sig_off", 0.1f);
+		this.L						        = (int) 	Prefs.get("critpoint.detection2d.l", 4);
+		this.sampling_crosswise			    = (float) 	Prefs.get("critpoint.detection2d.sampling_crosswise", 0.3f);
+		this.mode			                = (String) 	Prefs.get("critpoint.detection2d.mode", "NCC");
 
         GenericDialog gd = new GenericDialog("EXAMINER");
         gd.addNumericField("D ", 	                D, 			        0,  10, "neuron diameter[pix]");
@@ -119,36 +118,35 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
         gd.showDialog();
         if (gd.wasCanceled()) return DONE;
 
-
         D       	    = (float) gd.getNextNumber();
-        Prefs.set("advantra.critpoint.detection2d.d", 	    	D);
+        Prefs.set("critpoint.detection2d.d", 	    	D);
 
         M       	    = (int) gd.getNextNumber();
-        Prefs.set("advantra.critpoint.detection2d.m", 	    	M);
+        Prefs.set("critpoint.detection2d.m", 	    	M);
 
         minCos       	= (float) gd.getNextNumber();
-        Prefs.set("advantra.critpoint.detection2d.min_cos", 	minCos);
+        Prefs.set("critpoint.detection2d.min_cos", 	minCos);
 
         mu_ON       	= (float) gd.getNextNumber();
-        Prefs.set("advantra.critpoint.detection2d.mu_on", 	    mu_ON);
+        Prefs.set("critpoint.detection2d.mu_on", 	    mu_ON);
 
         mu_OFF          = (float) gd.getNextNumber();
-        Prefs.set("advantra.critpoint.detection2d.mu_off", 	    mu_OFF);
+        Prefs.set("critpoint.detection2d.mu_off", 	    mu_OFF);
 
 		sig_ON		= (float) gd.getNextNumber();
-		Prefs.set("advantra.critpoint.detection2d.sig_on", 	    sig_ON);
+		Prefs.set("critpoint.detection2d.sig_on", 	    sig_ON);
 
         sig_OFF		= (float) gd.getNextNumber();
-        Prefs.set("advantra.critpoint.detection2d.sig_off", 	sig_OFF);
+        Prefs.set("critpoint.detection2d.sig_off", 	sig_OFF);
 
         L		    = (int) gd.getNextNumber();
-        Prefs.set("advantra.critpoint.detection2d.l", 	        L);
+        Prefs.set("critpoint.detection2d.l", 	        L);
 
         sampling_crosswise		= (float) gd.getNextNumber();
-        Prefs.set("advantra.critpoint.detection2d.sampling_crosswise", 	sampling_crosswise);
+        Prefs.set("critpoint.detection2d.sampling_crosswise", 	sampling_crosswise);
 
         mode		            = gd.getNextString();
-        Prefs.set("advantra.critpoint.detection2d.mode", 	    mode);
+        Prefs.set("critpoint.detection2d.mode", 	    mode);
 
         CPU_NR = Runtime.getRuntime().availableProcessors() + 1;
 
@@ -369,11 +367,9 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
         pfl_is1 = PeakAnalyzer2D.plotDelineationProfiles(clickX, clickY);
         pfl_im1.setStack("cross-profiles", pfl_is1);
         pfl_im1.show();
-
-        pfl_is2 = PeakAnalyzer2D.plotDelineationFeatures(clickX, clickY);
-        pfl_im2.setStack("features", pfl_is2);
-        pfl_im2.show();
         */
+
+
         IJ.setTool("hand");
 
     }
@@ -411,13 +407,19 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
         pfl_im3.setStack("local_profile", pfl_is3);
         pfl_im3.show();
 		/*
-			output stackk: local profile with peaks detected
+			output stack: local profile with peaks detected
 		 */
         pfl_is4 = PeakExtractor2D.getProfileWithPeaks(clickX, clickY);
         pfl_im4.setStack("local_profile_with_peaks", pfl_is4);
         pfl_im4.show();
 
-    }
+		pfl_is2 = Delineator2D.plotDelineationFeatures(clickX, clickY);
+		pfl_im2.setStack("features", pfl_is2);
+		pfl_im2.show();
+
+		IJ.setTool("hand");
+
+	}
 
     public void mousePressed(MouseEvent e)  {}
     public void mouseReleased(MouseEvent e) {}

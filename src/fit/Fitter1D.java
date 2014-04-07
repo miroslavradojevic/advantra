@@ -140,7 +140,7 @@ public class Fitter1D {
             out[1] = Float.POSITIVE_INFINITY; // looking for smallest
         }
         else if (mode.equalsIgnoreCase("NCC")) {
-            out[1] = Float.POSITIVE_INFINITY; // looking for highest
+            out[1] = Float.POSITIVE_INFINITY; // looking for smallest 1-ncc
         }
         else {
             out[1] = Float.NaN;

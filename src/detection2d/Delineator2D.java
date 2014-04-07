@@ -67,7 +67,7 @@ public class Delineator2D extends Thread {
 	public static float[][][]   delin_refined_dirs2;        // N(foreground locs.) x 4(max. threads) x (2x2) [x0, y0, x1, y1]
     public static float[][][]   offset2;				    // N(foreground locs.) x 4(max. threads) x (L) (offsets from the first patch only)
     public static float[][][]   fitsco2;					// N(foreground locs.) x 4(max. threads) x ((1..M) x L) (fit scores for the refined locs)
-    public static float[][][]   varian2;					// N(foreground locs.) x 4(max. threads) x ((1..M) x L) (variances of real values)
+    public static float[][][]   stdev2;						// N(foreground locs.) x 4(max. threads) x ((1..M) x L) (variances of real values)
     public static float[][][]   desc2;                      // N(foreground locs.) x 4 x 4   (averages, medians)
     public static float[][]     lhood2;                     // N(foreground locs.) x 5 (NON..CRS) fuzzy logic output is stored here
 
@@ -125,7 +125,7 @@ public class Delineator2D extends Thread {
 		delin_refined_vecs2 = new float[i2xy.length][4][2][];       // (x,y)
         offset2             = new float[i2xy.length][4][];          // offset from the patch center
         fitsco2   			= new float[i2xy.length][4][];          // fit score
-        varian2   			= new float[i2xy.length][4][];          // variance
+        stdev2   			= new float[i2xy.length][4][];          // variance
         desc2  				= new float[i2xy.length][4][];          // description of the fit scores
         lhood2  			= new float[i2xy.length][];     		// fuzzy likelihood output
 
@@ -142,6 +142,7 @@ public class Delineator2D extends Thread {
 				for this run interval
 			*/
 
+			// aux variables used allocation
 			Fitter1D fitter  			= new Fitter1D(dim, false); // dim = profile width with current samplingStep, verbose = false
 //			fitter.showTemplates();
             /*
@@ -384,19 +385,23 @@ public class Delineator2D extends Thread {
                 delin_refined_vecs2[locationIdx] = null;
             }
 
-			/* fitsco2[locationIdx] */
+			/* fitsco2[locationIdx] stdev2[locationIdx] */
 			//
-			float[] cross_profile = new float[dim];
+			float[] cross_profile = new float[dim];   // aux variable, can be allocated outside the loop (this way it's allocated for every location)
+			float[] fit_idx_score = new float[2];     // aux variable
 			//
 			if (delin_refined_locs2[locationIdx]!=null) {
+
 				for (int b = 0; b<delin_refined_locs2[locationIdx].length; b++) {
+
 					if (delin_refined_locs2[locationIdx][b]!=null) {
 
-						int to_allocate = delin_refined_locs2[locationIdx][b][0].length;
-						fitsco2[locationIdx][b] = new float[to_allocate]; // x
+						int to_allocate = delin_refined_locs2[locationIdx][b][0].length;  // length of x locs
+						fitsco2[locationIdx][b] = new float[to_allocate];
+						stdev2[locationIdx][b] = new float[to_allocate];
 
 						// calculate 1-ncc fit scores at every cross-section defined with the point and the direction
-						for (int l=0; l<to_allocate; l++) {
+						for (int l=0; l<to_allocate; l++) {  // loop points
 
 							int cnt = 0;
 							for (int shift=-dim_half; shift<=dim_half; shift++) {
@@ -406,24 +411,23 @@ public class Delineator2D extends Thread {
 								cross_profile[cnt] = Interpolator.interpolateAt(at_x, at_y, inimg_xy);
 								cnt++;
 							}
-
-							// todo: cotinue here
 							// profile is formed
 
-							// extract variance
+							// extract std of the cross-profile before normalizing it
+							stdev2[locationIdx][b][l] = Stat.std(cross_profile);
 
-							// normalize it
+							// calculate normalized cross_profile[]
+							Stat.normalize(cross_profile); // stays in cross_profile variable
 
 							// calculate the fit
-
-
+							fit_idx_score = fitter.fit(cross_profile, mode); // returns [0] - profile index, [1] - fit score
+							fitsco2[locationIdx][b][l] = fit_idx_score[1];
 
 						}
 
 					}
 				}
 			}
-
 
 		}
 
@@ -698,65 +702,68 @@ public class Delineator2D extends Thread {
          */
         int locationIdx = xy2i[atX][atY];
 
-        if (delin_refined_locs2[locationIdx]!=null) {
+        if (locationIdx!=-1) {
 
-            for (int b = 0; b<delin_refined_locs2[locationIdx].length; b++) {
+			if (delin_refined_locs2[locationIdx]!=null) {
+				for (int b = 0; b<delin_refined_locs2[locationIdx].length; b++) {
 
-                // check whether there is a refinement at all here, add in case there is
-                if (delin_refined_locs2[locationIdx][b]!=null) {
+					// check whether there is a refinement at all here, add in case there is
+					if (delin_refined_locs2[locationIdx][b]!=null) {
 
-                    // loop points to add them
-                    for (int l=0; l<delin_refined_locs2[locationIdx][b][0].length; l++) {
+						// loop points to add them
+						for (int l=0; l<delin_refined_locs2[locationIdx][b][0].length; l++) {
 
-                        float refined_x = delin_refined_locs2[locationIdx][b][0][l];
-                        float refined_y = delin_refined_locs2[locationIdx][b][1][l];
+							float refined_x = delin_refined_locs2[locationIdx][b][0][l];
+							float refined_y = delin_refined_locs2[locationIdx][b][1][l];
 
-                        ovalroi = new OvalRoi(refined_x-(samplingStep/2)+.5f, refined_y-(samplingStep/2)+.5f, samplingStep, samplingStep);
-                        ovalroi.setFillColor(Color.YELLOW);
-                        ovalroi.setStrokeWidth(samplingStep/4);
-                        ov.add(ovalroi);
+							ovalroi = new OvalRoi(refined_x-(samplingStep/2)+.5f, refined_y-(samplingStep/2)+.5f, samplingStep, samplingStep);
+							ovalroi.setFillColor(Color.YELLOW);
+							ovalroi.setStrokeWidth(samplingStep/4);
+							ov.add(ovalroi);
 
-                    }
+						}
 
-                }
+					}
 
-            }
+				}
+			}
 
         }
 
         /*
         add lines marking the refined cross sections
          */
-        if (delin_refined_vecs2[locationIdx]!=null) {
+        if (locationIdx!=-1) {
 
-            for (int b=0; b<delin_refined_vecs2[locationIdx].length; b++) {
+			if (delin_refined_vecs2[locationIdx]!=null) {
+				for (int b=0; b<delin_refined_vecs2[locationIdx].length; b++) {
 
-                if (delin_refined_vecs2[locationIdx][b]!=null) {
+					if (delin_refined_vecs2[locationIdx][b]!=null) {
 
-                    for (int l=0; l<delin_refined_vecs2[locationIdx][b][0].length; l++) {
+						for (int l=0; l<delin_refined_vecs2[locationIdx][b][0].length; l++) {
 
-                        float end_1_x = delin_refined_locs2[locationIdx][b][0][l] - dim_half * samplingStep * delin_refined_vecs2[locationIdx][b][0][l];
-                        float end_1_y = delin_refined_locs2[locationIdx][b][1][l] - dim_half * samplingStep * delin_refined_vecs2[locationIdx][b][1][l];
+							float end_1_x = delin_refined_locs2[locationIdx][b][0][l] - dim_half * samplingStep * delin_refined_vecs2[locationIdx][b][0][l];
+							float end_1_y = delin_refined_locs2[locationIdx][b][1][l] - dim_half * samplingStep * delin_refined_vecs2[locationIdx][b][1][l];
 
-                        float end_2_x = delin_refined_locs2[locationIdx][b][0][l] + dim_half * samplingStep * delin_refined_vecs2[locationIdx][b][0][l];
-                        float end_2_y = delin_refined_locs2[locationIdx][b][1][l] + dim_half * samplingStep * delin_refined_vecs2[locationIdx][b][1][l];
+							float end_2_x = delin_refined_locs2[locationIdx][b][0][l] + dim_half * samplingStep * delin_refined_vecs2[locationIdx][b][0][l];
+							float end_2_y = delin_refined_locs2[locationIdx][b][1][l] + dim_half * samplingStep * delin_refined_vecs2[locationIdx][b][1][l];
 
-                        Line lne = new Line(end_1_x+.5f, end_1_y+.5f, end_2_x+.5f, end_2_y+.5f);
-                        lne.setStrokeColor(Color.CYAN);
-                        ov.add(lne);
+							Line lne = new Line(end_1_x+.5f, end_1_y+.5f, end_2_x+.5f, end_2_y+.5f);
+							lne.setStrokeColor(Color.CYAN);
+							ov.add(lne);
 
-                    }
+						}
 
-                }
+					}
 
-            }
+				}
+			}
 
         }
 
         return ov;
 
     }
-
 
     /*
     visualize the extracted images of square patches in separate frames
@@ -907,51 +914,37 @@ public class Delineator2D extends Thread {
 
 	}
 
-    /*
     public static ImageStack plotDelineationFeatures(int atX, int atY)
     {
 
-		// just read from the feat2 and desc2
+		// just read from the fitsco2 and stdev2, and desc2
         ImageStack is_out = new ImageStack(528, 255);
         int loc_idx = xy2i[atX][atY];
 
         // calculate total nr. feats
-        if (loc_idx != -1) {
+        if (loc_idx!=-1 && fitsco2[loc_idx] != null) {
 
             int totalFeats = 0;
-            for (int b=0; b<feat2[loc_idx].length; b++) {
-
-                if (feat2[loc_idx][b] != null) {
-                    totalFeats += feat2[loc_idx][b].length;
-                }
-
-            }
+            for (int b=0; b<fitsco2[loc_idx].length; b++)
+				if (fitsco2[loc_idx][b] != null) totalFeats += fitsco2[loc_idx][b].length;
 
             float[] xaxis       = new float[totalFeats];
             float[] yaxis1      = new float[totalFeats];
-            float[] yaxis2      = new float[totalFeats];
+//            float[] yaxis2      = new float[totalFeats];
             float[] yaxisON     = new float[totalFeats];
             float[] yaxisOFF    = new float[totalFeats];
 
             int cnt = 0;
-            for (int b=0; b<feat2[loc_idx].length; b++) {
-                if (feat2[loc_idx][b] != null) {
-                    for (int l=0; l<feat2[loc_idx][b].length; l++) {
+            for (int b=0; b<fitsco2[loc_idx].length; b++) {
+                if (fitsco2[loc_idx][b] != null) {
+                    for (int l=0; l<fitsco2[loc_idx][b].length; l++) {
 
-                        if (l==0) {
-                            if (cnt==0) {
-                                xaxis[cnt]  = 0;
-                            }
-                            else {
-                                xaxis[cnt]  = xaxis[cnt-1] + 20;
-                            }
-                        }
-                        else {
-                            xaxis[cnt] = xaxis[cnt-1] + 1;
-                        }
+                        if (l==0) 	if (cnt == 0) xaxis[cnt] = 0;
+									else xaxis[cnt] = xaxis[cnt - 1] + 20;
+                        else xaxis[cnt] = xaxis[cnt - 1] + 1;
 
-                        yaxis1[cnt]     = feat2[loc_idx][b][l]; // features
-                        yaxis2[cnt]     = desc2[loc_idx][b][0]; // mean estimate
+                        yaxis1[cnt]     = fitsco2[loc_idx][b][l]; // features
+//                        yaxis2[cnt]     = desc2[loc_idx][b][0]; // mean estimate
                         yaxisON[cnt]    = mu_ON;
                         yaxisOFF[cnt]   = mu_OFF;
                         cnt++;
@@ -966,15 +959,9 @@ public class Delineator2D extends Thread {
             float max_axis = Float.NEGATIVE_INFINITY;
 
             for (int ii=0; ii<yaxis1.length; ii++) {
-                if (yaxis1[ii]<min_feat) {
-                    min_feat = yaxis1[ii];
-                }
-                if (yaxis1[ii]>max_feat) {
-                    max_feat = yaxis1[ii];
-                }
-                if (xaxis[ii]>max_axis) {
-                    max_axis = xaxis[ii];
-                }
+                if (yaxis1[ii]<min_feat) min_feat = yaxis1[ii];
+                if (yaxis1[ii]>max_feat) max_feat = yaxis1[ii];
+                if (xaxis[ii]>max_axis) max_axis = xaxis[ii];
             }
 
             Plot p = new Plot("", "", "");
@@ -992,10 +979,10 @@ public class Delineator2D extends Thread {
             p.addPoints(xaxis, yaxisOFF, Plot.DOT);
             p.draw();
 
-            p.setLineWidth(4);
-            p.setColor(Color.RED);
-            p.addPoints(xaxis, yaxis2, Plot.DOT);
-            p.draw();
+//            p.setLineWidth(4);
+//            p.setColor(Color.RED);
+//            p.addPoints(xaxis, yaxis2, Plot.DOT);
+//            p.draw();
 
             is_out.addSlice("features, descriptors", p.getProcessor());
 
@@ -1005,7 +992,6 @@ public class Delineator2D extends Thread {
         }
         return is_out;
     }
-    */
 
     /*
     private static void getDelineationFeatures(int loc_idx, String mode, Fitter1D _fitter, Fuzzy2D _fls)
