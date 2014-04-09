@@ -1,6 +1,7 @@
 package detection2d;
 
 import aux.Interpolator;
+import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.OvalRoi;
@@ -142,7 +143,7 @@ public class Sphere2D {
                         //*** HERE DEFINES THE FILTER PROFILE WEIGHTS (only in first iteration, the rest are the same)
                         if (ii==0) {
                                 float dstAxis = point2line(0, 0,        0, 1,       px, py);
-                            	weights[cnt] = (float) Math.exp(-(dstAxis*dstAxis)/(2*(neuronDiam/weightStdRatioToD)*(neuronDiam/weightStdRatioToD)));
+                            	weights[cnt] = (float) Math.exp(-(dstAxis*dstAxis)/(2*(neuronDiameter/weightStdRatioToD)*(neuronDiameter/weightStdRatioToD)));
                             	sumWgt += weights[cnt];
                         }
 
@@ -246,7 +247,8 @@ public class Sphere2D {
 
         float sum = 0;
         for (int k=0; k<weights.length; k++) sum += weights[k];
-        return new ImagePlus("weights", new FloatProcessor((2*limT+1), limR, weights)); // (limR+1)
+		float sigma = neuronDiameter/weightStdRatioToD;
+        return new ImagePlus("weights,sigma="+ IJ.d2s(sigma, 2)+",sum="+IJ.d2s(sum,2), new FloatProcessor((2*limT+1), limR, weights)); // (limR+1)
 
     }
 

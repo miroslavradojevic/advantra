@@ -60,6 +60,11 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
     ImageStack      pfl_is3 = null;
     ImageStack      pfl_is4 = null;
 
+	// output
+	int[][] 		thr_number; // keep the maximum here always
+	float[][][]		thr_fit;
+	float[][][]		circ_stat; // (R_, kurtosis, circ std, sample circ dispersion)
+
     ImageCanvas cnv;
 
     public int setup(String s, ImagePlus imagePlus) {
@@ -158,9 +163,17 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
 
     public void run(ImageProcessor imageProcessor) {
 
+
+		// todo add loop here
+		for (int d_scale=0; d_scale<3; d_scale++) {
+			float DD = D + d_scale * 1;
+
+
+		}
+
         Sphere2D sph2d = new Sphere2D(D, s);
 
-		if (true) {
+		if (false) {
         	ImagePlus samplingScheme =  sph2d.showSampling();
         	samplingScheme.show();
         	samplingScheme.getWindow().setSize(200, 200);
@@ -280,17 +293,14 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
         is_lhoods = Delineator2D.exportLikelihoods(new int[]{3, 4});
         new ImagePlus("JUNCTIONS", is_lhoods).show();
 
-        //int rn = new Random().nextInt(100);
-		//PeakAnalyzer2D.exportLikelihoods("/home/miroslav/Desktop/"+rn+".csv");
-		//IJ.log("exported!");
-
-//        Overlay overlay_with_detections = SimpleDetector2D.drawDetections();
-//        ImagePlus final_det = cnv.getImage().duplicate();
-//        final_det.show();
-//        final_det.setOverlay(overlay_with_detections); // add the mto the original image
 
         t2 = System.currentTimeMillis();
 		IJ.log("done. " + ((t2 - t1) / 1000f) + "sec.");
+
+		//        Overlay overlay_with_detections = SimpleDetector2D.drawDetections();
+//        ImagePlus final_det = cnv.getImage().duplicate();
+//        final_det.show();
+//        final_det.setOverlay(overlay_with_detections); // add the mto the original image
 
 //        ImagePlus end_lhood = SimpleDetector2D.showEndLhood();
 //        end_lhood.show();

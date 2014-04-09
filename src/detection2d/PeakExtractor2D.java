@@ -41,8 +41,15 @@ public class PeakExtractor2D extends Thread {
     public static float[][][]	peaks_theta;                // N x 4 x 1    4 selected peaks in abscissa coordinates X
     public static int[][]       peaks_i;             		// N x 4        4 selected peaks in indexed format (rounded locations)
     public static int[][]       peaks_w;                    // N x 4        peak weights
-    public static float[]       entropy;                    // N            entropy of the profile at this location
-    public static float[]       kurtosis;                   // N            kurtosis of the profile at this location
+
+	// circular statistics
+	public static float[]       R_;							// N            mean resultant length
+	public static float[]       theta_;						// N            mean resultant length
+	public static float[]       R_;							// N            mean resultant length
+	public static float[]       R_2;						// N            mean resultant length
+	public static float[]       entropy;                    // N            entropy of the profile at this location
+
+	public static float[]       kurtosis;                   // N            kurtosis of the profile at this location
 
     public PeakExtractor2D(int n0, int n1)
     {
@@ -88,10 +95,15 @@ public class PeakExtractor2D extends Thread {
 
 	public void run()
 	{
-        // allocate variables just for this thread range
+
+		// auxiliary variables, just for this thread interval
         int[] start_indexes = new int[sph2d.getProfileLength()];
         for (int i = 0; i < start_indexes.length; i++) start_indexes[i] = i;    // zero indexing is used
         int[] end_indexes = new int[sph2d.getProfileLength()];                  // zeros at the beginning
+		// array to hold the p-ty distribution for every direction (angle) in profiles
+		// will be redefined for every location loop
+		float[] p_distr = new float[prof2[0].length];
+		float profile_mass = 0;
 
 		for (int locationIdx = begN; locationIdx < endN; locationIdx++) { // all foreground locations
 
@@ -103,29 +115,29 @@ public class PeakExtractor2D extends Thread {
                     sph2d,
                     start_indexes, end_indexes,
                     atX, atY,
-                    peaks_i[locationIdx],
-                    peaks_theta[locationIdx],
+                    peaks_i[locationIdx],      // indexed location
+                    peaks_theta[locationIdx],  // angle in radians 0 to 2pi
 					peaks_w[locationIdx]
 			);
 
-            /* entropy[locationIdx] */
-            //
-            float profile_mass = 0;  // set it to zero at every location
-            //
-            for (int ii=0; ii<prof2[locationIdx].length; ii++)    // one loop to calculate the mass
-                profile_mass += ((prof2[locationIdx][ii] & 0xffff) / 65535f) * 255f;
+            // prepare
+			profile_mass = 0;  // set it to zero at every location
+            for (int ii=0; ii<prof2[locationIdx].length; ii++)  {  // one loop to calculate the mass
+				p_distr[ii] = ((prof2[locationIdx][ii] & 0xffff) / 65535f) * 255f; // take the float value 0-255 range
+                profile_mass += p_distr[ii];
+			}
+			for (int ii=0; ii<prof2[locationIdx].length; ii++) {
+				p_distr[ii] /= profile_mass; // so that they sum up to 1
+			}
 
-            entropy[locationIdx] = 0;
+			/* entropy[locationIdx] */
+			entropy[locationIdx] = 0;
             for (int ii=0; ii<prof2[locationIdx].length; ii++) {
-                float Px = (((prof2[locationIdx][ii] & 0xffff) / 65535f) * 255f) / profile_mass; // (0,1)
-                entropy[locationIdx] += Px * Math.log(Px);
+                entropy[locationIdx] += p_distr[ii] * Math.log(p_distr[ii]);
             }
             entropy[locationIdx] = -entropy[locationIdx];
 
             /* kurtosis[locationIdx] */
-            //
-            float ;
-            //
 
 
 		}
@@ -139,7 +151,7 @@ public class PeakExtractor2D extends Thread {
                                 int         atX,                //
                                 int         atY,                //
                                 int[]       peaks_loc_i,        // out
-                                float[][]   peaks_ang_theta,    // out
+                                float[][]   peaks_ang_theta,    // out [radians 0 to 2pi]
 								int[]		peaks_weight        // out
     )
     {
@@ -157,7 +169,7 @@ public class PeakExtractor2D extends Thread {
 
         int[] labs = clustering(end_pts, _profile_sphere.diffs, 2*_profile_sphere.arcNbhood);// cluster the end_pts together
 
-        // extract the cluster centroids out  -> <theta, weight>
+        // extract the cluster centroids out  -> clss will be list of <theta[radians 0 to 2pi], weight(#convergence points)>
         ArrayList<float[]> clss = extracting(labs, end_pts, _profile_sphere.theta);
 
         appendClusters(atX, atY, _profile_sphere, clss,
@@ -275,7 +287,7 @@ public class PeakExtractor2D extends Thread {
 
         for (int t=0; t<clusters_to_append.size(); t++) { // check every peak theta angle
 
-            float 	peak_theta    = clusters_to_append.get(t)[0];   				// value in [rad] theta
+            float 	peak_theta    = clusters_to_append.get(t)[0];   				// value in [rad] theta 0 to 2pi
             int 	peak_weight   = Math.round(clusters_to_append.get(t)[1]);   	// convergence score
 
             int x_peak_pix_rounded = Math.round(atX + sphere_atXY.getX(peak_theta));
@@ -320,7 +332,7 @@ public class PeakExtractor2D extends Thread {
                     if (weights[k] == -1) { // store immediately, location is available
 
                         destination_locs[k]         = xy2i[x_peak_pix_rounded][y_peak_pix_rounded];
-                        destination_angs[k][0]      = peak_theta;
+                        destination_angs[k][0]      = peak_theta;     // radians 0 to 2pi
                         destination_weights[k]      = peak_weight;
 
                         weights[k] 					= peak_weight;
@@ -424,7 +436,7 @@ public class PeakExtractor2D extends Thread {
             }
         }
 
-        return out;
+        return out; // list <[float, float]> : <direction angle[rad], number of samples after converging>
 
     }
 
@@ -585,22 +597,8 @@ public class PeakExtractor2D extends Thread {
         float max_entropy = Float.POSITIVE_INFINITY;
 
         for (int ii = 0; ii<entropy.length; ii++) {
-
-            int x = i2xy[ii][0];
-            int y = i2xy[ii][1];
-
             if (entropy[ii]>max_entropy) max_entropy = entropy[ii];
             if (entropy[ii]<min_entropy) min_entropy = entropy[ii];
-
-//            boolean isMax = true;
-//            for (int k=0; k<lhood2[0].length; k++) {
-//                if (k!=choice[i] && lhood2[ii][k]>lhood2[ii][choice[i]]) {
-//                    isMax = false;
-//                }
-//            }
-
-            //t[x][y] = entropy[ii]; //(isMax)? lhood2[ii][choice[i]] : 0;
-
         }
 
         for (int xx=0; xx<w; xx++) {
