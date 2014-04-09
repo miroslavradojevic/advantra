@@ -61,9 +61,9 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
     ImageStack      pfl_is4 = null;
 
 	// output
-	int[][] 		thr_number; // keep the maximum here always
-	float[][][]		thr_fit;
-	float[][][]		circ_stat; // (R_, kurtosis, circ std, sample circ dispersion)
+	static int[][] 		    thr_number; // keep the maximum here always
+	static float[][][]		thr_fit;
+	static float[][][]		circ_stat; // (R_, kurtosis, circ std, sample circ dispersion)
 
     ImageCanvas cnv;
 
@@ -163,27 +163,30 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
 
     public void run(ImageProcessor imageProcessor) {
 
-
-		// todo add loop here
+		// todo add D loop here and store the outputs into static outputs
 		for (int d_scale=0; d_scale<3; d_scale++) {
 			float DD = D + d_scale * 1;
 
+            if (true) {
 
+                Sphere2D sph2d1 = new Sphere2D(DD, s);
+
+                ImagePlus samplingScheme =  sph2d1.showSampling();
+                samplingScheme.show();
+                samplingScheme.getWindow().setSize(200, 200);
+                samplingScheme.getCanvas().fitToWindow();
+
+                ImagePlus weightScheme = sph2d1.showWeights();
+                weightScheme.show();
+                weightScheme.getWindow().setSize(200, 200);
+                weightScheme.getCanvas().fitToWindow();
+
+            }
 		}
 
         Sphere2D sph2d = new Sphere2D(D, s);
 
-		if (false) {
-        	ImagePlus samplingScheme =  sph2d.showSampling();
-        	samplingScheme.show();
-        	samplingScheme.getWindow().setSize(200, 200);
-        	samplingScheme.getCanvas().fitToWindow();
-
-        	ImagePlus weightScheme = sph2d.showWeights();
-        	weightScheme.show();
-        	weightScheme.getWindow().setSize(200, 200);
-        	weightScheme.getCanvas().fitToWindow();
-		}
+        IJ.log("PROCESSING D="+D+", s="+s);
 
         /*
         main
@@ -192,7 +195,7 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
         t1 = System.currentTimeMillis();
         //************************************************
         IJ.log("extracting mask...");
-        Masker2D.loadTemplate(inimg_xy, sph2d.getOuterRadius(), D); //margin = sph2d.getOuterRadius()
+        Masker2D.loadTemplate(inimg_xy, sph2d.getOuterRadius(), 1.5f*sph2d.getOuterRadius()); //margin = sph2d.getOuterRadius()
         int totalLocs = inimg_xy.length * inimg_xy[0].length;
         Masker2D ms_jobs[] = new Masker2D[CPU_NR];
         for (int i = 0; i < ms_jobs.length; i++) {
@@ -208,7 +211,7 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
         }
 		Masker2D.defineThreshold();
         Masker2D.formRemainingOutputs();
-		//new ImagePlus("MASK", Masker2D.getMask()).show();
+		new ImagePlus("MASK", Masker2D.getMask()).show();
         //************************************************
         IJ.log("calculating profiles...");
         Profiler2D.loadTemplate(sph2d, Masker2D.i2xy, Masker2D.xy2i, inimg_xy);
@@ -241,7 +244,7 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
                 e.printStackTrace();
             }
         }
-        PeakExtractor2D.getEntropy().show();
+        PeakExtractor2D.getCircStat().show();
         //************************************************
         IJ.log("analyzing peaks + extracting features & descriptors...");
         Delineator2D.loadTemplate(Masker2D.i2xy, Masker2D.xy2i, PeakExtractor2D.peaks_i, PeakExtractor2D.peaks_w, inimg_xy, //Masker2D.back_xy,

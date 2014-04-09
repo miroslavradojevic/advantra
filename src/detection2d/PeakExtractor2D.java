@@ -6,9 +6,7 @@ import ij.ImageStack;
 import ij.gui.OvalRoi;
 import ij.gui.Overlay;
 import ij.gui.Plot;
-import ij.gui.PointRoi;
 import ij.process.FloatProcessor;
-import ij.process.ImageProcessor;
 
 import java.awt.*;
 import java.util.ArrayList;
@@ -37,19 +35,18 @@ public class PeakExtractor2D extends Thread {
     private static float TWO_PI = (float) (2 * Math.PI);
     private static float ONE_PI = (float) (1 * Math.PI);
 
-    // OUTPUTS
+    // OUTPUTS (everything that can be calculated from the peaks)
     public static float[][][]	peaks_theta;                // N x 4 x 1    4 selected peaks in abscissa coordinates X
     public static int[][]       peaks_i;             		// N x 4        4 selected peaks in indexed format (rounded locations)
     public static int[][]       peaks_w;                    // N x 4        peak weights
-
-	// circular statistics
-	public static float[]       R_;							// N            mean resultant length
-	public static float[]       theta_;						// N            mean resultant length
-	public static float[]       R_;							// N            mean resultant length
-	public static float[]       R_2;						// N            mean resultant length
-	public static float[]       entropy;                    // N            entropy of the profile at this location
-
-	public static float[]       kurtosis;                   // N            kurtosis of the profile at this location
+	public static float[][]     peaks_pty_distr;            // N x 4        peak probability distribution
+    public static float[][]     circ_stats;					// N x 5    circular statistics
+	// 0: R_        mean resultant length,
+	//    R_sym     mean resultant length pairs
+	// 1: v         circular standard deviation
+    // 2: delta     circular dispersion
+    // 3: k         kurtosis
+    // 4: e         entropy
 
     public PeakExtractor2D(int n0, int n1)
     {
@@ -70,8 +67,8 @@ public class PeakExtractor2D extends Thread {
 		peaks_i  		= new int[i2xy.length][4];
 		peaks_theta  	= new float[i2xy.length][4][1];
 		peaks_w 		= new int[i2xy.length][4];
-        entropy         = new float[i2xy.length];
-        kurtosis        = new float[i2xy.length];
+        peaks_pty_distr = new float[i2xy.length][4];
+        circ_stats      = new float[i2xy.length][5];
 
         // initialization legend:
         // -2 is assuming that it is not assigned, empty location (all are initialized that way)
@@ -79,15 +76,12 @@ public class PeakExtractor2D extends Thread {
         // >=0 in case it is some foreground location
 		for (int ii = 0; ii<i2xy.length; ii++) {
 			for (int jj = 0; jj<4; jj++) {
-
                 peaks_i[ii][jj] = -2;
-
+                peaks_w[ii][jj] = -2;
+                peaks_pty_distr[ii][jj] = -2;
 				for (int kk=0; kk<1; kk++) {
 					peaks_theta[ii][jj][kk] = -2;
 				}
-
-				peaks_w[ii][jj] = -2;
-
 			}
 		}
 
@@ -100,11 +94,12 @@ public class PeakExtractor2D extends Thread {
         int[] start_indexes = new int[sph2d.getProfileLength()];
         for (int i = 0; i < start_indexes.length; i++) start_indexes[i] = i;    // zero indexing is used
         int[] end_indexes = new int[sph2d.getProfileLength()];                  // zeros at the beginning
-		// array to hold the p-ty distribution for every direction (angle) in profiles
-		// will be redefined for every location loop
-		float[] p_distr = new float[prof2[0].length];
-		float profile_mass = 0;
+		// aux variables for circular statistics calculations
+		float[] p_theta = new float[prof2[0].length]; // p-ty distribution for every direction (angle) in profiles
+        float[] theta   = new float[prof2[0].length]; // angles in rad
+		float p_mass, a1, b1, a2, b2, angle_step_rad, R_, R_2, theta_, theta_2, entropy;
 
+        //main
 		for (int locationIdx = begN; locationIdx < endN; locationIdx++) { // all foreground locations
 
 			int atX = i2xy[locationIdx][0];
@@ -117,28 +112,60 @@ public class PeakExtractor2D extends Thread {
                     atX, atY,
                     peaks_i[locationIdx],      // indexed location
                     peaks_theta[locationIdx],  // angle in radians 0 to 2pi
-					peaks_w[locationIdx]
+					peaks_w[locationIdx],
+                    peaks_pty_distr[locationIdx]
 			);
 
-            // prepare
-			profile_mass = 0;  // set it to zero at every location
+            // extract peak pty distribution
+
+
+            // circular statistics calculation
+			p_mass = 0;  // set it to zero at every location
             for (int ii=0; ii<prof2[locationIdx].length; ii++)  {  // one loop to calculate the mass
-				p_distr[ii] = ((prof2[locationIdx][ii] & 0xffff) / 65535f) * 255f; // take the float value 0-255 range
-                profile_mass += p_distr[ii];
+				p_theta[ii] = ((prof2[locationIdx][ii] & 0xffff) / 65535f) * 255f; // take the float value 0-255 range
+                p_mass += p_theta[ii];
 			}
-			for (int ii=0; ii<prof2[locationIdx].length; ii++) {
-				p_distr[ii] /= profile_mass; // so that they sum up to 1
-			}
+			for (int ii=0; ii<prof2[locationIdx].length; ii++)
+                p_theta[ii] /= p_mass; // so that they sum up to 1, p-ty distribution create
 
-			/* entropy[locationIdx] */
-			entropy[locationIdx] = 0;
-            for (int ii=0; ii<prof2[locationIdx].length; ii++) {
-                entropy[locationIdx] += p_distr[ii] * Math.log(p_distr[ii]);
+            angle_step_rad = (360f / prof2[locationIdx].length) * ((float)Math.PI/180f);
+            for (int i=0; i< prof2[locationIdx].length; i++)
+                theta[i] = i * angle_step_rad + angle_step_rad / 2;   // data points from the interval are from the middle of that interval
+
+            a1 = 0; b1 = 0; a2 = 0; b2 = 0;
+            for (int i=0; i<prof2[locationIdx].length; i++) {
+                a1 += p_theta[i] * Math.cos(1*theta[i]);
+                b1 += p_theta[i] * Math.sin(1*theta[i]);
+                a2 += p_theta[i] * Math.cos(2*theta[i]);
+                b2 += p_theta[i] * Math.sin(2*theta[i]);
             }
-            entropy[locationIdx] = -entropy[locationIdx];
 
-            /* kurtosis[locationIdx] */
+            R_ = (float) Math.sqrt(Math.pow(a1,2)+Math.pow(b1,2)); // mean resultant length
+            R_2 = (float) Math.sqrt(Math.pow(a2,2)+Math.pow(b2,2));
 
+            theta_ = Float.NaN;
+            if (R_>Float.MIN_VALUE) {
+                if (a1>=0) theta_ = (float) Math.atan(b1 / a1);
+                else theta_ = (float) (Math.atan(b1 / a1) + Math.PI);
+            }
+
+            theta_2 = Float.NaN;
+            if (R_2>Float.MIN_VALUE) {
+                if (a2>=0) theta_2 = (float) Math.atan(b2 / a2);
+                else theta_2 = (float) (Math.atan(b2 / a2) + Math.PI);
+            }
+
+            theta_ 	= wrap_0_2PI(theta_); // wrap theta [0, 2pi) range
+            theta_2 = wrap_0_2PI(theta_2); // wrap theta [0, 2pi) range
+
+            // fill up the values
+            circ_stats[locationIdx][0] = R_;   // mean resultant length
+            circ_stats[locationIdx][1] = (float) Math.sqrt(-2*Math.log(R_)); // circ standard dev.
+            circ_stats[locationIdx][2] = (1-R_2)/(2*R_*R_); // sample circ. dispersion
+            circ_stats[locationIdx][3] = (float) ((R_2*Math.cos(theta_2-2*theta_)-Math.pow(R_,4)) / Math.pow(1-R_, 2)); // kurtosis
+            entropy = 0;
+            for (int i=0; i<prof2[locationIdx].length; i++) entropy += p_theta[i] * Math.log(p_theta[i]);
+            circ_stats[locationIdx][4] = -entropy; // entropy
 
 		}
 
@@ -152,7 +179,8 @@ public class PeakExtractor2D extends Thread {
                                 int         atY,                //
                                 int[]       peaks_loc_i,        // out
                                 float[][]   peaks_ang_theta,    // out [radians 0 to 2pi]
-								int[]		peaks_weight        // out
+								int[]		peaks_weight,       // out
+                                float[]     peaks_pties         // out
     )
     {
 
@@ -177,6 +205,37 @@ public class PeakExtractor2D extends Thread {
 							  peaks_ang_theta,  // out
 							  peaks_weight      // out
 		);
+
+        // extract peak probability distribution
+        float min_along_profile = Float.POSITIVE_INFINITY;
+        for (int loop_profile=0; loop_profile<_profile.length; loop_profile++) {
+            float curr_prof_value = ((float)(_profile[loop_profile] & 0xffff)/65535f)*255f;
+            if(curr_prof_value<min_along_profile) {
+                min_along_profile = curr_prof_value;
+            }
+        }
+
+        int sum_pties = 0;
+        for (int loopPeaks=0; loopPeaks<4; loopPeaks++) {
+            if (peaks_loc_i[loopPeaks]!=-2 & peaks_loc_i[loopPeaks]!=-1) {
+                // there was a peak
+                float take_angle = peaks_ang_theta[loopPeaks][0];
+                // make it profile index
+                float step = TWO_PI/_profile.length;
+                int peak_profile_index = (int) Math.floor(take_angle/step);
+                float peak_profile_value = ((float)(_profile[peak_profile_index] & 0xffff)/65535f)*255f;
+                peaks_pties[loopPeaks] = peak_profile_value-min_along_profile;
+                sum_pties += peaks_pties[loopPeaks];
+            }
+        }
+
+        for (int loopPeaks=0; loopPeaks<4; loopPeaks++) {
+            if (peaks_loc_i[loopPeaks]!=-2 & peaks_loc_i[loopPeaks]!=-1) {
+                // normalize
+                peaks_pties[loopPeaks] /= sum_pties;
+            }
+        }
+
 
     }
 
@@ -287,6 +346,7 @@ public class PeakExtractor2D extends Thread {
 
         for (int t=0; t<clusters_to_append.size(); t++) { // check every peak theta angle
 
+            // calculate values for the peak from the list
             float 	peak_theta    = clusters_to_append.get(t)[0];   				// value in [rad] theta 0 to 2pi
             int 	peak_weight   = Math.round(clusters_to_append.get(t)[1]);   	// convergence score
 
@@ -464,17 +524,40 @@ public class PeakExtractor2D extends Thread {
                 if (f[i]<profile_min) profile_min = f[i];
             }
 
-            Plot p = new Plot("", "", "entropy="+IJ.d2s(entropy[idx],2), fx, f);
+            String printout = "circ_stats:\n(R_,v,delta,k,e)="+
+                    IJ.d2s(circ_stats[idx][0],2)+","+
+                    IJ.d2s(circ_stats[idx][1],2)+","+
+                    IJ.d2s(circ_stats[idx][2],2)+","+
+                    IJ.d2s(circ_stats[idx][3],2)+","+
+                    IJ.d2s(circ_stats[idx][4],2);
+
+            IJ.log(printout);
+
+            Plot p = new Plot(printout, "",
+                    printout,
+                    fx, f);
+
+
+            IJ.log("$$$ peaks theta: (PeakExtractor2D) $$$");
 
             float[][] get_thetas = peaks_theta[idx];
-//            IJ.log("peaks theta:");
-//            for (int ii=0; ii<get_thetas.length; ii++) IJ.log(Arrays.toString(get_thetas[ii]));
-//            int[] get_weights = peaks_w[idx];
-//            IJ.log("peaks wieghts:");
-//            for (int ii=0; ii<get_weights.length; ii++) IJ.log(IJ.d2s(get_weights[ii], 2));
-//            int[] get_idxs = peaks_i[idx];
-//            IJ.log("peaks idxs:");
-//            for (int ii=0; ii<get_idxs.length; ii++) IJ.log(IJ.d2s(get_idxs[ii], 2));
+            IJ.log("peaks in rad:");
+            for (int ii=0; ii<get_thetas.length; ii++) IJ.log(Arrays.toString(get_thetas[ii]));
+            IJ.log("peaks in deg:");
+            for (int ii=0; ii<get_thetas.length; ii++) IJ.log(IJ.d2s(get_thetas[ii][0]*(180f/Math.PI),2)); //IJ.log(Arrays.toString(get_thetas[ii]));
+
+            int[] get_weights = peaks_w[idx];
+            IJ.log("peaks wieghts:");
+            for (int ii=0; ii<get_weights.length; ii++) IJ.log(IJ.d2s(get_weights[ii], 2));
+
+            int[] get_idxs = peaks_i[idx];
+            IJ.log("peaks idxs:");
+            for (int ii=0; ii<get_idxs.length; ii++) IJ.log(IJ.d2s(get_idxs[ii], 2));
+
+            float[] get_pties = peaks_pty_distr[idx];
+            IJ.log("peaks pty distribution: ");
+            for (int ii=0; ii<get_pties.length; ii++) IJ.log(IJ.d2s(get_pties[ii],2));
+
 
 
             for (int k=0; k<get_thetas.length; k++) {
@@ -586,34 +669,42 @@ public class PeakExtractor2D extends Thread {
         }
     }
 
-    public static ImagePlus getEntropy(){
+    public static ImagePlus getCircStat(){
 
         int w = inimg_xy.length;
         int h = inimg_xy[0].length;
 
-        float[][] t = new float[w][h];
+        ImageStack is_out = new ImageStack(w,h);
 
-        float min_entropy = Float.NEGATIVE_INFINITY;
-        float max_entropy = Float.POSITIVE_INFINITY;
+        for (int i=0; i<5; i++) {
 
-        for (int ii = 0; ii<entropy.length; ii++) {
-            if (entropy[ii]>max_entropy) max_entropy = entropy[ii];
-            if (entropy[ii]<min_entropy) min_entropy = entropy[ii];
-        }
+            // loop all the circ stat values with index i
+            float min = Float.POSITIVE_INFINITY;
+            float max = Float.NEGATIVE_INFINITY;
+            for (int ii = 0; ii<circ_stats.length; ii++) {
+                if (circ_stats[ii][i]>max) max = circ_stats[ii][i];
+                if (circ_stats[ii][i]<min) min = circ_stats[ii][i];
+            }
 
-        for (int xx=0; xx<w; xx++) {
-            for (int yy=0; yy<h; yy++) {
-                int idx = xy2i[xx][yy];
-                if (idx!=-1) {
-                    t[xx][yy] = entropy[idx];
-                }
-                else {
-                    t[xx][yy] = max_entropy;
+            float[][] t = new float[w][h];
+            for (int xx=0; xx<w; xx++) {
+                for (int yy=0; yy<h; yy++) {
+                    int idx = xy2i[xx][yy];
+                    if (idx!=-1) {
+                        t[xx][yy] = circ_stats[idx][i];
+                    }
+                    else {
+                        t[xx][yy] = min;
+                    }
                 }
             }
+
+            // add to the stack
+            is_out.addSlice("circ_stat_"+IJ.d2s(i,0), new FloatProcessor(t));
+
         }
 
-        return new ImagePlus("profile_entropy", new FloatProcessor(t));
+        return new ImagePlus("circ_statistics", is_out);
 
     }
 

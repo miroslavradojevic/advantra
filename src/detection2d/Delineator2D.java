@@ -75,6 +75,8 @@ public class Delineator2D extends Thread {
     // likelihoods (obtained from descriptors)
     public static float[][]     lhood2;                     // N(foreground locs.) x 5 (NON..CRS) fuzzy logic output is stored here
 
+
+
     public Delineator2D(int n0, int n1)
     {
         this.begN = n0;
