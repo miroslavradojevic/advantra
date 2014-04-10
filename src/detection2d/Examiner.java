@@ -291,10 +291,8 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
         }
         */
 
-        ImageStack is_lhoods = Delineator2D.exportLikelihoods(new int[]{1});
-        new ImagePlus("ENDPOINTS", is_lhoods).show();
-        is_lhoods = Delineator2D.exportLikelihoods(new int[]{3, 4});
-        new ImagePlus("JUNCTIONS", is_lhoods).show();
+        ImageStack is_lhoods = Delineator2D.exportLikelihoods();
+        new ImagePlus("LHOODS2", is_lhoods).show();
 
 
         t2 = System.currentTimeMillis();

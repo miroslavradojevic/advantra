@@ -1,6 +1,5 @@
 package detection2d;
 
-import conn.AmiraParameters;
 import ij.gui.Plot;
 
 import java.awt.*;
@@ -12,7 +11,7 @@ import java.util.Arrays;
  * parameters of gradation are given as arguments muON, sigmaON, muOFF, sigmaOFF (for one variable)
  *
  */
-public class Fuzzy2D {
+public class FuzzyPoint2D {
 
     int      N;         // number of points
     int[]    out_idxs;  //
@@ -40,7 +39,7 @@ public class Fuzzy2D {
     float[] q_BIF;
     float[] q_CRS;
 
-    public Fuzzy2D(int _N, float _mu_ON, float _sig_ON, float _mu_OFF, float _sig_OFF)
+    public FuzzyPoint2D(int _N, float _mu_ON, float _sig_ON, float _mu_OFF, float _sig_OFF)
     {
         N = _N;
 		L = 5;
@@ -127,8 +126,6 @@ public class Fuzzy2D {
         //else
         //    return 0;
     }
-
-    // todo h_OFF can be a small fuzzy logic system itself 2 inputs, 1 output
 
     public void showFuzzification()
     {

@@ -1,6 +1,6 @@
 package demos;
 
-import detection2d.Fuzzy2D;
+import detection2d.FuzzyPoint2D;
 
 import java.util.Arrays;
 
@@ -21,7 +21,7 @@ public class Fuzzy {
         System.out.println("mu_ON = "+mu_ON);
         System.out.println("mu_OFF = "+mu_OFF);
 
-        Fuzzy2D f2d = new Fuzzy2D(Npoints, mu_ON, sigma_ON, mu_OFF, sigma_OFF);
+        FuzzyPoint2D f2d = new FuzzyPoint2D(Npoints, mu_ON, sigma_ON, mu_OFF, sigma_OFF);
         f2d.showFuzzification();
         f2d.showDefuzzification();
 

@@ -188,4 +188,40 @@ public class Stat {
 		return out_min_max;
 	}
 
+    public static final float cemd(float f1, float f2, float f3, float f4, float g1, float g2, float g3, float g4){
+
+
+        // cummulative
+        float[][] F = new float[][]{
+                {f1,            f1+f2,          f1+f2+f3,       f1+f2+f3+f4},
+                {f1+f2+f3+f4,   f2,             f2+f3,          f2+f3+f4},
+                {f1+f3+f4,      f1+f2+f3+f4,    f3,             f3+f4},
+                {f1+f4,         f1+f2+f4,       f1+f2+f3+f4,    f4}
+        };
+
+        float[][] G = new float[][]{
+                {g1,            g1+g2,          g1+g2+g3,       g1+g2+g3+g4},
+                {g1+g2+g3+g4,   g2,             g2+g3,          g2+g3+g4},
+                {g1+g3+g4,      g1+g2+g3+g4,    g3,             g3+g4},
+                {g1+g4,         g1+g2+g4,       g1+g2+g3+g4,    g4}
+        };
+
+        float out = Float.POSITIVE_INFINITY;
+
+        for (int i=0; i<F.length; i++) {
+
+            float avg = 0;
+            for (int j=0; j<F[i].length; j++) {
+                avg += Math.abs(F[i][j]-G[i][j]);
+            }
+            avg /= F[i].length;
+
+            if (avg<out) out = avg;
+
+        }
+
+        return out;
+
+    }
+
 }

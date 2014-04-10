@@ -208,11 +208,11 @@ public class PeakExtractor2D extends Thread {
 
         // extract peak probability distribution
         float min_along_profile = Float.POSITIVE_INFINITY;
+        float max_along_profile = Float.NEGATIVE_INFINITY;
         for (int loop_profile=0; loop_profile<_profile.length; loop_profile++) {
             float curr_prof_value = ((float)(_profile[loop_profile] & 0xffff)/65535f)*255f;
-            if(curr_prof_value<min_along_profile) {
-                min_along_profile = curr_prof_value;
-            }
+            if(curr_prof_value<min_along_profile) min_along_profile = curr_prof_value;
+            if(curr_prof_value>max_along_profile) max_along_profile = curr_prof_value;
         }
 
 //        int sum_pties = 0;
@@ -222,22 +222,15 @@ public class PeakExtractor2D extends Thread {
                 float take_angle = wrap_0_2PI(peaks_ang_theta[loopPeaks][0]);
                 float step = TWO_PI/_profile.length;
                 int peak_profile_index = (int) Math.floor(take_angle/step);
-				if (peak_profile_index==_profile.length) peak_profile_index=0; // {System.out.println("BAD!"+peak_profile_index+" take_ang "+take_angle); }
+				if (peak_profile_index==_profile.length) peak_profile_index=0;
                 float peak_profile_value = ((float)(_profile[peak_profile_index] & 0xffff)/65535f)*255f;
-                peaks_lhood[loopPeaks] = peak_profile_value-min_along_profile;
+                peaks_lhood[loopPeaks] = (peak_profile_value-min_along_profile)/(max_along_profile-min_along_profile);
 //                sum_pties += peaks_pties[loopPeaks];
             }
 			else {
 				peaks_lhood[loopPeaks] = Float.NaN;
 			}
         }
-
-//        for (int loopPeaks=0; loopPeaks<4; loopPeaks++) {
-//            if (peaks_loc_i[loopPeaks]!=-2 & peaks_loc_i[loopPeaks]!=-1) {
-//                // normalize
-//                peaks_pties[loopPeaks] /= sum_pties;
-//            }
-//        }
 
     }
 
