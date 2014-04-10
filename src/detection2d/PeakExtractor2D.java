@@ -39,7 +39,7 @@ public class PeakExtractor2D extends Thread {
     public static float[][][]	peaks_theta;                // N x 4 x 1    4 selected peaks in abscissa coordinates X
     public static int[][]       peaks_i;             		// N x 4        4 selected peaks in indexed format (rounded locations)
     public static int[][]       peaks_w;                    // N x 4        peak weights
-	public static float[][]     peaks_pty_distr;            // N x 4        peak probability distribution
+	public static float[][]     peaks_lhood;            // N x 4        peak probability distribution
     public static float[][]     circ_stats;					// N x 5    circular statistics
 	// 0: R_        mean resultant length,
 	//    R_sym     mean resultant length pairs
@@ -67,7 +67,7 @@ public class PeakExtractor2D extends Thread {
 		peaks_i  		= new int[i2xy.length][4];
 		peaks_theta  	= new float[i2xy.length][4][1];
 		peaks_w 		= new int[i2xy.length][4];
-        peaks_pty_distr = new float[i2xy.length][4];
+        peaks_lhood 	= new float[i2xy.length][4];
         circ_stats      = new float[i2xy.length][5];
 
         // initialization legend:
@@ -78,7 +78,7 @@ public class PeakExtractor2D extends Thread {
 			for (int jj = 0; jj<4; jj++) {
                 peaks_i[ii][jj] = -2;
                 peaks_w[ii][jj] = -2;
-                peaks_pty_distr[ii][jj] = -2;
+                peaks_lhood[ii][jj] = -2;
 				for (int kk=0; kk<1; kk++) {
 					peaks_theta[ii][jj][kk] = -2;
 				}
@@ -113,7 +113,7 @@ public class PeakExtractor2D extends Thread {
                     peaks_i[locationIdx],      // indexed location
                     peaks_theta[locationIdx],  // angle in radians 0 to 2pi
 					peaks_w[locationIdx],
-                    peaks_pty_distr[locationIdx]
+                    peaks_lhood[locationIdx]
 			);
 
             // extract peak pty distribution
@@ -180,7 +180,7 @@ public class PeakExtractor2D extends Thread {
                                 int[]       peaks_loc_i,        // out
                                 float[][]   peaks_ang_theta,    // out [radians 0 to 2pi]
 								int[]		peaks_weight,       // out
-                                float[]     peaks_pties         // out
+                                float[]     peaks_lhood         // out
     )
     {
 
@@ -215,27 +215,29 @@ public class PeakExtractor2D extends Thread {
             }
         }
 
-        int sum_pties = 0;
+//        int sum_pties = 0;
         for (int loopPeaks=0; loopPeaks<4; loopPeaks++) {
             if (peaks_loc_i[loopPeaks]!=-2 & peaks_loc_i[loopPeaks]!=-1) {
                 // there was a peak
-                float take_angle = peaks_ang_theta[loopPeaks][0];
-                // make it profile index
+                float take_angle = wrap_0_2PI(peaks_ang_theta[loopPeaks][0]);
                 float step = TWO_PI/_profile.length;
                 int peak_profile_index = (int) Math.floor(take_angle/step);
+				if (peak_profile_index==_profile.length) peak_profile_index=0; // {System.out.println("BAD!"+peak_profile_index+" take_ang "+take_angle); }
                 float peak_profile_value = ((float)(_profile[peak_profile_index] & 0xffff)/65535f)*255f;
-                peaks_pties[loopPeaks] = peak_profile_value-min_along_profile;
-                sum_pties += peaks_pties[loopPeaks];
+                peaks_lhood[loopPeaks] = peak_profile_value-min_along_profile;
+//                sum_pties += peaks_pties[loopPeaks];
             }
+			else {
+				peaks_lhood[loopPeaks] = Float.NaN;
+			}
         }
 
-        for (int loopPeaks=0; loopPeaks<4; loopPeaks++) {
-            if (peaks_loc_i[loopPeaks]!=-2 & peaks_loc_i[loopPeaks]!=-1) {
-                // normalize
-                peaks_pties[loopPeaks] /= sum_pties;
-            }
-        }
-
+//        for (int loopPeaks=0; loopPeaks<4; loopPeaks++) {
+//            if (peaks_loc_i[loopPeaks]!=-2 & peaks_loc_i[loopPeaks]!=-1) {
+//                // normalize
+//                peaks_pties[loopPeaks] /= sum_pties;
+//            }
+//        }
 
     }
 
@@ -524,6 +526,7 @@ public class PeakExtractor2D extends Thread {
                 if (f[i]<profile_min) profile_min = f[i];
             }
 
+			/*
             String printout = "circ_stats:\n(R_,v,delta,k,e)="+
                     IJ.d2s(circ_stats[idx][0],2)+","+
                     IJ.d2s(circ_stats[idx][1],2)+","+
@@ -533,14 +536,14 @@ public class PeakExtractor2D extends Thread {
 
             IJ.log(printout);
 
-            Plot p = new Plot(printout, "",
-                    printout,
-                    fx, f);
 
-
+			*/
+			Plot p = new Plot("", "", "", fx, f);
+			float[][] get_thetas = peaks_theta[idx];
+			/*
             IJ.log("$$$ peaks theta: (PeakExtractor2D) $$$");
 
-            float[][] get_thetas = peaks_theta[idx];
+
             IJ.log("peaks in rad:");
             for (int ii=0; ii<get_thetas.length; ii++) IJ.log(Arrays.toString(get_thetas[ii]));
             IJ.log("peaks in deg:");
@@ -553,12 +556,7 @@ public class PeakExtractor2D extends Thread {
             int[] get_idxs = peaks_i[idx];
             IJ.log("peaks idxs:");
             for (int ii=0; ii<get_idxs.length; ii++) IJ.log(IJ.d2s(get_idxs[ii], 2));
-
-            float[] get_pties = peaks_pty_distr[idx];
-            IJ.log("peaks pty distribution: ");
-            for (int ii=0; ii<get_pties.length; ii++) IJ.log(IJ.d2s(get_pties[ii],2));
-
-
+            */
 
             for (int k=0; k<get_thetas.length; k++) {
                 if (get_thetas[k][0] != -1) {

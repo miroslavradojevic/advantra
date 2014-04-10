@@ -247,7 +247,7 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
         PeakExtractor2D.getCircStat().show();
         //************************************************
         IJ.log("analyzing peaks + extracting features & descriptors...");
-        Delineator2D.loadTemplate(Masker2D.i2xy, Masker2D.xy2i, PeakExtractor2D.peaks_i, PeakExtractor2D.peaks_w, inimg_xy, //Masker2D.back_xy,
+        Delineator2D.loadTemplate(Masker2D.i2xy, Masker2D.xy2i, PeakExtractor2D.peaks_i, PeakExtractor2D.peaks_w, PeakExtractor2D.peaks_lhood, inimg_xy, //Masker2D.back_xy,
                 M,
                 minCos,
                 D,

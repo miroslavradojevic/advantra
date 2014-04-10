@@ -112,7 +112,10 @@ public class Sphere2D {
 
         offstXY.clear();
         weights = new float[(2*limT+1)*limR]; // (limR+1)
-        float sumWgt = 0;
+
+		float sumWgt = 0;
+//		float sumWgtPos = 0;
+//		float sumWgtNeg = 0;
 
         for (int ii = 0; ii<theta.size(); ii++) {
 
@@ -140,11 +143,15 @@ public class Sphere2D {
                         offsetsPerDirection[cnt][1] = py;
 //                        offsetsPerDirection[cnt][2] = pz;
 
-                        //*** HERE DEFINES THE FILTER PROFILE WEIGHTS (only in first iteration, the rest are the same)
+                        //*** HERE DEFINES THE FILTER PROFILE WEIGHTS (only in first iteration (ii=0), the rest are the same)
                         if (ii==0) {
                                 float dstAxis = point2line(0, 0,        0, 1,       px, py);
-                            	weights[cnt] = (float) Math.exp(-(dstAxis*dstAxis)/(2*(neuronDiameter/weightStdRatioToD)*(neuronDiameter/weightStdRatioToD)));
-                            	sumWgt += weights[cnt];
+							float sigm = neuronDiameter/weightStdRatioToD;
+                            weights[cnt] = (float) Math.exp(-(dstAxis*dstAxis)/(2*(neuronDiameter/weightStdRatioToD)*(neuronDiameter/weightStdRatioToD)));
+							sumWgt += weights[cnt];
+//							weights[cnt] = (float) ((1-(dstAxis*dstAxis)/(sigm*sigm))*Math.exp(-(dstAxis*dstAxis)/(2*sigm*sigm)));
+//							if (weights[cnt]>0) sumWgtPos+=weights[cnt];
+//							else sumWgtNeg-=weights[cnt];
                         }
 
                         cnt++;
@@ -170,6 +177,8 @@ public class Sphere2D {
 	    */
         for (int iii=0; iii<weights.length; iii++) {
             weights[iii] /= sumWgt;
+//			if (weights[iii]>0)weights[iii] /= sumWgtPos;
+//			else {weights[iii] /= sumWgtNeg; System.out.println("YES");}
         }
 
         /*

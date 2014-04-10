@@ -11,6 +11,7 @@ import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 
 import java.awt.*;
+import java.awt.geom.Arc2D;
 import java.awt.geom.CubicCurve2D;
 import java.io.*;
 import java.util.ArrayList;
@@ -41,6 +42,7 @@ public class Delineator2D extends Thread {
     // INPUT:
     public static int[][]       peaks_i;             	    // list of extracted peaks: N x 4 every FG location with 4 extracted peaks in indexed format
 	public static int[][]		peaks_w;                    // weight assigned to each peak (for expansion)
+	public static float[][] 	peaks_lhood;				// likelihoods for each peaks taken from the profile
 	public static float[][]		inimg_xy;				    // input image (necessary for feature extraction)
 
     // PARAMETERS
@@ -73,7 +75,8 @@ public class Delineator2D extends Thread {
     public static int           NR_DESC2 = 4;               // number of descriptors (fitsco2 mean, fitsco2 median, stdev2 mean, stdev2 median)
     public static float[][][]   desc2;                      // N(foreground locs.) x 4(max. threads) x 4 (nr.desc)
     // likelihoods (obtained from descriptors)
-    public static float[][]     lhood2;                     // N(foreground locs.) x 5 (NON..CRS) fuzzy logic output is stored here
+	public static float[][]		peaks_lhood_reg; 			// regularized likelihoods, using mean ncc stored in desc2
+	public static float[][]     lhood2;                     // N(foreground locs.) x 4 (END..CRS) fuzzy logic output is stored here
 
 
 
@@ -83,7 +86,7 @@ public class Delineator2D extends Thread {
         this.endN = n1;
     }
 
-    public static void loadTemplate(int[][] _i2xy, int[][] _xy2i, int[][] _peaks_i, int[][] _peaks_w, float[][] _inimg_xy,// byte[][] _backgr_xy,
+    public static void loadTemplate(int[][] _i2xy, int[][] _xy2i, int[][] _peaks_i, int[][] _peaks_w, float[][] _peaks_lhood, float[][] _inimg_xy,// byte[][] _backgr_xy,
 									int     _M,
                                     float   _minCos,
                                     float   _D,
@@ -116,6 +119,7 @@ public class Delineator2D extends Thread {
         xy2i = _xy2i;
         peaks_i = _peaks_i;
 		peaks_w = _peaks_w;
+		peaks_lhood = _peaks_lhood;
 		inimg_xy = _inimg_xy;
 
         // allocate output
@@ -133,7 +137,8 @@ public class Delineator2D extends Thread {
         fitsco2   			= new float[i2xy.length][4][];          // fit score
         stdev2   			= new float[i2xy.length][4][];          // variance
         desc2  				= new float[i2xy.length][4][];          // description of the fit scores
-        lhood2  			= new float[i2xy.length][];     		// fuzzy likelihood output
+		peaks_lhood_reg		= new float[i2xy.length][];
+        lhood2  			= new float[i2xy.length][];     		// critpoint likelihood output
 
     }
 
@@ -154,12 +159,11 @@ public class Delineator2D extends Thread {
             /*
             central FLS
              */
-			Fuzzy2D  fls 				= new Fuzzy2D(nr_points, mu_ON, sig_ON, mu_OFF, sig_OFF); // class used to calculate fuzzy score
+//			Fuzzy2D  fls 				= new Fuzzy2D(nr_points, mu_ON, sig_ON, mu_OFF, sig_OFF); // class used to calculate fuzzy score
             /*
             stream FLS
              */
 
-			// todo add another Fuzzy class for the cascade
 //            SegmentFLS
 //			fls.showFuzzification();
 //			fls.showDefuzzification();
@@ -442,9 +446,6 @@ public class Delineator2D extends Thread {
             }
 
             /*  desc2[locationIdx] using fitsco2[locationIdx] and stdev2[locationIdx] */
-            //
-
-            //
             if (fitsco2[locationIdx]!=null) {
 
                 for (int b = 0; b<fitsco2[locationIdx].length; b++) {
@@ -470,50 +471,63 @@ public class Delineator2D extends Thread {
                 desc2[locationIdx]=null;
             }
 
-            /* lhood2[locationIdx] using desc2[locationIdx] */
-            //
+			/* peaks_lhood_reg[locationIdx] using desc2 and peaks_lhood */
 
-            //
-            // check how many branches there are in desc2[locationIdx]
-            ArrayList<Integer> branches_found = new ArrayList<Integer>();
-            branches_found.clear();
-            if (desc2[locationIdx]!=null) {
-                for (int b=0; b<desc2[locationIdx].length; b++)
-                    if (desc2[locationIdx][b] != null) branches_found.add(b); // add the index of the branch found
-            }
+			// if fixed to 4
+			peaks_lhood_reg[locationIdx] = new float[4];
+			if (desc2[locationIdx]!=null) {
+				float sum = 0;
+				for (int b=0; b<desc2[locationIdx].length; b++) {
+					if (desc2[locationIdx][b] != null) {
+						//branches_found.add(b); // add the index of the branch found
+						peaks_lhood_reg[locationIdx][b] = peaks_lhood[locationIdx][b] * (1 - desc2[locationIdx][b][0]);
+						sum += peaks_lhood_reg[locationIdx][b];
+					}
+					else {
+						peaks_lhood_reg[locationIdx][b] = 0;
+					}
+				}
 
-            lhood2[locationIdx] = new float[fls.L]; // allocate in the length of fls output vector
+				for (int b=0; b<desc2[locationIdx].length; b++) {
+					peaks_lhood_reg[locationIdx][b] /= sum;
+				}
 
-            // calculate fuzzy likelihoods  (supply all the means, index [0])
-            if (branches_found.size()==4) {
-                fls.critpointScores(
-                        desc2[locationIdx][0][0],
-                        desc2[locationIdx][1][0],
-                        desc2[locationIdx][2][0],
-                        desc2[locationIdx][3][0],
-                        lhood2[locationIdx]);
-            }
-            else if (branches_found.size()==3) {
-                fls.critpointScores(
-                        desc2[locationIdx][branches_found.get(0)][0],
-                        desc2[locationIdx][branches_found.get(1)][0],
-                        desc2[locationIdx][branches_found.get(2)][0],
-                        lhood2[locationIdx]);
-            }
-            else if (branches_found.size()==2) {
-                fls.critpointScores(
-                        desc2[locationIdx][branches_found.get(0)][0],
-                        desc2[locationIdx][branches_found.get(1)][0],
-                        lhood2[locationIdx]);
-            }
-            else if (branches_found.size()==1) {
-                fls.critpointScores(
-                        desc2[locationIdx][branches_found.get(0)][0],
-                        lhood2[locationIdx]);
-            }
-            else {
-                // all are zeros
-            }
+			}
+			else {
+				peaks_lhood_reg[locationIdx] = null;
+			}
+
+
+//			// if keep total # varying
+//            // check how many branches there are in desc2[locationIdx]
+//            ArrayList<Integer> branches_found = new ArrayList<Integer>();
+//            branches_found.clear();
+//            if (desc2[locationIdx]!=null) {
+//                for (int b=0; b<desc2[locationIdx].length; b++)
+//                    if (desc2[locationIdx][b] != null) branches_found.add(b); // add the index of the branch found
+//            }
+//
+//			if (desc2[locationIdx]!=null){
+//				peaks_lhood_reg[locationIdx] = new float[branches_found.size()]; // allocate in the length of branches found
+//				float sum = 0;
+//				for(int bf=0; bf<branches_found.size(); bf++) {
+//					int bch_index = branches_found.get(bf);
+//					peaks_lhood_reg[locationIdx][bch_index] = peaks_lhood[locationIdx][bch_index] * (1 - desc2[locationIdx][bch_index][0]);
+//					sum += peaks_lhood_reg[locationIdx][bch_index];
+//				}
+//				for(int bf=0; bf<branches_found.size(); bf++) {
+//					int bch_index = branches_found.get(bf);
+//					peaks_lhood_reg[locationIdx][bch_index] /= sum;
+//				}
+//			}
+//			else {
+//				peaks_lhood_reg[locationIdx] = null;
+//			}
+
+			/* lhood2[locationIdx] using peaks_lhood_reg[locationIdx] */
+
+
+
 
 		}
 
@@ -617,9 +631,11 @@ public class Delineator2D extends Thread {
                     if (desc2[atLoc][b] != null) {
 
                         for (int l=0; l<desc2[atLoc][b].length; l++) {
-                            printout += IJ.d2s(desc2[atLoc][b][l], 2);
+							float aa = desc2[atLoc][b][l];
+							float aaa = 1-aa;//(float) Math.exp(-(aa*aa)/(2*0.1*0.1));
+                            printout += IJ.d2s(aa, 2)+"(sc="+IJ.d2s(aaa,2)+")";
                             if (l==desc2[atLoc][b].length-1) printout += "\t(avg(fit), median(fit), avg(std), med(std))\n";
-                            else printout += ",\t";
+                            else printout += ",\t\t";
                         }
 
                     }
@@ -633,16 +649,31 @@ public class Delineator2D extends Thread {
                 printout += "NONE\n";
             }
 
-            printout += "\nFUZZY LIKELIHOODS:\n";
-            printout += "NON->" + IJ.d2s(lhood2[atLoc][0], 2) + "\t\t";
-            printout += "END->" + IJ.d2s(lhood2[atLoc][1], 2) + "\t\t";
-            printout += "BDY->" + IJ.d2s(lhood2[atLoc][2], 2) + "\t\t";
-            printout += "BIF->" + IJ.d2s(lhood2[atLoc][3], 2) + "\t\t";
-            printout += "CRS->" + IJ.d2s(lhood2[atLoc][4], 2) + "\t\t";
+//			printout += "\nFUZZY LIKELIHOODS:\n";
+//            printout += "NON->" + IJ.d2s(lhood2[atLoc][0], 2) + "\t\t";
+//            printout += "END->" + IJ.d2s(lhood2[atLoc][1], 2) + "\t\t";
+//            printout += "BDY->" + IJ.d2s(lhood2[atLoc][2], 2) + "\t\t";
+//            printout += "BIF->" + IJ.d2s(lhood2[atLoc][3], 2) + "\t\t";
+//            printout += "CRS->" + IJ.d2s(lhood2[atLoc][4], 2) + "\t\t";
 
             IJ.log(printout);
 
-        }
+			IJ.log("\nPEAK LHOODS\n");
+			IJ.log(Arrays.toString(peaks_lhood_reg[atLoc]));
+			float[] get_pties = peaks_lhood_reg[atLoc];
+			if (get_pties.length>0) {
+				for (int ii=0; ii<get_pties.length; ii++) {
+					IJ.log(IJ.d2s(get_pties[ii], 3));
+					//IJ.log(IJ.d2s(get_pties[ii]*(1-desc2[atLoc][ii][0]),4));	// 0 corrs. to mean
+				}
+			}
+			else {
+				IJ.log("there was no peaks");
+			}
+
+
+
+		}
 		else {
 			IJ.log("background point, no data!");
 		}
@@ -1324,10 +1355,11 @@ public class Delineator2D extends Thread {
         ImageStack is_out = new ImageStack(w, h);
 
         for (int i=0; i<choice.length; i++) {
-            if (choice[i] >=0 && choice[i]<lhood2[0].length) {
+            if (choice[i] >=0 && choice[i]<4) {
 
                 float[][] t = new float[w][h];
 
+				/*
                 for (int ii = 0; ii<lhood2.length; ii++) {
 
                     int x = i2xy[ii][0];
@@ -1344,6 +1376,7 @@ public class Delineator2D extends Thread {
                     t[x][y] = (isMax)? lhood2[ii][choice[i]] : 0;
 
                 }
+                */
 
                 is_out.addSlice(""+IJ.d2s(choice[i], 0), new FloatProcessor(t));
             }
