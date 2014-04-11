@@ -167,7 +167,7 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
 		for (int d_scale=0; d_scale<3; d_scale++) {
 			float DD = D + d_scale * 1;
 
-            if (true) {
+            if (false) {
 
                 Sphere2D sph2d1 = new Sphere2D(DD, s);
 
@@ -291,12 +291,16 @@ public class Examiner implements PlugInFilter, MouseListener, MouseMotionListene
         }
         */
 
-        ImageStack is_lhoods = Delineator2D.exportLikelihoods();
-        new ImagePlus("LHOODS2", is_lhoods).show();
+//        ImageStack is_lhoods = Delineator2D.exportLikelihoods();
+//        new ImagePlus("LHOODS2", is_lhoods).show();
 
 
         t2 = System.currentTimeMillis();
 		IJ.log("done. " + ((t2 - t1) / 1000f) + "sec.");
+
+        // done extracting features and detecting
+        ImagePlus critpoint_lhood_img = Delineator2D.exportDetection();
+        critpoint_lhood_img.show();
 
 		//        Overlay overlay_with_detections = SimpleDetector2D.drawDetections();
 //        ImagePlus final_det = cnv.getImage().duplicate();
