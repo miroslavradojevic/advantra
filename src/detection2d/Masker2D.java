@@ -30,7 +30,7 @@ public class Masker2D extends Thread {
 	public static float[][]			inimg_xy;
 
 	private static float            radiusCheck;
-	private static float 			globalTh;// = .5f;
+	private static float 			globalTh;
 	private static int              marginPix;
 
 	/*
@@ -40,7 +40,7 @@ public class Masker2D extends Thread {
 
 	public static boolean[][]		mask_xy;    // output mask
 
-	public static float[][] 		fg_score;   //
+//	public static float[][] 		fg_score;   // supposed measure
 	public static float[][]  		criteria;	//
 
 	public static int[][] 			i2xy;       // mapping
@@ -69,7 +69,7 @@ public class Masker2D extends Thread {
 		back_xy = new byte[image_width][image_height];
 		mask_xy = new boolean[image_width][image_height];
 
-		fg_score = new float[image_width][image_height];
+//		fg_score = new float[image_width][image_height];
 		criteria = new float[image_width][image_height];
 
 		i2xy 	= new int[1][1];  // values known after run()
@@ -94,7 +94,6 @@ public class Masker2D extends Thread {
 
 			if (processIt) {
 
-				//float[] circNeigh = new float[sizeCircularNbhood(radiusCheck)];
 				extractCircularNbhood(atX, atY, radiusCheck, circNeigh);
 				float m05 	= Stat.quantile(circNeigh, 1 , 20);
 				float m95 	= Stat.quantile(circNeigh, 19, 20);
@@ -102,12 +101,12 @@ public class Masker2D extends Thread {
 				back_xy[atX][atY] 	= (byte) Math.round(m05);
 				criteria[atX][atY] 	= m95 - m05;
 
-				if (m95-m05>0.1) {
-					fg_score[atX][atY]  = inimg_xy[atX][atY];//medianAtPoint(atX, atY, inimg_xy) - m05;
-					fg_score[atX][atY]  = (fg_score[atX][atY]<0)? 0 : fg_score[atX][atY];
-					fg_score[atX][atY]  = fg_score[atX][atY] / (m95-m05);
-					fg_score[atX][atY]	= (fg_score[atX][atY]>1)? 1 : fg_score[atX][atY];
-				}
+//				if (m95-m05>0.1) {
+//					fg_score[atX][atY]  = inimg_xy[atX][atY] - m05 ;//medianAtPoint(atX, atY, inimg_xy) ;
+//					fg_score[atX][atY]  = (fg_score[atX][atY]<0)? 0 : fg_score[atX][atY];
+//					fg_score[atX][atY]  = fg_score[atX][atY] / (m95-m05);
+//					fg_score[atX][atY]	= (fg_score[atX][atY]>1)? 1 : fg_score[atX][atY];
+//				}
 
 			}
 
@@ -128,7 +127,7 @@ public class Masker2D extends Thread {
 			}
 		}
 		globalTh = Stat.quantile(criteria_temp, 10, 20);//Stat.median(criteria_temp);
-		IJ.log("th = "+globalTh);
+//		IJ.log("th = "+globalTh);
 
 		for (int xx=0; xx<image_width; xx++) {
 			for (int yy=0; yy<image_height; yy++) {
@@ -164,14 +163,8 @@ public class Masker2D extends Thread {
 			}
 		//}
 
-		float perc = (cnt*100f) / (image_width*image_height);
-
-		IJ.log(String.format("%3.2f %% vol. foreground extracted", perc));
-
-//		if (perc > 80) {// more than 80 percent is wrong
-//			System.out.println("warning: a lot of foreground points...");
-//			//return; // return just the lookup table
-//		}
+//		float perc = (cnt*100f) / (image_width*image_height);
+//		IJ.log(String.format("%3.2f %% vol. foreground extracted", perc));
 
 		// component: foreground point list: locations and background estimates
 		i2xy = new int[cnt][2];
@@ -216,10 +209,10 @@ public class Masker2D extends Thread {
 		return new FloatProcessor(criteria);
 	}
 
-	public static FloatProcessor getFgScore()
-	{
-		return new FloatProcessor(fg_score);
-	}
+//	public static FloatProcessor getFgScore()
+//	{
+//		return new FloatProcessor(fg_score);
+//	}
 
 	public static ByteProcessor getBackground(){
 

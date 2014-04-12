@@ -140,7 +140,7 @@ public class Fitter1D {
             out[1] = Float.POSITIVE_INFINITY; // looking for smallest
         }
         else if (mode.equalsIgnoreCase("NCC")) {
-            out[1] = Float.POSITIVE_INFINITY; // looking for smallest 1-ncc
+            out[1] = Float.NEGATIVE_INFINITY; // looking for  highest ncc
         }
         else {
             out[1] = Float.NaN;
@@ -159,7 +159,7 @@ public class Fitter1D {
             }
             else if (mode.equalsIgnoreCase("NCC")) {
                 curr_score = ncc(profile, templates_mean_subtr.get(i), templates_mean_subtr_sumsqr.get(i));
-                if (curr_score < out[1]) {out[0]=i; out[1]=curr_score;}
+                if (curr_score > out[1]) {out[0]=i; out[1]=curr_score;}
             }
 
         }
@@ -202,11 +202,11 @@ public class Fitter1D {
 
         if (f_sub_f_mean_sumsqr>Float.MIN_VALUE) {
             ncc_val = sc / (float) Math.sqrt(f_sub_f_mean_sumsqr * sumsqr_t_tM);
-            return 1- ncc_val;
+            return ncc_val;
         }
         else {
             ncc_val = 0;
-            return 1 - ncc_val;
+            return ncc_val;
         }
 
     }

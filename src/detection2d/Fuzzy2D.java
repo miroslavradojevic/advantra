@@ -37,7 +37,7 @@ public class Fuzzy2D {
 	float 	output_start;// = output_off_mean-3*output_off_sigma;
 	float 	output_end;// = output_on_mean+3*output_on_sigma;
 
-    int      N;         // number of points to aggregate
+    int      N=40;         // number of points to aggregate, hardcoded, 40 points cover the range well
 
     // fuzzification parameters
     float[] 	x;      	    // serve as x axis for membership, aggregation functions (range output_start to output_end)
@@ -52,7 +52,6 @@ public class Fuzzy2D {
     float[] q_on;
 
     public Fuzzy2D(
-								int _N,
 								float _ncc_high_mean,
 								float _ncc_high_sigma,
 								float _ncc_low_mean,
@@ -64,7 +63,6 @@ public class Fuzzy2D {
 								float _output_on_sigma
 								)
     {
-        N = _N;
         ncc_high_mean = _ncc_high_mean;
         ncc_high_sigma = _ncc_high_sigma;
         ncc_low_mean = _ncc_low_mean;

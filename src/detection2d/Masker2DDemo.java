@@ -111,8 +111,8 @@ public class Masker2DDemo implements PlugInFilter {
 		ImagePlus outcrit = new ImagePlus("criteria", Masker2D.getCriteria());
 		outcrit.show();
 
-		ImagePlus outfgscore = new ImagePlus("fg_score", Masker2D.getFgScore());
-		outfgscore.show();
+//		ImagePlus outfgscore = new ImagePlus("fg_score", Masker2D.getFgScore());
+//		outfgscore.show();
 
 		IJ.log("\ntotal "+Masker2D.i2xy.length+" locations extracted.\n"+"elapsed: "+((t2-t1)/1000f)+ " seconds.");
 
