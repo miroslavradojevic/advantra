@@ -1,13 +1,19 @@
 package detection2d;
 
+import aux.ReadSWC;
+import conn.Find_Connected_Regions;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.Prefs;
 import ij.gui.*;
+import ij.io.FileSaver;
 import ij.plugin.filter.PlugInFilter;
+import ij.process.ByteProcessor;
+import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 
+import java.awt.*;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
@@ -35,7 +41,7 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
         parameters
      */
 	//
-	int			critpoint_type;
+	static int			critpoint_type;
 	// model parameters
     float       s;
     String      Dlist;
@@ -44,7 +50,7 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
 	int         L;
 	float       sampling_crosswise = .3f; // hardcoded
 	//
-	int 		Npoints = 40; // hardcoded, should not be too small but higher values can be computation costly
+//	int 		Npoints = 40; // hardcoded, should not be too small but higher values can be computation costly
 	float       ncc_high_mean;
     float       ncc_high_sigma;
     float       ncc_low_mean;
@@ -60,7 +66,7 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
 	String 		image_gndtth;			// ground truth swc file with critical points to evaluate, same name as input image
 	float		k = 1; // hardcoded, no need to tweak it each time, defines the stricktness of the threshold for out membership function
 	float 		output_membership_th; // based on k and output_sigma
-	int			min_size=3; // smallest connected region to be valid critical point
+	int			min_size=1; // smallest connected region to be valid critical point
 	String		output_dir_name; 		// parameter coded output folder name
 	String 		output_log_name;
 	PrintWriter logWriter = null;
@@ -143,15 +149,17 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
         gd.addNumericField("M ", 	                M, 			        	0,  10, "");
 		gd.addNumericField("L ",                    L, 		            	0,  10, "");
 
-        gd.addNumericField("NCC HIGH", 	        ncc_high_mean, 			1,  5, "MEAN");
+        gd.addNumericField("NCC HIGH", 	        ncc_high_mean, 			1,  10, "MEAN");
         gd.addNumericField("NCC HIGH",        	ncc_high_sigma, 	    1,  5, "SIGMA");
 		gd.addNumericField("NCC LOW",           ncc_low_mean, 		    1,  10, "MEAN");
-		gd.addNumericField("NCC LOW",           ncc_low_sigma, 		    1,  10, "SIGMA");
+		gd.addNumericField("NCC LOW",           ncc_low_sigma, 		    1,  5, "SIGMA");
+
+		gd.addMessage("--------");
 
 		gd.addNumericField("LIKELIHOOD HIGH", 	likelihood_high_mean, 			1,  10, "MEAN");
-		gd.addNumericField("LIKELIHOOD HIGH",   likelihood_high_sigma, 	    	1,  10, "SIGMA");
+		gd.addNumericField("LIKELIHOOD HIGH",   likelihood_high_sigma, 	    	1,  5, "SIGMA");
 		gd.addNumericField("LIKELIHOOD LOW",    likelihood_low_mean, 		    1,  10, "MEAN");
-		gd.addNumericField("LIKELIHOOD LOW",    likelihood_low_sigma, 		    1,  10, "SIGMA");
+		gd.addNumericField("LIKELIHOOD LOW",    likelihood_low_sigma, 		    1,  5, "SIGMA");
 
 		gd.addNumericField("OUT ",    output_sigma, 		    1,  10, "SIGMA");
 
@@ -203,9 +211,8 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
 				logWriter.close();
 			} catch (FileNotFoundException ex) {}
 
-
 		}
-		// if it exists, just prepare to append on the existing file
+		// if it exists already in the folder, just prepare to append on the existing file
 		try {
 			logWriter = new PrintWriter(new BufferedWriter(new FileWriter(output_log_name, true)));
 		} catch (IOException e) {}
@@ -249,7 +256,7 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
 			}
 			Masker2D.defineThreshold();
         	Masker2D.formRemainingOutputs();
-			new ImagePlus("MASK,r="+IJ.d2s(nbhood_radius,2), Masker2D.getMask()).show();
+//			new ImagePlus("MASK,r="+IJ.d2s(nbhood_radius,2), Masker2D.getMask()).show();
 			/********/
         	IJ.log("calculating profiles...");
         	Profiler2D.loadTemplate(sph2d, Masker2D.i2xy, Masker2D.xy2i, inimg_xy);
@@ -284,48 +291,241 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
 			}
 			//PeakExtractor2D.getCircStat().show();
 			/********/
-			IJ.log("fitting model, extracting features, fuzzy detection...");
-			Delineator2D.loadTemplate(Masker2D.i2xy, Masker2D.xy2i, PeakExtractor2D.peaks_i, PeakExtractor2D.peaks_w, PeakExtractor2D.peaks_lhood, inimg_xy,
-					M,
-					minCos,
-					D,
-					mu_ON,
-					mu_OFF,
-					sig_ON,
-					sig_OFF,
-					L,
-					sampling_crosswise,
-					mode
-					);
-//        int totalPeakAnalyzeComponents = Masker2D.i2xy.length; // number of locations
-//        Delineator2D pa_jobs[] = new Delineator2D[CPU_NR];
-//        for (int i = 0; i < pa_jobs.length; i++) {
-//            pa_jobs[i] = new Delineator2D(i*totalPeakAnalyzeComponents/CPU_NR, (i+1)*totalPeakAnalyzeComponents/CPU_NR);
-//            pa_jobs[i].start();
-//        }
-//        for (int i = 0; i < pa_jobs.length; i++) {
-//            try {
-//                pa_jobs[i].join();
-//            } catch (InterruptedException e) {
-//                e.printStackTrace();
-//            }
-//        }
+			IJ.log("fitting model... extracting features... fuzzy detection...");
+			Delineator2D.loadTemplate(
+											 	critpoint_type,
+											 	Masker2D.i2xy,
+											 	Masker2D.xy2i,
+											 	PeakExtractor2D.peaks_i,
+											 	PeakExtractor2D.peaks_w,
+											 	PeakExtractor2D.peaks_lhood,
+											 	inimg_xy,
+												M,
+												minCos,
+												D[didx],
+												ncc_high_mean,
+												ncc_high_sigma,
+												ncc_low_mean,
+												ncc_low_sigma,
+											 	likelihood_high_mean,
+											 	likelihood_high_sigma,
+											 	likelihood_low_mean,
+											 	likelihood_low_sigma,
+					                         	output_sigma,
+											 	L,
+												sampling_crosswise
+			);
+        	int totalPeakAnalyzeComponents = Masker2D.i2xy.length; // number of locations
+        	Delineator2D pa_jobs[] = new Delineator2D[CPU_NR];
+			for (int i = 0; i < pa_jobs.length; i++) {
+				pa_jobs[i] = new Delineator2D(i*totalPeakAnalyzeComponents/CPU_NR, (i+1)*totalPeakAnalyzeComponents/CPU_NR);
+				pa_jobs[i].start();
+			}
+			for (int i = 0; i < pa_jobs.length; i++) {
+				try {
+					pa_jobs[i].join();
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
+			/********/
+			IJ.log("append scores...");
+			// take critpoint on/off scores from last class and append them to the critpoint_det[][][] - scale invariance
+			for (int ll=0; ll<Delineator2D.critpoint_score2.length; ll++) {
+				if (Delineator2D.critpoint_score2[ll]!=null) {
+					float curr_off 		= Delineator2D.critpoint_score2[ll][0];
+					float curr_on 		= Delineator2D.critpoint_score2[ll][1];
+					int corresponding_x = Masker2D.i2xy[ll][0];
+					int corresponding_y = Masker2D.i2xy[ll][1];
+					float stored_off 	= critpoint_det[0][corresponding_x][corresponding_y];
+					float stored_on 	= critpoint_det[1][corresponding_x][corresponding_y];
+					if (Math.max(curr_on, curr_off)>=Math.max(stored_on, stored_off)) {
+						critpoint_det[0][corresponding_x][corresponding_y] = curr_off;
+						critpoint_det[1][corresponding_x][corresponding_y] = curr_on;
+					}
+				}
 
-
+			}
 
 			t2 = System.currentTimeMillis();
 			IJ.log("done. " + ((t2 - t1) / 1000f) + "sec.");
 
 		}
 
+		Overlay ov = exportDetection();
 		logWriter.close();
 
+		ImagePlus final_det = cnv.getImage().duplicate();
+		final_det.setTitle("det");
+		final_det.show();
+		final_det.setOverlay(ov);
+		// save tif with detection
+		FileSaver fs = new FileSaver(final_det);
+		String save_path = output_dir_name + File.separator + image_name+".tif";
+		fs.saveAsTiff(save_path);
+		IJ.log("saving    " + save_path);
+
+		cnv.addMouseListener(this);
+        cnv.addMouseMotionListener(this);
+		IJ.setTool("hand");
 
 	}
 
+	public Overlay exportDetection()
+	{
+		// create detection image
+		int w = critpoint_det[1].length;
+		int h = critpoint_det[1][0].length;
+
+		byte[] t = new byte[w*h];
+		for (int x=0; x<w; x++) {
+			for (int y=0; y<h; y++) {
+				float curr_on = critpoint_det[1][x][y];
+				if (curr_on>=output_membership_th) {
+					t[y*w+x] = (byte) 255;
+				}
+			}
+		}
+
+		// take detections (binary image), find connected regions, and extract out the overlay with the detections
+		ByteProcessor bp = new ByteProcessor(w, h, t);
+		Find_Connected_Regions conn_reg = new Find_Connected_Regions(new ImagePlus("", bp), true);
+		conn_reg.run("");
+//		conn_reg.showLabels().show();
+
+		// overlay with detections show on canvas
+		Overlay ov = formPointOverlay(conn_reg.getConnectedRegions(), min_size);
+		ArrayList<float[]> dt = formDetectionCentroids(conn_reg.getConnectedRegions(), min_size);// xy stored
+//		IJ.log(ov.size()+" critpoints found");
+//		for (int ii = 0; ii<ov.size(); ii++) {
+//			IJ.log("sz = " + ov.get(ii).getBounds().getHeight());
+//		}
+
+		// export swc with detections
+		//IJ.log("exporting "+image_dir+image_name+".swc");
+		// todo
+
+		// compare with ground truth if it exists and print the results in a log file
+		logWriter.print(image_name+"\t");
+
+		if (new File(image_dir+image_gndtth).exists()) {
+
+			int tp = 0, fp = 0, fn = 0;
+
+			ReadSWC reader = new ReadSWC(image_dir+image_gndtth);
+
+			boolean[] annots = new boolean[reader.nodes.size()];
+
+			for (int a=0; a<dt.size(); a++) {
+
+				boolean found = false;
+
+				for (int b=0; b<reader.nodes.size(); b++) {
+					float ax = dt.get(a)[0];
+					float ay = dt.get(a)[1];
+					float bx = reader.nodes.get(b)[reader.XCOORD];
+					float by = reader.nodes.get(b)[reader.YCOORD];
+					float dist = (float) Math.sqrt(Math.pow(bx-ax,2)+Math.pow(by-ay,2));
+					if (dist<=2*D[D.length-1]) {// compare the distance
+						found = true;
+						tp++;
+						annots[b] = true;
+					}
+				}
+
+				if (!found) {
+					 fp++;
+				}
+
+			}
+
+			for (int a=0; a<annots.length; a++) {
+				if (!annots[a]) {
+					 fn++;
+				}
+			}
+
+			String eval_string = "tp= " + tp + "     fp= " + fp + "          fn= "+fn+ "     P = " + IJ.d2s(tp/(float)(tp+fp), 2) + "    R = " + IJ.d2s(tp/(float)(tp+fn),2);
+			logWriter.println(eval_string);
+			IJ.log("evaluated detection  using  "+image_dir+image_gndtth+" :\n " +
+						   "tp= " + tp + "     fp= " + fp + "          fn= "+fn+ "     P = " + IJ.d2s(tp/(float)(tp+fp), 2) + "    R = " + IJ.d2s(tp/(float)(tp+fn),2) );
+		}
+		else {
+			logWriter.println("gnd tth does not exist");
+		}
+
+		return ov;
+
+	}
+
+	private static ArrayList<float[]> formDetectionCentroids(ArrayList<ArrayList<int[]>> regs, int minSize)
+	{
+
+		ArrayList<float[]> lst = new ArrayList<float[]>();
+
+		for (int i=0; i<regs.size(); i++) {
+			if (regs.get(i).size()>minSize) {
+
+				float Cx=0, Cy=0;//, R= (float) Math.sqrt((float)regs.get(i).size()/Math.PI);
+//				R = (R<1)? 1 : R ;
+
+				for (int aa=0; aa<regs.get(i).size(); aa++) {
+					Cx += regs.get(i).get(aa)[1];
+					Cy += regs.get(i).get(aa)[0];
+				}
+
+				Cx /= regs.get(i).size();
+				Cy /= regs.get(i).size();
+
+				lst.add(new float[]{Cx, Cy});
+
+			}
+		}
+
+		return lst;
+
+	}
+
+	private static Overlay formPointOverlay(ArrayList<ArrayList<int[]>> regs, int minSize)
+	{
+
+		Overlay detections = new Overlay();
+
+		for (int i=0; i<regs.size(); i++) {
+			if (regs.get(i).size()>minSize) {
+
+				float Cx=0, Cy=0, R= (float) Math.sqrt((float)regs.get(i).size()/Math.PI);
+				R = (R<1)? 1 : 1.5f*R ; // because just 1*R is too small for visualizaiton
+
+				for (int aa=0; aa<regs.get(i).size(); aa++) {
+					Cx += regs.get(i).get(aa)[1];
+					Cy += regs.get(i).get(aa)[0];
+				}
+
+				Cx /= regs.get(i).size();
+				Cy /= regs.get(i).size();
+
+				OvalRoi ovroi = new OvalRoi(Cx-R+.5, Cy-R+.5, 2*R, 2*R);
+				ovroi.setStrokeWidth(3);
+				if (critpoint_type==0) ovroi.setFillColor(Color.YELLOW);
+				else if (critpoint_type==1) ovroi.setFillColor(Color.RED);
+
+//				int firstY = regs.get(i).get(0)[0];
+//				int firstX = regs.get(i).get(0)[1];
+//                if (score2[firstY*W+firstX]==(byte)1) ovroi.setStrokeColor(Color.YELLOW);
+//                else ovroi.setStrokeColor(Color.RED);
+				detections.add(ovroi);
+
+			}
+		}
+
+		return detections;
+
+	}
+
+
 //    public void run(ImageProcessor imageProcessor) {
 //        /*
-//        IJ.log("simple detector...");
 //        SimpleDetector2D.loadTemplate(inimg_xy.length, inimg_xy[0].length, Masker2D.i2xy, Masker2D.xy2i, Delineator2D.delin2, Delineator2D.lhood2);
 //        int totalSimpleDetectComponents = Masker2D.i2xy.length;
 //        SimpleDetector2D sd_jobs[] = new SimpleDetector2D[CPU_NR];
@@ -348,10 +548,7 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
 //        ImagePlus critpoint_lhood_img = Delineator2D.exportDetection();
 //        critpoint_lhood_img.show();
 //
-//		//        Overlay overlay_with_detections = SimpleDetector2D.drawDetections();
-////        ImagePlus final_det = cnv.getImage().duplicate();
-////        final_det.show();
-////        final_det.setOverlay(overlay_with_detections); // add the mto the original image
+//			//Overlay overlay_with_detections = SimpleDetector2D.drawDetections();
 //
 ////        ImagePlus end_lhood = SimpleDetector2D.showEndLhood();
 ////        end_lhood.show();
@@ -395,17 +592,8 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
 //        */
 //
 //		//************************************************
-//
-//        /*
-//			mouse listeners after processing
-//		 */
-//        cnv.addMouseListener(this);
-//        cnv.addMouseMotionListener(this);
-//
 //		IJ.selectWindow(cnv.getImage().getWindow().getTitle());
-//		IJ.setTool("hand");
 //        IJ.selectWindow(cnv.getImage().getTitle());
-//
 //    }
 
     public void mouseClicked(MouseEvent e)

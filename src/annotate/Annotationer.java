@@ -34,6 +34,7 @@ public class Annotationer  implements PlugInFilter, MouseListener {
 	String      imgPath;
 	String      annFile;
 	File 		fread;
+	int counter;
 
 	public int setup(String s, ImagePlus imagePlus) {
 
@@ -51,6 +52,8 @@ public class Annotationer  implements PlugInFilter, MouseListener {
 
 		imgPath = fread.getAbsolutePath();
 
+		counter = 1;
+
 		return DOES_8G+DOES_32+NO_CHANGES;
 	}
 
@@ -59,7 +62,7 @@ public class Annotationer  implements PlugInFilter, MouseListener {
 		File dir = new File(fread.getParent());
 		String[] dirList = dir.list();
 
-		String pattern = inimgInfo.fileName.substring(0,inimgInfo.fileName.length()-4)+".csv";
+		String pattern = inimgInfo.fileName.substring(0,inimgInfo.fileName.length()-4)+".swc";
 
 		boolean found = false;
 		annFile = inimgInfo.directory + pattern ;
@@ -77,7 +80,7 @@ public class Annotationer  implements PlugInFilter, MouseListener {
 
 		double[][] A = null;
 
-		if (found) {
+		if (false) { // found
 			// read it
 			AnalyzeCSV readCSV;
 			readCSV = new AnalyzeCSV(annFile);
@@ -166,8 +169,6 @@ public class Annotationer  implements PlugInFilter, MouseListener {
 
 	public void mouseClicked(MouseEvent e) {
 
-
-
 //		ImageCanvas srcCanv = (ImageCanvas) e.getSource();
 		int atX = 	canvas.offScreenX(e.getX());
 		int atY = 	canvas.offScreenY(e.getY());
@@ -196,7 +197,9 @@ public class Annotationer  implements PlugInFilter, MouseListener {
 		// append line
 		try {
 			PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(annFile, true)));
-			out.println(IJ.d2s(atX, 0, 0)+","+IJ.d2s(atY, 0, 0));
+			String string_to_append = counter+" 2 "+IJ.d2s(atX, 0, 0)+"  "+IJ.d2s(atY, 0, 0)+" "+0+" "+1+" "+(-1);
+			IJ.log(string_to_append);
+			out.println(string_to_append); counter++;
 			out.close();
 		} catch (IOException e1) {
 			//oh noes!

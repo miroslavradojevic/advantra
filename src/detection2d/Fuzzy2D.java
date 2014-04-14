@@ -258,7 +258,7 @@ public class Fuzzy2D {
     *
      */
 
-    public float branchStrengthDefuzzified(float ncc_in, float likelihood_in)
+    private float branchStrengthDefuzzified(float ncc_in, float likelihood_in)
     {
         Arrays.fill(agg, 0);
         float[] cur;
@@ -278,7 +278,7 @@ public class Fuzzy2D {
 
     }
 
-	public void branchStrengthFuzzified(float ncc_in, float likelihood_in, float[] output_off_on) // [off_score, on_score]
+	public void branchStrengthFuzzified(float ncc_in, float likelihood_in, float[] output_off_on) // output_off_on: [off_score, on_score]
 	{
 		float defuzz = branchStrengthDefuzzified(ncc_in, likelihood_in);
 		// use the same formulas that were used for q_on/q_off
@@ -293,9 +293,15 @@ public class Fuzzy2D {
 		output_off_on[1] = (float) Math.exp(-Math.pow(_defuzz - output_on_mean, 2) / (2 * Math.pow(output_on_sigma, 2)));
 	}
 
-    // use the same output once more, this time to blend all the available branches together in endpoint of junction fuzzy output
-    // set rules to emphasize endpoints and junctions
-	public float endpointDefuzzified(float ncc_1, float likelihood_1) //todo make it private in  future
+	/*
+    *
+    *
+    *   ENDPOINT
+    *
+    *
+     */
+	// Defuzzified contains the rules
+	private float endpointDefuzzified(float ncc_1, float likelihood_1)
 	{
 
 		float[] t = new float[2];
@@ -308,7 +314,7 @@ public class Fuzzy2D {
 		float mu;
 		float[] cur;
 
-        // rules if there is one
+        // rules
 		mu = b1_is_off;     cur = fi_off(mu);   accumulate(cur, agg);
 		mu = b1_is_on;      cur = fi_on(mu);    accumulate(cur, agg);
 
@@ -316,13 +322,14 @@ public class Fuzzy2D {
 
 	}
 
-    public float endpointFuzzified(float ncc_1, float likelihood_1) // membership degree to "ON" only
+    public void endpointFuzzified(float ncc_1, float likelihood_1, float[] output_off_on)
     {
         float defuzz = endpointDefuzzified(ncc_1, likelihood_1);
-        return (float) Math.exp(-Math.pow(defuzz - output_on_mean, 2) / (2 * Math.pow(output_on_sigma, 2))); // same formulas that were used for q_on/q_off
+		output_off_on[0] = (float) Math.exp(-Math.pow(defuzz - output_off_mean, 2) / (2 * Math.pow(output_off_sigma, 2)));
+		output_off_on[1] = (float) Math.exp(-Math.pow(defuzz - output_on_mean, 2) / (2 * Math.pow(output_on_sigma, 2))); // same formulas that were used for q_on/q_off
     }
 
-	public float endpointDefuzzified(float ncc_1, float likelihood_1,
+	private float endpointDefuzzified(float ncc_1, float likelihood_1,
 									 float ncc_2, float likelihood_2)
 	{
 
@@ -350,14 +357,15 @@ public class Fuzzy2D {
 
     }
 
-    public float endpointFuzzified(float ncc_1, float likelihood_1,
-                                   float ncc_2, float likelihood_2)
+    public void endpointFuzzified(float ncc_1, float likelihood_1,
+                                  float ncc_2, float likelihood_2, float[] output_off_on)
     {
         float defuzz = endpointDefuzzified(ncc_1, likelihood_1, ncc_2, likelihood_2);
-        return (float) Math.exp(-Math.pow(defuzz - output_on_mean, 2) / (2 * Math.pow(output_on_sigma, 2))); // same formulas that were used for q_on/q_off
+		output_off_on[0] = (float) Math.exp(-Math.pow(defuzz - output_off_mean, 2) / (2 * Math.pow(output_off_sigma, 2)));
+		output_off_on[1] = (float) Math.exp(-Math.pow(defuzz - output_on_mean, 2) / (2 * Math.pow(output_on_sigma, 2)));
     }
 
-    public float endpointDefuzzified(float ncc_1, float likelihood_1,
+    private float endpointDefuzzified(float ncc_1, float likelihood_1,
                                      float ncc_2, float likelihood_2,
                                      float ncc_3, float likelihood_3)
     {
@@ -396,15 +404,16 @@ public class Fuzzy2D {
 
     }
 
-    public float endpointFuzzified(float ncc_1, float likelihood_1,
+    public void endpointFuzzified(float ncc_1, float likelihood_1,
                                    float ncc_2, float likelihood_2,
-                                   float ncc_3, float likelihood_3)
+                                   float ncc_3, float likelihood_3, float[] output_off_on)
     {
         float defuzz = endpointDefuzzified(ncc_1, likelihood_1, ncc_2, likelihood_2, ncc_3, likelihood_3);
-        return (float) Math.exp(-Math.pow(defuzz - output_on_mean, 2) / (2 * Math.pow(output_on_sigma, 2))); // same formulas that were used for q_on/q_off
+		output_off_on[0] = (float) Math.exp(-Math.pow(defuzz - output_off_mean, 2) / (2 * Math.pow(output_off_sigma, 2)));
+		output_off_on[1] = (float) Math.exp(-Math.pow(defuzz - output_on_mean, 2) / (2 * Math.pow(output_on_sigma, 2)));
     }
 
-    public float endpointDefuzzified(float ncc_1, float likelihood_1,
+    private float endpointDefuzzified(float ncc_1, float likelihood_1,
                                      float ncc_2, float likelihood_2,
                                      float ncc_3, float likelihood_3,
                                      float ncc_4, float likelihood_4)
@@ -455,14 +464,138 @@ public class Fuzzy2D {
 
     }
 
-    public float endpointFuzzified(float ncc_1, float likelihood_1,
+    public void endpointFuzzified(float ncc_1, float likelihood_1,
                                    float ncc_2, float likelihood_2,
                                    float ncc_3, float likelihood_3,
-                                   float ncc_4, float likelihood_4)
+                                   float ncc_4, float likelihood_4, float[] output_off_on)
     {
         float defuzz = endpointDefuzzified(ncc_1, likelihood_1, ncc_2, likelihood_2, ncc_3, likelihood_3, ncc_4, likelihood_4);
-        return (float) Math.exp(-Math.pow(defuzz - output_on_mean, 2) / (2 * Math.pow(output_on_sigma, 2))); // same formulas that were used for q_on/q_off
+        output_off_on[0] = (float) Math.exp(-Math.pow(defuzz - output_off_mean, 2) / (2 * Math.pow(output_off_sigma, 2)));
+        output_off_on[1] = (float) Math.exp(-Math.pow(defuzz - output_on_mean, 2) / (2 * Math.pow(output_on_sigma, 2)));
     }
+
+	/*
+    *
+    *
+    * JUNCTION
+    *
+    *
+     */
+	// Defuzzified contains the rules
+	private float junctionDefuzzified(float ncc_1, float likelihood_1,
+									  float ncc_2, float likelihood_2,
+									  float ncc_3, float likelihood_3)
+	{
+
+		float[] t = new float[2];
+
+		branchStrengthFuzzified(ncc_1, likelihood_1, t);
+		float b1_is_off = t[0];
+		float b1_is_on = t[1];
+
+		branchStrengthFuzzified(ncc_2, likelihood_2, t);
+		float b2_is_off = t[0];
+		float b2_is_on = t[1];
+
+		branchStrengthFuzzified(ncc_3, likelihood_3, t);
+		float b3_is_off = t[0];
+		float b3_is_on = t[1];
+
+		Arrays.fill(agg, 0);
+		float mu;
+		float[] cur;
+
+		// rules
+		mu = min(b1_is_off, b2_is_off, b3_is_off);     cur = fi_off(mu); accumulate(cur, agg);
+		mu = min(b1_is_off, b2_is_on, b3_is_on);       cur = fi_off(mu); accumulate(cur, agg);
+		mu = min(b1_is_on, b2_is_off, b3_is_on);       cur = fi_off(mu); accumulate(cur, agg);
+		mu = min(b1_is_on, b2_is_on, b3_is_off);       cur = fi_off(mu); accumulate(cur, agg);
+		mu = min(b1_is_on, b2_is_off, b3_is_off);      cur = fi_off(mu); accumulate(cur, agg);
+		mu = min(b1_is_off, b2_is_on,  b3_is_off);     cur = fi_off(mu); accumulate(cur, agg);
+		mu = min(b1_is_off, b2_is_off, b3_is_on);      cur = fi_off(mu); accumulate(cur, agg);
+
+		mu = min(b1_is_on, b2_is_on, b3_is_on);        cur = fi_on(mu); accumulate(cur, agg);
+
+		return get_agg_centroid();
+
+	}
+
+	public void junctionFuzzified(float ncc_1, float likelihood_1,
+								  float ncc_2, float likelihood_2,
+								  float ncc_3, float likelihood_3, float[] output_off_on)
+	{
+		float defuzz = junctionDefuzzified(ncc_1, likelihood_1, ncc_2, likelihood_2, ncc_3, likelihood_3);
+		output_off_on[0] = (float) Math.exp(-Math.pow(defuzz - output_off_mean, 2) / (2 * Math.pow(output_off_sigma, 2)));
+		output_off_on[1] = (float) Math.exp(-Math.pow(defuzz - output_on_mean, 2) / (2 * Math.pow(output_on_sigma, 2)));
+	}
+
+	private float junctionDefuzzified(float ncc_1, float likelihood_1,
+									  float ncc_2, float likelihood_2,
+									  float ncc_3, float likelihood_3,
+									  float ncc_4, float likelihood_4)
+	{
+
+		float[] t = new float[2];
+
+		branchStrengthFuzzified(ncc_1, likelihood_1, t);
+		float b1_is_off = t[0];
+		float b1_is_on = t[1];
+
+		branchStrengthFuzzified(ncc_2, likelihood_2, t);
+		float b2_is_off = t[0];
+		float b2_is_on = t[1];
+
+		branchStrengthFuzzified(ncc_3, likelihood_3, t);
+		float b3_is_off = t[0];
+		float b3_is_on = t[1];
+
+		branchStrengthFuzzified(ncc_4, likelihood_4, t);
+		float b4_is_off = t[0];
+		float b4_is_on = t[1];
+
+		Arrays.fill(agg, 0);
+		float mu;
+		float[] cur;
+
+		// rules
+		mu = min(b1_is_off, b2_is_off, b3_is_off, b4_is_off);     cur = fi_off(mu); accumulate(cur, agg);
+		mu = min(b1_is_off, b2_is_off, b3_is_on,  b4_is_on);       cur = fi_off(mu); accumulate(cur, agg);
+		mu = min(b1_is_off, b2_is_on, b3_is_off,  b4_is_on);       cur = fi_off(mu); accumulate(cur, agg);
+		mu = min(b1_is_off, b2_is_on, b3_is_on,  b4_is_off);       cur = fi_off(mu); accumulate(cur, agg);
+		mu = min(b1_is_on,  b2_is_off, b3_is_off,  b4_is_on);        cur = fi_off(mu); accumulate(cur, agg);
+		mu = min(b1_is_on,  b2_is_off, b3_is_on,  b4_is_off);        cur = fi_off(mu); accumulate(cur, agg);
+		mu = min(b1_is_on,  b2_is_on, b3_is_off,  b4_is_off);        cur = fi_off(mu); accumulate(cur, agg);
+		mu = min(b1_is_on, b2_is_off, b3_is_off, b4_is_off);      cur = fi_off(mu); accumulate(cur, agg);
+		mu = min(b1_is_off, b2_is_on,  b3_is_off, b4_is_off);     cur = fi_off(mu); accumulate(cur, agg);
+		mu = min(b1_is_off, b2_is_off, b3_is_on, b4_is_off);      cur = fi_off(mu); accumulate(cur, agg);
+		mu = min(b1_is_off, b2_is_off, b3_is_off, b4_is_on);      cur = fi_off(mu); accumulate(cur, agg);
+
+		mu = min(b1_is_off, b2_is_on, b3_is_on,  b4_is_on);        cur = fi_on(mu); accumulate(cur, agg);
+		mu = min(b1_is_on,  b2_is_off, b3_is_on,  b4_is_on);        cur = fi_on(mu); accumulate(cur, agg);
+		mu = min(b1_is_on,  b2_is_on, b3_is_off,  b4_is_on);        cur = fi_on(mu); accumulate(cur, agg);
+		mu = min(b1_is_on,  b2_is_on, b3_is_on,  b4_is_off);        cur = fi_on(mu); accumulate(cur, agg);
+		mu = min(b1_is_on,  b2_is_on, b3_is_on,  b4_is_on);        cur = fi_on(mu); accumulate(cur, agg);
+
+		return get_agg_centroid();
+
+	}
+
+	public void junctionFuzzified(float ncc_1, float likelihood_1,
+								  float ncc_2, float likelihood_2,
+								  float ncc_3, float likelihood_3,
+								  float ncc_4, float likelihood_4, float[] output_off_on)
+	{
+		float defuzz = junctionDefuzzified(ncc_1, likelihood_1, ncc_2, likelihood_2, ncc_3, likelihood_3, ncc_4, likelihood_4);
+		output_off_on[0] = (float) Math.exp(-Math.pow(defuzz - output_off_mean, 2) / (2 * Math.pow(output_off_sigma, 2)));
+		output_off_on[1] = (float) Math.exp(-Math.pow(defuzz - output_on_mean, 2) / (2 * Math.pow(output_on_sigma, 2)));
+	}
+
+	/*
+    *
+    *
+    *
+    *
+     */
 
     private float get_agg_centroid()
     {

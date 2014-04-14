@@ -118,7 +118,7 @@ public class GeneratorSwcDemo implements PlugIn {
 		gd.addStringField("swc                  :", pathInSwc, 100);
 		gd.addNumericField("k (gauss sigma=k*r) :", k,  2);
 		gd.addNumericField("snr                 :", snr,  2);
-		gd.addCheckbox("label", 					is2D);
+		gd.addCheckbox("2D neuron", 					is2D);
 
 		gd.showDialog();
 		if (gd.wasCanceled()) return;

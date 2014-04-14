@@ -183,30 +183,6 @@ public class SimpleDetector2D extends Thread {
 
     }
 
-//    private boolean simpleDecision(int idx){
-//
-//        int cnt = 0;
-//
-//        for (int i=0; i<delin2[idx].length; i++) {
-//
-//            int last_idx = delin2[idx][i].length - 1;
-//
-//            if (delin2[idx][i][last_idx] != -1) {
-//                // means that it reached the end, converged, branch is complete
-//                cnt++;
-//            }
-//
-//        }
-//
-//        if (cnt >= 3) {
-//            return true;
-//        }
-//        else {
-//            return false;
-//        }
-//
-//    }
-
     public static Overlay drawDetections(){
 
         // eliminate those lower than min_lhood

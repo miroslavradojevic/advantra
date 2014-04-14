@@ -11,6 +11,7 @@ import java.util.Arrays;
  * Created by miroslav on 3/25/14.
  * terminal call, using imagej jar
  * java -Xmx4096m -jar ~/jarlib/ij.jar -ijpath ~/ImageJ/plugins/  -run "Fuzzy2DTest"
+ * java -Xmx4096m -jar ~/jarlib/ij.jar -ijpath ~/ImageJ/plugins/  -run "TestFuzzy2D"
  */
 public class Fuzzy2DTest implements PlugIn {
 
@@ -58,8 +59,6 @@ public class Fuzzy2DTest implements PlugIn {
 
 		output_sigma 	= (float) gd.getNextNumber(); Prefs.set("critpoint.detection2d.output_sigma", 	output_sigma);
 
-
-
 		Fuzzy2D test = new Fuzzy2D(
 													  // ncc
 													  ncc_high_mean, ncc_high_sigma,      // high
@@ -73,18 +72,18 @@ public class Fuzzy2DTest implements PlugIn {
 		test.showDefuzzification();
 		test.showDefuzzificationSurface();
 
-		float[] temp = new float[2];
-		System.out.print("(1, 1) -> " + test.branchStrengthDefuzzified(1f, 1f));
-		test.branchStrengthFuzzified(1f, 1f, temp);
-		System.out.println(" -> " + Arrays.toString(temp));
-		test.showAgg();
+//		float[] temp = new float[2];
+//		System.out.print("(1, 1) -> " + test.branchStrengthDefuzzified(1f, 1f));
+//		test.branchStrengthFuzzified(1f, 1f, temp);
+//		System.out.println(" -> " + Arrays.toString(temp));
+//		test.showAgg();
+//
+//		System.out.print("(.9, .9) -> " + test.branchStrengthDefuzzified(.9f, .9f));
+//		test.branchStrengthFuzzified(.9f, .9f, temp);
+//		System.out.println(" -> " + Arrays.toString(temp));
+//		test.showAgg();
 
-		System.out.print("(.9, .9) -> " + test.branchStrengthDefuzzified(.9f, .9f));
-		test.branchStrengthFuzzified(.9f, .9f, temp);
-		System.out.println(" -> " + Arrays.toString(temp));
-		test.showAgg();
-
-        System.out.print("endpoint on membership (.9, .9, .5, .3) -> " + test.endpointFuzzified(.9f, .9f, .5f, .3f));
+//        System.out.print("endpoint on membership (.9, .9, .5, .3) -> " + test.endpointFuzzified(.9f, .9f, .5f, .3f));
 
 	}
 

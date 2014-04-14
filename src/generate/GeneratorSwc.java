@@ -20,7 +20,7 @@ public class GeneratorSwc {
     // will be used to generate 2D/3D image stacks
 
     private static int bg = 20; // background level  (used when defining snr)
-	private static int MARGIN_MIN = 20; // pixels
+	private static int MARGIN_MIN = 50; // pixels
 	private static float R_MIN = 1;
 
     /*

@@ -67,7 +67,7 @@ public class PeakExtractor2D extends Thread {
 		peaks_i  		= new int[i2xy.length][4];
 		peaks_theta  	= new float[i2xy.length][4][1];
 		peaks_w 		= new int[i2xy.length][4];
-        peaks_lhood 	= new float[i2xy.length][4];
+        peaks_lhood 	= new float[i2xy.length][4];  // else will be filled with NaNs
         circ_stats      = new float[i2xy.length][5];
 
         // initialization legend:
