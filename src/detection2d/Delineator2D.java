@@ -79,7 +79,12 @@ public class Delineator2D extends Thread {
     public static float[][][]   stdev2;						// N(foreground locs.) x 4(max. threads) x ((1..M) x L) (variances of real values)
     // descriptions (calculations on features)
     public static float[][]     ncc_avg2;                   // N(foreground locs.) x 4(max. threads)
-	public static float[][]		lhoods2; 					// (normalized 0-1) likelihoods, read from Peak
+	public static float[][]		lhoods2; 					// N(foreground locs.) x 4(max. threads) (normalized 0-1) likelihoods, read from Peak
+
+    // try use fitsco2[][][] to calculate metric that would separate critical points
+    public static float[]       my_test;
+
+
 	// fuzzy system outputs
     public static float[][][]   streamline_score2;          // N(foreground locs.) x 4(max. threads) x 2 (on,off)
     public static float[][]   	critpoint_score2;           // N(foreground locs.) x 2(on,off) given by fuzzy logic
