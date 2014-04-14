@@ -46,13 +46,13 @@ public class Generator {
 	private static int W = 512;
 	private static int H = W;
 
-	private static int nrPts1 = 10;
+	private static int nrPts1 = 6;
 	private static int nrPts2 = nrPts1*nrPts1;
 
 	private static int minAngleDeg = 30;
 
-	private static float	branchLength 	= .6f * ((float)H / (2*nrPts1)); // pix
-	private static float	margin 	= 1.8f*branchLength; // pix
+	private static float	branchLength 	= .7f * ((float)H / (2*nrPts1)); // pix
+	private static float	margin 	= 3f*branchLength; // pix
 
 	private static int bg = 20; 	// background
 	//private static int fg = 230;	// foreground
