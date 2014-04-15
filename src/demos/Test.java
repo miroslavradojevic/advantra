@@ -6,6 +6,14 @@ public class Test {
 
     public static void main(final String[] args) {
         print_nCr(4, 1);
+
+        // test histogram here
+        float[] vals = new float[120];
+        // generate rangom values
+
+        // show histogram
+
+
     }
 
     public static final void print_nCr(final int n, final int r) {

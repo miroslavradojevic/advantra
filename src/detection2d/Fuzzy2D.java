@@ -269,9 +269,12 @@ public class Fuzzy2D {
 //        mu = min (h_ncc_low(ncc_in),   		h_likelihood_high(likelihood_in) ) ; cur = fi_off(mu); accumulate(cur, agg);
 //        mu = min (h_ncc_high(ncc_in),     	h_likelihood_low(likelihood_in)  ) ; cur = fi_off(mu); accumulate(cur, agg);
 		//mu = h_ncc_low(ncc_in) ;                                            cur = fi_off(mu); accumulate(cur, agg);
-		mu = h_likelihood_low(likelihood_in);  cur = fi_off(mu); accumulate(cur, agg); /*min(h_ncc_low(ncc_in), 1-h_likelihood_high(likelihood_in));                             */
-		mu = h_ncc_low(ncc_in);                cur = fi_off(mu); accumulate(cur, agg); /* min(h_ncc_low(ncc_in), h_likelihood_high(likelihood_in)) */
-		mu = h_likelihood_high(likelihood_in); cur = fi_on(mu);  accumulate(cur, agg); /*min (h_ncc_high(ncc_in), h_likelihood_high(likelihood_in) );*/
+		mu = min(h_likelihood_low(likelihood_in), h_ncc_low(ncc_in));  cur = fi_off(mu); accumulate(cur, agg); /*min(h_ncc_low(ncc_in), 1-h_likelihood_high(likelihood_in));                             */
+//		mu = ;                cur = fi_off(mu); accumulate(cur, agg); /* min(h_ncc_low(ncc_in), h_likelihood_high(likelihood_in)) */
+
+//        mu = min(1-h_likelihood_low(likelihood_in), 1-h_ncc_low(ncc_in)); cur = fi_on(mu);  accumulate(cur, agg); /*min (h_ncc_high(ncc_in), h_likelihood_high(likelihood_in) );*/
+        mu = min(h_likelihood_high(likelihood_in), h_ncc_high(ncc_in)); cur = fi_on(mu);  accumulate(cur, agg); /*min (h_ncc_high(ncc_in), h_likelihood_high(likelihood_in) );*/
+//        mu = ;                cur = fi_on(mu); accumulate(cur, agg);
         // finished rules
 
         return get_agg_centroid();
@@ -559,22 +562,22 @@ public class Fuzzy2D {
 
 		// rules
 		mu = min(b1_is_off, b2_is_off, b3_is_off, b4_is_off);     cur = fi_off(mu); accumulate(cur, agg);
-		mu = min(b1_is_off, b2_is_off, b3_is_on,  b4_is_on);       cur = fi_off(mu); accumulate(cur, agg);
-		mu = min(b1_is_off, b2_is_on, b3_is_off,  b4_is_on);       cur = fi_off(mu); accumulate(cur, agg);
-		mu = min(b1_is_off, b2_is_on, b3_is_on,  b4_is_off);       cur = fi_off(mu); accumulate(cur, agg);
-		mu = min(b1_is_on,  b2_is_off, b3_is_off,  b4_is_on);        cur = fi_off(mu); accumulate(cur, agg);
-		mu = min(b1_is_on,  b2_is_off, b3_is_on,  b4_is_off);        cur = fi_off(mu); accumulate(cur, agg);
-		mu = min(b1_is_on,  b2_is_on, b3_is_off,  b4_is_off);        cur = fi_off(mu); accumulate(cur, agg);
+		mu = min(b1_is_off, b2_is_off, b3_is_on,  b4_is_on);      cur = fi_off(mu); accumulate(cur, agg);
+		mu = min(b1_is_off, b2_is_on, b3_is_off,  b4_is_on);      cur = fi_off(mu); accumulate(cur, agg);
+		mu = min(b1_is_off, b2_is_on, b3_is_on,  b4_is_off);      cur = fi_off(mu); accumulate(cur, agg);
+		mu = min(b1_is_on,  b2_is_off, b3_is_off,  b4_is_on);     cur = fi_off(mu); accumulate(cur, agg);
+		mu = min(b1_is_on,  b2_is_off, b3_is_on,  b4_is_off);     cur = fi_off(mu); accumulate(cur, agg);
+		mu = min(b1_is_on,  b2_is_on, b3_is_off,  b4_is_off);     cur = fi_off(mu); accumulate(cur, agg);
 		mu = min(b1_is_on, b2_is_off, b3_is_off, b4_is_off);      cur = fi_off(mu); accumulate(cur, agg);
 		mu = min(b1_is_off, b2_is_on,  b3_is_off, b4_is_off);     cur = fi_off(mu); accumulate(cur, agg);
 		mu = min(b1_is_off, b2_is_off, b3_is_on, b4_is_off);      cur = fi_off(mu); accumulate(cur, agg);
 		mu = min(b1_is_off, b2_is_off, b3_is_off, b4_is_on);      cur = fi_off(mu); accumulate(cur, agg);
 
-		mu = min(b1_is_off, b2_is_on, b3_is_on,  b4_is_on);        cur = fi_on(mu); accumulate(cur, agg);
-		mu = min(b1_is_on,  b2_is_off, b3_is_on,  b4_is_on);        cur = fi_on(mu); accumulate(cur, agg);
-		mu = min(b1_is_on,  b2_is_on, b3_is_off,  b4_is_on);        cur = fi_on(mu); accumulate(cur, agg);
-		mu = min(b1_is_on,  b2_is_on, b3_is_on,  b4_is_off);        cur = fi_on(mu); accumulate(cur, agg);
-		mu = min(b1_is_on,  b2_is_on, b3_is_on,  b4_is_on);        cur = fi_on(mu); accumulate(cur, agg);
+		mu = min(b2_is_on,  b3_is_on,  b4_is_on);        cur = fi_on(mu); accumulate(cur, agg);
+		mu = min(b1_is_on,  b3_is_on,  b4_is_on);        cur = fi_on(mu); accumulate(cur, agg);
+		mu = min(b1_is_on,  b2_is_on,  b4_is_on);        cur = fi_on(mu); accumulate(cur, agg);
+		mu = min(b1_is_on,  b2_is_on,  b3_is_on);        cur = fi_on(mu); accumulate(cur, agg);
+//		mu = min(b1_is_on,  b2_is_on,  b3_is_on,  b4_is_on);        cur = fi_on(mu); accumulate(cur, agg);
 
 		return get_agg_centroid();
 

@@ -82,7 +82,7 @@ public class Delineator2D extends Thread {
 	public static float[][]		lhoods2; 					// N(foreground locs.) x 4(max. threads) (normalized 0-1) likelihoods, read from Peak
 
     // try use fitsco2[][][] to calculate metric that would separate critical points
-    public static float[]       OneVsRest;
+//    public static float[]       OneVsRest;
 
 
 	// fuzzy system outputs
@@ -165,7 +165,7 @@ public class Delineator2D extends Thread {
         ncc_avg2  			= new float[i2xy.length][];          	// average of the fit scores along streamline
 		lhoods2 			= _peaks_lhood;
 
-		OneVsRest			= new float[i2xy.length];
+//		OneVsRest			= new float[i2xy.length];
 
 		streamline_score2  	= new float[i2xy.length][][];     		// branch score 	fg. location x 2 (off, on) x 4 (direcitons)
         critpoint_score2    = new float[i2xy.length][];             // critpoint score  fg. location x 2 (off, on)
@@ -523,47 +523,45 @@ public class Delineator2D extends Thread {
 			*
 			 */
 
-			if (ncc_avg2[locationIdx]!=null) {
-
-				float max_one_vs_rest = Float.NEGATIVE_INFINITY;
-
-				for (int test_idx = 0; test_idx<4; test_idx++) { // try test_idx versus the rest
-
-					if (!Float.isNaN(ncc_avg2[locationIdx][test_idx])) {
-
-						// curr streamline average
-						float  curr_avg = ncc_avg2[locationIdx][test_idx];
-
-						// average of the rest
-						float rest_avg = 0;
-						int rest_cnt = 0;
-						for (int rest_idx = 0; rest_idx<4; rest_idx++) {
-							if (!Float.isNaN(ncc_avg2[locationIdx][rest_idx]) && rest_idx!=test_idx){
-								rest_cnt++;
-								rest_avg+=ncc_avg2[locationIdx][rest_idx];
-							}
-						}
-						if (rest_cnt>0)
-							rest_avg = rest_avg/rest_cnt;
-						else
-							rest_avg = 0;
-
-						//
-						if (curr_avg-rest_avg>max_one_vs_rest)
-							max_one_vs_rest = curr_avg-rest_avg;
-
-
-
-					}
-
-
-
-				}
-
-			}
-			else {
-				OneVsRest[locationIdx] = Float.NaN;
-			}
+//			if (ncc_avg2[locationIdx]!=null) {
+//
+//				float max_one_vs_rest = Float.NEGATIVE_INFINITY;
+//
+//				for (int test_idx = 0; test_idx<4; test_idx++) { // try test_idx versus the rest
+//
+//					if (!Float.isNaN(ncc_avg2[locationIdx][test_idx])) {
+//
+//						// curr streamline average
+//						float  curr_avg = ncc_avg2[locationIdx][test_idx];
+//
+//						// average of the rest
+//						float rest_avg = 0;
+//						int rest_cnt = 0;
+//						for (int rest_idx = 0; rest_idx<4; rest_idx++) {
+//							if (!Float.isNaN(ncc_avg2[locationIdx][rest_idx]) && rest_idx!=test_idx){
+//								rest_cnt++;
+//								rest_avg+=ncc_avg2[locationIdx][rest_idx];
+//							}
+//						}
+//						if (rest_cnt>0)
+//							rest_avg = rest_avg/rest_cnt;
+//						else
+//							rest_avg = 0;
+//
+//						//
+//						if (curr_avg-rest_avg>max_one_vs_rest)
+//							max_one_vs_rest = curr_avg-rest_avg;
+//
+//					}
+//
+//				}
+//
+//                OneVsRest[locationIdx] = max_one_vs_rest;
+//
+//			}
+//			else {
+//				OneVsRest[locationIdx] = Float.NaN;
+//			}
 
             /*
             *
