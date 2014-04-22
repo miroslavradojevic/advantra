@@ -2,7 +2,6 @@ package detection2d;
 
 import aux.Stat;
 
-import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.Plot;
@@ -243,46 +242,6 @@ public class Fuzzy2D {
 
     }
 
-//    public void showAgg1()
-//    {
-//        Plot p = new Plot("agg", "", "", x1, agg1, Plot.LINE);
-//        p.show();
-//    }
-
-//	public void showAgg2()
-//	{
-//		Plot p = new Plot("agg", "", "", x2, agg2, Plot.LINE);
-//		p.show();
-//	}
-
-//	public void showIt(float ncc_1, float likelihood_1)
-//	{
-//		float[] tst = new float[3];
-//		critpointScore(ncc_1, likelihood_1, tst, true);
-//		showAgg2();
-//	}
-
-//	public void showIt(float ncc_1, float likelihood_1, float ncc_2, float likelihood_2)
-//	{
-//		float[] tst = new float[3];
-//		critpointScore(ncc_1, likelihood_1, ncc_2, likelihood_2, tst);
-//		showAgg2();
-//	}
-
-//	public void showIt(float ncc_1, float likelihood_1, float ncc_2, float likelihood_2, float ncc_3, float likelihood_3)
-//	{
-//		float[] tst = new float[3];
-//		critpointScore(ncc_1, likelihood_1, ncc_2, likelihood_2, ncc_3, likelihood_3, tst);
-//		showAgg2();
-//	}
-//
-//	public void showIt(float ncc_1, float likelihood_1, float ncc_2, float likelihood_2, float ncc_3, float likelihood_3, float ncc_4, float likelihood_4)
-//	{
-//		float[] tst = new float[3];
-//		critpointScore(ncc_1, likelihood_1, ncc_2, likelihood_2, ncc_3, likelihood_3, ncc_4, likelihood_4, tst);
-//		showAgg2();
-//	}
-
 	public void showDefuzzificationSurface(){
 
 		int w = 200; 	// 0 / 1
@@ -303,7 +262,6 @@ public class Fuzzy2D {
 				float ncc = ncc_start + x * ((ncc_end-ncc_start)/(w-1));
 				float likelihood = likelihood_start + y * ((likelihood_end-likelihood_start)/(h-1));
 				branchStrength(ncc, likelihood, dummy);
-//				outputFuzzified(t[x][y], dummy);
 				t[x][y] = branchStrength(ncc,likelihood);
 				t_off[x][y] 	= dummy[0];
 				t_none[x][y] 	= dummy[1];
@@ -439,7 +397,7 @@ public class Fuzzy2D {
     *
      */
 
-	private float critpointScore(float ncc_1, float likelihood_1)
+	private float critpointScore(  float ncc_1, float likelihood_1)
 	{
 
 		float[] t = new float[3];
@@ -461,22 +419,33 @@ public class Fuzzy2D {
 
 	}
 
-    public ImageProcessor critpointScore(float ncc_1, float likelihood_1, float[] output_endpoint_nonpoint_bifpoint, boolean verbose)
+    public ImageStack critpointScore(
+                                    float ncc_1, float likelihood_1, float[] output_endpoint_nonpoint_bifpoint, boolean verbose)
     {
         float defuzz = critpointScore(ncc_1, likelihood_1);
 		output_endpoint_nonpoint_bifpoint[0] = (float) Math.exp(-Math.pow(defuzz - output2_endpoint, 2) / (2 * Math.pow(output_sigma, 2)));
 		output_endpoint_nonpoint_bifpoint[1] = (float) Math.exp(-Math.pow(defuzz - output2_nonpoint, 2) / (2 * Math.pow(output_sigma, 2)));
 		output_endpoint_nonpoint_bifpoint[2] = (float) Math.exp(-Math.pow(defuzz - output2_bifpoint, 2) / (2 * Math.pow(output_sigma, 2)));
-		if (verbose) {
+
+        ImageStack is_out = new ImageStack(528, 255);
+        if (verbose) {
 			Plot p = new Plot("agg", "", "", x2, agg2, Plot.LINE);
-			return p.getProcessor();
+            p.draw();
+            float[][] pks_abscissa = new float[][]{ {defuzz, defuzz}, {0, 1} }; // 0 -> abscissa, 1 -> limits
+            p.setColor(Color.RED);
+            p.setLineWidth(2);
+            p.addPoints(pks_abscissa[0], pks_abscissa[1], Plot.LINE);
+            p.draw();
+            is_out.addSlice(p.getProcessor());
 		}
-		else return null;
+
+        return is_out;
+
     }
 
 	private float critpointScore(
-										float ncc_1, float likelihood_1,
-									 	float ncc_2, float likelihood_2)
+									float ncc_1, float likelihood_1,
+									float ncc_2, float likelihood_2)
 	{
 
         float[] t = new float[3];
@@ -506,7 +475,7 @@ public class Fuzzy2D {
 
     }
 
-    public ImageProcessor critpointScore(
+    public ImageStack critpointScore(
 									float ncc_1, float likelihood_1,
                                   	float ncc_2, float likelihood_2, float[] output_endpoint_nonpoint_bifpoint, boolean verbose)
     {
@@ -514,11 +483,20 @@ public class Fuzzy2D {
 		output_endpoint_nonpoint_bifpoint[0] = (float) Math.exp(-Math.pow(defuzz - output2_endpoint, 2) / (2 * Math.pow(output_sigma, 2)));
 		output_endpoint_nonpoint_bifpoint[1] = (float) Math.exp(-Math.pow(defuzz - output2_nonpoint, 2) / (2 * Math.pow(output_sigma, 2)));
 		output_endpoint_nonpoint_bifpoint[2] = (float) Math.exp(-Math.pow(defuzz - output2_bifpoint, 2) / (2 * Math.pow(output_sigma, 2)));
-		if (verbose) {
+
+        ImageStack is_out = new ImageStack(528, 255);
+        if (verbose) {
 			Plot p = new Plot("agg", "", "", x2, agg2, Plot.LINE);
-			return p.getProcessor();
+            p.draw();
+            float[][] pks_abscissa = new float[][]{ {defuzz, defuzz}, {0, 1} }; // 0 -> abscissa, 1 -> limits
+            p.setColor(Color.RED);
+            p.setLineWidth(2);
+            p.addPoints(pks_abscissa[0], pks_abscissa[1], Plot.LINE);
+            p.draw();
+			is_out.addSlice(p.getProcessor());
 		}
-		else return null;
+
+		return is_out;
     }
 
     private float critpointScore(	float ncc_1, float likelihood_1,
@@ -565,19 +543,28 @@ public class Fuzzy2D {
 
     }
 
-    public ImageProcessor critpointScore(    float ncc_1, float likelihood_1,
-                                   float ncc_2, float likelihood_2,
-                                   float ncc_3, float likelihood_3, float[] output_endpoint_nonpoint_bifpoint, boolean verbose)
+    public ImageStack critpointScore(
+                                    float ncc_1, float likelihood_1,
+                                    float ncc_2, float likelihood_2,
+                                    float ncc_3, float likelihood_3, float[] output_endpoint_nonpoint_bifpoint, boolean verbose)
     {
         float defuzz = critpointScore(ncc_1, likelihood_1, ncc_2, likelihood_2, ncc_3, likelihood_3);
 		output_endpoint_nonpoint_bifpoint[0] = (float) Math.exp(-Math.pow(defuzz - output2_endpoint, 2) / (2 * Math.pow(output_sigma, 2)));
 		output_endpoint_nonpoint_bifpoint[1] = (float) Math.exp(-Math.pow(defuzz - output2_nonpoint, 2) / (2 * Math.pow(output_sigma, 2)));
 		output_endpoint_nonpoint_bifpoint[2] = (float) Math.exp(-Math.pow(defuzz - output2_bifpoint, 2) / (2 * Math.pow(output_sigma, 2)));
-		if (verbose) {
+
+        ImageStack is_out = new ImageStack(528, 255);
+        if (verbose) {
 			Plot p = new Plot("agg", "", "", x2, agg2, Plot.LINE);
-			return p.getProcessor();
+            p.draw();
+            float[][] pks_abscissa = new float[][]{ {defuzz, defuzz}, {0, 1} }; // 0 -> abscissa, 1 -> limits
+            p.setColor(Color.RED);
+            p.setLineWidth(2);
+            p.addPoints(pks_abscissa[0], pks_abscissa[1], Plot.LINE);
+            p.draw();
+			is_out.addSlice(p.getProcessor());
 		}
-		else return null;
+		return is_out;
     }
 
     private float critpointScore(    float ncc_1, float likelihood_1,
@@ -647,7 +634,8 @@ public class Fuzzy2D {
 
     }
 
-    public ImageProcessor critpointScore(	   float ncc_1, float likelihood_1,
+    public ImageStack critpointScore(
+                                   float ncc_1, float likelihood_1,
                                    float ncc_2, float likelihood_2,
                                    float ncc_3, float likelihood_3,
                                    float ncc_4, float likelihood_4, float[] output_endpoint_nonpoint_bifpoint, boolean verbose)
@@ -656,11 +644,19 @@ public class Fuzzy2D {
 		output_endpoint_nonpoint_bifpoint[0] = (float) Math.exp(-Math.pow(defuzz - output2_endpoint, 2) / (2 * Math.pow(output_sigma, 2)));
 		output_endpoint_nonpoint_bifpoint[1] = (float) Math.exp(-Math.pow(defuzz - output2_nonpoint, 2) / (2 * Math.pow(output_sigma, 2)));
 		output_endpoint_nonpoint_bifpoint[2] = (float) Math.exp(-Math.pow(defuzz - output2_bifpoint, 2) / (2 * Math.pow(output_sigma, 2)));
-		if (verbose) {
+
+        ImageStack is_out = new ImageStack(528, 255);
+        if (verbose) {
 			Plot p = new Plot("agg", "", "", x2, agg2, Plot.LINE);
-			return p.getProcessor();
+            p.draw();
+            float[][] pks_abscissa = new float[][]{ {defuzz, defuzz}, {0, 1} }; // 0 -> abscissa, 1 -> limits
+            p.setColor(Color.RED);
+            p.setLineWidth(2);
+            p.addPoints(pks_abscissa[0], pks_abscissa[1], Plot.LINE);
+            p.draw();
+			is_out.addSlice(p.getProcessor());
 		}
-		else return null;
+		return is_out;
 
     }
 

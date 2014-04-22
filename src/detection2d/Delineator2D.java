@@ -172,12 +172,12 @@ public class Delineator2D extends Thread {
 
     }
 
-	public static ImageProcessor getFuzzyAgg(int atX, int atY){
+	public static ImageStack getFuzzyAgg(int atX, int atY){
 
-		ImageProcessor imp_out;
+        ImageStack is_out = new ImageStack(528, 255);
 
 		int locationIdx = xy2i[atX][atY];
-		if (critpoint_score2[locationIdx]!=null) {
+		if (locationIdx!=-1 && critpoint_score2[locationIdx]!=null) {
 
 			Fuzzy2D fls = new Fuzzy2D(
 											 // ncc
@@ -207,14 +207,14 @@ public class Delineator2D extends Thread {
 					case 1:
 						ncc_1 = ncc_avg2[locationIdx][b_sel.get(0)];
 						likelihood_1 = lhoods2[locationIdx][b_sel.get(0)];
-						imp_out = fls.critpointScore(ncc_1, likelihood_1, tmp, show_agg);
+						is_out = fls.critpointScore(ncc_1, likelihood_1, tmp, show_agg);
 						break;
 					case 2:
 						ncc_1 = ncc_avg2[locationIdx][b_sel.get(0)];
 						likelihood_1 = lhoods2[locationIdx][b_sel.get(0)];
 						ncc_2 = ncc_avg2[locationIdx][b_sel.get(1)];
 						likelihood_2 = lhoods2[locationIdx][b_sel.get(1)];
-						imp_out = fls.critpointScore(ncc_1, likelihood_1, ncc_2, likelihood_2, tmp, show_agg);
+						is_out = fls.critpointScore(ncc_1, likelihood_1, ncc_2, likelihood_2, tmp, show_agg);
 						break;
 					case 3:
 						ncc_1 = ncc_avg2[locationIdx][b_sel.get(0)];
@@ -223,7 +223,7 @@ public class Delineator2D extends Thread {
 						likelihood_2 = lhoods2[locationIdx][b_sel.get(1)];
 						ncc_3 = ncc_avg2[locationIdx][b_sel.get(2)];
 						likelihood_3 = lhoods2[locationIdx][b_sel.get(2)];
-						imp_out = fls.critpointScore(ncc_1, likelihood_1, ncc_2, likelihood_2, ncc_3, likelihood_3, tmp, show_agg);
+						is_out = fls.critpointScore(ncc_1, likelihood_1, ncc_2, likelihood_2, ncc_3, likelihood_3, tmp, show_agg);
 						break;
 					case 4:
 						ncc_1 = ncc_avg2[locationIdx][b_sel.get(0)];
@@ -234,27 +234,28 @@ public class Delineator2D extends Thread {
 						likelihood_3 = lhoods2[locationIdx][b_sel.get(2)];
 						ncc_4 = ncc_avg2[locationIdx][b_sel.get(3)];
 						likelihood_4 = lhoods2[locationIdx][b_sel.get(3)];
-						imp_out = fls.critpointScore(ncc_1, likelihood_1, ncc_2, likelihood_2, ncc_3, likelihood_3, ncc_4, likelihood_4, tmp, show_agg);
+						is_out = fls.critpointScore(ncc_1, likelihood_1, ncc_2, likelihood_2, ncc_3, likelihood_3, ncc_4, likelihood_4, tmp, show_agg);
 						break;
 					default:
-						imp_out = null;
+						//imp_out = null;
 						break;
 				}
 
 			}
 			else {
-				imp_out = null;
+                Plot p = new Plot("", "", "", new float[1], new float[1]);
+				is_out.addSlice(p.getProcessor());
 			}
 
 
 
 		}
 		else {
-			imp_out = null;
+            Plot p = new Plot("", "", "", new float[1], new float[1]);
+            is_out.addSlice(p.getProcessor());
 		}
 
-		return imp_out;
-
+		return is_out;
 
 	}
 
@@ -1320,7 +1321,8 @@ public class Delineator2D extends Thread {
 
         }
         else {
-            is_out.addSlice(new ByteProcessor(528,255));
+            Plot p = new Plot("", "", "", new float[1], new float[1]);
+            is_out.addSlice(p.getProcessor());
         }
         return is_out;
     }

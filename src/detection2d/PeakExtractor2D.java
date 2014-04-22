@@ -536,7 +536,6 @@ public class PeakExtractor2D extends Thread {
 			/*
             IJ.log("$$$ peaks theta: (PeakExtractor2D) $$$");
 
-
             IJ.log("peaks in rad:");
             for (int ii=0; ii<get_thetas.length; ii++) IJ.log(Arrays.toString(get_thetas[ii]));
             IJ.log("peaks in deg:");

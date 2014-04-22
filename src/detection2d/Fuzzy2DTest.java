@@ -33,15 +33,10 @@ public class Fuzzy2DTest implements PlugIn {
 		float output_sigma					= (float) 	Prefs.get("critpoint.detection2d.output_sigma", 0.4f);
 
 		GenericDialog gd = new GenericDialog("TEst");
-		gd.addNumericField("NCC HIGH", 	        ncc_high, 			1,  5, "");
-//		gd.addNumericField("NCC HIGH",        	ncc_high_sigma, 	    1,  5, "SIGMA");
-		gd.addNumericField("NCC LOW",           ncc_low, 		    1,  5, "");
-//		gd.addNumericField("NCC LOW",           ncc_low_sigma, 		    1,  5, "SIGMA");
-
-		gd.addNumericField("LIKELIHOOD HIGH", 	likelihood_high, 			1,  10, "");
-//		gd.addNumericField("LIKELIHOOD HIGH",   likelihood_high_sigma, 	    	1,  10, "SIGMA");
-		gd.addNumericField("LIKELIHOOD LOW",    likelihood_low, 		    1,  10, "");
-//		gd.addNumericField("LIKELIHOOD LOW",    likelihood_low_sigma, 		    1,  10, "SIGMA");
+		gd.addNumericField("NCC HIGH", 	        ncc_high, 			        2,  5, "");
+		gd.addNumericField("NCC LOW",           ncc_low, 		            2,  5, "");
+		gd.addNumericField("LIKELIHOOD HIGH", 	likelihood_high, 			2,  10, "");
+		gd.addNumericField("LIKELIHOOD LOW",    likelihood_low, 		    2,  10, "");
 
 		gd.addNumericField("OUT SIGMA",    output_sigma, 		    1,  10, "");
 
