@@ -10,6 +10,7 @@ import ij.ImageStack;
 import ij.gui.*;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
+import ij.process.ImageProcessor;
 
 import java.awt.*;
 import java.io.*;
@@ -43,7 +44,7 @@ public class Delineator2D extends Thread {
 	public static int[][]		peaks_w;                    // weight assigned to each peak (for expansion)
 //	public static float[][] 	peaks_lhood;				// likelihoods for each peaks taken from the profile
 	public static float[][]		inimg_xy;				    // input image (necessary for feature extraction)
-	public static int 			critpoint_type;
+//	public static int 			critpoint_type;
 
     // PARAMETERS
     public static float     D;
@@ -56,14 +57,14 @@ public class Delineator2D extends Thread {
 	private static int      dim_half;                       // cross profile half-length
 
     private static float    ncc_high_mean;
-    private static float    ncc_high_sigma;
+//    private static float    ncc_high_sigma;
     private static float    ncc_low_mean;
-    private static float    ncc_low_sigma;
+//    private static float    ncc_low_sigma;
 
 	private static float    likelihood_high_mean;
-	private static float    likelihood_high_sigma;
+//	private static float    likelihood_high_sigma;
 	private static float    likelihood_low_mean;
-	private static float    likelihood_low_sigma;
+//	private static float    likelihood_low_sigma;
 
 	private static float    output_sigma;
 
@@ -84,10 +85,9 @@ public class Delineator2D extends Thread {
     // try use fitsco2[][][] to calculate metric that would separate critical points
 //    public static float[]       OneVsRest;
 
-
 	// fuzzy system outputs
-    public static float[][][]   streamline_score2;          // N(foreground locs.) x 4(max. threads) x 2 (on,off)
-    public static float[][]   	critpoint_score2;           // N(foreground locs.) x 2(on,off) given by fuzzy logic
+    public static float[][][]   streamline_score2;          // N(foreground locs.) x 4(max. threads) x 3 (off,none,on)
+    public static float[][]   	critpoint_score2;           // N(foreground locs.) x 3(endpoint,nonepoint,bifpoint) given by fuzzy logic
 
     public Delineator2D(int n0, int n1)
     {
@@ -95,7 +95,7 @@ public class Delineator2D extends Thread {
         this.endN = n1;
     }
 
-    public static void loadTemplate(       	int _critpoint_type,
+    public static void loadTemplate(       	//int _critpoint_type,
 										   	int[][] _i2xy,
 											int[][] _xy2i,
 											int[][] _peaks_i,
@@ -106,18 +106,18 @@ public class Delineator2D extends Thread {
                                     		float   _minCos,
                                     		float   _D,
                                     		float   _ncc_high_mean,
-                                    		float   _ncc_high_sigma,
+                                    		//float   _ncc_high_sigma,
                                     		float   _ncc_low_mean,
-                                    		float   _ncc_low_sigma,
+                                    		//float   _ncc_low_sigma,
 											float 	_likelihood_high_mean,
-											float   _likelihood_high_sigma,
+											//float   _likelihood_high_sigma,
 											float 	_likelihood_low_mean,
-											float	_likelihood_low_sigma,
+											//float	_likelihood_low_sigma,
 											float 	_output_sigma,
                                     		int     _L,                         // will define sampling longitudinal
                                     		float   _sampling_crosswise)
     {
-		critpoint_type	= _critpoint_type;
+//		critpoint_type	= _critpoint_type;
         M               = _M;
         minCos          = _minCos;
         D               = _D;
@@ -125,14 +125,14 @@ public class Delineator2D extends Thread {
 		samplingStep    = _sampling_crosswise;
 
         ncc_high_mean   = _ncc_high_mean;
-        ncc_high_sigma  = _ncc_high_sigma;
+//        ncc_high_sigma  = _ncc_high_sigma;
         ncc_low_mean    = _ncc_low_mean;
-        ncc_low_sigma   = _ncc_low_sigma;
+//        ncc_low_sigma   = _ncc_low_sigma;
 
 		likelihood_high_mean   = _likelihood_high_mean;
-        likelihood_high_sigma  = _likelihood_high_sigma;
+//        likelihood_high_sigma  = _likelihood_high_sigma;
         likelihood_low_mean    = _likelihood_low_mean;
-        likelihood_low_sigma   = _likelihood_low_sigma;
+//        likelihood_low_sigma   = _likelihood_low_sigma;
 
 		output_sigma = _output_sigma;
 
@@ -172,6 +172,92 @@ public class Delineator2D extends Thread {
 
     }
 
+	public static ImageProcessor getFuzzyAgg(int atX, int atY){
+
+		ImageProcessor imp_out;
+
+		int locationIdx = xy2i[atX][atY];
+		if (critpoint_score2[locationIdx]!=null) {
+
+			Fuzzy2D fls = new Fuzzy2D(
+											 // ncc
+											 ncc_high_mean,// ncc_high_sigma,      // high
+											 ncc_low_mean, //ncc_low_sigma,   // low
+											 // lhood
+											 likelihood_high_mean, //likelihood_high_sigma, // high
+											 likelihood_low_mean, //likelihood_low_sigma,  // low
+											 output_sigma  // std output membership functions - defines separation margin
+			);
+
+			if (ncc_avg2[locationIdx]!=null) {
+
+				// check how many inputs there are
+				ArrayList<Integer> b_sel = new ArrayList<Integer>();
+				b_sel.clear();
+				for (int b=0; b<ncc_avg2[locationIdx].length; b++)
+					if (!Float.isNaN(ncc_avg2[locationIdx][b])) b_sel.add(b); // add the index of the branch found
+
+				// switch according to the length of valid branches found
+				float ncc_1, likelihood_1, ncc_2, likelihood_2, ncc_3, likelihood_3, ncc_4, likelihood_4;
+				float[] tmp = new float[3];
+				boolean show_agg = true;
+
+
+				switch (b_sel.size()) {
+					case 1:
+						ncc_1 = ncc_avg2[locationIdx][b_sel.get(0)];
+						likelihood_1 = lhoods2[locationIdx][b_sel.get(0)];
+						imp_out = fls.critpointScore(ncc_1, likelihood_1, tmp, show_agg);
+						break;
+					case 2:
+						ncc_1 = ncc_avg2[locationIdx][b_sel.get(0)];
+						likelihood_1 = lhoods2[locationIdx][b_sel.get(0)];
+						ncc_2 = ncc_avg2[locationIdx][b_sel.get(1)];
+						likelihood_2 = lhoods2[locationIdx][b_sel.get(1)];
+						imp_out = fls.critpointScore(ncc_1, likelihood_1, ncc_2, likelihood_2, tmp, show_agg);
+						break;
+					case 3:
+						ncc_1 = ncc_avg2[locationIdx][b_sel.get(0)];
+						likelihood_1 = lhoods2[locationIdx][b_sel.get(0)];
+						ncc_2 = ncc_avg2[locationIdx][b_sel.get(1)];
+						likelihood_2 = lhoods2[locationIdx][b_sel.get(1)];
+						ncc_3 = ncc_avg2[locationIdx][b_sel.get(2)];
+						likelihood_3 = lhoods2[locationIdx][b_sel.get(2)];
+						imp_out = fls.critpointScore(ncc_1, likelihood_1, ncc_2, likelihood_2, ncc_3, likelihood_3, tmp, show_agg);
+						break;
+					case 4:
+						ncc_1 = ncc_avg2[locationIdx][b_sel.get(0)];
+						likelihood_1 = lhoods2[locationIdx][b_sel.get(0)];
+						ncc_2 = ncc_avg2[locationIdx][b_sel.get(1)];
+						likelihood_2 = lhoods2[locationIdx][b_sel.get(1)];
+						ncc_3 = ncc_avg2[locationIdx][b_sel.get(2)];
+						likelihood_3 = lhoods2[locationIdx][b_sel.get(2)];
+						ncc_4 = ncc_avg2[locationIdx][b_sel.get(3)];
+						likelihood_4 = lhoods2[locationIdx][b_sel.get(3)];
+						imp_out = fls.critpointScore(ncc_1, likelihood_1, ncc_2, likelihood_2, ncc_3, likelihood_3, ncc_4, likelihood_4, tmp, show_agg);
+						break;
+					default:
+						imp_out = null;
+						break;
+				}
+
+			}
+			else {
+				imp_out = null;
+			}
+
+
+
+		}
+		else {
+			imp_out = null;
+		}
+
+		return imp_out;
+
+
+	}
+
     public void run()
     {
 
@@ -180,20 +266,18 @@ public class Delineator2D extends Thread {
 //			fitter.showTemplates();
         Fuzzy2D fls = new Fuzzy2D(
                 // ncc
-                ncc_high_mean, ncc_high_sigma,      // high
-                ncc_low_mean, ncc_low_sigma,   // low
+                ncc_high_mean,// ncc_high_sigma,      // high
+                ncc_low_mean, //ncc_low_sigma,   // low
                 // lhood
-                likelihood_high_mean, likelihood_high_sigma, // high
-                likelihood_low_mean, likelihood_low_sigma,  // low
+                likelihood_high_mean, //likelihood_high_sigma, // high
+                likelihood_low_mean, //likelihood_low_sigma,  // low
                 output_sigma  // std output membership functions - defines separation margin
         );
-        //fls.showFuzzification();
-        //fls.showDefuzzification();
 		float[] cross_profile = new float[dim];   // aux variable
 		float[] fit_idx_score;// = new float[2];     // aux variable
 
-        float[] streamline_off_on = new float[2];
-        float[] critpoint_off_on = new float[2];
+        float[] streamline_off_none_on = new float[3];
+        float[] critpoint_endpoint_nonepoint_bifpoint = new float[3];
 
         for (int locationIdx = begN; locationIdx < endN; locationIdx++) {
 
@@ -572,16 +656,18 @@ public class Delineator2D extends Thread {
             */
 
             if (ncc_avg2[locationIdx]!=null) {
-                streamline_score2[locationIdx] = new float[2][4];
+                streamline_score2[locationIdx] = new float[3][4];
                 for (int b=0; b<ncc_avg2[locationIdx].length; b++) {
                     if (!Float.isNaN(ncc_avg2[locationIdx][b])) {
-                        fls.branchStrengthFuzzified(ncc_avg2[locationIdx][b], lhoods2[locationIdx][b], streamline_off_on);
-                        streamline_score2[locationIdx][0][b] = streamline_off_on[0];
-                        streamline_score2[locationIdx][1][b] = streamline_off_on[1];
+                        fls.branchStrength(ncc_avg2[locationIdx][b], lhoods2[locationIdx][b], streamline_off_none_on);
+                        streamline_score2[locationIdx][0][b] = streamline_off_none_on[0];
+                        streamline_score2[locationIdx][1][b] = streamline_off_none_on[1];
+                        streamline_score2[locationIdx][2][b] = streamline_off_none_on[2];
                     }
                     else {
                         streamline_score2[locationIdx][0][b] = Float.NaN;
                         streamline_score2[locationIdx][1][b] = Float.NaN;
+                        streamline_score2[locationIdx][2][b] = Float.NaN;
                     }
                 }
             }
@@ -592,7 +678,7 @@ public class Delineator2D extends Thread {
 
             if (ncc_avg2[locationIdx]!=null) {
 
-				critpoint_score2[locationIdx] =new float[2];
+				critpoint_score2[locationIdx] =new float[3];
 
                 // check how many inputs there are
                 ArrayList<Integer> b_sel = new ArrayList<Integer>();
@@ -606,17 +692,10 @@ public class Delineator2D extends Thread {
                     case 1:
                         ncc_1 = ncc_avg2[locationIdx][b_sel.get(0)];
                         likelihood_1 = lhoods2[locationIdx][b_sel.get(0)];
-
-                        if (critpoint_type==0) {
-							fls.endpointFuzzified(ncc_1, likelihood_1, critpoint_off_on);
-							critpoint_score2[locationIdx][0] = critpoint_off_on[0];
-							critpoint_score2[locationIdx][1] = critpoint_off_on[1];
-						}
-						else {
-							critpoint_score2[locationIdx][0] = 0;// neutral score
-							critpoint_score2[locationIdx][1] = 0;
-						}
-
+						fls.critpointScore(ncc_1, likelihood_1, critpoint_endpoint_nonepoint_bifpoint, false);
+						critpoint_score2[locationIdx][0] = critpoint_endpoint_nonepoint_bifpoint[0];
+						critpoint_score2[locationIdx][1] = critpoint_endpoint_nonepoint_bifpoint[1];
+						critpoint_score2[locationIdx][2] = critpoint_endpoint_nonepoint_bifpoint[2];
                         break;
                     case 2:
                         ncc_1 = ncc_avg2[locationIdx][b_sel.get(0)];
@@ -624,16 +703,10 @@ public class Delineator2D extends Thread {
                         ncc_2 = ncc_avg2[locationIdx][b_sel.get(1)];
                         likelihood_2 = lhoods2[locationIdx][b_sel.get(1)];
 
-						if (critpoint_type==0) {
-							fls.endpointFuzzified(ncc_1, likelihood_1, ncc_2, likelihood_2, critpoint_off_on);
-							critpoint_score2[locationIdx][0] = critpoint_off_on[0];
-							critpoint_score2[locationIdx][1] = critpoint_off_on[1];
-						}
-						else {
-							critpoint_score2[locationIdx][0] = 0;
-							critpoint_score2[locationIdx][1] = 0;
-						}
-
+						fls.critpointScore(ncc_1, likelihood_1, ncc_2, likelihood_2, critpoint_endpoint_nonepoint_bifpoint, false);
+						critpoint_score2[locationIdx][0] = critpoint_endpoint_nonepoint_bifpoint[0];
+						critpoint_score2[locationIdx][1] = critpoint_endpoint_nonepoint_bifpoint[1];
+						critpoint_score2[locationIdx][2] = critpoint_endpoint_nonepoint_bifpoint[2];
                         break;
                     case 3:
                         ncc_1 = ncc_avg2[locationIdx][b_sel.get(0)];
@@ -643,21 +716,10 @@ public class Delineator2D extends Thread {
                         ncc_3 = ncc_avg2[locationIdx][b_sel.get(2)];
                         likelihood_3 = lhoods2[locationIdx][b_sel.get(2)];
 
-						if (critpoint_type==0) {
-							fls.endpointFuzzified(ncc_1, likelihood_1, ncc_2, likelihood_2, ncc_3, likelihood_3, critpoint_off_on);
-							critpoint_score2[locationIdx][0] = critpoint_off_on[0];
-							critpoint_score2[locationIdx][1] = critpoint_off_on[1];
-						}
-						else if (critpoint_type==1) {
-							fls.junctionFuzzified(ncc_1, likelihood_1, ncc_2, likelihood_2, ncc_3, likelihood_3, critpoint_off_on);
-							critpoint_score2[locationIdx][0] = critpoint_off_on[0];
-							critpoint_score2[locationIdx][1] = critpoint_off_on[1];
-						}
-						else {
-							critpoint_score2[locationIdx][0] = 0;
-							critpoint_score2[locationIdx][1] = 0;
-						}
-
+						fls.critpointScore(ncc_1, likelihood_1, ncc_2, likelihood_2, ncc_3, likelihood_3, critpoint_endpoint_nonepoint_bifpoint, false);
+						critpoint_score2[locationIdx][0] = critpoint_endpoint_nonepoint_bifpoint[0];
+						critpoint_score2[locationIdx][1] = critpoint_endpoint_nonepoint_bifpoint[1];
+						critpoint_score2[locationIdx][2] = critpoint_endpoint_nonepoint_bifpoint[2];
                         break;
                     case 4:
                         ncc_1 = ncc_avg2[locationIdx][b_sel.get(0)];
@@ -669,24 +731,15 @@ public class Delineator2D extends Thread {
                         ncc_4 = ncc_avg2[locationIdx][b_sel.get(3)];
                         likelihood_4 = lhoods2[locationIdx][b_sel.get(3)];
 
-						if (critpoint_type==0) {
-							critpoint_score2[locationIdx][0] = 0;
-							critpoint_score2[locationIdx][1] = 0;
-						}
-						else if (critpoint_type==1) {
-							fls.junctionFuzzified(ncc_1, likelihood_1, ncc_2, likelihood_2, ncc_3, likelihood_3, ncc_4, likelihood_4, critpoint_off_on);
-							critpoint_score2[locationIdx][0] = critpoint_off_on[0];
-							critpoint_score2[locationIdx][1] = critpoint_off_on[1];
-						}
-						else {
-							critpoint_score2[locationIdx][0] = 0;
-							critpoint_score2[locationIdx][1] = 0;
-						}
-
+						fls.critpointScore(ncc_1, likelihood_1, ncc_2, likelihood_2, ncc_3, likelihood_3, ncc_4, likelihood_4, critpoint_endpoint_nonepoint_bifpoint, false);
+						critpoint_score2[locationIdx][0] = critpoint_endpoint_nonepoint_bifpoint[0];
+						critpoint_score2[locationIdx][1] = critpoint_endpoint_nonepoint_bifpoint[1];
+						critpoint_score2[locationIdx][2] = critpoint_endpoint_nonepoint_bifpoint[2];
                         break;
                     default:
                         critpoint_score2[locationIdx][0] = 0;
                         critpoint_score2[locationIdx][1] = 0;
+                        critpoint_score2[locationIdx][2] = 0;
                         break;
                 }
 
@@ -801,7 +854,8 @@ public class Delineator2D extends Thread {
                 for (int b=0; b<ncc_avg2[atLoc].length; b++) {
                     printout += (b+1) +"\t->\t"; //+ IJ.d2s(ratio2[atLoc][ii], 2) + "\n"
                     if (!Float.isNaN(ncc_avg2[atLoc][b])) {
-						printout += IJ.d2s(ncc_avg2[atLoc][b], 2)+"  \t  "+IJ.d2s(lhoods2[atLoc][b], 2)+"  \t  "+IJ.d2s(streamline_score2[atLoc][0][b], 2)+"  \t  "+IJ.d2s(streamline_score2[atLoc][1][b], 2)+"\n";
+						printout += IJ.d2s(ncc_avg2[atLoc][b], 2)+"  \t  "+IJ.d2s(lhoods2[atLoc][b], 2)+"  \t \t  OFF"
+											+IJ.d2s(streamline_score2[atLoc][0][b], 2)+"  \t  ON"+IJ.d2s(streamline_score2[atLoc][2][b], 2)+"\n";
                     }
                     else {
                         printout += "NONE\n";
@@ -812,15 +866,28 @@ public class Delineator2D extends Thread {
                 printout += "NONE\n";
             }
 
-			printout += "\nCRITPOINT TYPE "+critpoint_type+"\n";
+			printout += "\nBRANCH STRENGTH \n...todo...\n";
+
+			printout += "\nCRITPOINT \n";
 			if (critpoint_score2[atLoc]!=null) {
-				printout += "OFF "+critpoint_score2[atLoc][0]+", ON "+critpoint_score2[atLoc][1];
+				printout += "END "+critpoint_score2[atLoc][0]+", NONE "+critpoint_score2[atLoc][1]+", BIF "+critpoint_score2[atLoc][2];
 			}
 			else {
 				printout += "NONE\n";
 			}
 
             IJ.log(printout);
+
+			Fuzzy2D fls = new Fuzzy2D(
+											 // ncc
+											 ncc_high_mean,// ncc_high_sigma,      // high
+											 ncc_low_mean, //ncc_low_sigma,   // low
+											 // lhood
+											 likelihood_high_mean, //likelihood_high_sigma, // high
+											 likelihood_low_mean, //likelihood_low_sigma,  // low
+											 output_sigma  // std output membership functions - defines separation margin
+			);
+
 
         }
 		else {
