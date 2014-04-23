@@ -56,9 +56,9 @@ public class GeneratorDemo implements PlugIn {
 
 		GenericDialog gd = new GenericDialog("Generate junctions");
 		gd.addNumericField("SNR ", 3, 0);
-		gd.addNumericField("p1 ", 1, 2);
-		gd.addNumericField("p2 ", 1, 2);
-		gd.addNumericField("p3 ", 1, 2);
+		gd.addNumericField("p1 ", 1, 1);
+		gd.addNumericField("p2 ", 1, 1);
+		gd.addNumericField("p3 ", 1, 1);
 		gd.addNumericField("Dmin ", 3, 0);
 		gd.addNumericField("N imgs ", 5, 0);
 
@@ -95,7 +95,7 @@ public class GeneratorDemo implements PlugIn {
 
 		synthetize(SNR, D1, D2, D3, N);
 
-		Generator imageGenerator = new Generator();
+
 
 	}
 
@@ -128,13 +128,19 @@ public class GeneratorDemo implements PlugIn {
 		catch (FileNotFoundException ex) {}
 
 
-		if (true) return;
+        Generator imageGenerator = new Generator();
 
+        for (int cnt=0; cnt<N; cnt++) {
 
+            File gnd_tth_end = new File(outDir+File.separator+String.format("%04d", cnt)+".end");
+            File gnd_tth_bif = new File(outDir+File.separator+String.format("%04d", cnt)+".bif");
+            File image_path  = new File(outDir+File.separator+String.format("%04d", cnt)+".tif");
+            ImagePlus imp = imageGenerator.runDisProportional(snr, d1, d2, d3, gnd_tth_bif);
+            FileSaver fs = new FileSaver(imp);
+            fs.saveAsTiff(image_path.getAbsolutePath());
+            IJ.log(image_path.getAbsolutePath() + " created.");
 
-
-		String imagePath, dirName;
-		File csvFile;
+        }
 
 		/****************************************************
 		 * D1<D2<D3
@@ -362,8 +368,6 @@ public class GeneratorDemo implements PlugIn {
 
 		if(!f.exists()){  //
 
-			IJ.log("was deleted ? "+f.delete());;
-
 			try{
 				// Create one directory
 				boolean success = f.mkdir();
@@ -379,7 +383,18 @@ public class GeneratorDemo implements PlugIn {
 		}
 		else {
 
-			IJ.log("was deleted ? "+f.delete());
+
+
+            // empty it before deleting
+            String[] entries = f.list();
+
+            for(String s: entries){
+                File currentFile = new File(f.getPath(),s);
+                currentFile.delete();
+            }
+
+            f.delete();
+
 			try{
 				// Create one directory
 				boolean success = f.mkdir();

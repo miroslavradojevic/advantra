@@ -3,11 +3,13 @@ package generate;
 import aux.Tools;
 import ij.IJ;
 import ij.ImagePlus;
+import ij.gui.OvalRoi;
 import ij.gui.Overlay;
 import ij.gui.PointRoi;
 import ij.process.FloatProcessor;
 import imagescience.random.PoissonGenerator;
 
+import java.awt.*;
 import java.io.*;
 import java.util.Random;
 
@@ -43,19 +45,11 @@ public class Generator {
 	// 2. PSF (Gaussian blur with appropriate sigma ~ 0.21 * lambda / NA) => low res sigmaXY = 9.3e-4, high res 0.252
 	// 3. generate Poisson Noise wrt to the image values
 
-	private static int W = 512;
-	private static int H = W;
+    private static int nrPts1 = 10; // nrPts1 x nrPts1
 
-	private static int nrPts1 = 6;
-	private static int nrPts2 = nrPts1*nrPts1;
-
-	private static int minAngleDeg = 30;
-
-	private static float	branchLength 	= .7f * ((float)H / (2*nrPts1)); // pix
-	private static float	margin 	= 3f*branchLength; // pix
-
-	private static int bg = 20; 	// background
-	//private static int fg = 230;	// foreground
+    private static float s = 8f; // s*Dmax = branch_length
+    private static int minAngleDeg = (int) Math.round( 2f * Math.asin(1f/(2f*(s/3))) * (180f/Math.PI) ); // Dmax branches are separable at scale s/3
+    private static int bg = 20; 	// background
 
 	private boolean randomizeLocations = false;
 
@@ -81,7 +75,18 @@ public class Generator {
 	public static ImagePlus runDisProportional(float snr, float diam1, float diam2, float diam3, File outGndTth)
 	{
 
-		PrintWriter writer = null;
+        int nrPts2 = nrPts1*nrPts1;
+
+        float diam_max = Math.max(diam1, Math.max(diam2, diam3));
+        float	branch_length = s * diam_max; //.7f * ((float)H / (2*nrPts1)); // pix
+        float   branch_separation = 2f * branch_length;
+        float	margin 	= branch_separation; // pix
+
+        int W = Math.round(2 * margin + (2*nrPts1) * branch_separation);
+        int H = W;
+        IJ.log(""+minAngleDeg);
+
+        PrintWriter writer = null;
 
 		// initialize
 		try {
@@ -102,14 +107,14 @@ public class Generator {
 		for (int j=0; j<W*H; j++) outIp.setf(j, 0);
 
 
+        // form the skeleton of junction geometry
 		float[][][] points = new float[nrPts2][4][2];
-
 		int cnt = 0;
 		for (int row = 0; row < nrPts1; row++) {
 			for (int col = 0; col < nrPts1; col++) {
 				float locx = margin+row*((W-2*margin)/(nrPts1-1));
 				float locy = margin+col*((H-2*margin)/(nrPts1-1));
-				points[cnt] = createBifPointsAt(locx, locy, branchLength);
+				points[cnt] = createBifPointsAt(locx, locy, branch_length);
 				cnt++;
 			}
 		}
@@ -118,9 +123,22 @@ public class Generator {
 		for (int pIdx=0; pIdx<nrPts2; pIdx++) {
 
 			// record ground truth
-			writer.println(points[pIdx][0][0]+", "+points[pIdx][0][1]);
-			PointRoi pt = new PointRoi(points[pIdx][0][0]+.5f, points[pIdx][0][1]+.5f);
+            writer.println(points[pIdx][0][0]+", "+points[pIdx][0][1]); // make it swc
+
+            // add overlay
+            float diameter_draw = diam_max;
+
+            OvalRoi pt = new OvalRoi(points[pIdx][0][0]+.5f-diameter_draw/2f, points[pIdx][0][1]+.5f-diameter_draw/2f, diameter_draw, diameter_draw);
+            pt.setStrokeColor(Color.RED);
 			ov.add(pt);
+
+            for (int cnt_rest=1; cnt_rest<points[pIdx].length; cnt_rest++) {
+                pt = new OvalRoi(points[pIdx][cnt_rest][0]+.5f-diameter_draw/2f, points[pIdx][cnt_rest][1]+.5f-diameter_draw/2f, diameter_draw, diameter_draw);
+                pt.setStrokeColor(Color.YELLOW);
+                pt.setFillColor(Color.YELLOW);
+                ov.add(pt);
+            }
+
 
 			// set configuration
 			float[] diameters = new float[3];
@@ -134,7 +152,7 @@ public class Generator {
 		}
 
 		writer.close();
-		System.out.println("" + outGndTth.getAbsolutePath());
+		IJ.log("" + outGndTth.getAbsolutePath());
 
 		// PSF emulate (Gaussian blur on outSlice) - SKIPPED, OBJECTS ARE bigger than just spots
 		//gauss.blurGaussian(outIp, 0.5, 0.5, 0.005);
@@ -150,172 +168,172 @@ public class Generator {
 
 		}
 
-		ImagePlus outImp = new ImagePlus("DISPROP_SNR_"+IJ.d2s(snr,1)+",d1_"+IJ.d2s(diam1,1)+",d2_"+IJ.d2s(diam2,1), outIp);
+		ImagePlus outImp = new ImagePlus("SNR_"+IJ.d2s(snr,1)+",d1_"+IJ.d2s(diam1,1)+",d2_"+IJ.d2s(diam2,1), outIp);
 		outImp.setOverlay(ov);
 		return outImp;
 
 	}
 
-	public static ImagePlus runDisProportional(float snr, float diam1, float diam2, File outGndTth)
-	{
-
-		PrintWriter writer = null;
-
-		// initialize
-		try {
-			writer = new PrintWriter(new BufferedWriter(new FileWriter(outGndTth, true)));
-			writer.println("#"); // dateFormat.format(date)
-		} catch (IOException e) {}
-
-		//GaussianBlur gauss 		= new GaussianBlur();
-		PoissonGenerator poiss 	= new PoissonGenerator();
-
-		float fg = foregroundLevel(bg, snr); // quadratic equation
-
-		Overlay ov = new Overlay();
-
-		FloatProcessor outIp = new FloatProcessor(W, H);
-
-		// initialize
-		for (int j=0; j<W*H; j++) outIp.setf(j, 0);
-
-
-		float[][][] points = new float[nrPts2][4][2];
-
-		int cnt = 0;
-		for (int row = 0; row < nrPts1; row++) {
-			for (int col = 0; col < nrPts1; col++) {
-				float locx = margin+row*((W-2*margin)/(nrPts1-1));
-				float locy = margin+col*((H-2*margin)/(nrPts1-1));
-				points[cnt] = createBifPointsAt(locx, locy, branchLength);
-				cnt++;
-			}
-		}
-
-
-		for (int pIdx=0; pIdx<nrPts2; pIdx++) {
-
-			// record ground truth
-			writer.println(points[pIdx][0][0]+", "+points[pIdx][0][1]);
-			PointRoi pt = new PointRoi(points[pIdx][0][0]+.5f, points[pIdx][0][1]+.5f);
-			ov.add(pt);
-
-			// set configuration
-			float[] diameters = new float[3];
-			int choose0 = random((int)0, (int)1);
-			diameters[0] = (choose0==0)? diam1 : diam2;
-			int choose1 = random((int)0, (int)1);
-			diameters[1] = (choose1==0)? diam1 : diam2;
-			if (choose0==choose1) {
-				diameters[2] = (choose0==0)? diam2 : diam1;
-			}
-			else {
-				int choose2 = random((int)0, (int)1);
-				diameters[2] = (choose2==0)? diam1 : diam2;
-			}
-
-			// draw junctions
-			drawBif(points[pIdx], diameters, fg, outIp); // normalized [0, fg] gaussian profiles model intensity of the cross section
-
-		}
-
-		writer.close();
-		System.out.println("" + outGndTth.getAbsolutePath());
-
-		// PSF emulate (Gaussian blur on outSlice) - SKIPPED, OBJECTS ARE bigger than just spots
-		//gauss.blurGaussian(outIp, 0.5, 0.5, 0.005);
-
-		for (int j=0; j<W*H; j++) {
-
-			// add background to be able to emulate poisson noise everywhere
-			float currVal = outIp.getf(j);
-			currVal += bg;
-			// poisson
-			outIp.setf(j, (float) poiss.next(currVal));
-			//outIp.setf(j, currVal);
-
-		}
-
-		ImagePlus outImp = new ImagePlus("DISPROP_SNR_"+IJ.d2s(snr,1)+",d1_"+IJ.d2s(diam1,1)+",d2_"+IJ.d2s(diam2,1), outIp);
-		outImp.setOverlay(ov);
-		return outImp;
-
-	}
-
-	public static ImagePlus runProportional(float snr, float diam1, File outGndTth)
-	{
-
-		PrintWriter writer = null;
-
-		// initialize
-		try {
-			writer = new PrintWriter(new BufferedWriter(new FileWriter(outGndTth, true)));
-			writer.println("#"); // dateFormat.format(date)
-		} catch (IOException e) {}
-
-		//GaussianBlur gauss 		= new GaussianBlur();
-		PoissonGenerator poiss 	= new PoissonGenerator();
-
-		float fg = foregroundLevel(bg, snr); // quadratic equation
-
-		Overlay ov = new Overlay();
-
-		FloatProcessor outIp = new FloatProcessor(W, H);
-
-		// initialize
-		for (int j=0; j<W*H; j++) outIp.setf(j, 0);
-
-		float[][][] points = new float[nrPts2][4][2];
-
-		int cnt = 0;
-		for (int row = 0; row < nrPts1; row++) {
-			for (int col = 0; col < nrPts1; col++) {
-        		float locx = margin+row*((W-2*margin)/(nrPts1-1));
-				float locy = margin+col*((H-2*margin)/(nrPts1-1));
-        		points[cnt] = createBifPointsAt(locx, locy, branchLength);
-				cnt++;
-			}
-		}
-
-        for (int pIdx=0; pIdx<nrPts2; pIdx++) {
-
-			// record ground truth
-			writer.println(points[pIdx][0][0]+", "+points[pIdx][0][1]);
-			PointRoi pt = new PointRoi(points[pIdx][0][0]+.5f, points[pIdx][0][1]+.5f);
-			ov.add(pt);
-
-			// set configuration
-			float[] diameters = new float[3];
-			diameters[0] = diam1;
-			for (int ii=1; ii<diameters.length; ii++) diameters[ii] = diameters[0]; // all 3 are the same
-
-			// draw junctions
-			drawBif(points[pIdx], diameters, fg, outIp); // normalized [0, fg] gaussian profiles model intensity of the cross section
-
-		}
-
-		writer.close();
-		System.out.println("" + outGndTth.getAbsolutePath());
-
-		// PSF emulate (Gaussian blur on outSlice) - SKIPPED, OBJECTS ARE bigger than just spots
-		//gauss.blurGaussian(outIp, 0.5, 0.5, 0.005);
-
-		for (int j=0; j<W*H; j++) {
-
-			// add background to be able to emulate poisson noise everywhere
-			float currVal = outIp.getf(j);
-			currVal += bg;
-			// poisson
-			outIp.setf(j, (float) poiss.next(currVal));
-			//outIp.setf(j, currVal);
-
-		}
-
-		ImagePlus outImp = new ImagePlus("PROP_SNR_"+IJ.d2s(snr,1)+",D_"+IJ.d2s(diam1,1), outIp);
-		outImp.setOverlay(ov);
-		return outImp;
-
-	}
+//	public static ImagePlus runDisProportional(float snr, float diam1, float diam2, File outGndTth)
+//	{
+//
+//		PrintWriter writer = null;
+//
+//		// initialize
+//		try {
+//			writer = new PrintWriter(new BufferedWriter(new FileWriter(outGndTth, true)));
+//			writer.println("#"); // dateFormat.format(date)
+//		} catch (IOException e) {}
+//
+//		//GaussianBlur gauss 		= new GaussianBlur();
+//		PoissonGenerator poiss 	= new PoissonGenerator();
+//
+//		float fg = foregroundLevel(bg, snr); // quadratic equation
+//
+//		Overlay ov = new Overlay();
+//
+//		FloatProcessor outIp = new FloatProcessor(W, H);
+//
+//		// initialize
+//		for (int j=0; j<W*H; j++) outIp.setf(j, 0);
+//
+//
+//		float[][][] points = new float[nrPts2][4][2];
+//
+//		int cnt = 0;
+//		for (int row = 0; row < nrPts1; row++) {
+//			for (int col = 0; col < nrPts1; col++) {
+//				float locx = margin+row*((W-2*margin)/(nrPts1-1));
+//				float locy = margin+col*((H-2*margin)/(nrPts1-1));
+//				points[cnt] = createBifPointsAt(locx, locy, branchLength);
+//				cnt++;
+//			}
+//		}
+//
+//
+//		for (int pIdx=0; pIdx<nrPts2; pIdx++) {
+//
+//			// record ground truth
+//			writer.println(points[pIdx][0][0]+", "+points[pIdx][0][1]);
+//			PointRoi pt = new PointRoi(points[pIdx][0][0]+.5f, points[pIdx][0][1]+.5f);
+//			ov.add(pt);
+//
+//			// set configuration
+//			float[] diameters = new float[3];
+//			int choose0 = random((int)0, (int)1);
+//			diameters[0] = (choose0==0)? diam1 : diam2;
+//			int choose1 = random((int)0, (int)1);
+//			diameters[1] = (choose1==0)? diam1 : diam2;
+//			if (choose0==choose1) {
+//				diameters[2] = (choose0==0)? diam2 : diam1;
+//			}
+//			else {
+//				int choose2 = random((int)0, (int)1);
+//				diameters[2] = (choose2==0)? diam1 : diam2;
+//			}
+//
+//			// draw junctions
+//			drawBif(points[pIdx], diameters, fg, outIp); // normalized [0, fg] gaussian profiles model intensity of the cross section
+//
+//		}
+//
+//		writer.close();
+//		System.out.println("" + outGndTth.getAbsolutePath());
+//
+//		// PSF emulate (Gaussian blur on outSlice) - SKIPPED, OBJECTS ARE bigger than just spots
+//		//gauss.blurGaussian(outIp, 0.5, 0.5, 0.005);
+//
+//		for (int j=0; j<W*H; j++) {
+//
+//			// add background to be able to emulate poisson noise everywhere
+//			float currVal = outIp.getf(j);
+//			currVal += bg;
+//			// poisson
+//			outIp.setf(j, (float) poiss.next(currVal));
+//			//outIp.setf(j, currVal);
+//
+//		}
+//
+//		ImagePlus outImp = new ImagePlus("DISPROP_SNR_"+IJ.d2s(snr,1)+",d1_"+IJ.d2s(diam1,1)+",d2_"+IJ.d2s(diam2,1), outIp);
+//		outImp.setOverlay(ov);
+//		return outImp;
+//
+//	}
+//
+//	public static ImagePlus runProportional(float snr, float diam1, File outGndTth)
+//	{
+//
+//		PrintWriter writer = null;
+//
+//		// initialize
+//		try {
+//			writer = new PrintWriter(new BufferedWriter(new FileWriter(outGndTth, true)));
+//			writer.println("#"); // dateFormat.format(date)
+//		} catch (IOException e) {}
+//
+//		//GaussianBlur gauss 		= new GaussianBlur();
+//		PoissonGenerator poiss 	= new PoissonGenerator();
+//
+//		float fg = foregroundLevel(bg, snr); // quadratic equation
+//
+//		Overlay ov = new Overlay();
+//
+//		FloatProcessor outIp = new FloatProcessor(W, H);
+//
+//		// initialize
+//		for (int j=0; j<W*H; j++) outIp.setf(j, 0);
+//
+//		float[][][] points = new float[nrPts2][4][2];
+//
+//		int cnt = 0;
+//		for (int row = 0; row < nrPts1; row++) {
+//			for (int col = 0; col < nrPts1; col++) {
+//        		float locx = margin+row*((W-2*margin)/(nrPts1-1));
+//				float locy = margin+col*((H-2*margin)/(nrPts1-1));
+//        		points[cnt] = createBifPointsAt(locx, locy, branchLength);
+//				cnt++;
+//			}
+//		}
+//
+//        for (int pIdx=0; pIdx<nrPts2; pIdx++) {
+//
+//			// record ground truth
+//			writer.println(points[pIdx][0][0]+", "+points[pIdx][0][1]);
+//			PointRoi pt = new PointRoi(points[pIdx][0][0]+.5f, points[pIdx][0][1]+.5f);
+//			ov.add(pt);
+//
+//			// set configuration
+//			float[] diameters = new float[3];
+//			diameters[0] = diam1;
+//			for (int ii=1; ii<diameters.length; ii++) diameters[ii] = diameters[0]; // all 3 are the same
+//
+//			// draw junctions
+//			drawBif(points[pIdx], diameters, fg, outIp); // normalized [0, fg] gaussian profiles model intensity of the cross section
+//
+//		}
+//
+//		writer.close();
+//		System.out.println("" + outGndTth.getAbsolutePath());
+//
+//		// PSF emulate (Gaussian blur on outSlice) - SKIPPED, OBJECTS ARE bigger than just spots
+//		//gauss.blurGaussian(outIp, 0.5, 0.5, 0.005);
+//
+//		for (int j=0; j<W*H; j++) {
+//
+//			// add background to be able to emulate poisson noise everywhere
+//			float currVal = outIp.getf(j);
+//			currVal += bg;
+//			// poisson
+//			outIp.setf(j, (float) poiss.next(currVal));
+//			//outIp.setf(j, currVal);
+//
+//		}
+//
+//		ImagePlus outImp = new ImagePlus("PROP_SNR_"+IJ.d2s(snr,1)+",D_"+IJ.d2s(diam1,1), outIp);
+//		outImp.setOverlay(ov);
+//		return outImp;
+//
+//	}
 
 	private static float min(float[] in)
 	{
@@ -409,7 +427,8 @@ public class Generator {
 
 					// apply gaussian profile -> assume diam==2*std
 
-					float std = diams[ptIdx-1]/2; //*** HERE IT RELATES DIAMETER WITH STANDARD DEVIATION  DIAMETER ~ 2 * std
+//					float std = diams[ptIdx-1]/2; //*** HERE IT RELATES DIAMETER WITH STANDARD DEVIATION  DIAMETER ~ 2 * std
+					float std = diams[ptIdx-1]/2.5f; //*** HERE IT RELATES DIAMETER WITH STANDARD DEVIATION  DIAMETER ~ 2.5 * std
 
 					if (dist<=3*std) {
 						float val = (float) (h * Math.exp(-(dist*dist)/(2*std*std))); // normalize height to h
@@ -435,7 +454,19 @@ public class Generator {
 	{
 
 //		return (float) (0.5*(2*bg+snr*snr+Math.sqrt(4*bg*snr+snr*snr)));
-		return (float) (0.5 * (snr*snr + snr * Math.sqrt(4*bg+1)));
+//		return (float) (0.5 * (snr*snr + snr * Math.sqrt(4*bg+1))); this was freaking wrong!!!
+
+
+        // explanation b=background, a=added on top of b
+        // a        signal
+        // a+b      background
+        // both poisson distribution (mean = lambda, variance = lambda, sigma = sqrt(lambda))
+        // snr = mean(signal)/sigma(signal) = a / sqrt(a+b)
+        // solve quadratic equation for a
+        // quadratic equation is:
+        // a^2  -snr^2  *a  -snr^2*b   = 0
+        // a  = (1/2) (snr^2 + snr * sqrt(snr^2+4b))
+        return (float) (0.5 * (snr * snr + snr * Math.sqrt(4 * bg + snr * snr)));
 
 	}
 
