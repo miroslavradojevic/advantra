@@ -202,11 +202,14 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
             if (D[i]>max_D) max_D = D[i];
         }
 
-        min_size_bif = (int) Math.ceil(0.25 * min_D);
-		min_size_bif = (min_size_bif<3)? 3 : min_size_bif;
-        max_size_bif = (int) Math.round(2*max_D*max_D);
-        IJ.log(""+min_size_bif+" <-> "+max_size_bif);
-		min_size_end = (int) Math.round(0.5 * min_D);
+//        min_size_bif = (int) Math.ceil(0.25 * min_D);
+//		min_size_bif = (min_size_bif<3)? 3 : min_size_bif;
+		min_size_bif = 3;
+		max_size_bif = (int) Math.round(min_D*min_D);
+		IJ.log(""+min_size_bif+" <-> "+max_size_bif);
+
+
+		min_size_end = 3;//(int) Math.round(0.5 * min_D);
         max_size_end = (int) Math.round(min_D * min_D);
 		IJ.log(""+min_size_end+" <-> "+max_size_end);
 
@@ -267,9 +270,10 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
 			/********/
 			Sphere2D sph2d = new Sphere2D(D[didx], s); //sph2d.showSampling().show(); sph2d.showWeights().show();
 			/********/
-        	IJ.log("extracting mask...");
-			float nbhood_radius = 1.5f*sph2d.getOuterRadius();
-        	Masker2D.loadTemplate(inimg_xy, sph2d.getOuterRadius(), nbhood_radius); //image, margin, check
+
+			float nbhood_radius = 1.0f*sph2d.getOuterRadius();
+			IJ.log("extracting mask... " +nbhood_radius);
+			Masker2D.loadTemplate(inimg_xy, sph2d.getOuterRadius(), nbhood_radius); //image, margin, check
         	int totalLocs = inimg_xy.length * inimg_xy[0].length;
         	Masker2D ms_jobs[] = new Masker2D[CPU_NR];
 			for (int i = 0; i < ms_jobs.length; i++) {
@@ -391,9 +395,11 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
 
 		logWriter.close();
 
-		ImagePlus final_det = cnv.getImage().duplicate();
-		final_det.setTitle("det");
-		final_det.show();
+		IJ.log("log closed");
+
+		ImagePlus final_det = cnv.getImage();
+		//final_det.setTitle("det");
+		//final_det.show();
         Overlay ov = new Overlay();
 
         if (show_endpoints) for (int i_ov=0; i_ov<ov_endpoints.size(); i_ov++) ov.add(ov_endpoints.get(i_ov));
@@ -408,6 +414,7 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
 		fs.saveAsTiff(save_path);
 		IJ.log("saving    " + save_path);
 
+		// enable - disable inspection tools
 		cnv.addMouseListener(this);
         cnv.addMouseMotionListener(this);
 		IJ.setTool("hand");
@@ -434,9 +441,11 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
 
 		// take detections (binary image), find connected regions, and extract out the overlay with the detections
 		ByteProcessor bp = new ByteProcessor(w, h, t);
-		Find_Connected_Regions conn_reg = new Find_Connected_Regions(new ImagePlus("E", bp), true);
+		Find_Connected_Regions conn_reg = new Find_Connected_Regions(new ImagePlus("END,th="+IJ.d2s(output_membership_th,2), bp), true);
 		conn_reg.run("");
-		conn_reg.showLabels().show();
+		//conn_reg.showLabels().show();
+		FileSaver fs = new FileSaver(conn_reg.showLabels());
+		fs.saveAsTiff(image_dir+"conn_ends.tif");
 
 		Overlay ov = formPointOverlay(conn_reg.getConnectedRegions(), min_size_end, max_size_end, 1, 1, 0); // add yellow intensity based on average score
 
@@ -522,7 +531,9 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
         ByteProcessor bp = new ByteProcessor(w, h, t);
         Find_Connected_Regions conn_reg = new Find_Connected_Regions(new ImagePlus("", bp), true);
         conn_reg.run("");
-		conn_reg.showLabels().show();
+		FileSaver fs = new FileSaver(conn_reg.showLabels());
+		fs.saveAsTiff(image_dir+"conn_bifs.tif");
+		IJ.log("connected components: "+image_dir+"conn_bifs.tif");
 
         Overlay ov = formPointOverlay(conn_reg.getConnectedRegions(), min_size_bif, max_size_bif, 1, 0, 0); // add red intensity based on average score
 
