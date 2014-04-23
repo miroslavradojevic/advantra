@@ -590,7 +590,11 @@ public class Delineator2D extends Thread {
                 ncc_avg2[locationIdx] = new float[4];
                 for (int b = 0; b<fitsco2[locationIdx].length; b++) {
                     if (fitsco2[locationIdx][b]!=null) {
-                        ncc_avg2[locationIdx][b] = Stat.average(fitsco2[locationIdx][b]);//Stat.median(fitsco2[locationIdx][b]) Stat.average(stdev2[locationIdx][b])  Stat.median(stdev2[locationIdx][b])
+						//Stat.median(fitsco2[locationIdx][b]) Stat.average(stdev2[locationIdx][b])  Stat.median(stdev2[locationIdx][b])
+//                        ncc_avg2[locationIdx][b] = Stat.average(fitsco2[locationIdx][b]);
+//                        ncc_avg2[locationIdx][b] = Stat.median(fitsco2[locationIdx][b]);
+                        ncc_avg2[locationIdx][b] = Stat.quantile(fitsco2[locationIdx][b], 6, 20);
+
                     }
                     else {
                         ncc_avg2[locationIdx][b] = Float.NaN;

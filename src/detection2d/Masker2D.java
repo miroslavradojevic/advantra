@@ -126,7 +126,7 @@ public class Masker2D extends Thread {
 				cnt++;
 			}
 		}
-		globalTh = Stat.quantile(criteria_temp, 10, 20);//Stat.median(criteria_temp);
+		globalTh = Stat.quantile(criteria_temp, 12, 20);//Stat.median(criteria_temp);
 //		IJ.log("th = "+globalTh);
 
 		for (int xx=0; xx<image_width; xx++) {

@@ -63,13 +63,15 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
 	float		output_sigma; // Fuzzy2D that will be used assumes out ranges from 0 to 1
 
 	//
-	float[]  	D;
+	static float[]  	D;
 	String 		image_gndtth_endpoints;		// ground truth swc file with critical points to evaluate, same name as input image
 	String 		image_gndtth_bifurcations;	// ground truth swc file with critical points to evaluate, same name as input image
-	float		k = 1.5f;                   // hardcoded, no need to tweak it each time, defines the stricktness of the threshold for out membership function
+	float		k = 2f;                   // hardcoded, no need to tweak it each time, defines the stricktness of the threshold for out membership function
 	float 		output_membership_th;       // based on k and output_sigma
-	int			min_size_bif=2;                 // smallest connected region to be valid critical point
-	int			min_size_end=5;                 // smallest connected region to be valid critical point
+	int			min_size_bif;                 // smallest connected region to be valid critical point
+	int			max_size_bif;                 // smallest connected region to be valid critical point
+	int			min_size_end;                 // smallest connected region to be valid critical point
+	int			max_size_end;                 // smallest connected region to be valid critical point
 	String		output_dir_name; 		    // parameter coded output folder name
 	String 		output_log_name;
 	PrintWriter logWriter = null;
@@ -200,8 +202,13 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
             if (D[i]>max_D) max_D = D[i];
         }
 
-        min_size_bif = (int) Math.ceil(0.5*min_D);
-        min_size_end = (int) Math.ceil(max_D);
+        min_size_bif = (int) Math.ceil(0.25 * min_D);
+		min_size_bif = (min_size_bif<3)? 3 : min_size_bif;
+        max_size_bif = (int) Math.round(2*max_D*max_D);
+        IJ.log(""+min_size_bif+" <-> "+max_size_bif);
+		min_size_end = (int) Math.round(0.5 * min_D);
+        max_size_end = (int) Math.round(min_D * min_D);
+		IJ.log(""+min_size_end+" <-> "+max_size_end);
 
 		image_gndtth_endpoints = image_name + ".end";
 		image_gndtth_bifurcations = image_name + ".bif";
@@ -427,11 +434,11 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
 
 		// take detections (binary image), find connected regions, and extract out the overlay with the detections
 		ByteProcessor bp = new ByteProcessor(w, h, t);
-		Find_Connected_Regions conn_reg = new Find_Connected_Regions(new ImagePlus("", bp), true);
+		Find_Connected_Regions conn_reg = new Find_Connected_Regions(new ImagePlus("E", bp), true);
 		conn_reg.run("");
-//		conn_reg.showLabels().show();
+		conn_reg.showLabels().show();
 
-		Overlay ov = formPointOverlay(conn_reg.getConnectedRegions(), min_size_end, 1, 1, 0); // add yellow intensity based on average score
+		Overlay ov = formPointOverlay(conn_reg.getConnectedRegions(), min_size_end, max_size_end, 1, 1, 0); // add yellow intensity based on average score
 
         /* before returning Overlay, check if there is a ground truth to compare the results */
 
@@ -515,9 +522,9 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
         ByteProcessor bp = new ByteProcessor(w, h, t);
         Find_Connected_Regions conn_reg = new Find_Connected_Regions(new ImagePlus("", bp), true);
         conn_reg.run("");
-//		conn_reg.showLabels().show();
+		conn_reg.showLabels().show();
 
-        Overlay ov = formPointOverlay(conn_reg.getConnectedRegions(), min_size_bif, 1, 0, 0); // add red intensity based on average score
+        Overlay ov = formPointOverlay(conn_reg.getConnectedRegions(), min_size_bif, max_size_bif, 1, 0, 0); // add red intensity based on average score
 
         /* before returning Overlay, check if there is a ground truth to compare the results */
 
@@ -607,13 +614,13 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
 
 	}
 
-	private static Overlay formPointOverlay(ArrayList<ArrayList<int[]>> regs, int minSize, float r_col, float g_col, float b_col)
+	private static Overlay formPointOverlay(ArrayList<ArrayList<int[]>> regs, int minSize, int maxSize, float r_col, float g_col, float b_col)
 	{
 
 		Overlay detections = new Overlay();
 
 		for (int i=0; i<regs.size(); i++) {
-			if (regs.get(i).size()>minSize) {
+			if (regs.get(i).size()>=minSize && regs.get(i).size()<maxSize) {
 
 				float Cx=0, Cy=0, R= (float) Math.sqrt((float)regs.get(i).size()/Math.PI);
 				R = (R<1)? 1 : 1.5f*R ; // because just 1*R is too small for visualizaiton
@@ -626,6 +633,8 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
 				Cx /= regs.get(i).size();
 				Cy /= regs.get(i).size();
 
+				// maybe nice to visualize wrt diameters set and not the size of the connected region
+				R = 0.25f*((D[0]+D[D.length-1])/2);//D[D.length-1]; // D is static
 				OvalRoi ovroi = new OvalRoi(Cx-R+.5, Cy-R+.5, 2*R, 2*R);
 				ovroi.setStrokeWidth(3);
 				ovroi.setFillColor(new Color(r_col, g_col, b_col, 1.0f));
