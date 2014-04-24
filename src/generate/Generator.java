@@ -47,57 +47,60 @@ public class Generator {
 
     private static int nrPts1 = 10; // nrPts1 x nrPts1
 
-    private static float s = 8f; // s*Dmax = branch_length
-    private static int minAngleDeg = (int) Math.round( 2f * Math.asin(1f/(2f*(s/3))) * (180f/Math.PI) ); // Dmax branches are separable at scale s/3
+//    private static float s = 8f;
     private static int bg = 20; 	// background
 
 	private boolean randomizeLocations = false;
 
-	// each bifurcation element will contain center and the three surrounding coordinates
-
 	private static float Deg2Rad = (float) (Math.PI/180);
 
-	public Generator() // float diameterMin, float diameterMax, float dD
-	{
+	public Generator(){}
 
-//		diams = new Vector<Float>();
-//		diamsD = new Vector<Float>();
-//
-//		int cnt = 0;
-//		for (float d = diameterMin; d<=diameterMax; d+=dD) {
-//			diams.add(d);
-//			diamsD.add(d-diameterMin);
-//			cnt++;
-//		}
-
-	}
-
-	public static ImagePlus runDisProportional(float snr, float diam1, float diam2, float diam3, File outGndTth)
+	public static ImagePlus runDisProportional(float snr, float diam1, float diam2, float diam3, float sc, File out_bif, File out_end, File out_log)
 	{
 
         int nrPts2 = nrPts1*nrPts1;
 
         float diam_max = Math.max(diam1, Math.max(diam2, diam3));
-        float	branch_length = s * diam_max; //.7f * ((float)H / (2*nrPts1)); // pix
-        float   branch_separation = 2f * branch_length;
-        float	margin 	= branch_separation; // pix
+
+        sc = (sc<=3)? 3 : sc ;
+
+        float	branch_length = sc * diam_max;  // s*Dmax = branch_length
+        float   branch_separation = 1.5f * branch_length;
+        float	margin 	= branch_separation;    // pix
+        float   separation_scale = sc/3;
+        int     minAngleDeg = (int) Math.round( 2f * Math.asin(1f/(2f*separation_scale)) * (180f/Math.PI) ); // Dmax branches are separable at scale s/3
 
         int W = Math.round(2 * margin + (2*nrPts1) * branch_separation);
         int H = W;
-        IJ.log(""+minAngleDeg);
 
-        PrintWriter writer = null;
+        // parameters used fo generate
+        try {
+            PrintWriter writer = new PrintWriter(out_log.getAbsolutePath());
+            writer.println("SNR\t= "+snr);
+            writer.println("D1\t= "+diam1);
+            writer.println("D2\t= "+diam2);
+            writer.println("D3\t= "+diam3);
+            writer.println("scale\t= "+sc);
+            writer.close();
+        }
+        catch (FileNotFoundException ex) {}
 
-		// initialize
+        PrintWriter writer_bif = null;
+        PrintWriter writer_end = null;
+
+		// initialize file outputs
 		try {
-			writer = new PrintWriter(new BufferedWriter(new FileWriter(outGndTth, true)));
-			writer.println("#"); // dateFormat.format(date)
-		} catch (IOException e) {}
+			writer_bif = new PrintWriter(new BufferedWriter(new FileWriter(out_bif, true)));
+			writer_bif.println("#"); // dateFormat.format(date)
+            writer_end = new PrintWriter(new BufferedWriter(new FileWriter(out_end, true)));
+            writer_end.println("#"); // dateFormat.format(date)
+        } catch (IOException e) {}
 
 		//GaussianBlur gauss 		= new GaussianBlur();
-		PoissonGenerator poiss 	= new PoissonGenerator();
+		PoissonGenerator poiss 	= new PoissonGenerator();  // noise
 
-		float fg = foregroundLevel(bg, snr); // quadratic equation
+		float fg = foregroundLevel(bg, snr); // quadratic equation solving required snr
 
 		Overlay ov = new Overlay();
 
@@ -106,7 +109,6 @@ public class Generator {
 		// initialize
 		for (int j=0; j<W*H; j++) outIp.setf(j, 0);
 
-
         // form the skeleton of junction geometry
 		float[][][] points = new float[nrPts2][4][2];
 		int cnt = 0;
@@ -114,16 +116,20 @@ public class Generator {
 			for (int col = 0; col < nrPts1; col++) {
 				float locx = margin+row*((W-2*margin)/(nrPts1-1));
 				float locy = margin+col*((H-2*margin)/(nrPts1-1));
-				points[cnt] = createBifPointsAt(locx, locy, branch_length);
+				points[cnt] = createBifPointsAt(locx, locy, branch_length, minAngleDeg);
 				cnt++;
 			}
 		}
 
+		for (int pIdx=0; pIdx<nrPts2; pIdx++) {  // loop all bifurcations
 
-		for (int pIdx=0; pIdx<nrPts2; pIdx++) {
+			// record ground truth in swc format
+            int swc_idx = pIdx + 1;
+            writer_bif.println(String.format("%d %1d %4.2f %4.2f %4.2f %4.2f %d", swc_idx, 5, points[pIdx][0][0], points[pIdx][0][1], 0f, diam_max, -1));
 
-			// record ground truth
-            writer.println(points[pIdx][0][0]+", "+points[pIdx][0][1]); // make it swc
+            writer_end.println(String.format("%d %1d %4.2f %4.2f %4.2f %4.2f %d", 3*swc_idx-2, 6, points[pIdx][1][0], points[pIdx][1][1], 0f, diam_max, -1));
+            writer_end.println(String.format("%d %1d %4.2f %4.2f %4.2f %4.2f %d", 3*swc_idx-1, 6, points[pIdx][2][0], points[pIdx][2][1], 0f, diam_max, -1));
+            writer_end.println(String.format("%d %1d %4.2f %4.2f %4.2f %4.2f %d", 3*swc_idx-0, 6, points[pIdx][3][0], points[pIdx][3][1], 0f, diam_max, -1));
 
             // add overlay
             float diameter_draw = diam_max;
@@ -139,7 +145,6 @@ public class Generator {
                 ov.add(pt);
             }
 
-
 			// set configuration
 			float[] diameters = new float[3];
 			diameters[0] = diam1;
@@ -151,8 +156,10 @@ public class Generator {
 
 		}
 
-		writer.close();
-		IJ.log("" + outGndTth.getAbsolutePath());
+		writer_bif.close();
+		writer_end.close();
+		IJ.log("exported: " + out_bif.getAbsolutePath());
+		IJ.log("exported: " + out_end.getAbsolutePath());
 
 		// PSF emulate (Gaussian blur on outSlice) - SKIPPED, OBJECTS ARE bigger than just spots
 		//gauss.blurGaussian(outIp, 0.5, 0.5, 0.005);
@@ -168,7 +175,7 @@ public class Generator {
 
 		}
 
-		ImagePlus outImp = new ImagePlus("SNR_"+IJ.d2s(snr,1)+",d1_"+IJ.d2s(diam1,1)+",d2_"+IJ.d2s(diam2,1), outIp);
+		ImagePlus outImp = new ImagePlus("SNR_"+IJ.d2s(snr,1)+",d1_"+IJ.d2s(diam1,1)+",d2_"+IJ.d2s(diam2,1)+",d3_"+IJ.d2s(diam3,1)+",s_"+IJ.d2s(sc,1), outIp);
 		outImp.setOverlay(ov);
 		return outImp;
 
@@ -505,7 +512,7 @@ public class Generator {
 
 	}
 
-	private static float[][] createBifPointsAt(float atX, float atY, float branchLength)
+	private static float[][] createBifPointsAt(float atX, float atY, float branchLength, int minAngleDeg)
 	{
 		float[][] p = new float[4][2];
 
