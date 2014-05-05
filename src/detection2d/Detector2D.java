@@ -271,9 +271,10 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
 			Sphere2D sph2d = new Sphere2D(D[didx], s); //sph2d.showSampling().show(); sph2d.showWeights().show();
 			/********/
 
-			float nbhood_radius = 1.0f*sph2d.getOuterRadius();
-			IJ.log("extracting mask... " +nbhood_radius);
-			Masker2D.loadTemplate(inimg_xy, sph2d.getOuterRadius(), nbhood_radius); //image, margin, check
+			float nbhood_radius = 2f * D[didx];//1.0f*sph2d.getOuterRadius();
+			int   nbhood_margin = (int) Math.ceil(nbhood_radius);//2*(int) Math.ceil(nbhood_radius);
+			IJ.log("extracting mask... rad: " +nbhood_radius+" mg: "+nbhood_margin);
+			Masker2D.loadTemplate(inimg_xy, nbhood_margin, nbhood_radius); //image, margin, check
         	int totalLocs = inimg_xy.length * inimg_xy[0].length;
         	Masker2D ms_jobs[] = new Masker2D[CPU_NR];
 			for (int i = 0; i < ms_jobs.length; i++) {

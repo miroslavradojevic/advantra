@@ -78,17 +78,18 @@ public class GeneratorDemo implements PlugIn {
 		String outDir  = "synthetic_junctions(Dmax_SNR_s),"+IJ.d2s(d_max,1)+","+snr+","+IJ.d2s(scale,1)+File.separator;
         createDir(outDir);
 
-        Generator imageGenerator = new Generator();
+        Generator imageGenerator = new Generator(2);
 
         for (int cnt=0; cnt<N; cnt++) {
 
             File gnd_tth_end = new File(outDir+File.separator+String.format("%04d", cnt)+".end");
             File gnd_tth_bif = new File(outDir+File.separator+String.format("%04d", cnt)+".bif");
+            File gnd_tth_non = new File(outDir+File.separator+String.format("%04d", cnt)+".non");
             File image_path  = new File(outDir+File.separator+String.format("%04d", cnt)+".tif");
             File out_log     = new File(outDir+File.separator+String.format("params")+".dat");
             //outDir+"params.dat"
 
-            ImagePlus imp = imageGenerator.runDisProportional(snr, d1, d2, d3, scale, gnd_tth_bif, gnd_tth_end, out_log); // runDisProportional() for each image
+            ImagePlus imp = imageGenerator.runDisProportional(snr, d1, d2, d3, scale, gnd_tth_bif, gnd_tth_end, gnd_tth_non, out_log);
             FileSaver fs = new FileSaver(imp);
             fs.saveAsTiff(image_path.getAbsolutePath());
             IJ.log("exported: "+image_path.getAbsolutePath());

@@ -45,18 +45,19 @@ public class Generator {
 	// 2. PSF (Gaussian blur with appropriate sigma ~ 0.21 * lambda / NA) => low res sigmaXY = 9.3e-4, high res 0.252
 	// 3. generate Poisson Noise wrt to the image values
 
-    private static int nrPts1 = 10; // nrPts1 x nrPts1
+    private int nrPts1; // nrPts1 x nrPts1
 
 //    private static float s = 8f;
     private static int bg = 20; 	// background
 
-	private boolean randomizeLocations = false;
+//	private boolean randomizeLocations = false;
 
 	private static float Deg2Rad = (float) (Math.PI/180);
 
-	public Generator(){}
+	public Generator(int _nrPts1){nrPts1 = _nrPts1;}
 
-	public static ImagePlus runDisProportional(float snr, float diam1, float diam2, float diam3, float sc, File out_bif, File out_end, File out_log)
+	public ImagePlus runDisProportional(float snr, float diam1, float diam2, float diam3, float sc,
+										File out_bif, File out_end, File out_non, File out_log)
 	{
 
         int nrPts2 = nrPts1*nrPts1;
@@ -66,10 +67,10 @@ public class Generator {
         sc = (sc<=3)? 3 : sc ;
 
         float	branch_length = sc * diam_max;  // s*Dmax = branch_length
-        float   branch_separation = 1.5f * branch_length;
+        float   branch_separation = 3f * branch_length;
         float	margin 	= branch_separation;    // pix
-        float   separation_scale = sc/3;
-        int     minAngleDeg = (int) Math.round( 2f * Math.asin(1f/(2f*separation_scale)) * (180f/Math.PI) ); // Dmax branches are separable at scale s/3
+        float   separation_scale = sc/3;     // hardcoded
+        int     minAngleDeg = (int) Math.round( 2f * Math.asin(1f/(2f*separation_scale)) * (180f/Math.PI) ); // Dmax branches are separable at separation_scale
 
         int W = Math.round(2 * margin + (2*nrPts1) * branch_separation);
         int H = W;
@@ -88,6 +89,7 @@ public class Generator {
 
         PrintWriter writer_bif = null;
         PrintWriter writer_end = null;
+        PrintWriter writer_non = null;
 
 		// initialize file outputs
 		try {
@@ -95,6 +97,8 @@ public class Generator {
 			writer_bif.println("#"); // dateFormat.format(date)
             writer_end = new PrintWriter(new BufferedWriter(new FileWriter(out_end, true)));
             writer_end.println("#"); // dateFormat.format(date)
+			writer_non = new PrintWriter(new BufferedWriter(new FileWriter(out_non, true)));
+			writer_non.println("#"); // dateFormat.format(date)
         } catch (IOException e) {}
 
 		//GaussianBlur gauss 		= new GaussianBlur();
@@ -102,7 +106,7 @@ public class Generator {
 
 		float fg = foregroundLevel(bg, snr); // quadratic equation solving required snr
 
-		Overlay ov = new Overlay();
+		Overlay ov = new Overlay(); // output image will have an overlay with gnd tth critpoints
 
 		FloatProcessor outIp = new FloatProcessor(W, H);
 
@@ -116,7 +120,7 @@ public class Generator {
 			for (int col = 0; col < nrPts1; col++) {
 				float locx = margin+row*((W-2*margin)/(nrPts1-1));
 				float locy = margin+col*((H-2*margin)/(nrPts1-1));
-				points[cnt] = createBifPointsAt(locx, locy, branch_length, minAngleDeg);
+				points[cnt] = createBifPointsAt(locx, locy, branch_length, minAngleDeg); // 4(#points)x2(x,y)
 				cnt++;
 			}
 		}
@@ -132,14 +136,12 @@ public class Generator {
             writer_end.println(String.format("%d %1d %4.2f %4.2f %4.2f %4.2f %d", 3*swc_idx-0, 6, points[pIdx][3][0], points[pIdx][3][1], 0f, diam_max, -1));
 
             // add overlay
-            float diameter_draw = diam_max;
-
-            OvalRoi pt = new OvalRoi(points[pIdx][0][0]+.5f-diameter_draw/2f, points[pIdx][0][1]+.5f-diameter_draw/2f, diameter_draw, diameter_draw);
+            OvalRoi pt = new OvalRoi(points[pIdx][0][0]+.5f-diam_max/2f, points[pIdx][0][1]+.5f-diam_max/2f, diam_max, diam_max);
             pt.setStrokeColor(Color.RED);
 			ov.add(pt);
 
             for (int cnt_rest=1; cnt_rest<points[pIdx].length; cnt_rest++) {
-                pt = new OvalRoi(points[pIdx][cnt_rest][0]+.5f-diameter_draw/2f, points[pIdx][cnt_rest][1]+.5f-diameter_draw/2f, diameter_draw, diameter_draw);
+                pt = new OvalRoi(points[pIdx][cnt_rest][0]+.5f-diam_max/2f, points[pIdx][cnt_rest][1]+.5f-diam_max/2f, diam_max, diam_max);
                 pt.setStrokeColor(Color.YELLOW);
                 pt.setFillColor(Color.YELLOW);
                 ov.add(pt);
@@ -164,6 +166,7 @@ public class Generator {
 		// PSF emulate (Gaussian blur on outSlice) - SKIPPED, OBJECTS ARE bigger than just spots
 		//gauss.blurGaussian(outIp, 0.5, 0.5, 0.005);
 
+		int count_non = 0;
 		for (int j=0; j<W*H; j++) {
 
 			// add background to be able to emulate poisson noise everywhere
@@ -173,7 +176,54 @@ public class Generator {
 			outIp.setf(j, (float) poiss.next(currVal));
 			//outIp.setf(j, currVal);
 
+			// negatives are defined here, take the points that are far enough from critpoints and
+			// take them with some probability
+
+
+			if (Math.random()<=1) {
+
+				int loc_x = j - W * (j / W);
+				int loc_y = j / W;
+
+				float min_d2 = Float.MAX_VALUE;
+
+				for (int points_i=0; points_i<points.length; points_i++) {
+					for (int points_k=0; points_k<points[points_i].length; points_k++) {
+
+						float points_x = points[points_i][points_k][0];
+						float points_y = points[points_i][points_k][1];
+
+						if (loc_x>margin && loc_x<W-margin && loc_y>margin && loc_y<H-margin) {
+
+							float d2 = (float) (Math.pow(points_x-loc_x, 2)+Math.pow(points_y-loc_y, 2));
+
+							if (d2 < min_d2) {
+								min_d2 = d2;
+							}
+
+						}
+
+					}
+				}
+
+				if (min_d2>=3*diam_max*3*diam_max){
+					// far enough to add it as non point
+					count_non++;
+					writer_non.println(String.format("%d %1d %4.2f %4.2f %4.2f %4.2f %d", count_non, 7, (float)loc_x, (float)loc_y, 0f, diam_max, -1));
+					//OvalRoi pt = new OvalRoi(loc_x+.5f-diam_max/2f, loc_y+.5f-diam_max/2f, diam_max, diam_max);
+					//pt.setStrokeColor(Color.BLUE);
+					PointRoi pt = new PointRoi(loc_x+.5f, loc_y+.5f);
+					pt.setFillColor(Color.BLUE);
+					ov.add(pt);
+
+				}
+
+			}
+
 		}
+
+		writer_non.close();
+		IJ.log("exported: " + out_non.getAbsolutePath());
 
 		ImagePlus outImp = new ImagePlus("SNR_"+IJ.d2s(snr,1)+",d1_"+IJ.d2s(diam1,1)+",d2_"+IJ.d2s(diam2,1)+",d3_"+IJ.d2s(diam3,1)+",s_"+IJ.d2s(sc,1), outIp);
 		outImp.setOverlay(ov);
@@ -512,7 +562,7 @@ public class Generator {
 
 	}
 
-	private static float[][] createBifPointsAt(float atX, float atY, float branchLength, int minAngleDeg)
+	private static float[][] createBifPointsAt(float atX, float atY, float branchLength, int minAngleDeg) // 4(#points)x2(x,y)
 	{
 		float[][] p = new float[4][2];
 
