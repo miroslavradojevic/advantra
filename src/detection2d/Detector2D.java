@@ -49,6 +49,10 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
     float       minCos = -.5f;   // hardcoded
     int         M;
 	int         L;
+
+    float       masker_radius;
+    float       masker_percentile;
+
 	float       sampling_crosswise = .3f; // hardcoded
 	//
 //	int 		Npoints = 40; // hardcoded, should not be too small but higher values can be computation costly
@@ -66,7 +70,8 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
 	static float[]  	D;
 	String 		image_gndtth_endpoints;		// ground truth swc file with critical points to evaluate, same name as input image
 	String 		image_gndtth_bifurcations;	// ground truth swc file with critical points to evaluate, same name as input image
-	float		k = 2f;                   // hardcoded, no need to tweak it each time, defines the stricktness of the threshold for out membership function
+	float		k = 0.5f;                   // hardcoded, no need to tweak it each time, defines the stricktness of the threshold for out membership function
+    // k higher => means more strictness
 	float 		output_membership_th;       // based on k and output_sigma
 	int			min_size_bif;                 // smallest connected region to be valid critical point
 	int			max_size_bif;                 // smallest connected region to be valid critical point
@@ -130,44 +135,41 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
          *****************************/
         this.show_bifpoints =               Prefs.get("critpoint.detection2d.show_bifpoints", true);
         this.show_endpoints =               Prefs.get("critpoint.detection2d.show_endpoints", true);
+
         this.s								= (float)	Prefs.get("critpoint.detection2d.s", 1.2f);
 		this.Dlist 					        =    		Prefs.get("critpoint.detection2d.d", "4");
 		this.M 					        	= (int)     Prefs.get("critpoint.detection2d.m", 1);
 		this.L						        = (int) 	Prefs.get("critpoint.detection2d.l", 8);
 
+        this.masker_radius                  = (float)   Prefs.get("critpoint.detection2d.masker_radius", 4);
+        this.masker_percentile              = (float)   Prefs.get("critpoint.detection2d.masker_percentile", 50);
+
 		this.ncc_high_mean                  = (float)   Prefs.get("critpoint.detection2d.ncc_high_mean", 1f);
-//        this.ncc_high_sigma 				= (float)   Prefs.get("critpoint.detection2d.ncc_high_sigma", 0.15f);
 		this.ncc_low_mean					= (float) 	Prefs.get("critpoint.detection2d.ncc_low_mean", 0.7f);
-//		this.ncc_low_sigma					= (float) 	Prefs.get("critpoint.detection2d.ncc_low_sigma", 0.15f);
-
 		this.likelihood_high_mean           = (float)   Prefs.get("critpoint.detection2d.likelihood_high_mean", 0.9f);
-//		this.likelihood_high_sigma 			= (float)   Prefs.get("critpoint.detection2d.likelihood_high_sigma", 0.2f);
 		this.likelihood_low_mean			= (float) 	Prefs.get("critpoint.detection2d.likelihood_low_mean", 0.0f);
-//		this.likelihood_low_sigma			= (float) 	Prefs.get("critpoint.detection2d.likelihood_low_sigma", 0.2f);
-
 		this.output_sigma					= (float) 	Prefs.get("critpoint.detection2d.output_sigma", 0.4f);
 
 		GenericDialog gd = new GenericDialog("DETECTOR2D");
 
         gd.addCheckbox("BIFURCATIONS ", show_bifpoints);
         gd.addCheckbox("ENDPOINTS    ", show_endpoints);
+
+        gd.addMessage("-- MODEL --");
         gd.addNumericField("s: ", 					this.s,					1,	10,	"(scale)");
         gd.addStringField("Dlist", Dlist);
         gd.addNumericField("M ", 	                M, 			        	0,  10, "");
 		gd.addNumericField("L ",                    L, 		            	0,  10, "");
 
+        gd.addMessage("-- MASKER --");
+        gd.addNumericField("radius:     ",          this.masker_radius,     1,  10, "pix");
+        gd.addNumericField("percentile: ",          this.masker_percentile, 1,  10, "[0-100]");
+
+        gd.addMessage("-- FUZZY LOGIC SYSTEM --");
         gd.addNumericField("NCC HIGH", 	        ncc_high_mean, 			2,  10, "");
-//        gd.addNumericField("NCC HIGH",        	ncc_high_sigma, 	    1,  5, "SIGMA");
 		gd.addNumericField("NCC LOW",           ncc_low_mean, 		    2,  10, "");
-//		gd.addNumericField("NCC LOW",           ncc_low_sigma, 		    1,  5, "SIGMA");
-
-		gd.addMessage("--------");
-
 		gd.addNumericField("LIKELIHOOD HIGH", 	likelihood_high_mean, 			2,  10, "");
-//		gd.addNumericField("LIKELIHOOD HIGH",   likelihood_high_sigma, 	    	1,  5, "SIGMA");
 		gd.addNumericField("LIKELIHOOD LOW",    likelihood_low_mean, 		    2,  10, "");
-//		gd.addNumericField("LIKELIHOOD LOW",    likelihood_low_sigma, 		    1,  5, "SIGMA");
-
 		gd.addNumericField("OUT ",    output_sigma, 		    2,  10, "SIGMA");
 
 		gd.showDialog();
@@ -180,16 +182,15 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
         Dlist       	= gd.getNextString(); 				Prefs.set("critpoint.detection2d.d", Dlist);
         M       	    = (int) gd.getNextNumber(); 		Prefs.set("critpoint.detection2d.m", M);
 		L		    	= (int) gd.getNextNumber();			Prefs.set("critpoint.detection2d.l", L);
-		ncc_high_mean   = (float) gd.getNextNumber();   	Prefs.set("critpoint.detection2d.ncc_high_mean", ncc_high_mean);
-//		ncc_high_sigma  = (float) gd.getNextNumber();  		Prefs.set("critpoint.detection2d.ncc_high_sigma", ncc_high_sigma);
-        ncc_low_mean    = (float) gd.getNextNumber();  		Prefs.set("critpoint.detection2d.ncc_low_mean", ncc_low_mean);
-//		ncc_low_sigma	= (float) gd.getNextNumber(); 		Prefs.set("critpoint.detection2d.ncc_low_sigma", ncc_low_sigma);
-        likelihood_high_mean  	= (float) gd.getNextNumber(); Prefs.set("critpoint.detection2d.likelihood_high_mean", 	likelihood_high_mean);
-//        likelihood_high_sigma 	= (float) gd.getNextNumber(); Prefs.set("critpoint.detection2d.likelihood_high_sigma", 	likelihood_high_sigma);
-        likelihood_low_mean 	= (float) gd.getNextNumber(); Prefs.set("critpoint.detection2d.likelihood_low_mean", 	likelihood_low_mean);
-//        likelihood_low_sigma 	= (float) gd.getNextNumber(); Prefs.set("critpoint.detection2d.likelihood_low_sigma", 	likelihood_low_sigma);
 
-		output_sigma 	= (float) gd.getNextNumber(); Prefs.set("critpoint.detection2d.output_sigma", 	output_sigma);
+        this.masker_radius = (float) gd.getNextNumber();    Prefs.set("critpoint.detection2d.masker_radius", this.masker_radius);
+        this.masker_percentile = (float) gd.getNextNumber();Prefs.set("critpoint.detection2d.masker_percentile", this.masker_percentile);
+
+		ncc_high_mean   = (float) gd.getNextNumber();   	Prefs.set("critpoint.detection2d.ncc_high_mean", ncc_high_mean);
+        ncc_low_mean    = (float) gd.getNextNumber();  		Prefs.set("critpoint.detection2d.ncc_low_mean", ncc_low_mean);
+        likelihood_high_mean  	= (float) gd.getNextNumber(); Prefs.set("critpoint.detection2d.likelihood_high_mean", 	likelihood_high_mean);
+        likelihood_low_mean 	= (float) gd.getNextNumber(); Prefs.set("critpoint.detection2d.likelihood_low_mean", 	likelihood_low_mean);
+		output_sigma 	= (float) gd.getNextNumber();       Prefs.set("critpoint.detection2d.output_sigma", 	output_sigma);
 
 		String[] dd = Dlist.split(",");
 		D = new float[dd.length];
@@ -202,16 +203,14 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
             if (D[i]>max_D) max_D = D[i];
         }
 
-//        min_size_bif = (int) Math.ceil(0.25 * min_D);
-//		min_size_bif = (min_size_bif<3)? 3 : min_size_bif;
-		min_size_bif = 3;
+		min_size_bif = Math.round(min_D);
 		max_size_bif = (int) Math.round(min_D*min_D);
-		IJ.log(""+min_size_bif+" <-> "+max_size_bif);
+		IJ.log("BIF "+min_size_bif+" <-> "+max_size_bif);
 
 
-		min_size_end = 3;//(int) Math.round(0.5 * min_D);
+		min_size_end = Math.round(min_D);//(int) Math.round(0.5 * min_D);
         max_size_end = (int) Math.round(min_D * min_D);
-		IJ.log(""+min_size_end+" <-> "+max_size_end);
+		IJ.log("END "+min_size_end+" <-> "+max_size_end);
 
 		image_gndtth_endpoints = image_name + ".end";
 		image_gndtth_bifurcations = image_name + ".bif";
@@ -219,7 +218,7 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
 		output_membership_th = (float) Math.exp(-(0.5f*0.5f)/(2*output_sigma*output_sigma)); // 0.5 is middle of the output range
 		output_membership_th = (float) (1 - Math.pow(output_membership_th,k) * (1-output_membership_th)); // h1 = 1 - h^k * (1-h)
 
-        IJ.log(""+output_membership_th+ "   " +min_size_bif + "   " + min_size_end);
+        IJ.log(""+output_membership_th+ "   ");
 
 		output_dir_name = image_dir+String.format("det_%1.1f_%s_%d_%d__%1.2f_%1.2f_%1.2f_%1.2f_%1.2f", //_%1.2f_%1.2f_%1.2f_%1.2f
 														 this.s,
@@ -263,7 +262,7 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
 
 		for (int didx = 0; didx<D.length; didx++) {
 
-			IJ.log("scale " + D[didx]);
+//			IJ.log("scale " + D[didx]);
 			long t1, t2;
         	t1 = System.currentTimeMillis();
 
@@ -273,8 +272,8 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
 
 			float nbhood_radius = 2f * D[didx];//1.0f*sph2d.getOuterRadius();
 			int   nbhood_margin = (int) Math.ceil(nbhood_radius);//2*(int) Math.ceil(nbhood_radius);
-			IJ.log("extracting mask... rad: " +nbhood_radius+" mg: "+nbhood_margin);
-			Masker2D.loadTemplate(inimg_xy, nbhood_margin, nbhood_radius); //image, margin, check
+//			IJ.log("extracting mask... radius: " +nbhood_radius+" margin: "+nbhood_margin);
+			Masker2D.loadTemplate(inimg_xy, nbhood_margin, masker_radius, masker_percentile); //image, margin, check, percentile
         	int totalLocs = inimg_xy.length * inimg_xy[0].length;
         	Masker2D ms_jobs[] = new Masker2D[CPU_NR];
 			for (int i = 0; i < ms_jobs.length; i++) {
@@ -290,7 +289,7 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
 			}
 			Masker2D.defineThreshold();
         	Masker2D.formRemainingOutputs();
-//			new ImagePlus("MASK,r="+IJ.d2s(nbhood_radius,2), Masker2D.getMask()).show();
+			new ImagePlus("MASK,r="+IJ.d2s(masker_radius,2)+",per="+IJ.d2s(masker_percentile,0), Masker2D.getMask()).show();
 			/********/
         	IJ.log("calculating profiles...");
         	Profiler2D.loadTemplate(sph2d, Masker2D.i2xy, Masker2D.xy2i, inimg_xy);

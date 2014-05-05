@@ -26,6 +26,7 @@ public class GeneratorDemo implements PlugIn {
 
 	float p1, p2, p3, sc, Dmin, SNR;
 	int N;
+    static int nrP1 = 5;
 
 	public void run(String s) {
 
@@ -34,9 +35,10 @@ public class GeneratorDemo implements PlugIn {
 		gd.addNumericField("p1:    ", 1, 1);
 		gd.addNumericField("p2:    ", 1, 1);
 		gd.addNumericField("p3:    ", 1, 1);
-		gd.addNumericField("scale: ", 1, 1);
+		gd.addNumericField("scale: ", 8, 1);
 		gd.addNumericField("Dmin:  ", 3, 0);
-		gd.addNumericField("# imgs:", 5, 0);
+		gd.addNumericField("# imgs:", 1, 0);
+        gd.addMessage(""+nrP1+"x"+nrP1+" junctions per img");
 
 		gd.showDialog();
 		if (gd.wasCanceled()) return;
@@ -78,7 +80,7 @@ public class GeneratorDemo implements PlugIn {
 		String outDir  = "synthetic_junctions(Dmax_SNR_s),"+IJ.d2s(d_max,1)+","+snr+","+IJ.d2s(scale,1)+File.separator;
         createDir(outDir);
 
-        Generator imageGenerator = new Generator(2);
+        Generator imageGenerator = new Generator(nrP1);
 
         for (int cnt=0; cnt<N; cnt++) {
 
@@ -86,14 +88,9 @@ public class GeneratorDemo implements PlugIn {
             File gnd_tth_bif = new File(outDir+File.separator+String.format("%04d", cnt)+".bif");
             File gnd_tth_non = new File(outDir+File.separator+String.format("%04d", cnt)+".non");
             File image_path  = new File(outDir+File.separator+String.format("%04d", cnt)+".tif");
-            File out_log     = new File(outDir+File.separator+String.format("params")+".dat");
-            //outDir+"params.dat"
+            File out_log     = new File(outDir+File.separator+String.format("params")+".csv");
 
-            ImagePlus imp = imageGenerator.runDisProportional(snr, d1, d2, d3, scale, gnd_tth_bif, gnd_tth_end, gnd_tth_non, out_log);
-            FileSaver fs = new FileSaver(imp);
-            fs.saveAsTiff(image_path.getAbsolutePath());
-            IJ.log("exported: "+image_path.getAbsolutePath());
-            IJ.log("");
+            imageGenerator.runDisProportional(snr, d1, d2, d3, scale, gnd_tth_bif, gnd_tth_end, gnd_tth_non, out_log, image_path);
 
         }
 

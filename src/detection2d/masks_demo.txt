@@ -1,0 +1,14 @@
+selectWindow("0000.tif");
+run("Remove Overlay");
+run("In [+]");
+run("Extract Mask", "radius=10 percentile=30");
+selectWindow("0000.tif");
+run("Extract Mask", "radius=5 percentile=30");
+selectWindow("mask,R=10.0,perc=30");
+selectWindow("0000.tif");
+run("Extract Mask", "radius=15 percentile=30");
+setAutoThreshold("Default dark");
+//run("Threshold...");
+run("Create Selection");
+selectWindow("0000.tif");
+run("Restore Selection");

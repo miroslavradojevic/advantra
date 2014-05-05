@@ -32,6 +32,7 @@ public class Masker2D extends Thread {
 	private static float            radiusCheck;
 	private static float 			globalTh;
 	private static int              marginPix;
+    private static float              percentile;
 
 	/*
 	OUTPUT
@@ -51,10 +52,12 @@ public class Masker2D extends Thread {
 		this.endN = n1;
 	}
 
-	public static void loadTemplate(float[][] _inimg_xy, int _margin, float _radiusNbhoodCheck)
+	public static void loadTemplate(float[][] _inimg_xy, int _margin, float _radiusNbhoodCheck, float _percentile)
 	{
 
 		radiusCheck     = _radiusNbhoodCheck;
+        percentile      = (_percentile<0)? 0 : (_percentile>100)? 100 : _percentile;
+        percentile      = percentile / 5;
 
 		marginPix       = (int) Math.ceil(radiusCheck);
 		marginPix = (_margin>marginPix)? _margin : marginPix ;  // narrow down selection in XY plane
@@ -101,13 +104,6 @@ public class Masker2D extends Thread {
 				back_xy[atX][atY] 	= (byte) Math.round(m05);
 				criteria[atX][atY] 	= m95 - m05;
 
-//				if (m95-m05>0.1) {
-//					fg_score[atX][atY]  = inimg_xy[atX][atY] - m05 ;//medianAtPoint(atX, atY, inimg_xy) ;
-//					fg_score[atX][atY]  = (fg_score[atX][atY]<0)? 0 : fg_score[atX][atY];
-//					fg_score[atX][atY]  = fg_score[atX][atY] / (m95-m05);
-//					fg_score[atX][atY]	= (fg_score[atX][atY]>1)? 1 : fg_score[atX][atY];
-//				}
-
 			}
 
 		}
@@ -116,6 +112,10 @@ public class Masker2D extends Thread {
 
 	public static void defineThreshold()
 	{
+
+        // threshold the criteria so that
+        // certain percentile of the criteria values is set to foreground
+        // the rest is set as background
 
 		// recompose criteria
 		float[] criteria_temp = new float[criteria.length*criteria[0].length];
@@ -126,8 +126,9 @@ public class Masker2D extends Thread {
 				cnt++;
 			}
 		}
-		globalTh = Stat.quantile(criteria_temp, 4, 20);//Stat.median(criteria_temp);
-//		IJ.log("th = "+globalTh);
+
+        IJ.log("taking those above "+(int)percentile+"/20 ");
+		globalTh = Stat.quantile(criteria_temp, (int) percentile, 20);
 
 		for (int xx=0; xx<image_width; xx++) {
 			for (int yy=0; yy<image_height; yy++) {

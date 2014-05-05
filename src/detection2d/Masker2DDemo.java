@@ -21,7 +21,7 @@ public class Masker2DDemo implements PlugInFilter {
     /*
     parameters
      */
-    float       nhoodRadius; //, iDiff
+    float       nhoodRadius, percentile;
     int         CPU_NR;
 
     public int setup(String s, ImagePlus imagePlus) {
@@ -51,21 +51,21 @@ public class Masker2DDemo implements PlugInFilter {
 		/******************************
         Generic Dialog
 		 *****************************/
-		nhoodRadius             = (float)   Prefs.get("advantra.critpoint.mask.nhoodRadius", 5);
-//		iDiff 					= (float)   Prefs.get("advantra.critpoint.mask.iDiff", 5);
+		nhoodRadius             = (float)   Prefs.get("advantra.critpoint.mask.masker_radius", 5);
+		percentile 				= (float)   Prefs.get("advantra.critpoint.mask.masker_percentile", 50);
 
 		GenericDialog gd = new GenericDialog("MASKER2DDEMO");
-		gd.addNumericField("n'hood r.", 	nhoodRadius, 	0, 10, "~neuron diam");
-//		gd.addNumericField("iDiff         ", 	iDiff, 			0, 10, "intensity margin");
+		gd.addNumericField("radius:     ", 	nhoodRadius, 	1, 10, "pix");
+		gd.addNumericField("percentile: ", 	percentile,     0, 10, "[0-100]");
 
 		gd.showDialog();
 		if (gd.wasCanceled()) return DONE;
 
 		nhoodRadius      = (float) gd.getNextNumber();
-		Prefs.set("advantra.critpoint.mask.nhoodRadius",	nhoodRadius);
+		Prefs.set("advantra.critpoint.mask.masker_radius",	nhoodRadius);
 
-//		iDiff       	= (float) gd.getNextNumber();
-//		Prefs.set("advantra.critpoint.mask.iDiff", 	    	iDiff);
+		percentile       = (float) gd.getNextNumber();
+		Prefs.set("advantra.critpoint.mask.masker_percentile", percentile);
 
 		CPU_NR = Runtime.getRuntime().availableProcessors();
 
@@ -81,7 +81,7 @@ public class Masker2DDemo implements PlugInFilter {
          */
 		t1 = System.currentTimeMillis();
 
-        Masker2D.loadTemplate(inimg_xy, 0, nhoodRadius); // margin = 0
+        Masker2D.loadTemplate(inimg_xy, 0, nhoodRadius, percentile); // margin = 0
         int totalLocs = inimg_xy.length * inimg_xy[0].length;
 
         Masker2D ms_jobs[] = new Masker2D[CPU_NR];
@@ -102,19 +102,16 @@ public class Masker2DDemo implements PlugInFilter {
         t2 = System.currentTimeMillis();
         IJ.log("done. "+((t2-t1)/1000f)+"sec.");
 
-        ImagePlus outmask = new ImagePlus("mask,R="+IJ.d2s(nhoodRadius,1), Masker2D.getMask());
+        ImagePlus outmask = new ImagePlus("mask,R="+IJ.d2s(nhoodRadius,1)+",perc="+IJ.d2s(percentile,0), Masker2D.getMask());
         outmask.show();
 
-        ImagePlus outback = new ImagePlus("background", Masker2D.getBackground());
-		outback.show();
+//        ImagePlus outback = new ImagePlus("background", Masker2D.getBackground());
+//		outback.show();
 
-		ImagePlus outcrit = new ImagePlus("criteria", Masker2D.getCriteria());
-		outcrit.show();
+//		ImagePlus outcrit = new ImagePlus("criteria", Masker2D.getCriteria());
+//		outcrit.show();
 
-//		ImagePlus outfgscore = new ImagePlus("fg_score", Masker2D.getFgScore());
-//		outfgscore.show();
-
-		IJ.log("\ntotal "+Masker2D.i2xy.length+" locations extracted.\n"+"elapsed: "+((t2-t1)/1000f)+ " seconds.");
+		IJ.log("\ntotal "+Masker2D.i2xy.length+" locations extracted ("+IJ.d2s(100*(float)Masker2D.i2xy.length/(inimg_xy.length*inimg_xy[0].length),0)+"%).\n"+"elapsed: "+((t2-t1)/1000f)+ " seconds.");
 
     }
 

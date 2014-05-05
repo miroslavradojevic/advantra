@@ -6,6 +6,7 @@ import ij.ImagePlus;
 import ij.gui.OvalRoi;
 import ij.gui.Overlay;
 import ij.gui.PointRoi;
+import ij.io.FileSaver;
 import ij.process.FloatProcessor;
 import imagescience.random.PoissonGenerator;
 
@@ -57,7 +58,7 @@ public class Generator {
 	public Generator(int _nrPts1){nrPts1 = _nrPts1;}
 
 	public ImagePlus runDisProportional(float snr, float diam1, float diam2, float diam3, float sc,
-										File out_bif, File out_end, File out_non, File out_log)
+										File out_bif, File out_end, File out_non, File out_log, File out_img)
 	{
 
         int nrPts2 = nrPts1*nrPts1;
@@ -67,22 +68,28 @@ public class Generator {
         sc = (sc<=3)? 3 : sc ;
 
         float	branch_length = sc * diam_max;  // s*Dmax = branch_length
-        float   branch_separation = 3f * branch_length;
+        float   branch_separation = branch_length;
         float	margin 	= branch_separation;    // pix
         float   separation_scale = sc/3;     // hardcoded
         int     minAngleDeg = (int) Math.round( 2f * Math.asin(1f/(2f*separation_scale)) * (180f/Math.PI) ); // Dmax branches are separable at separation_scale
 
-        int W = Math.round(2 * margin + (2*nrPts1) * branch_separation);
+        int W = Math.round(2 * margin + (2*nrPts1) * branch_separation + (nrPts1+1) * branch_separation);
         int H = W;
+        IJ.log("dimensions: "+W+" x "+H);
+        IJ.log("");
 
         // parameters used fo generate
         try {
             PrintWriter writer = new PrintWriter(out_log.getAbsolutePath());
-            writer.println("SNR\t= "+snr);
-            writer.println("D1\t= "+diam1);
-            writer.println("D2\t= "+diam2);
-            writer.println("D3\t= "+diam3);
-            writer.println("scale\t= "+sc);
+
+            // first line of csv has header
+            writer.print(String.format("SNR,\t p1,\t p2,\t p3,\t d1,\t d2,\t d3,\t s\n"));
+            float pp1, pp2, pp3, pp;
+            pp = diam1 + diam2 + diam3;
+            pp1 = diam1 / pp;
+            pp2 = diam2 / pp;
+            pp3 = diam3 / pp;
+            writer.print(String.format("%4.2f,\t %4.2f,\t %4.2f,\t %4.2f,\t %4.2f,\t %4.2f,\t %4.2f,\t %4.2f\n", snr, pp1, pp2, pp3, diam1, diam2, diam3, sc));
             writer.close();
         }
         catch (FileNotFoundException ex) {}
@@ -118,8 +125,8 @@ public class Generator {
 		int cnt = 0;
 		for (int row = 0; row < nrPts1; row++) {
 			for (int col = 0; col < nrPts1; col++) {
-				float locx = margin+row*((W-2*margin)/(nrPts1-1));
-				float locy = margin+col*((H-2*margin)/(nrPts1-1));
+				float locx = margin + (col+1) * branch_separation + (2*col+1) * branch_length; //row*((W-2*margin)/(nrPts1-1));
+				float locy = margin + (row+1) * branch_separation + (2*row+1) * branch_length; //col*((H-2*margin)/(nrPts1-1));
 				points[cnt] = createBifPointsAt(locx, locy, branch_length, minAngleDeg); // 4(#points)x2(x,y)
 				cnt++;
 			}
@@ -179,11 +186,12 @@ public class Generator {
 			// negatives are defined here, take the points that are far enough from critpoints and
 			// take them with some probability
 
-
-			if (Math.random()<=1) {
+			if (Math.random()<=.05) {
 
 				int loc_x = j - W * (j / W);
 				int loc_y = j / W;
+
+                if (loc_x>margin && loc_x<W-margin && loc_y>margin && loc_y<H-margin) {
 
 				float min_d2 = Float.MAX_VALUE;
 
@@ -193,30 +201,26 @@ public class Generator {
 						float points_x = points[points_i][points_k][0];
 						float points_y = points[points_i][points_k][1];
 
-						if (loc_x>margin && loc_x<W-margin && loc_y>margin && loc_y<H-margin) {
+						float d2 = (float) (Math.pow(points_x-loc_x, 2)+Math.pow(points_y-loc_y, 2));
 
-							float d2 = (float) (Math.pow(points_x-loc_x, 2)+Math.pow(points_y-loc_y, 2));
-
-							if (d2 < min_d2) {
-								min_d2 = d2;
-							}
-
+						if (d2 < min_d2) {
+							min_d2 = d2;
 						}
 
 					}
 				}
 
-				if (min_d2>=3*diam_max*3*diam_max){
+				if (min_d2>=Math.pow(2*diam_max, 2)){
 					// far enough to add it as non point
 					count_non++;
-					writer_non.println(String.format("%d %1d %4.2f %4.2f %4.2f %4.2f %d", count_non, 7, (float)loc_x, (float)loc_y, 0f, diam_max, -1));
-					//OvalRoi pt = new OvalRoi(loc_x+.5f-diam_max/2f, loc_y+.5f-diam_max/2f, diam_max, diam_max);
-					//pt.setStrokeColor(Color.BLUE);
+					writer_non.println(String.format("%d %1d %4.2f %4.2f %4.2f %4.2f %d", count_non, 7, (float)loc_x, (float)loc_y, 0f, 1f, -1));
 					PointRoi pt = new PointRoi(loc_x+.5f, loc_y+.5f);
 					pt.setFillColor(Color.BLUE);
 					ov.add(pt);
 
 				}
+
+                }
 
 			}
 
@@ -227,7 +231,19 @@ public class Generator {
 
 		ImagePlus outImp = new ImagePlus("SNR_"+IJ.d2s(snr,1)+",d1_"+IJ.d2s(diam1,1)+",d2_"+IJ.d2s(diam2,1)+",d3_"+IJ.d2s(diam3,1)+",s_"+IJ.d2s(sc,1), outIp);
 		outImp.setOverlay(ov);
-		return outImp;
+
+        // save it
+        FileSaver fs = new FileSaver(outImp);
+        fs.saveAsTiff(out_img.getAbsolutePath());
+        IJ.log("exported: "+out_img.getAbsolutePath());
+        IJ.log("");
+        IJ.log("ground truth locations: ");
+        IJ.log(nrPts2 + " bifs");
+        IJ.log(4*nrPts2+" ends");
+        IJ.log(count_non+" nons");
+        IJ.log("");
+
+        return outImp;
 
 	}
 
