@@ -1,0 +1,68 @@
+// java -Xmx5120M -jar ~/ImageJ/ij.jar -ijpath ~/ImageJ/plugins -macro ~/critpoint/src/detection2d/junction_generator.txt
+// print("synthetic junctions detection...");
+folder_prefix = "synthetic_junctions";
+
+dd = newArray(0.25, 0.5, 1, 2, 3, 4); // different ratios for D
+
+root_path = getArgument;
+
+if (root_path=="") 
+	root_path = getDirectory("Choose a Directory with Synthetic Junctions");
+else {
+	if (File.exists(root_path)){
+		root_path = root_path;
+	}
+	else {
+		exit("'"+ root_path + "' path does not exist");
+	}	
+}
+
+list = getFileList(root_path);
+
+for (i=0; i<list.length; i++) {
+
+	if (endsWith(list[i], "/") && startsWith(list[i], folder_prefix)) {
+		
+		sub_root_path = root_path+list[i];
+		
+		sub_list = getFileList(sub_root_path);
+        
+        for (j=0; j<sub_list.length; j++) {
+        
+			sub_sub_root_path = sub_root_path+sub_list[j];
+			
+			if (endsWith(sub_sub_root_path, ".tif")) {
+				
+				image_path = sub_sub_root_path;
+				print("detecting "+image_path+" ...");
+				// extract the parameter D from the parent folder sub_root_path
+				components = split(list[i], ",");
+				Dmax  = parseFloat(components[1]);
+				Ddet  = 2*Dmax;
+				
+				open(image_path);
+				run("Detector2D", "bifurcations endpoints s=1.1 dlist=6 m=1 l=12 radius=15 percentile=50 ncc_high=0.90 ncc_low=0.10 likelihood_high=0.50 likelihood_low=0.10 out=0.40");
+				
+				print("done.");
+			
+			}
+        
+        }
+        
+    }
+     
+}
+
+//listFiles("/home/miroslav/"); 
+//getFileList(directory);
+//a = random();
+
+function listFiles(dir) {
+     list = getFileList(dir);
+     for (i=0; i<list.length; i++) {
+        if (endsWith(list[i], "/"))
+           listFiles(""+dir+list[i]);
+        else
+           print((count++) + ": " + dir + list[i]);
+     }
+  }

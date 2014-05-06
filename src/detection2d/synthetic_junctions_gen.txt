@@ -1,0 +1,48 @@
+// generate random configurations...
+// three numbres describe the conf.
+
+N= 4; // resolution for the triangle
+
+P0 = newArray(0.333,0.333,0.333);
+P1 = newArray(0.6,0.2,0.2);
+P2 = newArray(0.2,0.6,0.2);
+P3 = newArray(0.2,0.2,0.6);
+
+P12 = newArray(3);        				// root
+P12[0] = (P1[0]+P2[0])/2; 
+P12[1] = (P1[1]+P2[1])/2; 
+P12[2] = (P1[2]+P2[2])/2;
+
+dx = newArray(3);
+dx[0] = P0[0]-P12[0];
+dx[1] = P0[1]-P12[1];
+dx[2] = P0[2]-P12[2];
+
+dy = newArray(3);
+dy[0] = P2[0]-P12[0];
+dy[1] = P2[1]-P12[1];
+dy[2] = P2[2]-P12[2];
+
+dx_norm = sqrt(pow(dx[0],2)+pow(dx[1],2)+pow(dx[2],2));
+
+l = dx_norm / (N-1);
+
+// normalize dx
+dx[0] = dx[0] / dx_norm;
+dx[1] = dx[1] / dx_norm;
+dx[2] = dx[2] / dx_norm;
+
+// normalize dy
+dx[0] = dx[0] / dx_norm;
+dx[1] = dx[1] / dx_norm;
+dx[2] = dx[2] / dx_norm;
+
+for (x=0; x<=; row++) {
+	
+	for () {
+	
+	}
+	
+	
+}
+//dratios = newArray(0.25, 0.5, 1, 2, 3, 4); // different ratios for d1, d2 and d3

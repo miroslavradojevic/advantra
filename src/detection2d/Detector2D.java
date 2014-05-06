@@ -81,6 +81,8 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
 	String 		output_log_name;
 	PrintWriter logWriter = null;
 
+    static  float eval_scale=1.5f;
+
     int         CPU_NR;
 
     /*
@@ -156,21 +158,21 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
         gd.addCheckbox("ENDPOINTS    ", show_endpoints);
 
         gd.addMessage("-- MODEL --");
-        gd.addNumericField("s: ", 					this.s,					1,	10,	"(scale)");
+        gd.addNumericField("s:", 					this.s,					1,	10,	"(scale)");
         gd.addStringField("Dlist", Dlist);
-        gd.addNumericField("M ", 	                M, 			        	0,  10, "");
-		gd.addNumericField("L ",                    L, 		            	0,  10, "");
+        gd.addNumericField("M", 	                M, 			        	0,  10, "");
+		gd.addNumericField("L",                    L, 		            	0,  10, "");
 
         gd.addMessage("-- MASKER --");
         gd.addNumericField("radius:     ",          this.masker_radius,     1,  10, "pix");
         gd.addNumericField("percentile: ",          this.masker_percentile, 1,  10, "[0-100]");
 
         gd.addMessage("-- FUZZY LOGIC SYSTEM --");
-        gd.addNumericField("NCC HIGH", 	        ncc_high_mean, 			2,  10, "");
-		gd.addNumericField("NCC LOW",           ncc_low_mean, 		    2,  10, "");
-		gd.addNumericField("LIKELIHOOD HIGH", 	likelihood_high_mean, 			2,  10, "");
-		gd.addNumericField("LIKELIHOOD LOW",    likelihood_low_mean, 		    2,  10, "");
-		gd.addNumericField("OUT ",    output_sigma, 		    2,  10, "SIGMA");
+        gd.addNumericField("NCC_HIGH", 	        ncc_high_mean, 			2,  10, "");
+		gd.addNumericField("NCC_LOW",           ncc_low_mean, 		    2,  10, "");
+		gd.addNumericField("LIKELIHOOD_HIGH", 	likelihood_high_mean, 			2,  10, "");
+		gd.addNumericField("LIKELIHOOD_LOW",    likelihood_low_mean, 		    2,  10, "");
+		gd.addNumericField("OUT",    output_sigma, 		    2,  10, "SIGMA");
 
 		gd.showDialog();
         if (gd.wasCanceled()) return DONE;
@@ -205,12 +207,12 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
 
 		min_size_bif = Math.round(min_D);
 		max_size_bif = (int) Math.round(min_D*min_D);
-		IJ.log("BIF "+min_size_bif+" <-> "+max_size_bif);
+		//IJ.log("BIF "+min_size_bif+" <-> "+max_size_bif);
 
 
 		min_size_end = Math.round(min_D);//(int) Math.round(0.5 * min_D);
         max_size_end = (int) Math.round(min_D * min_D);
-		IJ.log("END "+min_size_end+" <-> "+max_size_end);
+		//IJ.log("END "+min_size_end+" <-> "+max_size_end);
 
 		image_gndtth_endpoints = image_name + ".end";
 		image_gndtth_bifurcations = image_name + ".bif";
@@ -218,7 +220,7 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
 		output_membership_th = (float) Math.exp(-(0.5f*0.5f)/(2*output_sigma*output_sigma)); // 0.5 is middle of the output range
 		output_membership_th = (float) (1 - Math.pow(output_membership_th,k) * (1-output_membership_th)); // h1 = 1 - h^k * (1-h)
 
-        IJ.log(""+output_membership_th+ "   ");
+        //IJ.log(""+output_membership_th+ "   ");
 
 		output_dir_name = image_dir+String.format("det_%1.1f_%s_%d_%d__%1.2f_%1.2f_%1.2f_%1.2f_%1.2f", //_%1.2f_%1.2f_%1.2f_%1.2f
 														 this.s,
@@ -229,7 +231,7 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
 														 likelihood_high_mean, //likelihood_high_sigma,
 														 likelihood_low_mean, //likelihood_low_sigma,
 														 output_sigma);
-		output_log_name = output_dir_name+File.separator+"detector2d.log";
+		output_log_name = output_dir_name+File.separator+"detector2d.csv";
 
 		File f = new File(output_dir_name);
 		if (!f.exists()) {
@@ -238,7 +240,7 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
 
 			try {
 				logWriter = new PrintWriter(output_log_name);
-				logWriter.print("");
+				logWriter.print("name,\tTP,\tFP,\tFN,\tPRECISION\tRECALL\n");
 				logWriter.close();
 			} catch (FileNotFoundException ex) {}
 
@@ -289,7 +291,7 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
 			}
 			Masker2D.defineThreshold();
         	Masker2D.formRemainingOutputs();
-			new ImagePlus("MASK,r="+IJ.d2s(masker_radius,2)+",per="+IJ.d2s(masker_percentile,0), Masker2D.getMask()).show();
+//			new ImagePlus("MASK,r="+IJ.d2s(masker_radius,2)+",per="+IJ.d2s(masker_percentile,0), Masker2D.getMask()).show();
 			/********/
         	IJ.log("calculating profiles...");
         	Profiler2D.loadTemplate(sph2d, Masker2D.i2xy, Masker2D.xy2i, inimg_xy);
@@ -395,8 +397,6 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
 
 		logWriter.close();
 
-		IJ.log("log closed");
-
 		ImagePlus final_det = cnv.getImage();
 		//final_det.setTitle("det");
 		//final_det.show();
@@ -412,7 +412,7 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
 		FileSaver fs = new FileSaver(final_det);
 		String save_path = output_dir_name + File.separator + image_name+".tif";
 		fs.saveAsTiff(save_path);
-		IJ.log("saving    " + save_path);
+//		IJ.log("saving    " + save_path);
 
 		// enable - disable inspection tools
 		cnv.addMouseListener(this);
@@ -444,8 +444,8 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
 		Find_Connected_Regions conn_reg = new Find_Connected_Regions(new ImagePlus("END,th="+IJ.d2s(output_membership_th,2), bp), true);
 		conn_reg.run("");
 		//conn_reg.showLabels().show();
-		FileSaver fs = new FileSaver(conn_reg.showLabels());
-		fs.saveAsTiff(image_dir+"conn_ends.tif");
+		//FileSaver fs = new FileSaver(conn_reg.showLabels());
+		//fs.saveAsTiff(image_dir+"conn_ends.tif");
 
 		Overlay ov = formPointOverlay(conn_reg.getConnectedRegions(), min_size_end, max_size_end, 1, 1, 0); // add yellow intensity based on average score
 
@@ -454,11 +454,13 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
         // compare dt with ground truth if it exists and print the results in a log file
         ArrayList<float[]> dt = formDetectionCentroids(conn_reg.getConnectedRegions(), min_size_end);// xy stored
 
-		logWriter.print(image_name+"\t");
+//		logWriter.print(image_name+"\t");
+
+        String eval_string = "";
 
 		if (new File(image_dir+image_gndtth_endpoints).exists()) {
 
-            IJ.log("evaluating ENDPOINT detection using " + image_dir+image_gndtth_endpoints);
+//            IJ.log("evaluating ENDPOINT detection using " + image_dir+image_gndtth_endpoints);
 			int tp = 0, fp = 0, fn = 0;
 
 			ReadSWC reader = new ReadSWC(image_dir+image_gndtth_endpoints);
@@ -475,7 +477,7 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
 					float bx = reader.nodes.get(b)[reader.XCOORD];
 					float by = reader.nodes.get(b)[reader.YCOORD];
 					float dist = (float) Math.sqrt(Math.pow(bx-ax,2)+Math.pow(by-ay,2));
-					if (dist<=2*D[D.length-1]) {// compare the distance
+					if (dist<=eval_scale*D[D.length-1]) {// compare the distance
 						found = true;
 						tp++;
 						annots[b] = true;
@@ -494,16 +496,16 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
 				}
 			}
 
-			String eval_string = "tp=" + tp + "\tfp=" + fp + "\tfn="+fn+ "\tP=" + IJ.d2s(tp/(float)(tp+fp), 2) + "    R = " + IJ.d2s(tp/(float)(tp+fn),2);
-			logWriter.println(eval_string);
-            IJ.log(""+eval_string);
+			eval_string += "\""+image_name+"\",\t" + tp + ",\t" + fp + ",\t"+fn+ ",\t" + IJ.d2s(tp/(float)(tp+fp),2) + ",\t" + IJ.d2s(tp/(float)(tp+fn),2);
+
 		}
 		else {
-			logWriter.println("gnd tth did not exist");
-            IJ.log("gnd tth did not exist");
+            eval_string += "\""+image_name+"\",\t" + Float.NaN + ",\t" + Float.NaN + ",\t"+ Float.NaN + ",\t" + Float.NaN + ",\t" + Float.NaN;
 		}
 
-        IJ.log("output stored in " + output_log_name);
+        logWriter.println(eval_string);
+        IJ.log("\t\t\t\t"+eval_string);
+//        IJ.log("output stored in " + output_log_name);
 
 		return ov;
 
@@ -531,9 +533,9 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
         ByteProcessor bp = new ByteProcessor(w, h, t);
         Find_Connected_Regions conn_reg = new Find_Connected_Regions(new ImagePlus("", bp), true);
         conn_reg.run("");
-		FileSaver fs = new FileSaver(conn_reg.showLabels());
-		fs.saveAsTiff(image_dir+"conn_bifs.tif");
-		IJ.log("connected components: "+image_dir+"conn_bifs.tif");
+		//FileSaver fs = new FileSaver(conn_reg.showLabels());
+		//fs.saveAsTiff(image_dir+"conn_bifs.tif");
+		//IJ.log("connected components: "+image_dir+"conn_bifs.tif");
 
         Overlay ov = formPointOverlay(conn_reg.getConnectedRegions(), min_size_bif, max_size_bif, 1, 0, 0); // add red intensity based on average score
 
@@ -542,11 +544,12 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
         // compare dt with ground truth if it exists and print the results in a log file
         ArrayList<float[]> dt = formDetectionCentroids(conn_reg.getConnectedRegions(), min_size_bif);// xy stored
 
-        logWriter.print(image_name+"\t");
+//        logWriter.print(image_name+"\t");
+        String eval_string = "";
 
         if (new File(image_dir+image_gndtth_bifurcations).exists()) {
 
-            IJ.log("evaluating BIFURCATION detection using " + image_dir+image_gndtth_bifurcations);
+//            IJ.log("evaluating BIFURCATION detection using " + image_dir+image_gndtth_bifurcations);
             int tp = 0, fp = 0, fn = 0;
 
             ReadSWC reader = new ReadSWC(image_dir+image_gndtth_bifurcations);
@@ -563,7 +566,7 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
                     float bx = reader.nodes.get(b)[reader.XCOORD];
                     float by = reader.nodes.get(b)[reader.YCOORD];
                     float dist = (float) Math.sqrt(Math.pow(bx-ax,2)+Math.pow(by-ay,2));
-                    if (dist<=2*D[D.length-1]) {// compare the distance
+                    if (dist<=eval_scale*D[D.length-1]) {// compare the distance
                         found = true;
                         tp++;
                         annots[b] = true;
@@ -582,16 +585,19 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
                 }
             }
 
-            String eval_string = "tp=" + tp + "\tfp=" + fp + "\tfn="+fn+ "\tP=" + IJ.d2s(tp/(float)(tp+fp), 2) + "    R = " + IJ.d2s(tp/(float)(tp+fn),2);
-            logWriter.println(eval_string);
-            IJ.log(""+eval_string);
+            eval_string += "\""+image_name+"\",\t" + tp + ",\t" + fp + ",\t"+fn+ ",\t" + IJ.d2s(tp/(float)(tp+fp), 2) + ",\t" + IJ.d2s(tp/(float)(tp+fn),2);
+
         }
         else {
-            logWriter.println("gnd tth did not exist");
-            IJ.log("gnd tth did not exist");
+
+            eval_string += "\""+image_name+"\",\t" + Float.NaN + ",\t" + Float.NaN + ",\t"+Float.NaN+ ",\t" + Float.NaN + ",\t" + Float.NaN;
+
         }
 
-        IJ.log("output stored in " + output_log_name);
+        logWriter.println(eval_string);
+        IJ.log(""+eval_string);
+
+//        IJ.log("output stored in " + output_log_name);
 
         return ov;
 

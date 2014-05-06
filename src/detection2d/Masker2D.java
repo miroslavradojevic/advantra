@@ -127,7 +127,7 @@ public class Masker2D extends Thread {
 			}
 		}
 
-        IJ.log("taking those above "+(int)percentile+"/20 ");
+//        IJ.log("taking those above "+(int)percentile+"/20 ");
 		globalTh = Stat.quantile(criteria_temp, (int) percentile, 20);
 
 		for (int xx=0; xx<image_width; xx++) {
