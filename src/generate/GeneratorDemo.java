@@ -27,6 +27,7 @@ public class GeneratorDemo implements PlugIn {
 	float p1, p2, p3, sc, Dmin, SNR;
 	int N;
     static int nrP1 = 5;
+	static String outDir=System.getProperty("user.home");
 
 	public void run(String s) {
 
@@ -39,6 +40,7 @@ public class GeneratorDemo implements PlugIn {
 		gd.addNumericField("Dmin:  ", 3, 0);
 		gd.addNumericField("# imgs:", 1, 0);
         gd.addMessage(""+nrP1+"x"+nrP1+" junctions per img");
+		gd.addStringField("out dir:", outDir, 50);
 
 		gd.showDialog();
 		if (gd.wasCanceled()) return;
@@ -50,6 +52,7 @@ public class GeneratorDemo implements PlugIn {
 		sc 	    = (float) gd.getNextNumber();
 		Dmin 	= (float) gd.getNextNumber();
 		N 		= (int) gd.getNextNumber();
+		outDir  = gd.getNextString();
 
 		float p = p1 + p2 + p3;
 
@@ -77,9 +80,9 @@ public class GeneratorDemo implements PlugIn {
 
 		float d_max = Math.max(d1, Math.max(d2, d3));
 
-		String outDir  = "synthetic_junctions(Dmax_SNR_s),"+IJ.d2s(d_max,1)+","+snr+","+IJ.d2s(scale,1)+File.separator;
+		outDir  += File.separator+"synthetic_junctions(Dmax_SNR_s),"+IJ.d2s(d_max,1)+","+snr+","+IJ.d2s(scale,1)+File.separator;
         createDir(outDir);
-
+//		IJ.log(outDir);
         Generator imageGenerator = new Generator(nrP1);
 
         for (int cnt=0; cnt<N; cnt++) {
@@ -310,7 +313,7 @@ public class GeneratorDemo implements PlugIn {
 
 			try{
 				// Create one directory
-				boolean success = f.mkdir();
+				boolean success = f.mkdirs();
 				if (!success) {
 					System.out.println("Error: Directory: " + dir_name + "    .... was NOT created");
 				}
@@ -337,7 +340,7 @@ public class GeneratorDemo implements PlugIn {
 
 			try{
 				// Create one directory
-				boolean success = f.mkdir();
+				boolean success = f.mkdirs();
 				if (!success) {
 					System.out.println("Error: Directory: " + dir_name + "    .... was NOT created");
 				}

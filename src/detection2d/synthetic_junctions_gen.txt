@@ -1,48 +1,56 @@
 // generate random configurations...
-// three numbres describe the conf.
+// three numbres p1,p2,p3 describe the configurations
 
-N= 4; // resolution for the triangle
+
+dir_name = getArgument();
+if (dir_name=="") exit ("needs output folder path argument");
+
+File.makeDirectory(dir_name); print("created "+dir_name);
 
 P0 = newArray(0.333,0.333,0.333);
 P1 = newArray(0.6,0.2,0.2);
 P2 = newArray(0.2,0.6,0.2);
 P3 = newArray(0.2,0.2,0.6);
 
-P12 = newArray(3);        				// root
-P12[0] = (P1[0]+P2[0])/2; 
-P12[1] = (P1[1]+P2[1])/2; 
-P12[2] = (P1[2]+P2[2])/2;
+step = 0.02; // resolution for the triangle
+a = sqrt(2) * 0.4;
+H = a/(2*sqrt(3));
+W = a/2;
 
-dx = newArray(3);
-dx[0] = P0[0]-P12[0];
-dx[1] = P0[1]-P12[1];
-dx[2] = P0[2]-P12[2];
+P12 = newArray(3);        				
+for (i=0; i<3; i++) P12[i] = (P1[i]+P2[i]) / 2;
 
-dy = newArray(3);
-dy[0] = P2[0]-P12[0];
-dy[1] = P2[1]-P12[1];
-dy[2] = P2[2]-P12[2];
+vx = newArray(3);
+for (i=0; i<3; i++) vx[i] = P12[i]-P0[i];
+vx_norm = sqrt(pow(vx[0],2)+pow(vx[1],2)+pow(vx[2],2));
+for (i=0; i<3; i++) vx[i] = vx[i] / vx_norm;
 
-dx_norm = sqrt(pow(dx[0],2)+pow(dx[1],2)+pow(dx[2],2));
+vy = newArray(3);
+for (i=0; i<3; i++) vy[i] = P2[i]-P12[i];
+vy_norm = sqrt(pow(vy[0],2)+pow(vy[1],2)+pow(vy[2],2));
+for (i=0; i<3; i++) vy[i] = vy[i] / vy_norm;
 
-l = dx_norm / (N-1);
-
-// normalize dx
-dx[0] = dx[0] / dx_norm;
-dx[1] = dx[1] / dx_norm;
-dx[2] = dx[2] / dx_norm;
-
-// normalize dy
-dx[0] = dx[0] / dx_norm;
-dx[1] = dx[1] / dx_norm;
-dx[2] = dx[2] / dx_norm;
-
-for (x=0; x<=; row++) {
-	
-	for () {
-	
+p = newArray(3);
+cnt=0;
+for (x=0; x<=H; x+=step) {
+	for (y=0; y<=x*sqrt(3); y+=step) {
+		for (i=0; i<3; i++) p[i] = P0[i] + x * vx[i] + y * vy[i];
+		run("Generate Junctions", "snr=3 p1="+toString(p[0])+" p2="+toString(p[1])+" p3="+toString(p[2])+" scale=8 dmin=3 #=4 out="+dir_name);
+		cnt++;
 	}
-	
-	
 }
-//dratios = newArray(0.25, 0.5, 1, 2, 3, 4); // different ratios for d1, d2 and d3
+
+print(""+cnt+" folders created");
+
+for (x=0; x<=H; x+=step) {
+	for (y=0; y<=x*sqrt(3); y+=step) {
+		for (i=0; i<3; i++) p[i] = P0[i] + x * vx[i] + y * vy[i];
+		
+		print(p[0]+","+p[1]+","+p[2]);
+		
+		//run("Generate Junctions", "snr=3 p1=1 p2=1 p3=1 scale=8 dmin=3 #=4 out="+dir_name);
+		//cnt++;
+		
+	}
+}
+
