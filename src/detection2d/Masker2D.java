@@ -97,7 +97,7 @@ public class Masker2D extends Thread {
 
 			if (processIt) {
 
-				extractCircularNbhood(atX, atY, radiusCheck, circNeigh);
+				extractCircularNbhood(atX, atY, radiusCheck, circNeigh, inimg_xy); // extract from the image
 				float m05 	= Stat.quantile(circNeigh, 1 , 20);
 				float m95 	= Stat.quantile(circNeigh, 19, 20);
 
@@ -110,34 +110,60 @@ public class Masker2D extends Thread {
 
 	}
 
+
 	public static void defineThreshold()
 	{
 
-        // threshold the criteria so that
-        // certain percentile of the criteria values is set to foreground
-        // the rest is set as background
+        float[][] criteria_local_max = new float[criteria.length][criteria[0].length];
 
-		// recompose criteria
-		float[] criteria_temp = new float[criteria.length*criteria[0].length];
-		int cnt = 0;
+        int circNeighSize = sizeCircularNbhood(radiusCheck);
+        float[] circNeigh = new float[circNeighSize];
+
+        for (int x=0; x<criteria.length; x++) {
+            for (int y=0; y<criteria[0].length; y++) {
+                extractCircularNbhood(x, y, radiusCheck, circNeigh, criteria);
+                criteria_local_max[x][y] = Stat.get_max(circNeigh);
+            }
+        }
+
 		for (int ii=0; ii<criteria.length; ii++) {
 			for (int jj=0; jj<criteria[0].length; jj++) {
-				criteria_temp[cnt] = criteria[ii][jj];
-				cnt++;
+				criteria[ii][jj] = criteria_local_max[ii][jj];
 			}
 		}
 
-//        IJ.log("taking those above "+(int)percentile+"/20 ");
+        float[] criteria_temp = new float[criteria.length*criteria[0].length];
+        int		cnt = 0;
+        for (int ii=0; ii<criteria.length; ii++) {
+            for (int jj=0; jj<criteria[0].length; jj++) {
+                criteria_temp[cnt] = criteria_local_max[ii][jj];
+				cnt++;
+            }
+        }
+
 		globalTh = Stat.quantile(criteria_temp, (int) percentile, 20);
 
+//        cnt = 0;
 		for (int xx=0; xx<image_width; xx++) {
 			for (int yy=0; yy<image_height; yy++) {
-				if (criteria[xx][yy] > globalTh) {
-					mask_xy[xx][yy] = true;
-				}
-				else {
-					mask_xy[xx][yy] = false;
-				}
+
+                if (criteria[xx][yy] > globalTh) {
+                    mask_xy[xx][yy] = true;
+                }
+                else {
+                    mask_xy[xx][yy] = false;
+                }
+
+//                criteria[xx][yy] = criteria_temp[cnt];
+
+//                cnt++;
+
+//				if (criteria[xx][yy] > globalTh) {
+//					mask_xy[xx][yy] = true;
+//				}
+//				else {
+//					mask_xy[xx][yy] = false;
+//				}
 			}
 		}
 
@@ -245,13 +271,13 @@ public class Masker2D extends Thread {
 		return cnt;
 	}
 
-	private static void extractCircularNbhood(int atX, int atY, float sphereRadius, float[] values)
+	private static void extractCircularNbhood(int atX, int atY, float sphereRadius, float[] values, float[][] _inimg_xy)
 	{
 
 		int rPix = Math.round(sphereRadius);
 		//int rLay = Math.round(sphereRadius / zDist);
 
-		if (atX-rPix>=0 && atY-rPix>=0 && atX+rPix<image_width && atY+rPix<image_height) {  // && atZ-rLay>=0  // && atZ+rLay < image_length
+		if (atX-rPix>=0 && atY-rPix>=0 && atX+rPix<_inimg_xy.length && atY+rPix<_inimg_xy[0].length) {  // && atZ-rLay>=0  // && atZ+rLay < image_length
 
 			int cnt = 0;
 
@@ -261,7 +287,7 @@ public class Masker2D extends Thread {
 					//float c = (zLoc-atZ) * zDist;   // back to pixels
 					if ( (xLoc-atX)*(xLoc-atX)+(yLoc-atY)*(yLoc-atY) <= rPix*rPix ) { // +c*c
 
-						values[cnt] = inimg_xy[xLoc][yLoc];// instack3[atZ][xLoc][yLoc];
+						values[cnt] = _inimg_xy[xLoc][yLoc];// instack3[atZ][xLoc][yLoc];
 						cnt++;
 
 					}

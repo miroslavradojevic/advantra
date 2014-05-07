@@ -105,11 +105,11 @@ public class Masker2DDemo implements PlugInFilter {
         ImagePlus outmask = new ImagePlus("mask,R="+IJ.d2s(nhoodRadius,1)+",perc="+IJ.d2s(percentile,0), Masker2D.getMask());
         outmask.show();
 
-//        ImagePlus outback = new ImagePlus("background", Masker2D.getBackground());
+//      ImagePlus outback = new ImagePlus("background", Masker2D.getBackground());
 //		outback.show();
 
-//		ImagePlus outcrit = new ImagePlus("criteria", Masker2D.getCriteria());
-//		outcrit.show();
+		ImagePlus outcrit = new ImagePlus("criteria", Masker2D.getCriteria());
+		outcrit.show();
 
 		IJ.log("\ntotal "+Masker2D.i2xy.length+" locations extracted ("+IJ.d2s(100*(float)Masker2D.i2xy.length/(inimg_xy.length*inimg_xy[0].length),0)+"%).\n"+"elapsed: "+((t2-t1)/1000f)+ " seconds.");
 

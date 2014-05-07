@@ -1,0 +1,53 @@
+k = 2;
+
+dir_name = getArgument();
+if (dir_name=="") exit ("script needs input folder path");
+if (!File.exists(dir_name)) exit (dir_name + " does not exist");
+if (!endsWith(dir_name, "/")) dir_name+="/";
+
+folder_prefix = "syn_jun";
+
+// loop directories and do the standardized detection take k*Dmax as argument
+
+print("working... \n" + dir_name);
+
+//dd = newArray(0.25, 0.5, 1, 2, 3, 4); // different ratios for D
+
+list = getFileList(dir_name);
+
+for (i=0; i<list.length; i++) {
+
+	if (endsWith(list[i], "/") && startsWith(list[i], folder_prefix)) {
+
+		print(dir_name+list[i]);
+		sub_list = getFileList(dir_name+list[i]);
+        
+        for (j=0; j<sub_list.length; j++) {
+        
+			if (endsWith(dir_name+list[i]+sub_list[j], ".tif")) {
+
+				// detection parameters
+				components = split(list[i], ",");
+				Dmax  = parseFloat(components[1]);
+				Ddet  = k   * Dmax;
+				L     = round(1.5 * Ddet);
+                masker_R  = 1.5 * Ddet;
+
+				open(dir_name+list[i]+sub_list[j]);
+
+
+                arg = "bifurcations endpoints s=1.1 dlist="+toString(Ddet)+
+                      				    " m=1 l="+toString(L)+
+                      				    " radius="+toString(masker_R)+
+                      				    " percentile=50 ncc_high=0.90 ncc_low=0.10 likelihood_high=0.50 likelihood_low=0.10 out=0.40";
+
+                print("detecting      "+dir_name+list[i]+sub_list[j]+" "+arg);
+				run("Detector2D", arg);
+				
+			}
+        
+        }
+        
+    }
+     
+}

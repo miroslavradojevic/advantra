@@ -1,18 +1,25 @@
-// generate random configurations...
+// generate random configurations by varying (p1, p2, p3) configurations
 // three numbres p1,p2,p3 describe the configurations
-
-
-dir_name = getArgument();
-if (dir_name=="") exit ("needs output folder path argument");
-
-File.makeDirectory(dir_name); print("created "+dir_name);
+// snr,Dmin,#images,s...  are fixed
+// makes the synthetic dcata to testi how it performs for different scales
+// fixed ratio ranges (0.6 0.2 0.2) (0.2 0.6 0.2) (0.2 0.2 0.6)
 
 P0 = newArray(0.333,0.333,0.333);
 P1 = newArray(0.6,0.2,0.2);
 P2 = newArray(0.2,0.6,0.2);
 P3 = newArray(0.2,0.2,0.6);
 
-step = 0.02; // resolution for the triangle
+snr 	= 3;
+nr_img 	= 1;
+Dmin 	= 2;     // minimum detectable, corresponds to the lowest pi in the configuration
+step 	= 0.05;  // resolution for the triangle
+sc		= 8;
+
+dir_name = getArgument();
+if (dir_name=="") exit ("script needs output folder path");
+
+File.makeDirectory(dir_name); print("created "+dir_name);
+
 a = sqrt(2) * 0.4;
 H = a/(2*sqrt(3));
 W = a/2;
@@ -35,7 +42,15 @@ cnt=0;
 for (x=0; x<=H; x+=step) {
 	for (y=0; y<=x*sqrt(3); y+=step) {
 		for (i=0; i<3; i++) p[i] = P0[i] + x * vx[i] + y * vy[i];
-		run("Generate Junctions", "snr=3 p1="+toString(p[0])+" p2="+toString(p[1])+" p3="+toString(p[2])+" scale=8 dmin=3 #=4 out="+dir_name);
+		run("Generate Junctions", 
+			" snr="+toString(snr)+
+			" p1="+toString(p[0])+
+			" p2="+toString(p[1])+
+			" p3="+toString(p[2])+
+			" scale="+toString(sc)+
+			" dmin="+toString(Dmin)+
+			" #="+toString(nr_img)+
+			" out="+dir_name);
 		cnt++;
 	}
 }
@@ -45,12 +60,7 @@ print(""+cnt+" folders created");
 for (x=0; x<=H; x+=step) {
 	for (y=0; y<=x*sqrt(3); y+=step) {
 		for (i=0; i<3; i++) p[i] = P0[i] + x * vx[i] + y * vy[i];
-		
-		print(p[0]+","+p[1]+","+p[2]);
-		
-		//run("Generate Junctions", "snr=3 p1=1 p2=1 p3=1 scale=8 dmin=3 #=4 out="+dir_name);
-		//cnt++;
-		
+		//print(p[0]+","+p[1]+","+p[2]);
 	}
 }
 
