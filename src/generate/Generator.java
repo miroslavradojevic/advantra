@@ -130,6 +130,13 @@ public class Generator {
 			}
 		}
 
+        IJ.log("" + diam_max);
+
+        // at this point ground truth is exported (bif and end points)
+        // diam_max will define the ground truth swc point radius and the diameter of the overlay that's drawn on
+        // less than 3 does not make sense for an oval roi -> it is limited to be at least 4 to be visible
+        diam_max = (diam_max<4)? 4 : diam_max;
+
 		for (int pIdx=0; pIdx<nrPts2; pIdx++) {  // loop all bifurcations
 
 			// record ground truth in swc format
@@ -142,7 +149,9 @@ public class Generator {
 
             // add overlay
             OvalRoi pt = new OvalRoi(points[pIdx][0][0]+.5f-diam_max/2f, points[pIdx][0][1]+.5f-diam_max/2f, diam_max, diam_max);
+//            pt.setStrokeWidth(diam_max/5f);
             pt.setStrokeColor(Color.RED);
+            pt.setFillColor(Color.RED);
 			ov.add(pt);
 
             for (int cnt_rest=1; cnt_rest<points[pIdx].length; cnt_rest++) {
@@ -184,7 +193,7 @@ public class Generator {
 			// negatives are defined here, take the points that are far enough from critpoints and
 			// take them with some probability
 
-			if (Math.random()<=.05) {
+			if (Math.random()<=.03) {
 
 				int loc_x = j - W * (j / W);
 				int loc_y = j / W;
@@ -213,7 +222,8 @@ public class Generator {
 					count_non++;
 					writer_non.println(String.format("%d %1d %4.2f %4.2f %4.2f %4.2f %d", count_non, 7, (float)loc_x, (float)loc_y, 0f, 1f, -1));
 					PointRoi pt = new PointRoi(loc_x+.5f, loc_y+.5f);
-					pt.setFillColor(Color.BLUE);
+					pt.setFillColor(Color.DARK_GRAY);
+                    pt.setStrokeColor(Color.DARK_GRAY);
 					ov.add(pt);
 
 				}
