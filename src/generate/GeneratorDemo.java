@@ -55,34 +55,34 @@ public class GeneratorDemo implements PlugIn {
 		outDir  = gd.getNextString();
 
 		float p = p1 + p2 + p3;
-
-        p1 = p1 / p;
+        p1 = p1 / p; // normalize them
 		p2 = p2 / p;
         p3 = p3 / p;
 
-		float p_min = Math.min(p1, Math.min(p2, p3));
-
-		// Dmin corresponds to min(p1,p2,p3)
-		float D1 = Dmin*(p1/p_min);
-		float D2 = Dmin*(p2/p_min);
-		float D3 = Dmin*(p3/p_min);
-
-		synthetize(SNR, D1, D2, D3, sc, N);
+		synthetize(SNR, p1, p2, p3, sc, N, Dmin);
 
 	}
 
-	private static void synthetize(float snr, float d1, float d2, float d3, float scale, int N)
+	private static void synthetize(float snr, float p1, float p2, float p3, float scale, int N, float Dmin)
 	{
 
 		// generate only one category defined with p1,p2,p3 and Dmin -> resulting in Dmax - parameter to set in detection
-		// will correspond to one p-ty distribution p1,p2,p3, generate number of images, each with 100 junctions
-		// and export the annotaions for bif- and end- points
+		// will correspond to one p-ty distribution p1,p2,p3, generate number of images, each with nrP2 junctions
+		// and export the annotaions for bif- and end- points and non-points
+
+		float p_min = Math.min(p1, Math.min(p2, p3));
+		float d1 = Dmin*(p1/p_min);
+		float d2 = Dmin*(p2/p_min);
+		float d3 = Dmin*(p3/p_min);
 
 		float d_max = Math.max(d1, Math.max(d2, d3));
 
-		outDir  += File.separator+"synthetic_junctions(Dmax_SNR_s),"+IJ.d2s(d_max,1)+","+snr+","+IJ.d2s(scale,1)+File.separator;
+		outDir  += File.separator+
+						   "syn_jun(Dmax_SNR_s_p1_p2_p3),"+
+						   String.format("%d,%d,%.1f,%.2f,%.2f,%.2f", (int)Math.ceil(d_max), Math.round(snr), scale, p1, p2, p3)+
+						   File.separator;
         createDir(outDir);
-//		IJ.log(outDir);
+
         Generator imageGenerator = new Generator(nrP1);
 
         for (int cnt=0; cnt<N; cnt++) {
@@ -96,212 +96,6 @@ public class GeneratorDemo implements PlugIn {
             imageGenerator.runDisProportional(snr, d1, d2, d3, scale, gnd_tth_bif, gnd_tth_end, gnd_tth_non, out_log, image_path);
 
         }
-
-//		for (int snrIdx = 0; snrIdx < snr.length; snrIdx++) {
-//
-//			/****************************************************
-//			N synthetic images, category 1 (D1)
-//			 ***************************************************/
-//			System.out.println("category 1. 3x"+p1+", snr "+snr[snrIdx]);
-//
-//			dirName = outDir+File.separator+"C1";//"SNR_"+snr[snrIdx]+",D["+D1+"]";
-//			createDir(dirName);
-//
-//			for (int cnt=0; cnt<N; cnt++) {
-//
-//				csvFile = new File(dirName+File.separator+String.format("%04d", cnt)+".csv");
-//				// empty file
-//				try {
-//					PrintWriter writer = new PrintWriter(csvFile);
-//					writer.print("# GROUND TRUTH");
-//					writer.close();
-//				}
-//				catch (FileNotFoundException ex) {}
-//
-//				ImagePlus imp = imageGenerator.runProportional(snr[snrIdx], D1, csvFile);
-//				//imp.show();
-//				FileSaver fs = new FileSaver(imp);
-//				imagePath 	= new File(dirName+File.separator+String.format("%04d", cnt)+".tif").getAbsolutePath();
-//				fs.saveAsTiff(imagePath);
-//				System.out.println(imagePath);
-//
-//			}
-//
-//			/****************************************************
-//			N synthetic images, category 3 (D2)
-//			 ***************************************************/
-//			System.out.println("category 3. 3x"+D2+", snr "+snr[snrIdx]);
-//
-//			dirName = outDir+File.separator+"C3";//"SNR_"+snr[snrIdx]+",D["+D2+"]";
-//			createDir(dirName);
-//
-//			for (int cnt=0; cnt<N; cnt++) {
-//
-//				csvFile = new File(dirName+File.separator+String.format("%04d", cnt)+".csv");
-//				// empty file
-//				try {
-//					PrintWriter writer = new PrintWriter(csvFile);
-//					writer.print("#");
-//					writer.close();
-//				}
-//				catch (FileNotFoundException ex) {}
-//
-//				ImagePlus imp = imageGenerator.runProportional(snr[snrIdx], D2, csvFile);
-//				//imp.show();
-//				FileSaver fs = new FileSaver(imp);
-//				imagePath 	= new File(dirName+File.separator+String.format("%04d", cnt)+".tif").getAbsolutePath();
-//				fs.saveAsTiff(imagePath);
-//				System.out.println(imagePath);
-//
-//			}
-//
-//			/****************************************************
-//			 N synthetic images, category 7 (D3)
-//			 ***************************************************/
-//			System.out.println("category 7. 3x"+D3+", snr "+snr[snrIdx]);
-//
-//			dirName = outDir+File.separator+"C7";//"SNR_"+snr[snrIdx]+",D["+D3+"]";
-//			createDir(dirName);
-//
-//			for (int cnt=0; cnt<N; cnt++) {
-//
-//				csvFile = new File(dirName+File.separator+String.format("%04d", cnt)+".csv");
-//				// empty file
-//				try {
-//					PrintWriter writer = new PrintWriter(csvFile);
-//					writer.print("#");
-//					writer.close();
-//				}
-//				catch (FileNotFoundException ex) {}
-//
-//				ImagePlus imp = imageGenerator.runProportional(snr[snrIdx], D3, csvFile);
-//				//imp.show();
-//				FileSaver fs = new FileSaver(imp);
-//				imagePath 	= new File(dirName+File.separator+String.format("%04d", cnt)+".tif").getAbsolutePath();
-//				fs.saveAsTiff(imagePath);
-//				System.out.println(imagePath);
-//
-//			}
-//
-//			/****************************************************
-//			 N synthetic images, category 2 (D1, D2)
-//			 ***************************************************/
-//			System.out.println("category 2. "+D1+", "+D2+" snr "+snr[snrIdx]);
-//
-//			dirName = outDir+File.separator+"C2";//"SNR_"+snr[snrIdx]+",D["+D1+","+D2+"]";
-//			createDir(dirName);
-//
-//			for (int cnt=0; cnt<N; cnt++) {
-//
-//				csvFile = new File(dirName+File.separator+String.format("%04d", cnt)+".csv");
-//				// empty file
-//				try {
-//					PrintWriter writer = new PrintWriter(csvFile);
-//					writer.print("#");
-//					writer.close();
-//				}
-//				catch (FileNotFoundException ex) {}
-//
-//				ImagePlus imp = imageGenerator.runDisProportional(snr[snrIdx], D1, D2, csvFile);
-//				//imp.show();
-//				FileSaver fs = new FileSaver(imp);
-//				imagePath 	= new File(dirName+File.separator+String.format("%04d", cnt)+".tif").getAbsolutePath();
-//				fs.saveAsTiff(imagePath);
-//				System.out.println(imagePath);
-//
-//			}
-//
-//			/****************************************************
-//			 N synthetic images, category 6 (D2, D3)
-//			 ***************************************************/
-//			System.out.println("category 6. "+D2+", "+D3+" snr "+snr[snrIdx]);
-//
-//			dirName = outDir+File.separator+"C6";//"SNR_"+snr[snrIdx]+",D["+D2+","+D3+"]";
-//			createDir(dirName);
-//
-//			for (int cnt=0; cnt<N; cnt++) {
-//
-//				csvFile = new File(dirName+File.separator+String.format("%04d", cnt)+".csv");
-//				// empty file
-//				try {
-//					PrintWriter writer = new PrintWriter(csvFile);
-//					writer.print("#");
-//					writer.close();
-//				}
-//				catch (FileNotFoundException ex) {}
-//
-//				ImagePlus imp = imageGenerator.runDisProportional(snr[snrIdx], D2, D3, csvFile);
-//				//imp.show();
-//				FileSaver fs = new FileSaver(imp);
-//				imagePath 	= new File(dirName+File.separator+String.format("%04d", cnt)+".tif").getAbsolutePath();
-//				fs.saveAsTiff(imagePath);
-//				System.out.println(imagePath);
-//
-//			}
-//
-//			/****************************************************
-//			 N synthetic images, category 5 (D1, D3)
-//			 ***************************************************/
-//			System.out.println("category 5. "+D1+", "+D3+" snr "+snr[snrIdx]);
-//
-//			dirName = outDir+File.separator+"C5";//"SNR_"+snr[snrIdx]+",D["+D1+","+D3+"]";
-//			createDir(dirName);
-//
-//			for (int cnt=0; cnt<N; cnt++) {
-//
-//				csvFile = new File(dirName+File.separator+String.format("%04d", cnt)+".csv");
-//				// empty file
-//				try {
-//					PrintWriter writer = new PrintWriter(csvFile);
-//					writer.print("#");
-//					writer.close();
-//				}
-//				catch (FileNotFoundException ex) {}
-//
-//				ImagePlus imp = imageGenerator.runDisProportional(snr[snrIdx], D1, D3, csvFile);
-//				//imp.show();
-//				FileSaver fs = new FileSaver(imp);
-//				imagePath 	= new File(dirName+File.separator+String.format("%04d", cnt)+".tif").getAbsolutePath();
-//				fs.saveAsTiff(imagePath);
-//				System.out.println(imagePath);
-//
-//			}
-//
-//			/****************************************************
-//			 N synthetic images, category 4 (D1, D2, D3)
-//			 ***************************************************/
-//			System.out.println("category 4. "+D1+", "+D2+", "+D3+" snr "+snr[snrIdx]);
-//
-//			dirName = outDir+File.separator+"C4";//"SNR_"+snr[snrIdx]+",D["+D1+","+D2+","+D3+"]";
-//			createDir(dirName);
-//
-//			for (int cnt=0; cnt<N; cnt++) {
-//
-//				csvFile = new File(dirName+File.separator+String.format("%04d", cnt)+".csv");
-//				// empty file
-//				try {
-//					PrintWriter writer = new PrintWriter(csvFile);
-//					writer.print("#");
-//					writer.close();
-//				}
-//				catch (FileNotFoundException ex) {}
-//
-//				ImagePlus imp = imageGenerator.runDisProportional(snr[snrIdx], D1, D2, D3, csvFile);
-//				//imp.show();
-//				FileSaver fs = new FileSaver(imp);
-//				imagePath 	= new File(dirName+File.separator+String.format("%04d", cnt)+".tif").getAbsolutePath();
-//				fs.saveAsTiff(imagePath);
-//				System.out.println(imagePath);
-//
-//			}
-//
-//		} // loop snrs
-
-//		String syntheticImgsDir = new File(outDir).getAbsolutePath();
-
-		//Prefs.set("advantra.critpont.synthetic_data_dir", syntheticImgsDir);
-
-//		System.out.println("finished! it's here: \n" + syntheticImgsDir + "\n");
 
 	}
 

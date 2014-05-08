@@ -1,8 +1,8 @@
 // generate random configurations by varying (p1, p2, p3) configurations
 // three numbres p1,p2,p3 describe the configurations
 // snr,Dmin,#images,s...  are fixed
-// makes the synthetic dcata to testi how it performs for different scales
-// fixed ratio ranges (0.6 0.2 0.2) (0.2 0.6 0.2) (0.2 0.2 0.6)
+// makes the synthetic data to test how it performs for different scales
+// fixed ratio ranges p=[0.2, 0.6] P1=(0.6 0.2 0.2) P2=(0.2 0.6 0.2) P3=(0.2 0.2 0.6)
 
 P0 = newArray(0.333,0.333,0.333);
 P1 = newArray(0.6,0.2,0.2);
@@ -11,8 +11,8 @@ P3 = newArray(0.2,0.2,0.6);
 
 snr 	= 3;
 nr_img 	= 1;
-Dmin 	= 2;     // minimum detectable, corresponds to the lowest pi in the configuration
-step 	= 0.05;  // resolution for the triangle
+Dmin 	= 3;     // minimum detectable, corresponds to the lowest pi in the configuration
+step 	= 0.06;  // resolution for the triangle
 sc		= 8;
 
 dir_name = getArgument();
@@ -55,7 +55,7 @@ for (x=0; x<=H; x+=step) {
 	}
 }
 
-print(""+cnt+" folders created");
+print("DONE, "+cnt+" folders created");
 
 for (x=0; x<=H; x+=step) {
 	for (y=0; y<=x*sqrt(3); y+=step) {

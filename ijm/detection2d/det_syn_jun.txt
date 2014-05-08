@@ -1,4 +1,4 @@
-k = 2;
+k = 2; // when determining D for detection wrt. Dmax
 
 dir_name = getArgument();
 if (dir_name=="") exit ("script needs input folder path");
@@ -10,8 +10,6 @@ folder_prefix = "syn_jun";
 // loop directories and do the standardized detection take k*Dmax as argument
 
 print("working... \n" + dir_name);
-
-//dd = newArray(0.25, 0.5, 1, 2, 3, 4); // different ratios for D
 
 list = getFileList(dir_name);
 
@@ -28,21 +26,23 @@ for (i=0; i<list.length; i++) {
 
 				// detection parameters
 				components = split(list[i], ",");
-				Dmax  = parseFloat(components[1]);
-				Ddet  = k   * Dmax;
-				L     = round(1.5 * Ddet);
-                masker_R  = 1.5 * Ddet;
+				Dmax        = parseFloat(components[1]);
+				Ddet        = k   * Dmax;
+				L           = 10;
+                masker_R    = round(Ddet);
 
 				open(dir_name+list[i]+sub_list[j]);
-
+                //run("Remove Overlay");
 
                 arg = "bifurcations endpoints s=1.1 dlist="+toString(Ddet)+
                       				    " m=1 l="+toString(L)+
                       				    " radius="+toString(masker_R)+
                       				    " percentile=50 ncc_high=0.90 ncc_low=0.10 likelihood_high=0.50 likelihood_low=0.10 out=0.40";
 
-                print("detecting      "+dir_name+list[i]+sub_list[j]+" "+arg);
+                print(dir_name+list[i]+sub_list[j]+" ---> \n"+arg);
 				run("Detector2D", arg);
+
+				close();
 				
 			}
         
@@ -51,3 +51,5 @@ for (i=0; i<list.length; i++) {
     }
      
 }
+
+print("DONE");
