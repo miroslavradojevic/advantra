@@ -1,0 +1,27 @@
+## use regexp syntax.
+syntax: regexp
+
+^.metadata/ 	# root folder
+^.settings/	# root folder
+^build/		# to ignore the whole folder use this one
+^ij-examples/build/*
+
+## use glob syntax.
+syntax: glob
+
+*~
+*.jar
+*.class
+*.iml
+*.properties
+misc/*.jar
+misc/*.class
+
+ij-examples/build/**
+
+.classpath
+.project
+.externalToolBuilders
+.settings
+.metadata
+.idea
