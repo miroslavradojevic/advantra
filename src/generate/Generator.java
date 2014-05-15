@@ -76,22 +76,22 @@ public class Generator {
         int W = Math.round(2 * margin + (2*nrPts1) * branch_separation + (nrPts1+1) * branch_separation);
         int H = W;
 
-        // parameters used fo generate
-        try {
-            PrintWriter writer = new PrintWriter(out_log.getAbsolutePath());
+//        // export out_log
+//        try {
+//            PrintWriter writer = new PrintWriter(out_log.getAbsolutePath());
+//            // first line of csv has header
+//            writer.print(String.format("SNR,\t p1,\t p2,\t p3,\t d1,\t d2,\t d3,\t s\n"));
+//            float pp1, pp2, pp3, pp;
+//            pp = diam1 + diam2 + diam3;
+//            pp1 = diam1 / pp;
+//            pp2 = diam2 / pp;
+//            pp3 = diam3 / pp;
+//            writer.print(String.format("%4.2f,\t %4.2f,\t %4.2f,\t %4.2f,\t %4.2f,\t %4.2f,\t %4.2f,\t %4.2f\n", snr, pp1, pp2, pp3, diam1, diam2, diam3, sc));
+//            writer.close();
+//        }
+//        catch (FileNotFoundException ex) {}
 
-            // first line of csv has header
-            writer.print(String.format("SNR,\t p1,\t p2,\t p3,\t d1,\t d2,\t d3,\t s\n"));
-            float pp1, pp2, pp3, pp;
-            pp = diam1 + diam2 + diam3;
-            pp1 = diam1 / pp;
-            pp2 = diam2 / pp;
-            pp3 = diam3 / pp;
-            writer.print(String.format("%4.2f,\t %4.2f,\t %4.2f,\t %4.2f,\t %4.2f,\t %4.2f,\t %4.2f,\t %4.2f\n", snr, pp1, pp2, pp3, diam1, diam2, diam3, sc));
-            writer.close();
-        }
-        catch (FileNotFoundException ex) {}
-
+        // export out_bif, out_end, out_non
         PrintWriter writer_bif = null;
         PrintWriter writer_end = null;
         PrintWriter writer_non = null;

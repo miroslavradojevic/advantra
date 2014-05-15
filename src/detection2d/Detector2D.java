@@ -201,12 +201,11 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
             if (D[i]<min_D) min_D = D[i];
             if (D[i]>max_D) max_D = D[i];
         }
-        IJ.log(""+min_D+" <-> "+max_D);
+//        IJ.log(""+min_D+" <-> "+max_D);
 
 		min_size_bif = Math.round(min_D);
 		max_size_bif = (int) Math.round(min_D*min_D);
 		//IJ.log("BIF "+min_size_bif+" <-> "+max_size_bif);
-
 
 		min_size_end = Math.round(min_D);//(int) Math.round(0.5 * min_D);
         max_size_end = (int) Math.round(min_D * min_D);

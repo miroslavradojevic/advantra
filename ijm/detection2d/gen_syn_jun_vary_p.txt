@@ -1,26 +1,40 @@
 // generate random configurations by varying (p1, p2, p3) configurations
 // three numbres p1,p2,p3 describe the configurations
-// snr,Dmin,#images,s...  are fixed
+// snr,Dmin,#images are expected as an argument, folder is placed in current folder
+// parameters are embedded in its name
 // makes the synthetic data to test how it performs for different scales
 // fixed ratio ranges p=[0.2, 0.6] P1=(0.6 0.2 0.2) P2=(0.2 0.6 0.2) P3=(0.2 0.2 0.6)
 
-P0 = newArray(0.333,0.333,0.333);
-P1 = newArray(0.6,0.2,0.2);
-P2 = newArray(0.2,0.6,0.2);
-P3 = newArray(0.2,0.2,0.6);
+pmin = 0.2;
+pmax = 0.6;
 
+P0 = newArray(0.333,0.333,0.333);
+P1 = newArray(pmax,pmin,pmin);
+P2 = newArray(pmin,pmax,pmin);
+P3 = newArray(pmin,pmin,pmax);
+
+// default values
 snr 	= 3;
 nr_img 	= 1;
 Dmin 	= 3;     // minimum detectable, corresponds to the lowest pi in the configuration
-step 	= 0.06;  // resolution for the triangle
+step 	= 0.1;  // resolution for the triangle
 sc		= 8;
 
-dir_name = getArgument();
-if (dir_name=="") exit ("script needs output folder path");
+generation_arguments = getArgument();
+if (generation_arguments=="") exit ("script needs 3 argument string: 'SNR,DMIN,NRIMG'");
+args = split(generation_arguments, ",");
+if (args.length != 3) exit("script needs 3 argument string: 'SNR,DMIN,NRIMG'");
 
-File.makeDirectory(dir_name); print("created "+dir_name);
+// redefine default values based on the input arguments
+snr = parseFloat(args[0]);
+Dmin = parseFloat(args[1]);
+nr_img = parseFloat(args[2]);
 
-a = sqrt(2) * 0.4;
+// export output directory
+out_dir = "varyp(snr,dmin,nrimg)_"+toString(snr,1)+"_"+toString(Dmin,1)+"_"+toString(nr_img);
+File.makeDirectory(out_dir); print("created export folder "+out_dir);
+
+a = sqrt(2) * (pmax-pmin);
 H = a/(2*sqrt(3));
 W = a/2;
 
@@ -50,7 +64,7 @@ for (x=0; x<=H; x+=step) {
 			" scale="+toString(sc)+
 			" dmin="+toString(Dmin)+
 			" #="+toString(nr_img)+
-			" out="+dir_name);
+			" out="+out_dir);
 		cnt++;
 	}
 }

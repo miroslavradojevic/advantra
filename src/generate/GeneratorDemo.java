@@ -18,15 +18,14 @@ import java.util.Date;
  * User: miroslav
  * Date: 9/6/13
  * Time: 1:50 PM
- * java -cp critpoint_.jar:/home/miroslav/jarlib/ij.jar -run "GeneratorDemo"
  * generates 2D images with synthetic bifurcations using given parameters
- * images and annotations are stored in separate Ci folders where i marks one configuration
+ * outputs are images (0000.tif) and annotations (0000.bif, 0000.end, 0000.non)
  */
 public class GeneratorDemo implements PlugIn {
 
 	float p1, p2, p3, sc, Dmin, SNR;
 	int N;
-    static int nrP1 = 5;
+    static int nrP1 = 5;   // number of points that are stored along one dimension
 	static String outDir=System.getProperty("user.home");
 
 	public void run(String s) {
@@ -39,7 +38,7 @@ public class GeneratorDemo implements PlugIn {
 		gd.addNumericField("scale: ", 8, 1);
 		gd.addNumericField("Dmin:  ", 3, 0);
 		gd.addNumericField("# imgs:", 1, 0);
-        gd.addMessage(""+nrP1+"x"+nrP1+" junctions per img");
+//        gd.addMessage(""+nrP1+"x"+nrP1+" junctions per img");
 		gd.addStringField("out dir:", outDir, 50);
 
 		gd.showDialog();
@@ -66,9 +65,9 @@ public class GeneratorDemo implements PlugIn {
 	private static void synthetize(float snr, float p1, float p2, float p3, float scale, int N, float Dmin)
 	{
 
-		// generate only one category defined with p1,p2,p3 and Dmin -> resulting in Dmax - parameter to set in detection
+		// generate only one category defined with p1,p2,p3 and Dmin -> Dmax can be inferred - essential parameter to set in detection
 		// will correspond to one p-ty distribution p1,p2,p3, generate number of images, each with nrP2 junctions
-		// and export the annotaions for bif- and end- points and non-points
+		// and export the annotations for bif- and end- points and non-points
 
 		float p_min = Math.min(p1, Math.min(p2, p3));
 		float d1 = Dmin*(p1/p_min);
@@ -77,9 +76,10 @@ public class GeneratorDemo implements PlugIn {
 
 		float d_max = Math.max(d1, Math.max(d2, d3));
 
+        // output folder name, values to be later extracted are separated with _
 		outDir  += File.separator+
-						   "syn_jun(Dmax_SNR_s_p1_p2_p3),"+
-						   String.format("%d,%d,%.1f,%.2f,%.2f,%.2f", (int)Math.ceil(d_max), Math.round(snr), scale, p1, p2, p3)+
+						   "synjun(Dmax,SNR,s,p1,p2,p3)_"+
+						   String.format("%d_%d_%.1f_%.2f_%.2f_%.2f", (int)Math.ceil(d_max), Math.round(snr), scale, p1, p2, p3)+
 						   File.separator;
         createDir(outDir);
 

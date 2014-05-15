@@ -1,32 +1,41 @@
+// detects critical points in generated synthetic junctions
+// folder structure & nomenclature has to be consistent
+// assumes that parameters used at particular stage were embedded in the folder name
+// mechanism to extract generation parameters and infer the detection parameters
+
+
 k = 2; // when determining D for detection wrt. Dmax
-L           = 10;
+L = 10;
 
 dir_name = getArgument();
 if (dir_name=="") exit ("script needs input folder path");
 if (!File.exists(dir_name)) exit (dir_name + " does not exist");
 if (!endsWith(dir_name, "/")) dir_name+="/";
 
-folder_prefix = "syn_jun";
+folder_prefix = "synjun"; // expect folders with such prefix in
 
 // loop directories and do the standardized detection take k*Dmax as argument
 
-print("working... \n" + dir_name);
+print("scanning... " + dir_name);
 
 list = getFileList(dir_name);
 
-for (i=0; i<list.length; i++) {
+for (i=0; i<list.length; i++) {  // loop folders with configurations
 
 	if (endsWith(list[i], "/") && startsWith(list[i], folder_prefix)) {
 
-		print(dir_name+list[i]);
+		//print(dir_name+list[i]);
 		sub_list = getFileList(dir_name+list[i]);
         
-        for (j=0; j<sub_list.length; j++) {
-        
+        for (j=0; j<sub_list.length; j++) { // loop files in each folder
+
+            // list[]       contains generation parameters
+            // sub_list[]   contains file names
+
 			if (endsWith(dir_name+list[i]+sub_list[j], ".tif")) {
 
 				// detection parameters
-				components = split(list[i], ",");
+				components = split(list[i], "_");
 				Dmax        = parseFloat(components[1]);
 				Ddet        = k   * Dmax;
 
@@ -37,7 +46,8 @@ for (i=0; i<list.length; i++) {
                       				    " m=1 l="+toString(L)+
                       				    " ncc_high=0.90 ncc_low=0.10 likelihood_high=0.50 likelihood_low=0.10 out=0.40";
 
-                print(dir_name+list[i]+sub_list[j]+" ---> \n"+arg);
+                print(dir_name+list[i]+sub_list[j]+" \n\t\t\t---> "+arg);
+
 				run("Detector2D", arg);
 
 				//close();
