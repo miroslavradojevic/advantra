@@ -19,8 +19,6 @@ import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.io.*;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 
 /**
  * Created by miroslav on 1/6/14.
@@ -30,7 +28,7 @@ import java.util.List;
  */
 
 // hint on zooming: imageplus.show(); imageplus.getWindow().setSize(200, 200); imageplus.getCanvas().fitToWindow();
-public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListener {
+public class CritpointInspector2D implements PlugInFilter, MouseListener, MouseMotionListener {
 
 	String 		image_dir;
 	String		image_name;
@@ -659,24 +657,6 @@ public class Detector2D implements PlugInFilter, MouseListener, MouseMotionListe
 	}
 
 
-//    public void run(ImageProcessor imageProcessor) {
-//        /*
-//        SimpleDetector2D.loadTemplate(inimg_xy.length, inimg_xy[0].length, Masker2D.i2xy, Masker2D.xy2i, Delineator2D.delin2, Delineator2D.lhood2);
-//        int totalSimpleDetectComponents = Masker2D.i2xy.length;
-//        SimpleDetector2D sd_jobs[] = new SimpleDetector2D[CPU_NR];
-//        for (int i=0; i<sd_jobs.length; i++) {
-//            sd_jobs[i] = new SimpleDetector2D(i*totalSimpleDetectComponents/CPU_NR, (i+1)*totalSimpleDetectComponents/CPU_NR);
-//            sd_jobs[i].start();
-//        }
-//        for (int i=0; i<sd_jobs.length; i++) {
-//            try {
-//                sd_jobs[i].join();
-//            } catch (InterruptedException e) {
-//                e.printStackTrace();
-//            }
-//        }
-//        */
-//
 ////        ImageStack is_lhoods = Delineator2D.exportLikelihoods();
 ////        new ImagePlus("LHOODS2", is_lhoods).show();
 //        // done extracting features and detecting

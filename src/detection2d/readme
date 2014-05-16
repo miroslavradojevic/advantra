@@ -1,0 +1,5 @@
+CritpointInspector2D (PlugInFilter) - uses Detector2D and graphic interface, adds the possibility to interact with the detection
+Critpoint2D          (PlugIn)       - uses Detector2D just to do the raw detection without graphic interface
+Detector2D           (Java class)
+FeatureExtractor2D   (Thread)
+PeakExtractor2D      (Thread)

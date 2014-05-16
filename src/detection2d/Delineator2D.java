@@ -35,16 +35,12 @@ public class Delineator2D extends Thread {
 
     private int begN, endN;
 
-    // VARIABLES (mainly used as a table)
-    public static int[][] 	    i2xy;                       // selected locations
-    public static int[][]     	xy2i;                       // need for recursion
-
     // INPUT:
-    public static int[][]       peaks_i;             	    // list of extracted peaks: N x 4 every FG location with 4 extracted peaks in indexed format
+	public static int[][] 	    i2xy;                       // selected locations
+	public static int[][]     	xy2i;                       // need for recursion
+	public static int[][]       peaks_i;             	    // list of extracted peaks: N x 4 every FG location with 4 extracted peaks in indexed format
 	public static int[][]		peaks_w;                    // weight assigned to each peak (for expansion)
-//	public static float[][] 	peaks_lhood;				// likelihoods for each peaks taken from the profile
 	public static float[][]		inimg_xy;				    // input image (necessary for feature extraction)
-//	public static int 			critpoint_type;
 
     // PARAMETERS
     public static float     D;
@@ -57,14 +53,9 @@ public class Delineator2D extends Thread {
 	private static int      dim_half;                       // cross profile half-length
 
     private static float    ncc_high_mean;
-//    private static float    ncc_high_sigma;
     private static float    ncc_low_mean;
-//    private static float    ncc_low_sigma;
-
 	private static float    likelihood_high_mean;
-//	private static float    likelihood_high_sigma;
 	private static float    likelihood_low_mean;
-//	private static float    likelihood_low_sigma;
 
 	private static float    output_sigma;
 
@@ -81,10 +72,6 @@ public class Delineator2D extends Thread {
     // descriptions (calculations on features)
     public static float[][]     ncc_avg2;                   // N(foreground locs.) x 4(max. threads)
 	public static float[][]		lhoods2; 					// N(foreground locs.) x 4(max. threads) (normalized 0-1) likelihoods, read from Peak
-
-    // try use fitsco2[][][] to calculate metric that would separate critical points
-//    public static float[]       OneVsRest;
-
 	// fuzzy system outputs
     public static float[][][]   streamline_score2;          // N(foreground locs.) x 4(max. threads) x 3 (off,none,on)
     public static float[][]   	critpoint_score2;           // N(foreground locs.) x 3(endpoint,nonepoint,bifpoint) given by fuzzy logic
