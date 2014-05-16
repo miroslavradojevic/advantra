@@ -39,8 +39,8 @@ public class PeakExtractor2D extends Thread {
     public static float[][][]	peaks_theta;                // N x 4 x 1    4 selected peaks in abscissa coordinates X
     public static int[][]       peaks_i;             		// N x 4        4 selected peaks in indexed format (rounded locations)
     public static int[][]       peaks_w;                    // N x 4        peak weights
-	public static float[][]     peaks_lhood;            // N x 4        peak probability distribution
-    public static float[][]     circ_stats;					// N x 5    circular statistics
+	public static float[][]     peaks_lhood;            // N x 4        peak probability distribution  (this will be a feature)
+//    public static float[][]     circ_stats;					// N x 5    circular statistics
 	// 0: R_        mean resultant length,
 	//    R_sym     mean resultant length pairs
 	// 1: v         circular standard deviation
@@ -68,7 +68,7 @@ public class PeakExtractor2D extends Thread {
 		peaks_theta  	= new float[i2xy.length][4][1];
 		peaks_w 		= new int[i2xy.length][4];
         peaks_lhood 	= new float[i2xy.length][4];  // else will be filled with NaNs
-        circ_stats      = new float[i2xy.length][5];
+//        circ_stats      = new float[i2xy.length][5];
 
         // initialization legend:
         // -2 is assuming that it is not assigned, empty location (all are initialized that way)
@@ -158,14 +158,14 @@ public class PeakExtractor2D extends Thread {
             theta_ 	= wrap_0_2PI(theta_); // wrap theta [0, 2pi) range
             theta_2 = wrap_0_2PI(theta_2); // wrap theta [0, 2pi) range
 
-            // fill up the values
-            circ_stats[locationIdx][0] = R_;   // mean resultant length
-            circ_stats[locationIdx][1] = (float) Math.sqrt(-2*Math.log(R_)); // circ standard dev.
-            circ_stats[locationIdx][2] = (1-R_2)/(2*R_*R_); // sample circ. dispersion
-            circ_stats[locationIdx][3] = (float) ((R_2*Math.cos(theta_2-2*theta_)-Math.pow(R_,4)) / Math.pow(1-R_, 2)); // kurtosis
-            entropy = 0;
-            for (int i=0; i<prof2[locationIdx].length; i++) entropy += p_theta[i] * Math.log(p_theta[i]);
-            circ_stats[locationIdx][4] = -entropy; // entropy
+//            // fill up the values
+//            circ_stats[locationIdx][0] = R_;   // mean resultant length
+//            circ_stats[locationIdx][1] = (float) Math.sqrt(-2*Math.log(R_)); // circ standard dev.
+//            circ_stats[locationIdx][2] = (1-R_2)/(2*R_*R_); // sample circ. dispersion
+//            circ_stats[locationIdx][3] = (float) ((R_2*Math.cos(theta_2-2*theta_)-Math.pow(R_,4)) / Math.pow(1-R_, 2)); // kurtosis
+//            entropy = 0;
+//            for (int i=0; i<prof2[locationIdx].length; i++) entropy += p_theta[i] * Math.log(p_theta[i]);
+//            circ_stats[locationIdx][4] = -entropy; // entropy
 
 		}
 
@@ -659,44 +659,44 @@ public class PeakExtractor2D extends Thread {
         }
     }
 
-    public static ImagePlus getCircStat(){
-
-        int w = inimg_xy.length;
-        int h = inimg_xy[0].length;
-
-        ImageStack is_out = new ImageStack(w,h);
-
-        for (int i=0; i<5; i++) {
-
-            // loop all the circ stat values with index i
-            float min = Float.POSITIVE_INFINITY;
-            float max = Float.NEGATIVE_INFINITY;
-            for (int ii = 0; ii<circ_stats.length; ii++) {
-                if (circ_stats[ii][i]>max) max = circ_stats[ii][i];
-                if (circ_stats[ii][i]<min) min = circ_stats[ii][i];
-            }
-
-            float[][] t = new float[w][h];
-            for (int xx=0; xx<w; xx++) {
-                for (int yy=0; yy<h; yy++) {
-                    int idx = xy2i[xx][yy];
-                    if (idx!=-1) {
-                        t[xx][yy] = circ_stats[idx][i];
-                    }
-                    else {
-                        t[xx][yy] = min;
-                    }
-                }
-            }
-
-            // add to the stack
-            is_out.addSlice("circ_stat_"+IJ.d2s(i,0), new FloatProcessor(t));
-
-        }
-
-        return new ImagePlus("circ_statistics", is_out);
-
-    }
+//    public static ImagePlus getCircStat(){
+//
+//        int w = inimg_xy.length;
+//        int h = inimg_xy[0].length;
+//
+//        ImageStack is_out = new ImageStack(w,h);
+//
+//        for (int i=0; i<5; i++) {
+//
+//            // loop all the circ stat values with index i
+//            float min = Float.POSITIVE_INFINITY;
+//            float max = Float.NEGATIVE_INFINITY;
+//            for (int ii = 0; ii<circ_stats.length; ii++) {
+//                if (circ_stats[ii][i]>max) max = circ_stats[ii][i];
+//                if (circ_stats[ii][i]<min) min = circ_stats[ii][i];
+//            }
+//
+//            float[][] t = new float[w][h];
+//            for (int xx=0; xx<w; xx++) {
+//                for (int yy=0; yy<h; yy++) {
+//                    int idx = xy2i[xx][yy];
+//                    if (idx!=-1) {
+//                        t[xx][yy] = circ_stats[idx][i];
+//                    }
+//                    else {
+//                        t[xx][yy] = min;
+//                    }
+//                }
+//            }
+//
+//            // add to the stack
+//            is_out.addSlice("circ_stat_"+IJ.d2s(i,0), new FloatProcessor(t));
+//
+//        }
+//
+//        return new ImagePlus("circ_statistics", is_out);
+//
+//    }
 
     private static int runOneMax(int curr_pos, short[] _input_profile, Sphere2D _input_profile_sphere) {
         int 	    new_pos     = curr_pos;

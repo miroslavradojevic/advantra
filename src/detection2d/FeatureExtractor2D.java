@@ -1,16 +1,13 @@
 package detection2d;
 
-import aux.Geometry;
 import aux.Stat;
 import aux.Interpolator;
 import fit.Fitter1D;
 import ij.IJ;
-import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.*;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
-import ij.process.ImageProcessor;
 
 import java.awt.*;
 import java.io.*;
@@ -24,6 +21,7 @@ import java.util.Arrays;
  * Will associate the peaks of the profiles, parallel threaded implementation
  * expands each branch recursively, M steps, outputs the indexes of the skeleton locations
  * has to satisfy geometry (expansion angle and expansion length) (delin2)
+ * refines the locations for cross profile extraction
  * TASK 2:
  * Calculates and exports the fit scores (NCC) features at every location after frame delineation (feat2)
  * feat2:
@@ -31,7 +29,7 @@ import java.util.Arrays;
  * ratio2:
  *      scores for each branch 4*1 (M*L elements sum up to one number telling the ratio of those above the threshold)
  */
-public class Delineator2D extends Thread {
+public class FeatureExtractor2D extends Thread {
 
     private int begN, endN;
 
@@ -51,6 +49,7 @@ public class Delineator2D extends Thread {
     private static float    samplingStepLongitudinal;       // sampling along the streamline of patches
     private static int      dim;                            // cross profile length
 	private static int      dim_half;                       // cross profile half-length
+    private static String   ncc_estimator;                  // select ncc values estimator
 
     private static float    ncc_high_mean;
     private static float    ncc_low_mean;
@@ -64,25 +63,23 @@ public class Delineator2D extends Thread {
     public static int[][][]     delin2;                     // N(foreground locs.) x 4(max. threads) x (1..M) (follow-up locs.) contains index for each location
     public static float[][][][] delin_refined_locs2;        // N(foreground locs.) x 4(max. threads) x 2 x ((1..M) x L) (2 dimensional)
 	public static float[][][][] delin_refined_vecs2;        // N(foreground locs.) x 4(max. threads) x 2 x ((1..M) x L) (2 dimensional)
-	public static float[][][]   delin_refined_dirs2;        // N(foreground locs.) x 4(max. threads) x (2x2) [x0, y0, x1, y1]  todo: expell this one
-    public static float[][][]   offset2;				    // N(foreground locs.) x 4(max. threads) x (L) (offsets from the first patch only) todo: expell this one
     // features
     public static float[][][]   fitsco2;					// N(foreground locs.) x 4(max. threads) x ((1..M) x L) (fit scores ncc for refined locs)
     public static float[][][]   stdev2;						// N(foreground locs.) x 4(max. threads) x ((1..M) x L) (variances of real values)
     // descriptions (calculations on features)
-    public static float[][]     ncc_avg2;                   // N(foreground locs.) x 4(max. threads)
+    public static float[][]     ncc2;                       // N(foreground locs.) x 4(max. threads) (ncc moment along the stream)
 	public static float[][]		lhoods2; 					// N(foreground locs.) x 4(max. threads) (normalized 0-1) likelihoods, read from Peak
 	// fuzzy system outputs
     public static float[][][]   streamline_score2;          // N(foreground locs.) x 4(max. threads) x 3 (off,none,on)
     public static float[][]   	critpoint_score2;           // N(foreground locs.) x 3(endpoint,nonepoint,bifpoint) given by fuzzy logic
 
-    public Delineator2D(int n0, int n1)
+    public FeatureExtractor2D(int n0, int n1)
     {
         this.begN = n0;
         this.endN = n1;
     }
 
-    public static void loadTemplate(       	//int _critpoint_type,
+    public static void loadTemplate(
 										   	int[][] _i2xy,
 											int[][] _xy2i,
 											int[][] _peaks_i,
@@ -92,35 +89,28 @@ public class Delineator2D extends Thread {
 											int     _M,
                                     		float   _minCos,
                                     		float   _D,
+                                            String  _ncc_estimator,
                                     		float   _ncc_high_mean,
-                                    		//float   _ncc_high_sigma,
                                     		float   _ncc_low_mean,
-                                    		//float   _ncc_low_sigma,
 											float 	_likelihood_high_mean,
-											//float   _likelihood_high_sigma,
 											float 	_likelihood_low_mean,
-											//float	_likelihood_low_sigma,
 											float 	_output_sigma,
                                     		int     _L,                         // will define sampling longitudinal
-                                    		float   _sampling_crosswise)
+                                    		float   _sampling_crosswise
+    )
     {
-//		critpoint_type	= _critpoint_type;
         M               = _M;
         minCos          = _minCos;
         D               = _D;
         L               = _L;
 		samplingStep    = _sampling_crosswise;
 
+        ncc_estimator = _ncc_estimator;
+
         ncc_high_mean   = _ncc_high_mean;
-//        ncc_high_sigma  = _ncc_high_sigma;
         ncc_low_mean    = _ncc_low_mean;
-//        ncc_low_sigma   = _ncc_low_sigma;
-
 		likelihood_high_mean   = _likelihood_high_mean;
-//        likelihood_high_sigma  = _likelihood_high_sigma;
         likelihood_low_mean    = _likelihood_low_mean;
-//        likelihood_low_sigma   = _likelihood_low_sigma;
-
 		output_sigma = _output_sigma;
 
         dim_half = (int) Math.ceil( D / (samplingStep*2) );
@@ -142,18 +132,13 @@ public class Delineator2D extends Thread {
                 for (int k=0; k<delin2[i][j].length; k++)
                     delin2[i][j][k] = -2;
 
+        lhoods2 			= _peaks_lhood; // these features have been extracted before
+
 		delin_refined_locs2 = new float[i2xy.length][4][2][];       // (x,y)
-        delin_refined_dirs2 = new float[i2xy.length][4][];          // (x,y)
 		delin_refined_vecs2 = new float[i2xy.length][4][2][];       // (x,y)
-        offset2             = new float[i2xy.length][4][];          // offset from the patch center
         fitsco2   			= new float[i2xy.length][4][];          // fit score
         stdev2   			= new float[i2xy.length][4][];          // variance
-
-        ncc_avg2  			= new float[i2xy.length][];          	// average of the fit scores along streamline
-		lhoods2 			= _peaks_lhood;
-
-//		OneVsRest			= new float[i2xy.length];
-
+        ncc2  			    = new float[i2xy.length][];          	// average of the fit scores along streamline
 		streamline_score2  	= new float[i2xy.length][][];     		// branch score 	fg. location x 2 (off, on) x 4 (direcitons)
         critpoint_score2    = new float[i2xy.length][];             // critpoint score  fg. location x 2 (off, on)
 
@@ -176,50 +161,50 @@ public class Delineator2D extends Thread {
 											 output_sigma  // std output membership functions - defines separation margin
 			);
 
-			if (ncc_avg2[locationIdx]!=null) {
+			if (ncc2[locationIdx]!=null) {
 
 				// check how many inputs there are
 				ArrayList<Integer> b_sel = new ArrayList<Integer>();
 				b_sel.clear();
-				for (int b=0; b<ncc_avg2[locationIdx].length; b++)
-					if (!Float.isNaN(ncc_avg2[locationIdx][b])) b_sel.add(b); // add the index of the branch found
+				for (int b=0; b<ncc2[locationIdx].length; b++)
+					if (!Float.isNaN(ncc2[locationIdx][b])) b_sel.add(b); // add the index of the branch found
 
 				// switch according to the length of valid branches found
-				float ncc_1, likelihood_1, ncc_2, likelihood_2, ncc_3, likelihood_3, ncc_4, likelihood_4;
+				float ncc_1, likelihood_1, ncc_2, likelihood_2, ncc_3, likelihood_3, ncc_4, likelihood_4; // aux variables
 				float[] tmp = new float[3];
 				boolean show_agg = true;
 
 
 				switch (b_sel.size()) {
 					case 1:
-						ncc_1 = ncc_avg2[locationIdx][b_sel.get(0)];
+						ncc_1 = ncc2[locationIdx][b_sel.get(0)];
 						likelihood_1 = lhoods2[locationIdx][b_sel.get(0)];
 						is_out = fls.critpointScore(ncc_1, likelihood_1, tmp, show_agg);
 						break;
 					case 2:
-						ncc_1 = ncc_avg2[locationIdx][b_sel.get(0)];
+						ncc_1 = ncc2[locationIdx][b_sel.get(0)];
 						likelihood_1 = lhoods2[locationIdx][b_sel.get(0)];
-						ncc_2 = ncc_avg2[locationIdx][b_sel.get(1)];
+						ncc_2 = ncc2[locationIdx][b_sel.get(1)];
 						likelihood_2 = lhoods2[locationIdx][b_sel.get(1)];
 						is_out = fls.critpointScore(ncc_1, likelihood_1, ncc_2, likelihood_2, tmp, show_agg);
 						break;
 					case 3:
-						ncc_1 = ncc_avg2[locationIdx][b_sel.get(0)];
+						ncc_1 = ncc2[locationIdx][b_sel.get(0)];
 						likelihood_1 = lhoods2[locationIdx][b_sel.get(0)];
-						ncc_2 = ncc_avg2[locationIdx][b_sel.get(1)];
+						ncc_2 = ncc2[locationIdx][b_sel.get(1)];
 						likelihood_2 = lhoods2[locationIdx][b_sel.get(1)];
-						ncc_3 = ncc_avg2[locationIdx][b_sel.get(2)];
+						ncc_3 = ncc2[locationIdx][b_sel.get(2)];
 						likelihood_3 = lhoods2[locationIdx][b_sel.get(2)];
 						is_out = fls.critpointScore(ncc_1, likelihood_1, ncc_2, likelihood_2, ncc_3, likelihood_3, tmp, show_agg);
 						break;
 					case 4:
-						ncc_1 = ncc_avg2[locationIdx][b_sel.get(0)];
+						ncc_1 = ncc2[locationIdx][b_sel.get(0)];
 						likelihood_1 = lhoods2[locationIdx][b_sel.get(0)];
-						ncc_2 = ncc_avg2[locationIdx][b_sel.get(1)];
+						ncc_2 = ncc2[locationIdx][b_sel.get(1)];
 						likelihood_2 = lhoods2[locationIdx][b_sel.get(1)];
-						ncc_3 = ncc_avg2[locationIdx][b_sel.get(2)];
+						ncc_3 = ncc2[locationIdx][b_sel.get(2)];
 						likelihood_3 = lhoods2[locationIdx][b_sel.get(2)];
-						ncc_4 = ncc_avg2[locationIdx][b_sel.get(3)];
+						ncc_4 = ncc2[locationIdx][b_sel.get(3)];
 						likelihood_4 = lhoods2[locationIdx][b_sel.get(3)];
 						is_out = fls.critpointScore(ncc_1, likelihood_1, ncc_2, likelihood_2, ncc_3, likelihood_3, ncc_4, likelihood_4, tmp, show_agg);
 						break;
@@ -248,8 +233,7 @@ public class Delineator2D extends Thread {
 
     public void run()
     {
-
-        // aux variables used allocation
+        // processor modules for this run - each run should have it's own initialized with the same parameteres
         Fitter1D fitter  			= new Fitter1D(dim, false); // dim = profile width with current samplingStep, verbose = false
 //			fitter.showTemplates();
         Fuzzy2D fls = new Fuzzy2D(
@@ -261,27 +245,13 @@ public class Delineator2D extends Thread {
                 likelihood_low_mean, //likelihood_low_sigma,  // low
                 output_sigma  // std output membership functions - defines separation margin
         );
-		float[] cross_profile = new float[dim];   // aux variable
-		float[] fit_idx_score;// = new float[2];     // aux variable
-
+        // aux variables
+		float[] cross_profile = new float[dim];
+		float[] fit_idx_score;
         float[] streamline_off_none_on = new float[3];
         float[] critpoint_endpoint_nonepoint_bifpoint = new float[3];
 
         for (int locationIdx = begN; locationIdx < endN; locationIdx++) {
-
-			/*
-				processing classes for this run
-				they will interfere with outputs
-				need to be allocated independently
-				for this run interval
-			*/
-
-            /*
-            *
-            *
-            *
-            *
-             */
 
             /* delin2[locationIdx] calculation */
             for (int pp = 0; pp<peaks_i[locationIdx].length; pp++) {  // loop 4 allocated branches (1st generation)
@@ -366,21 +336,17 @@ public class Delineator2D extends Thread {
             -2  -2 -2     |
              */
 
-            /* delin_refined_locs2[locationIdx], offset2[locationIdx], delin_refined_dirs2[locationIdx] */
+            /* delin_refined_locs2[locationIdx] */
             for (int b = 0; b<delin2[locationIdx].length; b++) { // loop 4 branches
 
                 if (delin2[locationIdx][b][0]==-1) {
                     // whole streamline is missing: the first one was -1, recursion was stopped
                     delin_refined_locs2[locationIdx] = null;
-					delin_refined_dirs2[locationIdx] = null;
-                    offset2[locationIdx] = null;
                     break; // stop looping branches further
                 }
                 else if (delin2[locationIdx][b][0]==-2) {
                     // no streamline here
                     delin_refined_locs2[locationIdx][b] = null;
-                    delin_refined_dirs2[locationIdx][b] = null;
-                    offset2[locationIdx][b] = null;
                 }
                 else if (delin2[locationIdx][b][0]>=0) {
                     // there is at least one patch in the streamline
@@ -394,8 +360,6 @@ public class Delineator2D extends Thread {
                     // allocate
                     delin_refined_locs2[locationIdx][b][0] = new float[count_patches*L]; // x coordinates allocate
                     delin_refined_locs2[locationIdx][b][1] = new float[count_patches*L]; // y coordinates allocate
-                    delin_refined_dirs2[locationIdx][b]    = new float[4];               // x0,y0,x1,y1
-                    offset2[locationIdx][b]                = new float[L];               // offsets along the patch
 
                     // fill  up the allocated arrays for each patch
                     for (int m = 0; m<M; m++) {      				// loop patches outwards, from the beginning
@@ -420,22 +384,10 @@ public class Delineator2D extends Thread {
                             }
 
                             // get refined locations sampled from the local patch (aligned with the patch)
-                            if (m==0) { // first patch from the center
-                                localPatchRefinedLocs(
-                                        prev_x, prev_y, curr_x, curr_y,
-                                        m * L,                                    // start from
-                                        delin_refined_locs2[locationIdx][b],
-                                        offset2[locationIdx][b],
-                                        delin_refined_dirs2[locationIdx][b]);
-                            }
-                            else {
-                                localPatchRefinedLocs(
-                                        prev_x, prev_y, curr_x, curr_y,
-                                        m * L,
-                                        delin_refined_locs2[locationIdx][b],
-                                        null,                               // no offsets here
-                                        null);                              // no refined dirs
-                            }
+                            localPatchRefinedLocs(
+                                    prev_x, prev_y, curr_x, curr_y,
+                                    m * L,        // start from
+                                    delin_refined_locs2[locationIdx][b]);
 
                         }
                         else break; // because the rest are filled up with -1 or -2 anyway
@@ -507,14 +459,8 @@ public class Delineator2D extends Thread {
             }
 
             /*
-            *
-            *
-            *
-            *
-            *
-            *
+            *  calculate fitsco2[locationIdx]  and stdev2[locationIdx] using cross profiles at refined locations
             */
-
 
 			if (delin_refined_locs2[locationIdx]!=null) {
 
@@ -526,7 +472,7 @@ public class Delineator2D extends Thread {
 						fitsco2[locationIdx][b] = new float[to_allocate];
 						stdev2[locationIdx][b] = new float[to_allocate];
 
-						// calculate 1-ncc fit scores at every cross-section defined with the point and the direction
+						// calculate ncc fit scores at every cross-section defined with the point and the direction
 						for (int l=0; l<to_allocate; l++) {  // loop points
 
 							int cnt = 0;
@@ -537,7 +483,7 @@ public class Delineator2D extends Thread {
 								cross_profile[cnt] = Interpolator.interpolateAt(at_x, at_y, inimg_xy);
 								cnt++;
 							}
-							// profile is formed
+							// refined cross-profile is formed
 
 							// extract std of the cross-profile before normalizing it
 							stdev2[locationIdx][b][l] = Stat.std(cross_profile);
@@ -563,95 +509,46 @@ public class Delineator2D extends Thread {
 
 
             /*
-            *
-            *
-            *
-            *
-            *
-            *
-            *
-            *
+            *  calculate ncc2[locationIdx] using fitsco2[locationIdx] as an estimate of all the ncc fit scores extracted
              */
 
             if (fitsco2[locationIdx]!=null) {
-                ncc_avg2[locationIdx] = new float[4];
+                ncc2[locationIdx] = new float[4];
                 for (int b = 0; b<fitsco2[locationIdx].length; b++) {
                     if (fitsco2[locationIdx][b]!=null) {
-						//Stat.median(fitsco2[locationIdx][b]) Stat.average(stdev2[locationIdx][b])  Stat.median(stdev2[locationIdx][b])
-//                        ncc_avg2[locationIdx][b] = Stat.average(fitsco2[locationIdx][b]);
-//                        ncc_avg2[locationIdx][b] = Stat.median(fitsco2[locationIdx][b]);
-                        ncc_avg2[locationIdx][b] = Stat.quantile(fitsco2[locationIdx][b], 6, 20);
+                        // choose estimator of ncc scores along the stream (mean, median, percentile(quantile))
+                        if (ncc_estimator.equals("AVERAGE")) {
+                            ncc2[locationIdx][b] = Stat.average(fitsco2[locationIdx][b]);
+                        }
+                        else if (ncc_estimator.equals("MEDIAN")) {
+                            ncc2[locationIdx][b] = Stat.median(fitsco2[locationIdx][b]);
+                        }
+                        else if (ncc_estimator.equals("QUANTILE")) {
+                            ncc2[locationIdx][b] = Stat.quantile(fitsco2[locationIdx][b], 6, 20); // hardcoded 6/20
+                        }
+                        else {
+                            ncc2[locationIdx][b] = Float.NaN;
+                        }
 
                     }
                     else {
-                        ncc_avg2[locationIdx][b] = Float.NaN;
+                        ncc2[locationIdx][b] = Float.NaN;
                     }
                 }
             }
             else {
-                ncc_avg2[locationIdx]=null;
+                ncc2[locationIdx]=null;
             }
 
-
-			/*
-			*
-			* try this
-			*
-			 */
-
-//			if (ncc_avg2[locationIdx]!=null) {
-//
-//				float max_one_vs_rest = Float.NEGATIVE_INFINITY;
-//
-//				for (int test_idx = 0; test_idx<4; test_idx++) { // try test_idx versus the rest
-//
-//					if (!Float.isNaN(ncc_avg2[locationIdx][test_idx])) {
-//
-//						// curr streamline average
-//						float  curr_avg = ncc_avg2[locationIdx][test_idx];
-//
-//						// average of the rest
-//						float rest_avg = 0;
-//						int rest_cnt = 0;
-//						for (int rest_idx = 0; rest_idx<4; rest_idx++) {
-//							if (!Float.isNaN(ncc_avg2[locationIdx][rest_idx]) && rest_idx!=test_idx){
-//								rest_cnt++;
-//								rest_avg+=ncc_avg2[locationIdx][rest_idx];
-//							}
-//						}
-//						if (rest_cnt>0)
-//							rest_avg = rest_avg/rest_cnt;
-//						else
-//							rest_avg = 0;
-//
-//						//
-//						if (curr_avg-rest_avg>max_one_vs_rest)
-//							max_one_vs_rest = curr_avg-rest_avg;
-//
-//					}
-//
-//				}
-//
-//                OneVsRest[locationIdx] = max_one_vs_rest;
-//
-//			}
-//			else {
-//				OneVsRest[locationIdx] = Float.NaN;
-//			}
-
             /*
-            *
-            *
-            *
-            *
-            *
+            *  calculate streamline_score[locationIdx] -> {OFF, NONE, ON} response of each individual branch
             */
 
-            if (ncc_avg2[locationIdx]!=null) {
-                streamline_score2[locationIdx] = new float[3][4];
-                for (int b=0; b<ncc_avg2[locationIdx].length; b++) {
-                    if (!Float.isNaN(ncc_avg2[locationIdx][b])) {
-                        fls.branchStrength(ncc_avg2[locationIdx][b], lhoods2[locationIdx][b], streamline_off_none_on);
+            if (ncc2[locationIdx]!=null) {
+                streamline_score2[locationIdx] = new float[3][4]; // {OFF, NONE, ON} X NR. BRANCHES
+                for (int b=0; b<ncc2[locationIdx].length; b++) {
+                    if (!Float.isNaN(ncc2[locationIdx][b])) {
+                        fls.branchStrength(ncc2[locationIdx][b], lhoods2[locationIdx][b], streamline_off_none_on);
                         streamline_score2[locationIdx][0][b] = streamline_off_none_on[0];
                         streamline_score2[locationIdx][1][b] = streamline_off_none_on[1];
                         streamline_score2[locationIdx][2][b] = streamline_off_none_on[2];
@@ -667,22 +564,25 @@ public class Delineator2D extends Thread {
                 streamline_score2[locationIdx] = null;
             }
 
+            /*
+            *  calculate critpoints_score[locationIdx] -> {ENDPOINT, NONEPOINT, BIFPOINT}
+            */
 
-            if (ncc_avg2[locationIdx]!=null) {
+            if (ncc2[locationIdx]!=null) {
 
 				critpoint_score2[locationIdx] =new float[3];
 
                 // check how many inputs there are
                 ArrayList<Integer> b_sel = new ArrayList<Integer>();
                 b_sel.clear();
-                for (int b=0; b<ncc_avg2[locationIdx].length; b++)
-                    if (!Float.isNaN(ncc_avg2[locationIdx][b])) b_sel.add(b); // add the index of the branch found
+                for (int b=0; b<ncc2[locationIdx].length; b++)
+                    if (!Float.isNaN(ncc2[locationIdx][b])) b_sel.add(b); // add the index of the branch found
 
 				// switch according to the length of valid branches found
                 float ncc_1, likelihood_1, ncc_2, likelihood_2, ncc_3, likelihood_3, ncc_4, likelihood_4;
                 switch (b_sel.size()) {
                     case 1:
-                        ncc_1 = ncc_avg2[locationIdx][b_sel.get(0)];
+                        ncc_1 = ncc2[locationIdx][b_sel.get(0)];
                         likelihood_1 = lhoods2[locationIdx][b_sel.get(0)];
 						fls.critpointScore(ncc_1, likelihood_1, critpoint_endpoint_nonepoint_bifpoint, false);
 						critpoint_score2[locationIdx][0] = critpoint_endpoint_nonepoint_bifpoint[0];
@@ -690,9 +590,9 @@ public class Delineator2D extends Thread {
 						critpoint_score2[locationIdx][2] = critpoint_endpoint_nonepoint_bifpoint[2];
                         break;
                     case 2:
-                        ncc_1 = ncc_avg2[locationIdx][b_sel.get(0)];
+                        ncc_1 = ncc2[locationIdx][b_sel.get(0)];
                         likelihood_1 = lhoods2[locationIdx][b_sel.get(0)];
-                        ncc_2 = ncc_avg2[locationIdx][b_sel.get(1)];
+                        ncc_2 = ncc2[locationIdx][b_sel.get(1)];
                         likelihood_2 = lhoods2[locationIdx][b_sel.get(1)];
 
 						fls.critpointScore(ncc_1, likelihood_1, ncc_2, likelihood_2, critpoint_endpoint_nonepoint_bifpoint, false);
@@ -701,11 +601,11 @@ public class Delineator2D extends Thread {
 						critpoint_score2[locationIdx][2] = critpoint_endpoint_nonepoint_bifpoint[2];
                         break;
                     case 3:
-                        ncc_1 = ncc_avg2[locationIdx][b_sel.get(0)];
+                        ncc_1 = ncc2[locationIdx][b_sel.get(0)];
                         likelihood_1 = lhoods2[locationIdx][b_sel.get(0)];
-                        ncc_2 = ncc_avg2[locationIdx][b_sel.get(1)];
+                        ncc_2 = ncc2[locationIdx][b_sel.get(1)];
                         likelihood_2 = lhoods2[locationIdx][b_sel.get(1)];
-                        ncc_3 = ncc_avg2[locationIdx][b_sel.get(2)];
+                        ncc_3 = ncc2[locationIdx][b_sel.get(2)];
                         likelihood_3 = lhoods2[locationIdx][b_sel.get(2)];
 
 						fls.critpointScore(ncc_1, likelihood_1, ncc_2, likelihood_2, ncc_3, likelihood_3, critpoint_endpoint_nonepoint_bifpoint, false);
@@ -714,13 +614,13 @@ public class Delineator2D extends Thread {
 						critpoint_score2[locationIdx][2] = critpoint_endpoint_nonepoint_bifpoint[2];
                         break;
                     case 4:
-                        ncc_1 = ncc_avg2[locationIdx][b_sel.get(0)];
+                        ncc_1 = ncc2[locationIdx][b_sel.get(0)];
                         likelihood_1 = lhoods2[locationIdx][b_sel.get(0)];
-                        ncc_2 = ncc_avg2[locationIdx][b_sel.get(1)];
+                        ncc_2 = ncc2[locationIdx][b_sel.get(1)];
                         likelihood_2 = lhoods2[locationIdx][b_sel.get(1)];
-                        ncc_3 = ncc_avg2[locationIdx][b_sel.get(2)];
+                        ncc_3 = ncc2[locationIdx][b_sel.get(2)];
                         likelihood_3 = lhoods2[locationIdx][b_sel.get(2)];
-                        ncc_4 = ncc_avg2[locationIdx][b_sel.get(3)];
+                        ncc_4 = ncc2[locationIdx][b_sel.get(3)];
                         likelihood_4 = lhoods2[locationIdx][b_sel.get(3)];
 
 						fls.critpointScore(ncc_1, likelihood_1, ncc_2, likelihood_2, ncc_3, likelihood_3, ncc_4, likelihood_4, critpoint_endpoint_nonepoint_bifpoint, false);
@@ -742,15 +642,6 @@ public class Delineator2D extends Thread {
 
 		}
 
-    }
-
-    private static void extract_cemd(float f1, float f2, float f3, float f4, float[] cemd_end_bdy_bif_crs) {
-
-        // store 4 distances
-        cemd_end_bdy_bif_crs[0] = Stat.cemd(f1, f2, f3, f4, 1f, 0, 0, 0);
-        cemd_end_bdy_bif_crs[1] = Math.min(Stat.cemd(f1, f2, f3, f4, 0.5f, 0.5f, 0, 0), Stat.cemd(f1, f2, f3, f4, 0.5f, 0, 0.5f, 0));
-        cemd_end_bdy_bif_crs[2] = Stat.cemd(f1, f2, f3, f4, 1f/3, 1f/3, 1f/3, 0);
-        cemd_end_bdy_bif_crs[3] = Stat.cemd(f1, f2, f3, f4, 1f/4, 1f/4, 1f/4, 1f/4);
     }
 
 	public static void print(int atX, int atY)
@@ -842,11 +733,11 @@ public class Delineator2D extends Thread {
             }
 
             printout += "\nNCC AVERAGE  \t  LIKELIHOOD  \t  OFF  \t  ON \n";
-            if (ncc_avg2[atLoc]!=null) {
-                for (int b=0; b<ncc_avg2[atLoc].length; b++) {
+            if (ncc2[atLoc]!=null) {
+                for (int b=0; b<ncc2[atLoc].length; b++) {
                     printout += (b+1) +"\t->\t"; //+ IJ.d2s(ratio2[atLoc][ii], 2) + "\n"
-                    if (!Float.isNaN(ncc_avg2[atLoc][b])) {
-						printout += IJ.d2s(ncc_avg2[atLoc][b], 2)+"  \t  "+IJ.d2s(lhoods2[atLoc][b], 2)+"  \t \t  OFF"
+                    if (!Float.isNaN(ncc2[atLoc][b])) {
+						printout += IJ.d2s(ncc2[atLoc][b], 2)+"  \t  "+IJ.d2s(lhoods2[atLoc][b], 2)+"  \t \t  OFF"
 											+IJ.d2s(streamline_score2[atLoc][0][b], 2)+"  \t  ON"+IJ.d2s(streamline_score2[atLoc][2][b], 2)+"\n";
                     }
                     else {
@@ -1268,7 +1159,7 @@ public class Delineator2D extends Thread {
                         else xaxis[cnt] = xaxis[cnt - 1] + 1;
 
                         yaxis1[cnt]     = fitsco2[loc_idx][b][l];   // features
-                        yaxis2[cnt]     = ncc_avg2[loc_idx][b];     // mean fitsco2
+                        yaxis2[cnt]     = ncc2[loc_idx][b];     // mean fitsco2
 //                        yaxisON[cnt]    = mu_ON;
 //                        yaxisOFF[cnt]   = mu_OFF;
                         cnt++;
@@ -1645,9 +1536,7 @@ public class Delineator2D extends Thread {
      */
     private static void localPatchRefinedLocs(float x1, float y1, float x2, float y2,
                                           int init_index,
-                                          float[][] refined_centerline_locs_xy,
-                                          float[] refined_offsets,               // optional
-                                          float[] refined_centerline_dir)        // optional
+                                          float[][] refined_centerline_locs_xy)
     {
         /*
             standard way to loop through a patch defined with 2 points
@@ -1707,59 +1596,7 @@ public class Delineator2D extends Thread {
             refined_centerline_locs_xy[0][init_index + ii] = refined_x;
             refined_centerline_locs_xy[1][init_index + ii] = refined_y;
 
-            if (refined_offsets!=null) refined_offsets[0 + ii] = offset_min;
-
         }
-
-        /*
-        calculate the direction based on fitting a line through calculated refined_centerline_locs_xy
-         */
-		if(refined_centerline_dir!=null) {
-
-			float l1x, l1y, l2x, l2y, px, py;
-			float min_ssd = Float.POSITIVE_INFINITY;
-			refined_centerline_dir[0] = Float.NaN;
-			refined_centerline_dir[1] = Float.NaN;
-			refined_centerline_dir[2] = Float.NaN;
-			refined_centerline_dir[3] = Float.NaN;
-
-			for (int jj=-dim_half; jj<=dim_half; jj++) { // loop first cross-section points
-				for (int kk=-dim_half; kk<=dim_half; kk++) { // loop last cross-section points
-
-					// ii=0
-					l1x = x_root + 0 * samplingStepLongitudinal * vx + jj * samplingStep * vy;
-					l1y = y_root + 0 * samplingStepLongitudinal * wx + jj * samplingStep * wy;
-					// ii=L-1
-					l2x = x_root + (L-1) * samplingStepLongitudinal * vx + kk * samplingStep * vy;
-					l2y = y_root + (L-1) * samplingStepLongitudinal * wx + kk * samplingStep * wy;
-
-					// calculate m.sq.distance wrt to the rest
-					float curr_ssd = 0;
-
-					for (int ii=0; ii<L; ii++) {
-
-						px = refined_centerline_locs_xy[0][init_index + ii]; // use the ones calculated in previous loop
-						py = refined_centerline_locs_xy[1][init_index + ii];
-
-						float dist = Geometry.point_to_line(px, py, l1x, l1y, l2x, l2y);
-						curr_ssd += dist * dist;
-
-					}
-
-					if (curr_ssd<min_ssd) {
-						min_ssd = curr_ssd;
-						refined_centerline_dir[0] = l1x;
-						refined_centerline_dir[1] = l1y;
-						refined_centerline_dir[2] = l2x;
-						refined_centerline_dir[3] = l2y;
-					}
-
-				}
-			}
-
-		}
-
-
 
     }
 

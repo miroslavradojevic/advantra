@@ -224,4 +224,13 @@ public class Stat {
 
     }
 
+    private static void extract_cemd(float f1, float f2, float f3, float f4, float[] cemd_end_bdy_bif_crs) {
+
+        // store 4 distances
+        cemd_end_bdy_bif_crs[0] = Stat.cemd(f1, f2, f3, f4, 1f, 0, 0, 0);
+        cemd_end_bdy_bif_crs[1] = Math.min(Stat.cemd(f1, f2, f3, f4, 0.5f, 0.5f, 0, 0), Stat.cemd(f1, f2, f3, f4, 0.5f, 0, 0.5f, 0));
+        cemd_end_bdy_bif_crs[2] = Stat.cemd(f1, f2, f3, f4, 1f/3, 1f/3, 1f/3, 0);
+        cemd_end_bdy_bif_crs[3] = Stat.cemd(f1, f2, f3, f4, 1f/4, 1f/4, 1f/4, 1f/4);
+    }
+
 }

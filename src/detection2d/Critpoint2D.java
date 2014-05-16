@@ -8,9 +8,9 @@ import ij.ImageStack;
 import ij.Prefs;
 import ij.gui.*;
 import ij.io.FileSaver;
-import ij.plugin.filter.PlugInFilter;
+import ij.io.OpenDialog;
+import ij.plugin.PlugIn;
 import ij.process.ByteProcessor;
-import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 
 import java.awt.*;
@@ -22,14 +22,13 @@ import java.util.ArrayList;
 
 /**
  * Created by miroslav on 1/6/14.
- * example terminal call:
- * java -Xmx4096m -jar ~/jarlib/ij.jar -ijpath ~/ImageJ/plugins/  ~/fuzzy_tests/n1_blue.tif -run "Detector2D"
  *
  */
 
 // hint on zooming: imageplus.show(); imageplus.getWindow().setSize(200, 200); imageplus.getCanvas().fitToWindow();
-public class CritpointInspector2D implements PlugInFilter, MouseListener, MouseMotionListener {
+public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
 
+    String      image_path;
 	String 		image_dir;
 	String		image_name;
 
@@ -38,29 +37,23 @@ public class CritpointInspector2D implements PlugInFilter, MouseListener, MouseM
     /*
         parameters
      */
-	//
 	static boolean show_bifpoints;
 	static boolean show_endpoints;
-	// model parameters
+	// parameters
     float       s;
     String      Dlist;
-    float       minCos = -.5f;   // hardcoded
+    static float[]  	D;
     int         M;
 	int         L;
-
-//    float       masker_radius;
-//    float       masker_percentile;
-
-	float       sampling_crosswise = .3f; // hardcoded
-	//
 	float       ncc_high_mean;
     float       ncc_low_mean;
 	float 		likelihood_high_mean;
 	float 		likelihood_low_mean;
 	float		output_sigma;   // Fuzzy2D that will be used assumes out ranges from 0 to 1
 
-	//
-	static float[]  	D;
+    //
+    float       minCos = -.5f;
+    float       sampling_crosswise = .3f;
 	String 		image_gndtth_endpoints;		// ground truth swc file with critical points to evaluate, same name as input image
 	String 		image_gndtth_bifurcations;	// ground truth swc file with critical points to evaluate, same name as input image
 	float		k = 0.5f;                   // hardcoded, no need to tweak it each time, defines the stricktness of the threshold for out membership function
@@ -102,163 +95,154 @@ public class CritpointInspector2D implements PlugInFilter, MouseListener, MouseM
 
     ImageCanvas cnv;
 
-    public int setup(String s, ImagePlus imagePlus) {
+	public void run(String sss){
 
-        if(imagePlus==null) return DONE;
+        /*
+        load the image
+         */
+        String in_folder = Prefs.get("id.folder", System.getProperty("user.home"));
+        OpenDialog.setDefaultDirectory(in_folder);
+        OpenDialog dc = new OpenDialog("Select file");
+        in_folder = dc.getDirectory();
+        image_path = dc.getPath();
+        if (image_path==null) return;
+        Prefs.set("id.folder", in_folder);
 
-        inimg_xy = new float[imagePlus.getWidth()][imagePlus.getHeight()]; // x~column, y~row
-
-		image_dir = imagePlus.getOriginalFileInfo().directory; //  + File.separator  + image_name
-		image_name = imagePlus.getShortTitle();
-
-        if (imagePlus.getType()== ImagePlus.GRAY8) {
-            byte[] read = (byte[]) imagePlus.getProcessor().getPixels();
+        ImagePlus ip_load = new ImagePlus(image_path);
+        if(ip_load==null) return;
+        inimg_xy = new float[ip_load.getWidth()][ip_load.getHeight()]; // x~column, y~row
+        image_dir = ip_load.getOriginalFileInfo().directory; //  + File.separator  + image_name
+        image_name = ip_load.getShortTitle();
+        if (ip_load.getType()== ImagePlus.GRAY8) {
+            byte[] read = (byte[]) ip_load.getProcessor().getPixels();
             for (int idx=0; idx<read.length; idx++) {
-                inimg_xy[idx%imagePlus.getWidth()][idx/imagePlus.getWidth()] = (float) (read[idx] & 0xff);
+                inimg_xy[idx%ip_load.getWidth()][idx/ip_load.getWidth()] = (float) (read[idx] & 0xff);
             }
-
         }
-        else if (imagePlus.getType()==ImagePlus.GRAY32) {
-            float[] read = (float[]) imagePlus.getProcessor().getPixels();
+        else if (ip_load.getType()==ImagePlus.GRAY32) {
+            float[] read = (float[]) ip_load.getProcessor().getPixels();
             for (int idx=0; idx<read.length; idx++) {
-                inimg_xy[idx%imagePlus.getWidth()][idx/imagePlus.getWidth()] = read[idx];
+                inimg_xy[idx%ip_load.getWidth()][idx/ip_load.getWidth()] = read[idx];
             }
         }
         else {
             IJ.log("image type not recognized");
-            return DONE;
+            return;
         }
+
+        /*
+        load the detection parameters
+         */
 
         /******************************
          Generic Dialog
          *****************************/
         this.show_bifpoints =               Prefs.get("critpoint.detection2d.show_bifpoints", true);
         this.show_endpoints =               Prefs.get("critpoint.detection2d.show_endpoints", true);
-
         this.s								= (float)	Prefs.get("critpoint.detection2d.s", 1.2f);
-		this.Dlist 					        =    		Prefs.get("critpoint.detection2d.d", "4");
-		this.M 					        	= (int)     Prefs.get("critpoint.detection2d.m", 1);
-		this.L						        = (int) 	Prefs.get("critpoint.detection2d.l", 8);
+        this.Dlist 					        =    		Prefs.get("critpoint.detection2d.d", "4");
+        this.M 					        	= (int)     Prefs.get("critpoint.detection2d.m", 1);
+        this.L						        = (int) 	Prefs.get("critpoint.detection2d.l", 8);
+        this.ncc_high_mean                  = (float)   Prefs.get("critpoint.detection2d.ncc_high_mean", 1f);
+        this.ncc_low_mean					= (float) 	Prefs.get("critpoint.detection2d.ncc_low_mean", 0.7f);
+        this.likelihood_high_mean           = (float)   Prefs.get("critpoint.detection2d.likelihood_high_mean", 0.9f);
+        this.likelihood_low_mean			= (float) 	Prefs.get("critpoint.detection2d.likelihood_low_mean", 0.0f);
+        this.output_sigma					= (float) 	Prefs.get("critpoint.detection2d.output_sigma", 0.4f);
 
-//        this.masker_radius                  = (float)   Prefs.get("critpoint.detection2d.masker_radius", 4);
-//        this.masker_percentile              = (float)   Prefs.get("critpoint.detection2d.masker_percentile", 50);
-
-		this.ncc_high_mean                  = (float)   Prefs.get("critpoint.detection2d.ncc_high_mean", 1f);
-		this.ncc_low_mean					= (float) 	Prefs.get("critpoint.detection2d.ncc_low_mean", 0.7f);
-		this.likelihood_high_mean           = (float)   Prefs.get("critpoint.detection2d.likelihood_high_mean", 0.9f);
-		this.likelihood_low_mean			= (float) 	Prefs.get("critpoint.detection2d.likelihood_low_mean", 0.0f);
-		this.output_sigma					= (float) 	Prefs.get("critpoint.detection2d.output_sigma", 0.4f);
-
-		GenericDialog gd = new GenericDialog("DETECTOR2D");
+        GenericDialog gd = new GenericDialog("DETECTOR2D");
 
         gd.addCheckbox("BIFURCATIONS ", show_bifpoints);
         gd.addCheckbox("ENDPOINTS    ", show_endpoints);
-
         gd.addMessage("-- MODEL --");
         gd.addNumericField("s:", 					this.s,					1,	10,	"(scale)");
         gd.addStringField("Dlist", Dlist);
         gd.addNumericField("M", 	                M, 			        	0,  10, "");
-		gd.addNumericField("L",                    L, 		            	0,  10, "");
-
-//        gd.addMessage("-- MASKER --");
-//        gd.addNumericField("radius:     ",          this.masker_radius,     1,  10, "pix");
-//        gd.addNumericField("percentile: ",          this.masker_percentile, 1,  10, "[0-100]");
-
+        gd.addNumericField("L",                    L, 		            	0,  10, "");
         gd.addMessage("-- FUZZY LOGIC SYSTEM --");
         gd.addNumericField("NCC_HIGH", 	        ncc_high_mean, 			2,  10, "");
-		gd.addNumericField("NCC_LOW",           ncc_low_mean, 		    2,  10, "");
-		gd.addNumericField("LIKELIHOOD_HIGH", 	likelihood_high_mean, 	2,  10, "");
-		gd.addNumericField("LIKELIHOOD_LOW",    likelihood_low_mean, 	2,  10, "");
-		gd.addNumericField("OUT",    			output_sigma, 		    2,  10, "SIGMA");
+        gd.addNumericField("NCC_LOW",           ncc_low_mean, 		    2,  10, "");
+        gd.addNumericField("LIKELIHOOD_HIGH", 	likelihood_high_mean, 	2,  10, "");
+        gd.addNumericField("LIKELIHOOD_LOW",    likelihood_low_mean, 	2,  10, "");
+        gd.addNumericField("OUT",    			output_sigma, 		    2,  10, "SIGMA");
 
-		gd.showDialog();
-        if (gd.wasCanceled()) return DONE;
+        gd.showDialog();
+        if (gd.wasCanceled()) return;
 
         this.show_bifpoints = gd.getNextBoolean();      	    Prefs.set("critpoint.detection2d.show_bifpoints", this.show_bifpoints);
         this.show_endpoints = gd.getNextBoolean();      	    Prefs.set("critpoint.detection2d.show_endpoints", this.show_endpoints);
 
-		this.s = (float) gd.getNextNumber(); 				    Prefs.set("critpoint.detection2d.s", this.s);
+        this.s          = (float) gd.getNextNumber(); 				    Prefs.set("critpoint.detection2d.s", this.s);
         Dlist       	= gd.getNextString(); 				    Prefs.set("critpoint.detection2d.d", Dlist);
         M       	    = (int) gd.getNextNumber(); 		    Prefs.set("critpoint.detection2d.m", M);
-		L		    	= (int) gd.getNextNumber();			    Prefs.set("critpoint.detection2d.l", L);
-
-//        this.masker_radius = (float) gd.getNextNumber();        Prefs.set("critpoint.detection2d.masker_radius", this.masker_radius);
-//        this.masker_percentile = (float) gd.getNextNumber();    Prefs.set("critpoint.detection2d.masker_percentile", this.masker_percentile);
-
-		ncc_high_mean   = (float) gd.getNextNumber();   	    Prefs.set("critpoint.detection2d.ncc_high_mean", ncc_high_mean);
+        L		    	= (int) gd.getNextNumber();			    Prefs.set("critpoint.detection2d.l", L);
+        ncc_high_mean   = (float) gd.getNextNumber();   	    Prefs.set("critpoint.detection2d.ncc_high_mean", ncc_high_mean);
         ncc_low_mean    = (float) gd.getNextNumber();  		    Prefs.set("critpoint.detection2d.ncc_low_mean", ncc_low_mean);
         likelihood_high_mean  	= (float) gd.getNextNumber();   Prefs.set("critpoint.detection2d.likelihood_high_mean", 	likelihood_high_mean);
         likelihood_low_mean 	= (float) gd.getNextNumber();   Prefs.set("critpoint.detection2d.likelihood_low_mean", 	likelihood_low_mean);
-		output_sigma 	= (float) gd.getNextNumber();           Prefs.set("critpoint.detection2d.output_sigma", 	output_sigma);
+        output_sigma 	= (float) gd.getNextNumber();           Prefs.set("critpoint.detection2d.output_sigma", 	output_sigma);
 
-		String[] dd = Dlist.split(",");
-		D = new float[dd.length];
+        String[] dd = Dlist.split(",");
+        D = new float[dd.length];
 
-		for (int i=0; i<dd.length; i++) {
+        for (int i=0; i<dd.length; i++) {
             D[i] = Float.valueOf(dd[i]);
             if (D[i]<min_D) min_D = D[i];
             if (D[i]>max_D) max_D = D[i];
         }
-//        IJ.log(""+min_D+" <-> "+max_D);
 
-		min_size_bif = Math.round(min_D);
-		max_size_bif = (int) Math.round(min_D*min_D);
-		//IJ.log("BIF "+min_size_bif+" <-> "+max_size_bif);
+        min_size_bif = Math.round(min_D);
+        max_size_bif = (int) Math.round(min_D*min_D);
 
-		min_size_end = Math.round(min_D);//(int) Math.round(0.5 * min_D);
+        min_size_end = Math.round(min_D);//(int) Math.round(0.5 * min_D);
         max_size_end = (int) Math.round(min_D * min_D);
-		//IJ.log("END "+min_size_end+" <-> "+max_size_end);
 
-		image_gndtth_endpoints = image_name + ".end";
-		image_gndtth_bifurcations = image_name + ".bif";
+        image_gndtth_endpoints = image_name + ".end";
+        image_gndtth_bifurcations = image_name + ".bif";
 
-		output_membership_th = (float) Math.exp(-(0.5f*0.5f)/(2*output_sigma*output_sigma)); // 0.5 is middle of the output range
-		output_membership_th = (float) (1 - Math.pow(output_membership_th,k) * (1-output_membership_th)); // h1 = 1 - h^k * (1-h)
+        output_membership_th = (float) Math.exp(-(0.5f*0.5f)/(2*output_sigma*output_sigma)); // 0.5 is middle of the output range
+        output_membership_th = (float) (1 - Math.pow(output_membership_th,k) * (1-output_membership_th)); // h1 = 1 - h^k * (1-h)
 
-        //IJ.log(""+output_membership_th+ "   ");
+        output_dir_name = image_dir+String.format(
+                "det(s,Dlist,M,L,nncH,nccL,lhoodH,lhoodL,outSig)_%.1f_%s_%d_%d_%.2f_%.2f_%.2f_%.2f_%.2f", //_%1.2f_%1.2f_%1.2f_%1.2f
+                this.s,
+                Dlist,
+                M, L,
+                ncc_high_mean,
+                ncc_low_mean,
+                likelihood_high_mean,
+                likelihood_low_mean,
+                output_sigma);
+        output_log_name = output_dir_name+File.separator+"det.csv";
 
-		output_dir_name = image_dir+String.format(
-														 "det(s,Dlist,M,L,nncH,nccL,lhoodH,lhoodL,outSig)_%.1f_%s_%d_%d_%.2f_%.2f_%.2f_%.2f_%.2f", //_%1.2f_%1.2f_%1.2f_%1.2f
-														 this.s,
-														 Dlist,
-														 M, L,
-														 ncc_high_mean,
-														 ncc_low_mean,
-														 likelihood_high_mean,
-														 likelihood_low_mean,
-														 output_sigma);
-		output_log_name = output_dir_name+File.separator+"det.csv";
+        File f = new File(output_dir_name);
+        if (!f.exists()) {
 
-		File f = new File(output_dir_name);
-		if (!f.exists()) {
+            f.mkdirs();
 
-			f.mkdirs();
+            try {
+                logWriter = new PrintWriter(output_log_name);
+                logWriter.print("name,\tTP_BIF,\tFP_BIF,\tFN_BIF,\tP_BIF,\tR_BIF,\tTP_END,\tFP_END,\tFN_END,\tP_END,\tR_END\n");
+                logWriter.close();
+            } catch (FileNotFoundException ex) {}
 
-			try {
-				logWriter = new PrintWriter(output_log_name);
-				logWriter.print("name,\tTP_BIF,\tFP_BIF,\tFN_BIF,\tP_BIF,\tR_BIF,\tTP_END,\tFP_END,\tFN_END,\tP_END,\tR_END\n");
-				logWriter.close();
-			} catch (FileNotFoundException ex) {}
+        }
+        // if it exists already in the folder, just prepare to append on the existing file
+        try {
+            logWriter = new PrintWriter(new BufferedWriter(new FileWriter(output_log_name, true)));
+        } catch (IOException e) {}
 
-		}
-		// if it exists already in the folder, just prepare to append on the existing file
-		try {
-			logWriter = new PrintWriter(new BufferedWriter(new FileWriter(output_log_name, true)));
-		} catch (IOException e) {}
+        CPU_NR = Runtime.getRuntime().availableProcessors() + 1;
 
-		CPU_NR = Runtime.getRuntime().availableProcessors() + 1;
+        // output allocate (this should be in Detector2D)
+        critpoint_det = new float[3][ip_load.getWidth()][ip_load.getHeight()]; // off and on values for selected critpoint (static - to be updated throughout the process)
+        cnv = ip_load.getCanvas();
 
-		// output
-		critpoint_det = new float[3][imagePlus.getWidth()][imagePlus.getHeight()]; // off and on values for selected critpoint (static - to be updated throughout the process)
-        cnv = imagePlus.getCanvas();
 
-        return DOES_8G+DOES_32+NO_CHANGES;
 
-    }
+        if (true) return;
 
-	public void run(ImageProcessor imageProcessor){
 
-		for (int didx = 0; didx<D.length; didx++) {
+        for (int didx = 0; didx<D.length; didx++) {
 
 			long t1, t2;
         	t1 = System.currentTimeMillis();
@@ -266,8 +250,6 @@ public class CritpointInspector2D implements PlugInFilter, MouseListener, MouseM
 			/********/
 			Sphere2D sph2d = new Sphere2D(D[didx], s); //sph2d.showSampling().show(); sph2d.showWeights().show();
 			/********/
-//			float nbhood_radius = 2f * D[didx];//1.0f*sph2d.getOuterRadius();
-//			int   nbhood_margin = (int) Math.ceil(nbhood_radius);//2*(int) Math.ceil(nbhood_radius);
             float new_masker_radius = sph2d.getOuterRadius();   // important that it is outer radius of the sphere
             float new_masker_percentile = 50;                   // used to have these two as argument but not necessary
 			Masker2D.loadTemplate(inimg_xy, (int)Math.ceil(new_masker_radius), new_masker_radius, new_masker_percentile); //image, margin, check, percentile
@@ -322,7 +304,7 @@ public class CritpointInspector2D implements PlugInFilter, MouseListener, MouseM
 			//PeakExtractor2D.getCircStat().show();
 			/********/
 			IJ.log("fitting model... extracting features... fuzzy detection...");
-			Delineator2D.loadTemplate(
+			FeatureExtractor2D.loadTemplate(
 											 	Masker2D.i2xy,
 											 	Masker2D.xy2i,
 											 	PeakExtractor2D.peaks_i,
@@ -332,6 +314,7 @@ public class CritpointInspector2D implements PlugInFilter, MouseListener, MouseM
 												M,
 												minCos,
 												D[didx],
+                                                "AVERAGE",
 												ncc_high_mean,
 												ncc_low_mean,
 											 	likelihood_high_mean,
@@ -341,9 +324,9 @@ public class CritpointInspector2D implements PlugInFilter, MouseListener, MouseM
 												sampling_crosswise
 			);
         	int totalPeakAnalyzeComponents = Masker2D.i2xy.length; // number of locations
-        	Delineator2D pa_jobs[] = new Delineator2D[CPU_NR];
+            FeatureExtractor2D pa_jobs[] = new FeatureExtractor2D[CPU_NR];
 			for (int i = 0; i < pa_jobs.length; i++) {
-				pa_jobs[i] = new Delineator2D(i*totalPeakAnalyzeComponents/CPU_NR, (i+1)*totalPeakAnalyzeComponents/CPU_NR);
+				pa_jobs[i] = new FeatureExtractor2D(i*totalPeakAnalyzeComponents/CPU_NR, (i+1)*totalPeakAnalyzeComponents/CPU_NR);
 				pa_jobs[i].start();
 			}
 			for (int i = 0; i < pa_jobs.length; i++) {
@@ -356,12 +339,12 @@ public class CritpointInspector2D implements PlugInFilter, MouseListener, MouseM
 			/********/
 			IJ.log("append scores...");
 			// take critpoint on/off scores from last class and append them to the critpoint_det[][][] - scale invariance
-			for (int ll=0; ll<Delineator2D.critpoint_score2.length; ll++) {
-				if (Delineator2D.critpoint_score2[ll]!=null) {
+			for (int ll=0; ll<FeatureExtractor2D.critpoint_score2.length; ll++) {
+				if (FeatureExtractor2D.critpoint_score2[ll]!=null) {
 
-					float curr_endpoint 		= Delineator2D.critpoint_score2[ll][0];
+					float curr_endpoint 		= FeatureExtractor2D.critpoint_score2[ll][0];
 					float curr_nonepoint 	    = Float.NEGATIVE_INFINITY;//Delineator2D.critpoint_score2[ll][1];
-					float curr_bifpoint 		= Delineator2D.critpoint_score2[ll][2];
+					float curr_bifpoint 		= FeatureExtractor2D.critpoint_score2[ll][2];
 					float curr_max 		        = Math.max(curr_endpoint, Math.max(curr_nonepoint, curr_bifpoint));
 
 					int corresponding_x = Masker2D.i2xy[ll][0];
@@ -713,9 +696,7 @@ public class CritpointInspector2D implements PlugInFilter, MouseListener, MouseM
 
     public void mouseClicked(MouseEvent e)
     {
-
 //        mouseMoved(e);
-
         int clickX = cnv.offScreenX(e.getX());
         int clickY = cnv.offScreenY(e.getY());
 
@@ -739,7 +720,7 @@ public class CritpointInspector2D implements PlugInFilter, MouseListener, MouseM
         /*
             output Overlay & update canvas with the original
          */
-        Overlay ov_to_add = Delineator2D.getDelineationOverlay(clickX, clickY);
+        Overlay ov_to_add = FeatureExtractor2D.getDelineationOverlay(clickX, clickY);
 
         // add the whole image on top as overlay each time mouse is moved
         //ImageRoi fgroi = new ImageRoi(0, 0, Masker2D.getMask());    // !!! not very efficient to be done each time
@@ -753,7 +734,7 @@ public class CritpointInspector2D implements PlugInFilter, MouseListener, MouseM
         cnv.setOverlay(ov_to_add);
 
 		// print extracted features
-		Delineator2D.print(clickX, clickY);
+        FeatureExtractor2D.print(clickX, clickY);
 
         /*
          output stack with local profile
@@ -765,7 +746,7 @@ public class CritpointInspector2D implements PlugInFilter, MouseListener, MouseM
 			output stack: local profile with peaks detected
 		 */
 
-        pfl_is = Delineator2D.getFuzzyAgg(clickX, clickY);
+        pfl_is = FeatureExtractor2D.getFuzzyAgg(clickX, clickY);
         pfl_im.setStack(pfl_is);
         pfl_im.show();
 
@@ -774,7 +755,7 @@ public class CritpointInspector2D implements PlugInFilter, MouseListener, MouseM
         pfl_im4.setStack("local_profile_with_peaks", pfl_is4);
         pfl_im4.show();
 
-		pfl_is2 = Delineator2D.plotDelineationFeatures(clickX, clickY);
+		pfl_is2 = FeatureExtractor2D.plotDelineationFeatures(clickX, clickY);
 		pfl_im2.setStack("features", pfl_is2);
 		pfl_im2.show();
 

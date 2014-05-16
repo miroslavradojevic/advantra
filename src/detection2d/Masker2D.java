@@ -18,7 +18,8 @@ import java.util.Arrays;
  * Parallel threaded implementation of masker module - robust foreground point extraction
  * Separates foreground from the background to reduce the computation by comparing and thresholding the difference between
  * 95th percentile and 5th percentile of the values within a radius surrounding some location
- * where 5th percentile is the background estimate
+ * where 5th percentile is considered the background estimate and 95th percentile foreground estimate
+ * added option to expand the obtained mask by using structural element
  */
 public class Masker2D extends Thread {
 
@@ -32,18 +33,14 @@ public class Masker2D extends Thread {
 	private static float            radiusCheck;
 	private static float 			globalTh;
 	private static int              marginPix;
-    private static float              percentile;
+    private static float            percentile;
 
 	/*
 	OUTPUT
 	 */
 	public static byte[][]			back_xy; 	// background estimate
-
 	public static boolean[][]		mask_xy;    // output mask
-
-//	public static float[][] 		fg_score;   // supposed measure
 	public static float[][]  		criteria;	//
-
 	public static int[][] 			i2xy;       // mapping
 	public static  int[][]			xy2i;
 
