@@ -63,8 +63,8 @@ for (x=0; x<=H; x+=step) {
 			" p3="+toString(p[2])+
 			" scale="+toString(sc)+
 			" dmin="+toString(Dmin)+
-			" #="+toString(nr_img)+
-			" out="+out_dir);
+			" nr_imgs="+toString(nr_img)+
+			" out_dir="+out_dir);
 		cnt++;
 	}
 }

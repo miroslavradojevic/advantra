@@ -2,7 +2,7 @@
 rm(list = ls())
 
 ALLOC=100;
-root_folder <- "~/varyp.snr.dmin.nrimg._3.0_3.0_1";   # choose the folder to summarize scores
+root_folder <- "/home/miroslav/Desktop/varyp.snr.dmin.nrimg._3.0_3.0_1/";   # choose the folder to summarize scores
 list = list.dirs(root_folder);  # will recursively list everything
 print(list);
 
@@ -158,6 +158,7 @@ if (length(list)>0) {
   
   det <- det[1:counter,];
   print(det);
+  save(det, file=paste(root_folder,"det.Rda"));
   
 } else {
   print("nothing");

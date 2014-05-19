@@ -44,6 +44,7 @@ for (i=0; i<list.length; i++) {  // loop folders with configurations
 				Dmax        = parseFloat(components[1]);
 				Ddet        = k   * Dmax;
 
+
 				run("Critpoint2D",
 				"select="+dir_name+list[i]+sub_list[j]+" "+
 				"bifurcations "+
@@ -55,10 +56,13 @@ for (i=0; i<list.length; i++) {  // loop folders with configurations
 				"ncc_low="+toString(ncc_low)+" "+
 				"likelihood_high="+toString(likelihood_high)+" "+
 				"likelihood_low="+toString(likelihood_low)+" "+
-				"out="+toString(out)+"");
+				"out_sig="+toString(out)+"");
+
+
+                print(dir_name+list[i]+sub_list[j]);
 
 				//close();
-                run("Close All");
+                //run("Close All");
 				
 			}
         

@@ -2,10 +2,7 @@ package detection2d;
 
 import aux.ReadSWC;
 import conn.Find_Connected_Regions;
-import ij.IJ;
-import ij.ImagePlus;
-import ij.ImageStack;
-import ij.Prefs;
+import ij.*;
 import ij.gui.*;
 import ij.io.FileSaver;
 import ij.io.OpenDialog;
@@ -50,7 +47,7 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
 	public void run(String sss){
 
         /*
-        load the image
+        load the image through the menu
          */
         String in_folder = Prefs.get("id.folder", System.getProperty("user.home"));
         OpenDialog.setDefaultDirectory(in_folder);
@@ -63,50 +60,77 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
         ImagePlus ip_load = new ImagePlus(image_path);
         if(ip_load==null) return;
 
-
         /*
-        load the detection parameters - generic dialog
+        load the detection parameters
          */
-        boolean 	_show_bifpoints 		= Prefs.get("critpoint.detection2d.show_bifpoints", true);
-        boolean 	_show_endpoints 		= Prefs.get("critpoint.detection2d.show_endpoints", true);
-        boolean 	_enable_interactive     = Prefs.get("critpoint.detection2d.enable_interactive", true);
-		float 		_s						= (float)	Prefs.get("critpoint.detection2d.s", 1.2f);
-        String 		_Dlist 					= Prefs.get("critpoint.detection2d.d", "4");
-        int 		_L						= (int) 	Prefs.get("critpoint.detection2d.l", 10);
-        float 		_ncc_high               = (float)   Prefs.get("critpoint.detection2d.ncc_high", 1f);
-        float 		_ncc_low				= (float) 	Prefs.get("critpoint.detection2d.ncc_low", 0.7f);
-        float 		_likelihood_high        = (float)   Prefs.get("critpoint.detection2d.likelihood_high", 0.9f);
-        float 		_likelihood_low			= (float) 	Prefs.get("critpoint.detection2d.likelihood_low", 0.0f);
-        float 		_output_sigma			= (float) 	Prefs.get("critpoint.detection2d.output_sigma", 0.4f);
+        boolean _show_bifpoints, _show_endpoints, _enable_interactive;
+        float _s;
+        String _Dlist="";
+        int _L;
+        float _ncc_high, _ncc_low, _likelihood_high, _likelihood_low, _output_sigma;
 
-        GenericDialog gd = new GenericDialog("DETECTOR2D");
+        // check if the parameters were submitted through the macro before rising up the Generic Dialog
+        // enables calling plugin from the macro without opening the graphical window
+        // useful to call plugins with parameters submitted by ij macro in fiji headless mode
+        if (Macro.getOptions()==null) { // generic dialog (graphic)
 
-        gd.addCheckbox("BIFURCATIONS ", 		_show_bifpoints);
-        gd.addCheckbox("ENDPOINTS    ", 		_show_endpoints);
-        gd.addCheckbox("INTERACTIVE  ",         _enable_interactive);
-		gd.addNumericField("s:", 				_s,					1,	10,	"(scale)");
-        gd.addStringField("Dlist", 				_Dlist);
-        gd.addNumericField("L",                 _L, 		        0,  10, "");
-        gd.addNumericField("NCC_HIGH", 	        _ncc_high, 			2,  10, "");
-        gd.addNumericField("NCC_LOW",           _ncc_low, 		    2,  10, "");
-        gd.addNumericField("LIKELIHOOD_HIGH", 	_likelihood_high, 	2,  10, "");
-        gd.addNumericField("LIKELIHOOD_LOW",    _likelihood_low, 	2,  10, "");
-        gd.addNumericField("OUT",    			_output_sigma, 		2,  10, "SIGMA");
+            _show_bifpoints 		= Prefs.get("critpoint.detection2d.show_bifpoints", true);
+            _show_endpoints 		= Prefs.get("critpoint.detection2d.show_endpoints", true);
+            _enable_interactive     = Prefs.get("critpoint.detection2d.enable_interactive", true);
+            _s						= (float)	Prefs.get("critpoint.detection2d.s", 1.2f);
+            _Dlist 					= Prefs.get("critpoint.detection2d.d", "4");
+            _L						= (int) 	Prefs.get("critpoint.detection2d.l", 10);
+            _ncc_high               = (float)   Prefs.get("critpoint.detection2d.ncc_high", 1f);
+            _ncc_low				= (float) 	Prefs.get("critpoint.detection2d.ncc_low", 0.7f);
+            _likelihood_high        = (float)   Prefs.get("critpoint.detection2d.likelihood_high", 0.9f);
+            _likelihood_low			= (float) 	Prefs.get("critpoint.detection2d.likelihood_low", 0.0f);
+            _output_sigma			= (float) 	Prefs.get("critpoint.detection2d.output_sigma", 0.4f);
 
-        gd.showDialog();
-        if (gd.wasCanceled()) return;
+            GenericDialog gd = new GenericDialog("DETECTOR2D");
 
-        _show_bifpoints = gd.getNextBoolean();      	    	Prefs.set("critpoint.detection2d.show_bifpoints", 		_show_bifpoints);
-        _show_endpoints = gd.getNextBoolean();      	    	Prefs.set("critpoint.detection2d.show_endpoints", 		_show_endpoints);
-        _enable_interactive = gd.getNextBoolean();				Prefs.set("critpoint.detection2d.enable_interactive", 	_enable_interactive);
-		_s          	= (float) gd.getNextNumber(); 			Prefs.set("critpoint.detection2d.s", _s);
-        _Dlist       	= gd.getNextString(); 				    Prefs.set("critpoint.detection2d.d", _Dlist);
-        _L		    	= (int) gd.getNextNumber();			    Prefs.set("critpoint.detection2d.l", _L);
-        _ncc_high   	= (float) gd.getNextNumber();   	    Prefs.set("critpoint.detection2d.ncc_high", _ncc_high);
-        _ncc_low    	= (float) gd.getNextNumber();  		    Prefs.set("critpoint.detection2d.ncc_low", _ncc_low);
-        _likelihood_high= (float) gd.getNextNumber();   		Prefs.set("critpoint.detection2d.likelihood_high", 	_likelihood_high);
-        _likelihood_low = (float) gd.getNextNumber();   		Prefs.set("critpoint.detection2d.likelihood_low", 	_likelihood_low);
-        _output_sigma 	= (float) gd.getNextNumber();           Prefs.set("critpoint.detection2d.output_sigma", 	_output_sigma);
+            gd.addCheckbox("BIFURCATIONS", 		_show_bifpoints);
+            gd.addCheckbox("ENDPOINTS", 		_show_endpoints);
+            gd.addCheckbox("INTERACTIVE",         _enable_interactive);
+            gd.addNumericField("s", 				_s,					1,	10,	"(scale)");
+            gd.addStringField("Dlist", 				_Dlist);
+            gd.addNumericField("L",                 _L, 		        0,  10, "");
+            gd.addNumericField("NCC_HIGH", 	        _ncc_high, 			2,  10, "");
+            gd.addNumericField("NCC_LOW",           _ncc_low, 		    2,  10, "");
+            gd.addNumericField("LIKELIHOOD_HIGH", 	_likelihood_high, 	2,  10, "");
+            gd.addNumericField("LIKELIHOOD_LOW",    _likelihood_low, 	2,  10, "");
+            gd.addNumericField("OUT_SIG",    		_output_sigma, 		2,  10, "SIGMA");
+
+            gd.showDialog();
+            if (gd.wasCanceled()) return;
+
+            _show_bifpoints = gd.getNextBoolean();      	    	Prefs.set("critpoint.detection2d.show_bifpoints", 		_show_bifpoints);
+            _show_endpoints = gd.getNextBoolean();      	    	Prefs.set("critpoint.detection2d.show_endpoints", 		_show_endpoints);
+            _enable_interactive = gd.getNextBoolean();				Prefs.set("critpoint.detection2d.enable_interactive", 	_enable_interactive);
+            _s          	= (float) gd.getNextNumber(); 			Prefs.set("critpoint.detection2d.s", _s);
+            _Dlist       	= gd.getNextString(); 				    Prefs.set("critpoint.detection2d.d", _Dlist);
+            _L		    	= (int) gd.getNextNumber();			    Prefs.set("critpoint.detection2d.l", _L);
+            _ncc_high   	= (float) gd.getNextNumber();   	    Prefs.set("critpoint.detection2d.ncc_high", _ncc_high);
+            _ncc_low    	= (float) gd.getNextNumber();  		    Prefs.set("critpoint.detection2d.ncc_low", _ncc_low);
+            _likelihood_high= (float) gd.getNextNumber();   		Prefs.set("critpoint.detection2d.likelihood_high", 	_likelihood_high);
+            _likelihood_low = (float) gd.getNextNumber();   		Prefs.set("critpoint.detection2d.likelihood_low", 	_likelihood_low);
+            _output_sigma 	= (float) gd.getNextNumber();           Prefs.set("critpoint.detection2d.output_sigma", 	_output_sigma);
+
+        }
+        else { // continue with macro arguments without rising graphic window
+
+            _show_bifpoints = Boolean.valueOf(Macro.getValue(Macro.getOptions(), "BIFURCATIONS", String.valueOf(true)));
+            _show_endpoints = Boolean.valueOf(Macro.getValue(Macro.getOptions(), "ENDPOINTS", String.valueOf(true)));
+            _enable_interactive = Boolean.valueOf(Macro.getValue(Macro.getOptions(), "INTERACTIVE", String.valueOf(false)));
+            _s = Float.valueOf(Macro.getValue(Macro.getOptions(), "s", String.valueOf(1.1)));
+            _Dlist = Macro.getValue(Macro.getOptions(), "Dlist", String.valueOf(4));
+            _L = Integer.valueOf(Macro.getValue(Macro.getOptions(), "L", String.valueOf(10)));
+            _ncc_high = Float.valueOf(Macro.getValue(Macro.getOptions(), "NCC_HIGH", String.valueOf(0.95)));
+            _ncc_low = Float.valueOf(Macro.getValue(Macro.getOptions(), "NCC_LOW", String.valueOf(0.2)));
+            _likelihood_high = Float.valueOf(Macro.getValue(Macro.getOptions(), "LIKELIHOOD_HIGH", String.valueOf(0.5)));
+            _likelihood_low = Float.valueOf(Macro.getValue(Macro.getOptions(), "LIKELIHOOD_LOW", String.valueOf(0.0)));
+            _output_sigma = Float.valueOf(Macro.getValue(Macro.getOptions(), "OUT_SIG", String.valueOf(0.4)));
+
+        }
 
         String[] dd = _Dlist.split(",");
         float[] _D = new float[dd.length];
@@ -154,9 +178,6 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
 
 	}
 
-//        /*
-//        if (false) {
-//
 //            IJ.log("export features ");
 //            t1 = System.currentTimeMillis();
 //
@@ -178,10 +199,6 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
 //
 //            t2 = System.currentTimeMillis();
 //            IJ.log("done. " + ((t2 - t1) / 1000f) + "sec.");
-//
-//        }
-//        */
-//    }
 
     public void mouseClicked(MouseEvent e)
     {

@@ -2,6 +2,7 @@ package generate;
 
 import ij.IJ;
 import ij.ImagePlus;
+import ij.Macro;
 import ij.gui.GenericDialog;
 import ij.io.FileSaver;
 import ij.plugin.PlugIn;
@@ -30,28 +31,42 @@ public class GeneratorDemo implements PlugIn {
 
 	public void run(String s) {
 
-		GenericDialog gd = new GenericDialog("Generate junctions");
-		gd.addNumericField("SNR:   ", 3, 0);
-		gd.addNumericField("p1:    ", 1, 1);
-		gd.addNumericField("p2:    ", 1, 1);
-		gd.addNumericField("p3:    ", 1, 1);
-		gd.addNumericField("scale: ", 8, 1);
-		gd.addNumericField("Dmin:  ", 3, 0);
-		gd.addNumericField("# imgs:", 1, 0);
+        if (Macro.getOptions()==null) {
+            GenericDialog gd = new GenericDialog("Generate junctions");
+            gd.addNumericField("SNR:   ", 3, 0);
+            gd.addNumericField("p1:    ", 1, 1);
+            gd.addNumericField("p2:    ", 1, 1);
+            gd.addNumericField("p3:    ", 1, 1);
+            gd.addNumericField("scale: ", 8, 1);
+            gd.addNumericField("Dmin:  ", 3, 0);
+            gd.addNumericField("nr_imgs:", 1, 0);
 //        gd.addMessage(""+nrP1+"x"+nrP1+" junctions per img");
-		gd.addStringField("out dir:", outDir, 50);
+            gd.addStringField("out_dir:", outDir, 50);
 
-		gd.showDialog();
-		if (gd.wasCanceled()) return;
+            gd.showDialog();
+            if (gd.wasCanceled()) return;
 
-		SNR     = (float) gd.getNextNumber();
-		p1 	    = (float) gd.getNextNumber();
-		p2 	    = (float) gd.getNextNumber();
-		p3 	    = (float) gd.getNextNumber();
-		sc 	    = (float) gd.getNextNumber();
-		Dmin 	= (float) gd.getNextNumber();
-		N 		= (int) gd.getNextNumber();
-		outDir  = gd.getNextString();
+            SNR     = (float) gd.getNextNumber();
+            p1 	    = (float) gd.getNextNumber();
+            p2 	    = (float) gd.getNextNumber();
+            p3 	    = (float) gd.getNextNumber();
+            sc 	    = (float) gd.getNextNumber();
+            Dmin 	= (float) gd.getNextNumber();
+            N 		= (int) gd.getNextNumber();
+            outDir  = gd.getNextString();
+        }
+        else {
+            SNR     = Float.valueOf(Macro.getValue(Macro.getOptions(), "SNR", String.valueOf(3)));
+            p1 	    = Float.valueOf(Macro.getValue(Macro.getOptions(), "p1", String.valueOf(1)));
+            p2 	    = Float.valueOf(Macro.getValue(Macro.getOptions(), "p2", String.valueOf(1)));
+            p3 	    = Float.valueOf(Macro.getValue(Macro.getOptions(), "p3", String.valueOf(1)));
+            sc 	    = Float.valueOf(Macro.getValue(Macro.getOptions(), "scale", String.valueOf(8)));
+            Dmin 	= Float.valueOf(Macro.getValue(Macro.getOptions(), "Dmin", String.valueOf(3)));
+            N 		= Integer.valueOf(Macro.getValue(Macro.getOptions(), "nr_imgs", String.valueOf(1)));
+            outDir  = Macro.getValue(Macro.getOptions(), "out_dir", System.getProperty("user.home"));
+        }
+
+
 
 		float p = p1 + p2 + p3;
         p1 = p1 / p; // normalize them

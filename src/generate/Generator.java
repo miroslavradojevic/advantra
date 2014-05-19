@@ -241,8 +241,9 @@ public class Generator {
 		outImp.setOverlay(ov);
 
         // save it
-        FileSaver fs = new FileSaver(outImp);
-        fs.saveAsTiff(out_img.getAbsolutePath());
+        IJ.saveAs(outImp, "Tiff", out_img.getAbsolutePath());
+        //FileSaver fs = new FileSaver(outImp);
+        //fs.saveAsTiff(out_img.getAbsolutePath());
         IJ.log("exported: "+out_img.getAbsolutePath());
         IJ.log(nrPts2 + " bifs " + 4*nrPts2 + " ends " + count_non + " nons");
 

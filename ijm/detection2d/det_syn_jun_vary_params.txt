@@ -1,0 +1,10 @@
+// take one configuration and test the detection for different detection parameters
+// loop D (with respect to the maximal D in the configuration),
+// loop s,
+// loop ncc range (mainly ncc_low),
+// loop likelihood range (mainly likelihood_high)
+
+// choose configuration
+p1 = 1;
+p2 = 1;
+p3 = 1;
