@@ -17,7 +17,7 @@ P3 = newArray(pmin,pmin,pmax);
 snr 	= 3;
 nr_img 	= 1;
 Dmin 	= 3;     // minimum detectable, corresponds to the lowest pi in the configuration
-step 	= 0.1;  // resolution for the triangle
+step 	= 0.09;  // resolution for the triangle
 sc		= 8;
 
 generation_arguments = getArgument();
@@ -31,7 +31,7 @@ Dmin = parseFloat(args[1]);
 nr_img = parseFloat(args[2]);
 
 // export output directory
-out_dir = "varyp(snr,dmin,nrimg)_"+toString(snr,1)+"_"+toString(Dmin,1)+"_"+toString(nr_img);
+out_dir = "varyp.snr.dmin.nrimg._"+toString(snr,1)+"_"+toString(Dmin,1)+"_"+toString(nr_img);
 File.makeDirectory(out_dir); print("created export folder "+out_dir);
 
 a = sqrt(2) * (pmax-pmin);

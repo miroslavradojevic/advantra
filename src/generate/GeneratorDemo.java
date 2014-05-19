@@ -78,7 +78,7 @@ public class GeneratorDemo implements PlugIn {
 
         // output folder name, values to be later extracted are separated with _
 		outDir  += File.separator+
-						   "synjun(Dmax,SNR,s,p1,p2,p3)_"+
+						   "synjun.Dmax.SNR.s.p1.p2.p3._"+
 						   String.format("%d_%d_%.1f_%.2f_%.2f_%.2f", (int)Math.ceil(d_max), Math.round(snr), scale, p1, p2, p3)+
 						   File.separator;
         createDir(outDir);
