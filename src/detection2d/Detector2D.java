@@ -354,6 +354,7 @@ public class Detector2D {
 		eval_string = ""; // initialize before appending in following calls
 
 		int tp, fp, fn;
+		float prec, recl;
 		ReadSWC reader;
 		boolean[] annots;
 
@@ -388,7 +389,9 @@ public class Detector2D {
 
 			for (int a=0; a<annots.length; a++) if (!annots[a]) fn++;
 
-			eval_string += "\""+image_name+"\",\t" + tp + ",\t" + fp + ",\t"+fn+ ",\t" + IJ.d2s(tp/(float)(tp+fp), 2) + ",\t" + IJ.d2s(tp/(float)(tp+fn),2) +",\t";
+			prec = (tp+fp>0)? (tp/(float)(tp+fp)) : 0 ;
+			recl = (tp+fn>0)? (tp/(float)(tp+fn)) : 0 ;
+			eval_string += "\""+image_name+"\",\t" + tp + ",\t" + fp + ",\t"+fn+ ",\t" + IJ.d2s(prec, 2) + ",\t" + IJ.d2s(recl,2) +",\t";
 
 //            IJ.log("evaluating ENDPOINT detection using " + image_dir+image_gndtth_endpoints);
 			tp = 0; fp = 0; fn = 0;
@@ -418,7 +421,9 @@ public class Detector2D {
 
 			for (int a=0; a<annots.length; a++) if (!annots[a]) fn++;
 
-			eval_string += tp + ",\t" + fp + ",\t"+fn+ ",\t" + IJ.d2s(tp/(float)(tp+fp),2) + ",\t" + IJ.d2s(tp/(float)(tp+fn),2);
+			prec = (tp+fp>0)? (tp/(float)(tp+fp)) : 0 ;
+			recl = (tp+fn>0)? (tp/(float)(tp+fn)) : 0 ;
+			eval_string += tp + ",\t" + fp + ",\t"+fn+ ",\t" + IJ.d2s(prec,2) + ",\t" + IJ.d2s(recl,2);
 
 		}
 		else

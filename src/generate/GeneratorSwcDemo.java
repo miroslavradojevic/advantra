@@ -6,6 +6,7 @@ import ij.ImageStack;
 import ij.Prefs;
 import ij.gui.GenericDialog;
 import ij.io.FileSaver;
+import ij.io.OpenDialog;
 import ij.plugin.PlugIn;
 
 import java.io.File;
@@ -22,103 +23,35 @@ import java.io.File;
  */
 public class GeneratorSwcDemo implements PlugIn {
 
-    /*
-        terminal call :
-        java -cp "$HOME/critpoint/*:$HOME/jarlib/*" generate.GeneratorSwcDemo
-     */
-    public static void main(String args[]){
+	String      swc_path;
+	String		out_dir;
 
-        float   k;            	// scales the gaussian sigma - drop of the intensity as you go from the cone centerline, correlated to radius read from swc
-        float   snr;            // noise ratio
-        File    fileSWC;        // swc input file
-        String  pathInSwc;      // path to input swc file
-		boolean is2D;			// whether it will be generated in 2d
-
-        /*
-            check argument nr.
-         */
-        if (args.length!=4) {
-            System.out.println("# GENERATE SYNTHETIC NEURON IMAGE FROM SWC #");
-            System.out.println("USAGE:\t\tpath_to_SWC\tk\tSNR\tis2D");
-            return;
-        }
-
-        /*
-            check if the swc input file exists
-         */
-        pathInSwc = new File(args[0]).getAbsolutePath();
-        fileSWC = new File(pathInSwc);
-
-        if (!fileSWC.exists()) {
-            System.out.println("file "+pathInSwc+" does not exist!");
-            return;
-        }
-
-        k       = Float.valueOf(args[1]);
-        snr     = Float.valueOf(args[2]);
-		is2D	= Boolean.valueOf(args[3]);
-
-        /*
-         set paths for outputs: same folder, keep the name of the original, with prefixes added
-         */
-        String parentDir = fileSWC.getParent() + File.separator;          // mother directory
-        String name = fileSWC.getName().substring(0, fileSWC.getName().length()-4);
-
-        // new names for outputs
-		String pathOutSwc = parentDir + "REC_" + name + ".swc";
-		String pathOutTif = parentDir + "IMG_" + name + ".tif";
-		String pathOutBif = parentDir + "BIF_" + name + ".swc";
-		String pathOutEnd = parentDir + "END_" + name + ".swc";
-
-//		System.out.println("generating... ");
-//
-//		System.out.println("k    = "+k);
-//		System.out.println("snr  = "+snr);
-//		System.out.println("is2D = "+is2D);
-//
-//		System.out.println(pathOutSwc);
-//		System.out.println(pathOutTif);
-//		System.out.println(pathOutBif);
-//		System.out.println(pathOutEnd);
-//		System.out.println("done.");
-
-        /*
-        generate image
-         */
-		GeneratorSwc neuronGenerator = new GeneratorSwc();
-		ImageStack isOut = neuronGenerator.swc2image(pathInSwc, is2D, k, snr, pathOutSwc, pathOutBif, pathOutEnd);
-
-		//name
-//		String outName = new File(pathInSwc).getName();
-//		outName = outName.substring(outName.length()-4);
-
-		ImagePlus imOut = new ImagePlus("syn_"+name+"_snr_"+IJ.d2s(snr,1)+"_k_"+IJ.d2s(k,1)+"_is2d_"+is2D, isOut);
-		imOut.show();
-		FileSaver fs = new FileSaver(imOut);
-		if (is2D)
-			fs.saveAsTiff(pathOutTif);
-		else
-			fs.saveAsTiffStack(pathOutTif);
-		System.out.println(pathOutTif+" exported");
-
-	}
-
-    /*
-        IJ call
-     */
     public void run(String s) {
 
-		String pathInSwc =         Prefs.get("critpoint.generate.pathInSwc", System.getProperty("user.home"));
+		/*
+        load the swc through the menu
+         */
+		String in_folder = Prefs.get("id.folder", System.getProperty("user.home"));
+		OpenDialog.setDefaultDirectory(in_folder);
+		OpenDialog dc = new OpenDialog("Select file");
+		in_folder = dc.getDirectory();
+		swc_path = dc.getPath();
+		if (swc_path==null || swc_path.substring(swc_path.length()-4, swc_path.length()).equals(".swc")) return;
+		Prefs.set("id.folder", in_folder);
+
+		File fileSWC = new File(swc_path);
+		if(fileSWC==null) return;
+
 		float k 		 = (float) Prefs.get("critpoint.generate.k", 1);
 		float snr 		 = (float) Prefs.get("critpoint.generate.snr", 3);
 		boolean is2D	 = Prefs.get("critpoint.generate.is2D", true);
+		String pathInSwc =         Prefs.get("critpoint.generate.pathInSwc", System.getProperty("user.home"));
 
-        // parameters
 		GenericDialog gd = new GenericDialog("GENERATE 3D NEURON");
 		gd.addStringField("swc                  :", pathInSwc, 100);
 		gd.addNumericField("k (gauss sigma=k*r) :", k,  2);
-		gd.addNumericField("snr                 :", snr,  2);
-		gd.addCheckbox("2D neuron", 					is2D);
+		gd.addNumericField("SNR", snr,  2);
+		gd.addCheckbox("2D", 					is2D);
 
 		gd.showDialog();
 		if (gd.wasCanceled()) return;
@@ -132,17 +65,6 @@ public class GeneratorSwcDemo implements PlugIn {
 		Prefs.set("critpoint.generate.k", 			k);
 		Prefs.set("critpoint.generate.snr", 		snr);
 		Prefs.set("critpoint.generate.is2D", 		is2D);
-
-		/*
-            check if the swc input file exists
-         */
-		//pathInSwc = new File(pathInSwc).getAbsolutePath();
-		File fileSWC = new File(pathInSwc);
-
-		if (!fileSWC.exists()) {
-			IJ.log("file " + pathInSwc + " does not exist!");
-			return;
-		}
 
 		/*
          set paths to outputs, same folder, keep the name with prefixes added

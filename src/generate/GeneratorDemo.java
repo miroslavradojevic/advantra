@@ -40,7 +40,6 @@ public class GeneratorDemo implements PlugIn {
             gd.addNumericField("scale: ", 8, 1);
             gd.addNumericField("Dmin:  ", 3, 0);
             gd.addNumericField("nr_imgs:", 1, 0);
-//        gd.addMessage(""+nrP1+"x"+nrP1+" junctions per img");
             gd.addStringField("out_dir:", outDir, 50);
 
             gd.showDialog();

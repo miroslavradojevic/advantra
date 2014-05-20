@@ -205,12 +205,6 @@ public class GeneratorSwc {
 
     }
 
-//	public static ImageStack yjunctions2Stack(float snr, float diam1, float diam2, float diam3, String outSwc, String outBif, String outEnd, String outTif)
-//	{
-//		// generate y juctions with branches of different scales in 3d
-//		return new ImageStack();
-//	}
-
 	private static int drawCone(float x, float y, float r, float xPrev, float yPrev, float rPrev, byte[] image2d, int W, float k, float fg)
 	{
 

@@ -17,7 +17,7 @@ P3 = newArray(pmin,pmin,pmax);
 snr 	= 3;
 nr_img 	= 1;
 Dmin 	= 3;     // minimum detectable, corresponds to the lowest pi in the configuration
-step 	= 0.09;  // resolution for the triangle
+step 	= 0.05;  // resolution for the triangle
 sc		= 8;
 
 generation_arguments = getArgument();
