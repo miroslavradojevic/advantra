@@ -26,8 +26,8 @@ for (i in 1:max(idxs)) { # for each cluster (detection D)
   values_det[idxs1,]$nccL 
   values_det[idxs1,]$lhoodH 
   F1[idxs1]
-  # recompose the matrix wit so that it 
-  
+  # recompose the matrix with F scores so that it can be plotted using  
+  scatter2D(b[,1],b[,2], colvar=array(l,c(nrow(a),1)),col=gg.col(nrow(b)) ,theta=150, phi=10, type="p", pch=20);
   
 }
 
