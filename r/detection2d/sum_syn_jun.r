@@ -2,7 +2,7 @@
 rm(list = ls())
 
 ALLOC=100;
-root_folder <- "/home/miroslav/Desktop/varyp.snr.dmin.nrimg._3.0_3.0_1/";   # choose the folder to summarize scores
+root_folder <- "/media/miroslav/MIROSLAV/experiments/conf.snr.p1.p2.p3_3.0_1.0_1.0_1.0/";   # choose the folder to summarize scores
 list = list.dirs(root_folder);  # will recursively list everything
 print(list);
 
@@ -104,15 +104,15 @@ if (length(list)>0) {
         fp_bif <- sum(res$FP_BIF);
         fn_bif <- sum(res$FN_BIF);
         
-        p_bif <- tp_bif / (tp_bif+fp_bif);
-        r_bif <- tp_bif / (tp_bif+fn_bif);
+        p_bif <- 0; if (tp_bif+fp_bif>0) {p_bif <- tp_bif / (tp_bif+fp_bif);}
+        r_bif <- 0; if (tp_bif+fn_bif>0) {r_bif <- tp_bif / (tp_bif+fn_bif);}
         
         tp_end <- sum(res$TP_END);
         fp_end <- sum(res$FP_END);
         fn_end <- sum(res$FN_END);
         
-        p_end <- tp_end / (tp_end+fp_end);
-        r_end <- tp_end / (tp_end+fn_end);
+        p_end <- 0; if (tp_end+fp_end>0) {p_end <- tp_end / (tp_end+fp_end);}
+        r_end <- 0; if (tp_end+fn_end>0) {r_end <- tp_end / (tp_end+fn_end);}
         
         found_log <- T;
         

@@ -131,7 +131,7 @@ public class Detector2D {
 		for (int i=0; i<_D.length; i++) {
 			if (_D[i]<min_D) min_D = _D[i];
 			if (_D[i]>max_D) max_D = _D[i];
-			Dlist += IJ.d2s(_D[i],0) + ((i==_D.length-1)?"":":");
+			Dlist += IJ.d2s(_D[i],1) + ((i==_D.length-1)?"":":");
 		}
 
 		min_size_bif = Math.round(min_D);
@@ -145,7 +145,7 @@ public class Detector2D {
 
 
 
-		output_dir_name = image_dir+String.format(       "det.s.Dlist.M.L.nncH.nccL.lhoodH.lhoodL.outSig._%.1f_%s_%d_%d_%.2f_%.2f_%.2f_%.2f_%.2f",
+		output_dir_name = image_dir+String.format(       "det.s.Dlist.M.L.nncH.nccL.lhoodH.lhoodL.outSig_%.1f_%s_%d_%d_%.2f_%.2f_%.2f_%.2f_%.2f",
 														 this.s,
 														 Dlist,
 														 M, L,
