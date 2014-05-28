@@ -1,7 +1,6 @@
 package detection;
 
 import aux.Tools;
-import downsample.Downsampler;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.Prefs;
@@ -137,12 +136,12 @@ public class JunctionDetection implements PlugInFilter {
         /***********************************************************/
 
         // in case downsampling needs to be done  - change imp before the start
-        if(downsample) {
+        if(false) {
 
             // define new width
-            int newWidth = (int) Math.round(((imp.getWidth() * imp.getCalibration().pixelWidth * D) / neuriteDiameter));
-            Downsampler ds = new Downsampler();
-            imp = ds.run(imp, newWidth, 0.5f, 0.5f); // sigmas can be added to generic dialog as downsampling parameters
+            //int newWidth = (int) Math.round(((imp.getWidth() * imp.getCalibration().pixelWidth * D) / neuriteDiameter));
+            //Downsampler ds = new Downsampler();
+            //imp = ds.run(imp, newWidth, 0.5f, 0.5f); // sigmas can be added to generic dialog as downsampling parameters
 
         }
 

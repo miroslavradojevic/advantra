@@ -28,15 +28,14 @@ public class GeneratorSwcDemo implements PlugIn {
 
     public void run(String s) {
 
-		/*
-        load the swc through the menu
-         */
+		// load the swc
 		String in_folder = Prefs.get("id.folder", System.getProperty("user.home"));
 		OpenDialog.setDefaultDirectory(in_folder);
-		OpenDialog dc = new OpenDialog("Select file");
+		OpenDialog dc = new OpenDialog("Select SWC file");
 		in_folder = dc.getDirectory();
 		swc_path = dc.getPath();
-		if (swc_path==null || swc_path.substring(swc_path.length()-4, swc_path.length()).equals(".swc")) return;
+
+		if (swc_path==null || (!swc_path.substring(swc_path.length()-4, swc_path.length()).equals(".swc"))) return;
 		Prefs.set("id.folder", in_folder);
 
 		File fileSWC = new File(swc_path);
@@ -44,7 +43,7 @@ public class GeneratorSwcDemo implements PlugIn {
 
 		float k 		 = (float) Prefs.get("critpoint.generate.k", 1);
 		float snr 		 = (float) Prefs.get("critpoint.generate.snr", 3);
-		boolean is2D	 = Prefs.get("critpoint.generate.is2D", true);
+		boolean is2D	 =         Prefs.get("critpoint.generate.is2D", true);
 		String pathInSwc =         Prefs.get("critpoint.generate.pathInSwc", System.getProperty("user.home"));
 
 		GenericDialog gd = new GenericDialog("GENERATE 3D NEURON");
