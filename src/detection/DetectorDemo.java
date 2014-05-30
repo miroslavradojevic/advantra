@@ -1,6 +1,7 @@
 package detection;
 
 import aux.AnalyzeCSV;
+import aux.Tools;
 import generate.GeneratorDemo;
 import ij.IJ;
 import ij.ImagePlus;
@@ -82,7 +83,7 @@ public class DetectorDemo implements PlugIn {
 		}
 		else {
 			outDir  = f.getParent() + File.separator + "DET_"+ f.getName() + File.separator;
-			GeneratorDemo.createDir(outDir);
+			Tools.createDir(outDir);
 		}
 
 		startLog(outDir);
@@ -124,7 +125,7 @@ public class DetectorDemo implements PlugIn {
 		}
 		else {
 			outDir  = f.getParent() + File.separator + "DET_"+ f.getName() + File.separator;
-			GeneratorDemo.createDir(outDir);
+			Tools.createDir(outDir);
 		}
 
 		startLog(outDir);
@@ -344,7 +345,7 @@ public class DetectorDemo implements PlugIn {
 
 								// save the image with detections/detection results
 								FileSaver fs = new FileSaver(imp);
-								GeneratorDemo.createDirs(outDir + listDirs[ii]);
+								Tools.createDirs(outDir + listDirs[ii]);
 								fs.saveAsTiff(outDir+listDirs[ii]+File.separator+"DET_"+fileName);
 
 								// evaluate

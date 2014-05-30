@@ -1,5 +1,7 @@
 package generate;
 
+import aux.ReadSWC;
+import aux.Stat;
 import aux.Tools;
 import ij.*;
 import ij.gui.GenericDialog;
@@ -93,50 +95,30 @@ public class GeneratorSwcDemo implements PlugIn {
 
 		// output folder name
 		boolean ends_with_sep =  out_dir.substring(out_dir.length()-1, out_dir.length()).equals(File.separator);
-		out_dir  += ((ends_with_sep)?File.separator:"")+
+		out_dir  += ((!ends_with_sep)? File.separator : "")+
 						   "swcgen.SNR_"+
 						   String.format("%.1f", SNR)+
 						   File.separator;
 		Tools.createDir(out_dir);
 
+        // swc radius correction (swc has irregular radiuses and also generating tiny radiuses does not make sense)
+        ReadSWC readerSwc = new ReadSWC(swc_path); // pulled out so that expected diameter can be known in advance
+        float[] all_radiuses = new float[readerSwc.nodes.size()];
+        for (int ii=0; ii<readerSwc.nodes.size(); ii++)
+            all_radiuses[ii] = GeneratorSwc.R_MIN + (readerSwc.nodes.get(ii)[readerSwc.RADIUS] - readerSwc.minR);
+        float diam_est = 2 * Stat.average(all_radiuses);
+
 		// new names for outputs
-		String pathOutSwc = out_dir + String.format("%s.Dmed_%.1f", name, );// name + "" + ".swc";
-
-		String pathOutTif = out_dir + "IMG_" + name + ".tif";
-
-		String pathOutBif = parentDir + "BIF_" + name + ".swc";
-
-		String pathOutEnd = parentDir + "END_" + name + ".swc";
-
-		/*
-        generate image
-         */
+        String out_name = String.format("%s.D_%.1f", name, diam_est);
+        File gnd_tth_end = new File(out_dir+out_name+".end");
+        File gnd_tth_bif = new File(out_dir+out_name+".bif");
+        File gnd_tth_non = new File(out_dir+out_name+".non");
+        File image_path  = new File(out_dir+out_name+".tif");
+        File gnd_tth_swc = new File(out_dir+out_name+".swc");
 
         GeneratorSwc neuronGenerator = new GeneratorSwc();
-        ImageStack isOut = neuronGenerator.swc2image(pathInSwc, is2D, K, SNR, pathOutSwc, pathOutBif, pathOutEnd);
-        ImageStack isOut = neuronGenerator.swc2image(swc_file, is2D, K, DMIN, SNR, pathOutSwc, pathOutBif, pathOutEnd);
-
-		//name
-		//String outName = new File(pathInSwc).getName();
-		//outName = outName.substring(outName.length()-4);
-
-		ImagePlus imOut = new ImagePlus("syn_"+name+"_snr_"+IJ.d2s(snr,1)+"_k_"+IJ.d2s(k,1)+"_is2d_"+is2D, isOut);
-		imOut.show();
-
-		FileSaver fs = new FileSaver(imOut);
-		if (is2D)
-			fs.saveAsTiff(pathOutTif);
-		else
-			fs.saveAsTiffStack(pathOutTif);
-		System.out.println(pathOutTif+" exported");
-
+        neuronGenerator.swc2image(readerSwc, is2D, K, SNR, gnd_tth_swc, gnd_tth_bif, gnd_tth_end, gnd_tth_non, image_path);
 
     }
-
-//
-//
-//        FileSaver fs = new FileSaver(imOut);
-//        String outPath = System.getProperty("user.home")+File.separator+"test.tif";
-//        fs.saveAsTiffStack(outPath);
 
 }

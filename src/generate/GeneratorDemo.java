@@ -107,7 +107,7 @@ public class GeneratorDemo implements PlugIn {
             File image_path  = new File(outDir+File.separator+String.format("%04d", cnt)+".tif");
             File out_log     = new File(outDir+File.separator+String.format("params")+".csv");
 
-            imageGenerator.runDisProportional(snr, d1, d2, d3, scale, gnd_tth_bif, gnd_tth_end, gnd_tth_non, out_log, image_path);
+            imageGenerator.runDisProportional(snr, d1, d2, d3, scale, gnd_tth_bif, gnd_tth_end, gnd_tth_non, null, image_path);
 
         }
 

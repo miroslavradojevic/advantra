@@ -21,18 +21,13 @@ public class GeneratorSwc {
 
     private static int bg = 20; // background level  (used when defining snr)
 	private static int MARGIN_MIN = 50; // pixels
-	private static float R_MIN = 1;
+	public static float R_MIN = 1.0f;
 
     /*
     	generate ImageStack from swc & export corresponding swc
      */
-    public static ImageStack swc2image(String inSwc, boolean is2D, float k, float snr, String outRec, String outBif, String outEnd)
+    public static ImagePlus swc2image(ReadSWC readerSWC, boolean is2D, float k, float snr, File out_rec, File out_bif, File out_end, File out_non, File out_img)
 	{
-
-		/*
-		define the dimensions of the output stack based on readouts from inSwc, loop once to find boundaries
-		 */
-		ReadSWC readerSWC = new ReadSWC(inSwc); // read swc TODO: take this out, pass ReadSWC as argument
 
 //		IJ.log("radius range: "+readerSWC.minR+" - "+readerSWC.maxR);
 
@@ -60,22 +55,26 @@ public class GeneratorSwc {
 
 		float fg = foregroundLevel(bg, snr); // this is where snr calculations are embedded
 
-        // initialize writers for reconstruction, bifurcations, and endpoints
-        PrintWriter logRecWriter=null, logBifWriter=null, logEndWriter=null;
-        // empty the files
-        try {
-            logRecWriter = new PrintWriter(outRec); logRecWriter.print(""); logRecWriter.close();
-            logBifWriter = new PrintWriter(outBif); logBifWriter.print(""); logBifWriter.close();
-            logEndWriter = new PrintWriter(outEnd); logEndWriter.print(""); logEndWriter.close();
-        } catch (FileNotFoundException ex) {}
+        // initialize writers for reconstruction, bifurcations, and endpoints and non points
+        PrintWriter logRecWriter=null, logBifWriter=null, logEndWriter=null, logNonWriter=null;
+//        // empty the files
+//        try {
+//            logRecWriter = new PrintWriter(outRec); logRecWriter.print(""); logRecWriter.close();
+//            logBifWriter = new PrintWriter(outBif); logBifWriter.print(""); logBifWriter.close();
+//            logEndWriter = new PrintWriter(outEnd); logEndWriter.print(""); logEndWriter.close();
+//        } catch (FileNotFoundException ex) {}
 
         // initialize output files
         try {
-            logRecWriter = new PrintWriter(new BufferedWriter(new FileWriter(outRec, true))); //logRecWriter.println("# reconstruction\n# source swc file "+ inSwc);
-            logBifWriter = new PrintWriter(new BufferedWriter(new FileWriter(outBif, true))); //logBifWriter.println("# bifurcations\n# source swc file "+ inSwc);
-            logEndWriter = new PrintWriter(new BufferedWriter(new FileWriter(outEnd, true))); //logEndWriter.println("# endpoints\n# source swc file "+ inSwc);
+            logRecWriter = new PrintWriter(new BufferedWriter(new FileWriter(out_rec, true))); //logRecWriter.println("# reconstruction\n# source swc file "+ inSwc);
+            logBifWriter = new PrintWriter(new BufferedWriter(new FileWriter(out_bif, true))); //logBifWriter.println("# bifurcations\n# source swc file "+ inSwc);
+            logEndWriter = new PrintWriter(new BufferedWriter(new FileWriter(out_end, true))); //logEndWriter.println("# endpoints\n# source swc file "+ inSwc);
+            logNonWriter = new PrintWriter(new BufferedWriter(new FileWriter(out_non, true)));
         } catch (IOException e) {}
 
+
+        logNonWriter.println("#");
+        logNonWriter.close();  System.out.println("exported: " + out_non.getAbsolutePath());
 
 		// fill up the values and output swc files
 		for (int ii=0; ii<readerSWC.nodes.size(); ii++) {  // loop through the list to draw cones and export bifs and ends
@@ -112,36 +111,39 @@ public class GeneratorSwc {
 				}
 			}
 
+            float r_to_plot = 2 * (R_MIN+currR-readerSWC.minR);
+
 			if (isEnd) {
 				if(is2D) {
 					assert logEndWriter != null;
-					logEndWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1", currId, 6, currX, currY, 0f, k*currR));
+					logEndWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1", currId, 6, currX, currY, 0f,     r_to_plot));
 				}
 				else {
 					assert logEndWriter != null;
-					logEndWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1", currId, 6, currX, currY, currZ, k*currR));
+					logEndWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1", currId, 6, currX, currY, currZ,  r_to_plot));
 				}
 			}
 
 			if (isBif) {
 				if (is2D) {
 					assert logBifWriter != null;
-					logBifWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1", currId, 5, currX, currY, 0f, k*currR));
+					logBifWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1", currId, 5, currX, currY, 0f,     r_to_plot));
 				}
 				else {
 					assert logBifWriter != null;
-					logBifWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1", currId,	5, currX, currY, currZ, k*currR));
+					logBifWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1", currId,	5, currX, currY, currZ, r_to_plot));
 				}
 			}
 
 			if (is2D) {
 				assert logRecWriter != null;
-				logRecWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f %-4d", currId, Math.round(readerSWC.nodes.get(ii)[readerSWC.TYPE]), currX, currY, 0f, k*currR, currMotherId));
+				logRecWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f %-4d", currId, Math.round(readerSWC.nodes.get(ii)[readerSWC.TYPE]), currX, currY, 0f, R_MIN+currR-readerSWC.minR, currMotherId));
 			}
 			else {
 				assert logRecWriter != null;
-				logRecWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f %-4d", currId, Math.round(readerSWC.nodes.get(ii)[readerSWC.TYPE]), currX, currY, currZ, k*currR, currMotherId));
+				logRecWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f %-4d", currId, Math.round(readerSWC.nodes.get(ii)[readerSWC.TYPE]), currX, currY, currZ, R_MIN+currR-readerSWC.minR, currMotherId));
 			}
+
 			// fill the cones' values to array if it is not the root node
 			if (currMotherId!=-1) {
 
@@ -179,7 +181,7 @@ public class GeneratorSwc {
 			add poisson noise
 		*/
 
-		System.out.print("adding poisson noise... ");
+//		System.out.print("adding poisson noise... ");
 
 		PoissonGenerator poiss 	= new PoissonGenerator();
 
@@ -194,14 +196,23 @@ public class GeneratorSwc {
 
 		}
 
-		System.out.println("done");
+//		System.out.println("done");
 
-		logRecWriter.close();  System.out.println(outRec+" exported.");
-		logBifWriter.close();  System.out.println(outBif+" exported.");
-		logEndWriter.close();  System.out.println(outEnd+" exported.");
+		logRecWriter.close();  System.out.println("exported: " + out_rec.getAbsolutePath());
+		logBifWriter.close();  System.out.println("exported: " + out_bif.getAbsolutePath());
+		logEndWriter.close();  System.out.println("exported: " + out_end.getAbsolutePath());
 
 		ImageStack  isOut       = toImageStack(outIm, W, H);
-		return isOut;
+        ImagePlus imOut = new ImagePlus("", isOut);
+        IJ.saveAs(imOut, "Tiff", out_img.getAbsolutePath());
+//        FileSaver fs = new FileSaver(imOut);
+//        if (is2D)
+//            fs.saveAsTiff(pathOutTif);
+//        else
+//            fs.saveAsTiffStack(pathOutTif);
+        System.out.println("exported: " + out_img.getAbsolutePath());
+
+		return imOut;
 
     }
 
@@ -316,13 +327,18 @@ public class GeneratorSwc {
 									  int xLoc, int yLoc, //int zLoc,
 									  float x1, float y1, float r1, // float z1,
 									  float x2, float y2, float r2, //  float z2,
-									  float k, // scales the gaussian sigma
+									  float k, // scales the gaussian sigma with respect to the neurite radius
 									  float fg // foreground scaled wrt snr and chosen background
 	)
 	{
 		// returns 0-255 value for gaussian cross-profile
 		// of the cone based on the normal distance from the axis
 		// if it's out of the cone or the cone is really short, returns -1
+
+        // some convention is that k * gauss_sigma ~ 2.5 * gauss_sigma ~ diameter = 2 * radius
+        // therefore gauss_sigma ~ ( 2 * radius ) / k ~ ( 2 * radius ) / 2.5
+        // used for intensity decay generation knowing radius and the k ratio
+
 		float p21_x = x2 - x1;
 		float p21_y = y2 - y1;
 //		float p21_z = z2 - z1;
@@ -353,7 +369,7 @@ public class GeneratorSwc {
 			// take the spherical distance from (x1,y1,z1)
 
 			double d1 		= Math.sqrt( Math.pow(c1_x, 2) + Math.pow(c1_y, 2) ); //+ Math.pow(c1_z, 2)
-			double sigma1 	= r1 * k;
+			double sigma1 	= (2 * r1) / k;
 
 			int val = 0;
 			if (d1<=3*sigma1)
@@ -365,7 +381,7 @@ public class GeneratorSwc {
 			// take the spherical distance from (x2,y2,z2)
 
 			double d2 		= Math.sqrt( Math.pow(c2_x, 2) + Math.pow(c2_y, 2) ); // + Math.pow(c2_z, 2)
-			double sigma2 	= r2 * k;
+			double sigma2 	= (2 * r2) / k;
 
 			int val = 0;
 			if (d2<=3*sigma2)
@@ -381,8 +397,7 @@ public class GeneratorSwc {
 
 		// interpolate radius based on r1 and r2
 		double r = (d2*r1 + (P12-d2)*r2)/P12;
-		double sigma =  r * k;
-		// todo: add poisson here too, so that r or sigma change
+		double sigma =  (2 * r) / k;
 
 		// use d, sigma to calculate the value and scale it with fg
 		int val = 0;
@@ -405,6 +420,12 @@ public class GeneratorSwc {
         // returns 0-255 value for gaussian cross-profile
         // of the cone based on the normal distance from the axis
         // if it's out of the cone or the cone is really short, returns -1
+
+
+        // some convention is that k * gauss_sigma ~ 2.5 * gauss_sigma ~ diameter = 2 * radius
+        // therefore gauss_sigma ~ ( 2 * radius ) / k ~ ( 2 * radius ) / 2.5
+        // used for intensity decay generation knowing radius and the k ratio
+
         float p21_x = x2 - x1;
         float p21_y = y2 - y1;
         float p21_z = z2 - z1;
@@ -435,7 +456,7 @@ public class GeneratorSwc {
 			// take the spherical distance from (x1,y1,z1)
 
 			double d1 		= Math.sqrt( Math.pow(c1_x, 2) + Math.pow(c1_y, 2) + Math.pow(c1_z, 2) );
-			double sigma1 	= r1 * k;
+			double sigma1 	= (2 * r1) / k;
 
 			int val = 0;
 			if (d1<=3*sigma1)
@@ -447,7 +468,7 @@ public class GeneratorSwc {
 			// take the spherical distance from (x2,y2,z2)
 
 			double d2 		= Math.sqrt( Math.pow(c2_x, 2) + Math.pow(c2_y, 2) + Math.pow(c2_z, 2) );
-			double sigma2 	= r2 * k;
+			double sigma2 	= (2 * r2) / k;
 
 			int val = 0;
 			if (d2<=3*sigma2)
@@ -463,8 +484,7 @@ public class GeneratorSwc {
 
         // interpolate radius based on r1 and r2
         double r = (d2*r1 + (P12-d2)*r2)/P12;
-        double sigma =  r * k;
-		// todo: add poisson here too, so that r or sigma change
+        double sigma =  (2 * r) / k;
 
         // use d, sigma to calculate the value and scale it with fg
         int val = 0;

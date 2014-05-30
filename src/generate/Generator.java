@@ -99,11 +99,11 @@ public class Generator {
 		// initialize file outputs
 		try {
 			writer_bif = new PrintWriter(new BufferedWriter(new FileWriter(out_bif, true)));
-			writer_bif.println("#"); // dateFormat.format(date)
+			//writer_bif.println("#"); // dateFormat.format(date)
             writer_end = new PrintWriter(new BufferedWriter(new FileWriter(out_end, true)));
-            writer_end.println("#"); // dateFormat.format(date)
+            //writer_end.println("#"); // dateFormat.format(date)
 			writer_non = new PrintWriter(new BufferedWriter(new FileWriter(out_non, true)));
-			writer_non.println("#"); // dateFormat.format(date)
+			//writer_non.println("#"); // dateFormat.format(date)
         } catch (IOException e) {}
 
 		//GaussianBlur gauss 		= new GaussianBlur();
@@ -130,7 +130,7 @@ public class Generator {
 			}
 		}
 
-        IJ.log("" + diam_max);
+//        IJ.log("" + diam_max);
 
         // at this point ground truth is exported (bif and end points)
         // diam_max will define the ground truth swc point radius and the diameter of the overlay that's drawn on
