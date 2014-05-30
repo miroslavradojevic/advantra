@@ -1,9 +1,7 @@
 package generate;
 
-import ij.IJ;
-import ij.ImagePlus;
-import ij.ImageStack;
-import ij.Prefs;
+import aux.Tools;
+import ij.*;
 import ij.gui.GenericDialog;
 import ij.io.FileSaver;
 import ij.io.OpenDialog;
@@ -25,56 +23,89 @@ public class GeneratorSwcDemo implements PlugIn {
 
 	String      swc_path;
 	String		out_dir;
+	float 		SNR;
+	boolean		is2D;
+
+	// some constants
+	static float 		DMIN = 3;
+	static float 		K = 2.5f;   // scaling the gaussian to match radius
 
     public void run(String s) {
 
-		// load the swc
+		// load the swc file
 		String in_folder = Prefs.get("id.folder", System.getProperty("user.home"));
 		OpenDialog.setDefaultDirectory(in_folder);
 		OpenDialog dc = new OpenDialog("Select SWC file");
 		in_folder = dc.getDirectory();
 		swc_path = dc.getPath();
-
 		if (swc_path==null || (!swc_path.substring(swc_path.length()-4, swc_path.length()).equals(".swc"))) return;
 		Prefs.set("id.folder", in_folder);
 
-		File fileSWC = new File(swc_path);
-		if(fileSWC==null) return;
+		File swc_file = new File(swc_path);
+		if(swc_file==null) return;
 
-		float k 		 = (float) Prefs.get("critpoint.generate.k", 1);
-		float snr 		 = (float) Prefs.get("critpoint.generate.snr", 3);
-		boolean is2D	 =         Prefs.get("critpoint.generate.is2D", true);
-		String pathInSwc =         Prefs.get("critpoint.generate.pathInSwc", System.getProperty("user.home"));
+		if (Macro.getOptions()==null) {
+			// there was no macro call
+			SNR 		= (float) Prefs.get("critpoint.generate.snr", 3);
+			is2D	 	=         Prefs.get("critpoint.generate.is2D", true);
+			out_dir		= 		  Prefs.get("critpoint.generate.out_dir", System.getProperty("user.home"));
 
-		GenericDialog gd = new GenericDialog("GENERATE 3D NEURON");
-		gd.addStringField("swc                  :", pathInSwc, 100);
-		gd.addNumericField("k (gauss sigma=k*r) :", k,  2);
-		gd.addNumericField("SNR", snr,  2);
-		gd.addCheckbox("2D", 					is2D);
+			GenericDialog gd = new GenericDialog("GENERATE NEURON FROM SWC");
 
-		gd.showDialog();
-		if (gd.wasCanceled()) return;
+			gd.addNumericField("SNR", 				SNR,  2);
+			gd.addCheckbox("2D", 					is2D);
+			gd.addStringField("out_dir", 			out_dir, 50);
 
-		pathInSwc 	= gd.getNextString();
-        k       	= (float) gd.getNextNumber();
-        snr     	= (float) gd.getNextNumber();
-		is2D 		= gd.getNextBoolean();
+			gd.showDialog();
+			if (gd.wasCanceled()) return;
 
-		Prefs.set("critpoint.generate.pathInSwc", 	pathInSwc);
-		Prefs.set("critpoint.generate.k", 			k);
-		Prefs.set("critpoint.generate.snr", 		snr);
-		Prefs.set("critpoint.generate.is2D", 		is2D);
+			SNR     	= (float) gd.getNextNumber();
+			is2D 		= gd.getNextBoolean();
+			out_dir  	= gd.getNextString();
 
-		/*
-         set paths to outputs, same folder, keep the name with prefixes added
-         */
-		String parentDir = fileSWC.getParent() + File.separator;
-		String name = fileSWC.getName().substring(0, fileSWC.getName().length()-4);
+			Prefs.set("critpoint.generate.snr", 		SNR);
+			Prefs.set("critpoint.generate.is2D", 		is2D);
+			Prefs.set("critpoint.generate.out_dir",		out_dir);
+		}
+		else {
+			// macro is called, parameters are there
+			SNR     = Float.valueOf(Macro.getValue(Macro.getOptions(), "SNR", String.valueOf(3)));
+			is2D 	= Boolean.valueOf(Macro.getValue(Macro.getOptions(), "is2D", String.valueOf(true)));
+			out_dir  = Macro.getValue(Macro.getOptions(), "out_dir", System.getProperty("user.home"));
+		}
+
+//		float k 		 = (float) Prefs.get("critpoint.generate.k", 1);
+//		String pathInSwc =         Prefs.get("critpoint.generate.pathInSwc", System.getProperty("user.home"));
+//		gd.addStringField("swc                  :", pathInSwc, 100);
+//		gd.addNumericField("k (gauss sigma=k*r) :", k,  2);
+//		pathInSwc 	= gd.getNextString();
+//        k       	= (float) gd.getNextNumber();
+//		Prefs.set("critpoint.generate.pathInSwc", 	pathInSwc);
+//		Prefs.set("critpoint.generate.k", 			k);
+
+		//	set paths to outputs, same folder, keep the name with prefixes added
+		//String parentDir = fileSWC.getParent() + File.separator;
+		String name = swc_file.getName().substring(0, swc_file.getName().length()-4);
+		// replace '_' with '-' in order not to make confusion later on (_ separates parameters stored in the name - according to nomenclature)
+		char[] name_chars = name.toCharArray();
+		for (int ii=0; ii<name_chars.length; ii++) if (name_chars[ii] == '_') name_chars[ii] = '-';
+		name = String.valueOf(name_chars);
+
+		// output folder name
+		boolean ends_with_sep =  out_dir.substring(out_dir.length()-1, out_dir.length()).equals(File.separator);
+		out_dir  += ((ends_with_sep)?File.separator:"")+
+						   "swcgen.SNR_"+
+						   String.format("%.1f", SNR)+
+						   File.separator;
+		Tools.createDir(out_dir);
 
 		// new names for outputs
-		String pathOutSwc = parentDir + "REC_" + name + ".swc";
-		String pathOutTif = parentDir + "IMG_" + name + ".tif";
+		String pathOutSwc = out_dir + String.format("%s.Dmed_%.1f", name, );// name + "" + ".swc";
+
+		String pathOutTif = out_dir + "IMG_" + name + ".tif";
+
 		String pathOutBif = parentDir + "BIF_" + name + ".swc";
+
 		String pathOutEnd = parentDir + "END_" + name + ".swc";
 
 		/*
@@ -82,7 +113,8 @@ public class GeneratorSwcDemo implements PlugIn {
          */
 
         GeneratorSwc neuronGenerator = new GeneratorSwc();
-        ImageStack isOut = neuronGenerator.swc2image(pathInSwc, is2D, k, snr, pathOutSwc, pathOutBif, pathOutEnd);
+        ImageStack isOut = neuronGenerator.swc2image(pathInSwc, is2D, K, SNR, pathOutSwc, pathOutBif, pathOutEnd);
+        ImageStack isOut = neuronGenerator.swc2image(swc_file, is2D, K, DMIN, SNR, pathOutSwc, pathOutBif, pathOutEnd);
 
 		//name
 		//String outName = new File(pathInSwc).getName();

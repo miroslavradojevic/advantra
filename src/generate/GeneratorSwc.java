@@ -32,7 +32,7 @@ public class GeneratorSwc {
 		/*
 		define the dimensions of the output stack based on readouts from inSwc, loop once to find boundaries
 		 */
-		ReadSWC readerSWC = new ReadSWC(inSwc); // read swc
+		ReadSWC readerSWC = new ReadSWC(inSwc); // read swc TODO: take this out, pass ReadSWC as argument
 
 //		IJ.log("radius range: "+readerSWC.minR+" - "+readerSWC.maxR);
 

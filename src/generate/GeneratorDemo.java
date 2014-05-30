@@ -1,5 +1,6 @@
 package generate;
 
+import aux.Tools;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.Macro;
@@ -33,7 +34,8 @@ public class GeneratorDemo implements PlugIn {
 
         if (Macro.getOptions()==null) {
             GenericDialog gd = new GenericDialog("Generate junctions");
-            gd.addNumericField("SNR:   ", 3, 0);
+
+			gd.addNumericField("SNR:   ", 3, 0);
             gd.addNumericField("p1:    ", 1, 1);
             gd.addNumericField("p2:    ", 1, 1);
             gd.addNumericField("p3:    ", 1, 1);
@@ -65,8 +67,6 @@ public class GeneratorDemo implements PlugIn {
             outDir  = Macro.getValue(Macro.getOptions(), "out_dir", System.getProperty("user.home"));
         }
 
-
-
 		float p = p1 + p2 + p3;
         p1 = p1 / p; // normalize them
 		p2 = p2 / p;
@@ -76,7 +76,7 @@ public class GeneratorDemo implements PlugIn {
 
 	}
 
-	private static void synthetize(float snr, float p1, float p2, float p3, float scale, int N, float Dmin)
+	private static void synthetize(float snr, float p1, float p2, float p3, float scale, int N, float Dmin) // TODO: put this to run()
 	{
 
 		// generate only one category defined with p1,p2,p3 and Dmin -> Dmax can be inferred - essential parameter to set in detection
@@ -92,10 +92,10 @@ public class GeneratorDemo implements PlugIn {
 
         // output folder name, values to be later extracted are separated with _
 		outDir  += File.separator+
-						   "synjun.Dmax.SNR.s.p1.p2.p3._"+
-						   String.format("%d_%d_%.1f_%.2f_%.2f_%.2f", (int)Math.ceil(d_max), Math.round(snr), scale, p1, p2, p3)+
+						   "synjun.Dmax.SNR.s.p1.p2.p3_"+
+						   String.format("%.1f_%.1f_%.1f_%.2f_%.2f_%.2f", d_max, snr, scale, p1, p2, p3)+  // (int)Math.ceil(d_max)   Math.round(snr)
 						   File.separator;
-        createDir(outDir);
+        Tools.createDir(outDir);
 
         Generator imageGenerator = new Generator(nrP1);
 
@@ -113,68 +113,5 @@ public class GeneratorDemo implements PlugIn {
 
 	}
 
-	public static String createDir(String dir_name){
-
-		File f = new File(dir_name);
-
-		if(!f.exists()){  //
-
-			try{
-				// Create one directory
-				boolean success = f.mkdirs();
-				if (!success) {
-					System.out.println("Error: Directory: " + dir_name + "    .... was NOT created");
-				}
-
-			}
-			catch (Exception e){//Catch exception if any
-				System.err.println("Error: " + e.getMessage());
-			}
-
-		}
-		else {
-
-
-
-            // empty it before deleting
-            String[] entries = f.list();
-
-            for(String s: entries){
-                File currentFile = new File(f.getPath(),s);
-                currentFile.delete();
-            }
-
-            f.delete();
-
-			try{
-				// Create one directory
-				boolean success = f.mkdirs();
-				if (!success) {
-					System.out.println("Error: Directory: " + dir_name + "    .... was NOT created");
-				}
-
-			}
-			catch (Exception e){//Catch exception if any
-				System.err.println("Error: " + e.getMessage());
-			}
-
-		}
-
-		return f.getAbsolutePath();
-
-	}
-
-	public static void createDirs(String dirs_names){
-		try{
-			// Create multiple directories
-			boolean success = (new File(dirs_names)).mkdirs();
-			if (success) {
-				System.out.println("Directories: " + dirs_names + " created");
-			}
-		}
-		catch (Exception e){//Catch exception if any
-			System.err.println("Error: " + e.getMessage());
-		}
-	}
 
 }

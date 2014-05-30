@@ -1334,4 +1334,68 @@ public class Tools {
         return (float) (dotProd/(Math.sqrt(v12)*Math.sqrt(v32)));
     }
 
+	public static String createDir(String dir_name){
+
+		File f = new File(dir_name);
+
+		if(!f.exists()){  //
+
+			try{
+				// Create one directory
+				boolean success = f.mkdirs();
+				if (!success) {
+					System.out.println("Error: Directory: " + dir_name + "    .... was NOT created");
+				}
+
+			}
+			catch (Exception e){//Catch exception if any
+				System.err.println("Error: " + e.getMessage());
+			}
+
+		}
+		else {
+
+
+
+			// empty it before deleting
+			String[] entries = f.list();
+
+			for(String s: entries){
+				File currentFile = new File(f.getPath(),s);
+				currentFile.delete();
+			}
+
+			f.delete();
+
+			try{
+				// Create one directory
+				boolean success = f.mkdirs();
+				if (!success) {
+					System.out.println("Error: Directory: " + dir_name + "    .... was NOT created");
+				}
+
+			}
+			catch (Exception e){//Catch exception if any
+				System.err.println("Error: " + e.getMessage());
+			}
+
+		}
+
+		return f.getAbsolutePath();
+
+	}
+
+	public static void createDirs(String dirs_names){
+		try{
+			// Create multiple directories
+			boolean success = (new File(dirs_names)).mkdirs();
+			if (success) {
+				System.out.println("Directories: " + dirs_names + " created");
+			}
+		}
+		catch (Exception e){//Catch exception if any
+			System.err.println("Error: " + e.getMessage());
+		}
+	}
+
 }
