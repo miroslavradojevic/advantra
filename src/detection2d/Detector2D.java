@@ -8,6 +8,7 @@ import ij.gui.OvalRoi;
 import ij.gui.Overlay;
 import ij.io.FileSaver;
 import ij.process.ByteProcessor;
+import weka.Clustering;
 
 import java.awt.*;
 import java.io.*;
@@ -23,9 +24,6 @@ public class Detector2D {
 	float[][] 	inimg_xy;               	// store input image as an array
 	String 		image_gndtth_endpoints;		// ground truth swc file with critical points to evaluate, same name as input image
 	String 		image_gndtth_bifurcations;
-
-
-
 
 	// parameters
 	float       	s;
@@ -67,11 +65,11 @@ public class Detector2D {
 
 	int         CPU_NR;
 
-	// output
-	static float[][][] critpoint_det; 		// final off/on fuzzy memberships are stored and updated here  critpoint_det[0]-end, [1]-non, [2]-bif
-	ArrayList<float[]> bif_list;			// list of bifurcation detections (x,y,size,avg_score)
-	ArrayList<float[]> end_list;
 
+
+	// output
+	static float[][] critpoint_det; 		// store 2d grid with detection scores (size of the image itself)
+	ArrayList<CritpointRegion> detected_regions; // list with the detections
 
     public Detector2D(
 							 ImagePlus ip_load,
@@ -109,9 +107,6 @@ public class Detector2D {
 		image_gndtth_endpoints = image_name + ".end";
 		image_gndtth_bifurcations = image_name + ".bif";
 
-
-
-
 		s = _s;
 		D = _D; // just pointer assignement, no memory allocated
 		L = _L;
@@ -120,10 +115,6 @@ public class Detector2D {
 		likelihood_high = _likelihood_high;
 		likelihood_low = _likelihood_low;
 		output_sigma = _output_sigma;
-
-
-
-
 
 		min_D = Float.POSITIVE_INFINITY;
 		max_D = Float.NEGATIVE_INFINITY;
@@ -175,8 +166,8 @@ public class Detector2D {
 
 		CPU_NR = Runtime.getRuntime().availableProcessors() + 1;
 
-		// allocate outputs: off and on values for selected critpoint (static - to be updated throughout the process)
-		critpoint_det = new float[3][ip_load.getWidth()][ip_load.getHeight()];
+		critpoint_det = new float[ip_load.getWidth()][ip_load.getHeight()];
+		detected_regions = new ArrayList<CritpointRegion>();
 
     }
 
@@ -305,49 +296,39 @@ public class Detector2D {
 			}
 
 
+			// extract the regions to the list
+
+
+
 
 
 
 			/********/
-//			IJ.log("append scores...");
-			// take critpoint on/off scores from last class and append them to the critpoint_det[][][] - scale invariance
-			for (int ll=0; ll<FeatureExtractor2D.critpoint_score2.length; ll++) {
-				if (FeatureExtractor2D.critpoint_score2[ll]!=null) {
+			IJ.log("append bifurcations...");
+			FeatureExtractor2D.exportCritpointScores(critpoint_det, 0); // exports END points, convert critpoint_score2 list into 2d array critpoint_det
+			// extract the list of END and BIF locations
+			ArrayList<CritpointRegion> get_bif_regions = getCritpointRegions(critpoint_det, min_size_end, max_size_end, CritpointRegion.RegionType.END);
 
-					float EE 		= FeatureExtractor2D.critpoint_score2[ll][0];
-					float NN 	    = FeatureExtractor2D.critpoint_score2[ll][1];
-					float BB 		= FeatureExtractor2D.critpoint_score2[ll][2];
-
-					int x = Masker2D.i2xy[ll][0];  // masker will be redefined at each scale
-					int y = Masker2D.i2xy[ll][1];
-
-					float EEE 	= critpoint_det[0][x][y];
-					float BBB 	= critpoint_det[2][x][y];
-
-					if (EE > EEE || BB > BBB) { // it happened that one scale had higher score - take it
-						critpoint_det[0][x][y] = EE;
-						critpoint_det[1][x][y] = NN;
-						critpoint_det[2][x][y] = BB;
-					}
-				}
-
-			}
-
-
+//			detected_regions
+//			bif_list = extractClusters(critpoint_det, min_size_bif, max_size_bif);
 
 		}
 
-		// extract the list of END and BIF locations
 
-		bif_list = extractClusters(critpoint_det[2], min_size_bif, max_size_bif);
-		end_list = extractClusters(critpoint_det[0], min_size_end, max_size_end);
+
+
+
 
 		t2 = System.currentTimeMillis();
 		IJ.log("done. " + ((t2 - t1) / 1000f) + "sec.");
+
+		// loop here the list
 		IJ.log(bif_list.size()+" bifurcations ");
 		IJ.log(end_list.size()+" endpoints ");
 
 	}
+
+
 
 	public void doEvaluation(){
 
@@ -481,8 +462,8 @@ public class Detector2D {
 
 	}
 
-	private ArrayList<float[]> extractClusters(float[][] _critpoint_det, int minSize, int maxSize)
-	{// x,y,size,avg_score
+	private ArrayList<CritpointRegion> getCritpointRegions(float[][] _critpoint_det, int minSize, int maxSize, CritpointRegion.RegionType _choose_type) // outputs critpoint detection regions
+	{
 
 		// create detection image
 		int w = _critpoint_det.length;
@@ -492,7 +473,7 @@ public class Detector2D {
 		for (int x=0; x<w; x++) {
 			for (int y=0; y<h; y++) {
 				float curr_on = _critpoint_det[x][y];
-				if (curr_on>=output_membership_th) {
+				if (curr_on>=output_membership_th) { // threshold score on critpoint detection
 					t[y*w+x] = (byte) 255;
 				}
 			}
@@ -506,16 +487,25 @@ public class Detector2D {
 		//FileSaver fs = new FileSaver(conn_reg.showLabels());
 		//fs.saveAsTiff(image_dir+"conn_ends.tif");
 		ArrayList<ArrayList<int[]>> regs = conn_reg.getConnectedRegions();
-		ArrayList<float[]> cls = new ArrayList<float[]>(); // x,y,size,avg_score
+
+		// allocate output list
+		ArrayList<CritpointRegion> det_regions = new ArrayList<CritpointRegion>();
+		ArrayList<float[]> vxy = new ArrayList<float[]>(); // will be filled up for each region
 
 		// regs are converted into cls
 		for (int i=0; i<regs.size(); i++) {
 			if (regs.get(i).size()>=minSize && regs.get(i).size()<=maxSize) {
 
-				float Cx=0, Cy=0;
-				float C=0;
+				float Cx=0, Cy=0; 	// centroid
+				float C=0;        	// score
+				float Cr; 			// radius
 
-				for (int aa=0; aa<regs.get(i).size(); aa++) {
+				CritpointRegion.RegionType Ctype;   // type
+				float[][] Cdirections;           // directions
+
+
+
+				for (int aa=0; aa<regs.get(i).size(); aa++) {  // loop elements of the region
 
 					int xcoord = regs.get(i).get(aa)[1];
 					int ycoord = regs.get(i).get(aa)[0];
@@ -526,16 +516,118 @@ public class Detector2D {
 
 				}
 
-				Cx /= regs.get(i).size();
-				Cy /= regs.get(i).size();
-				C /= regs.get(i).size();
+				Cx /= regs.get(i).size(); Cy /= regs.get(i).size();  // centroid
 
-				cls.add(new float[]{Cx, Cy, regs.get(i).size(), C});
+				C /= regs.get(i).size();   // score (calculate it here regardless of the type, says how much averagy fuzzy score was confident on the output)
+
+				Cr = minSize; 				// radius is not calculated but fixed wrt to the parameter
+
+				// second part (type, outward_directions) depends on which type of critical point we deal with
+				Ctype = null;
+				Cdirections = null;
+
+				if (_choose_type == CritpointRegion.RegionType.END) {
+
+					// it is endpoint, no need to further reclassify, there is only one direction
+					Ctype = CritpointRegion.RegionType.END;
+
+
+
+					int K = 1;
+
+					// loop once more through region members to extract the directions
+					vxy.clear();
+					for (int aa=0; aa<regs.get(i).size(); aa++) {  // loop elements of the region again
+
+						int xcoord = regs.get(i).get(aa)[1];
+						int ycoord = regs.get(i).get(aa)[0];
+						int icoord = Profiler2D.xy2i[xcoord][ycoord];
+
+						if (icoord!= -1) {  // peaks_i[icoord] is not null
+							// element of the region is in foreground, take its thetas (if they exist)
+							for (int peak_idx = 0; peak_idx < PeakExtractor2D.peaks_i[icoord].length; peak_idx++) {
+
+								int curr_peak_i = PeakExtractor2D.peaks_i[icoord][peak_idx];
+
+								if (curr_peak_i!=-1 && curr_peak_i!=-2) { // indexes of the spatial locations corresponding to peaks
+
+									int peak_x = PeakExtractor2D.i2xy[curr_peak_i][0]; // PeakExtractor2D stores spatial location of the follow-up points
+									int peak_y = PeakExtractor2D.i2xy[curr_peak_i][1];
+
+									float[] unit_vxy = new float[]{peak_x-Cx, peak_y-Cy};
+									float norm_vxy = (float) Math.sqrt(Math.pow(unit_vxy[0],2)+Math.pow(unit_vxy[1],2));
+									unit_vxy[0] = unit_vxy[0] / norm_vxy;
+									unit_vxy[1] = unit_vxy[1] / norm_vxy;
+
+									vxy.add(unit_vxy);
+
+								}
+
+							}
+
+						}
+
+					}
+
+
+					// cluster the directions
+					try {
+						Cdirections = Clustering.getKMeansDirectionsXY(vxy, K);
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+
+				}
+				else if (_choose_type == CritpointRegion.RegionType.BIF_CROSS) {
+					// (unlike endpoint detection) it still has to be defined whether it is bifurcation of cross section based on the scores
+
+					// loop once more through region members to extract whether it is bif or cross and to extract the directions
+					vxy.clear();
+					for (int aa=0; aa<regs.get(i).size(); aa++) {  // loop elements of the region again, collect the directions
+
+						int xcoord = regs.get(i).get(aa)[1];
+						int ycoord = regs.get(i).get(aa)[0];
+						int icoord = Profiler2D.xy2i[xcoord][ycoord];
+
+						if (icoord!= -1) {  // peaks_i[icoord] is not null
+							// element of the region is in foreground, take its thetas (if they exist) and put them together
+							for (int peak_idx = 0; peak_idx < PeakExtractor2D.peaks_i[icoord].length; peak_idx++) {
+
+								int curr_peak_i = PeakExtractor2D.peaks_i[icoord][peak_idx];
+
+								if (curr_peak_i!=-1 && curr_peak_i!=-2) { // indexes of the spatial locations corresponding to peaks
+
+									int peak_x = PeakExtractor2D.i2xy[curr_peak_i][0]; // PeakExtractor2D stores spatial location of the follow-up points
+									int peak_y = PeakExtractor2D.i2xy[curr_peak_i][1];
+
+									float[] unit_vxy = new float[]{peak_x-Cx, peak_y-Cy};
+									float norm_vxy = (float) Math.sqrt(Math.pow(unit_vxy[0],2)+Math.pow(unit_vxy[1],2));
+									unit_vxy[0] = unit_vxy[0] / norm_vxy;
+									unit_vxy[1] = unit_vxy[1] / norm_vxy;
+
+									vxy.add(unit_vxy);
+
+								}
+
+							}
+
+						}
+
+					}
+
+					// cluster vxy for K=3 and K=4
+
+
+
+
+				}
+
+				det_regions.add(new CritpointRegion(Ctype, Cx, Cy, Cr, C, Cdirections));
 
 			}
 		}
 
-		return cls;
+		return det_regions;
 
 	}
 

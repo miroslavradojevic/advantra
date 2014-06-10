@@ -535,6 +535,8 @@ public class Sphere2D {
 //
 //    private static float getY(float r, float theta){return (+1) * r * (float) Math.cos(theta);}
 
+
+	// getX() and getY() are used to correlate angle with spatial coordinates
     public float getX(float theta) {return (-1) * radius * (float) Math.sin(theta);}
 
     public float getY(float theta) {return (+1) * radius * (float) Math.cos(theta);}

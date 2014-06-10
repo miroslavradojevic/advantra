@@ -339,13 +339,13 @@ public class PeakExtractor2D extends Thread {
         int[] weights = new int[destination_locs.length];
         Arrays.fill(weights, -1);
 
-        for (int t=0; t<clusters_to_append.size(); t++) { // check every peak theta angle
+        for (int t=0; t<clusters_to_append.size(); t++) { // check every peak theta angle, read <theta, weight> element
 
             // calculate values for the peak from the list
             float 	peak_theta    = clusters_to_append.get(t)[0];   				// value in [rad] theta 0 to 2pi
             int 	peak_weight   = Math.round(clusters_to_append.get(t)[1]);   	// convergence score
 
-            int x_peak_pix_rounded = Math.round(atX + sphere_atXY.getX(peak_theta));
+            int x_peak_pix_rounded = Math.round(atX + sphere_atXY.getX(peak_theta));  // CONVERSION FROM ANGLE [rad] TO XY LOCATION
             int y_peak_pix_rounded = Math.round(atY + sphere_atXY.getY(peak_theta));
 
             if (xy2i[x_peak_pix_rounded][y_peak_pix_rounded]==-1) {

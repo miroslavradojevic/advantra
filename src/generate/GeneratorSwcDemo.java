@@ -99,7 +99,10 @@ public class GeneratorSwcDemo implements PlugIn {
 						   "swcgen.SNR_"+
 						   String.format("%.1f", SNR)+
 						   File.separator;
-		Tools.createDir(out_dir);
+		if ( !(new File(out_dir).exists()) ) {
+			Tools.createDir(out_dir); // create directory if it does not exist, otherwise just append in
+		}
+
 
         // swc radius correction (swc has irregular radiuses and also generating tiny radiuses does not make sense)
         ReadSWC readerSwc = new ReadSWC(swc_path); // pulled out so that expected diameter can be known in advance

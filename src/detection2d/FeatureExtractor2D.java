@@ -275,7 +275,7 @@ public class FeatureExtractor2D extends Thread {
                         if (next_index>=0) {
                             delin2[locationIdx][pp][m] = next_index;     // store it in output matrix
                         }
-                        else if (next_index==-1){ // not found but found in the background
+                        else if (next_index==-1){ // not found but in the background
                             delin2[locationIdx][pp][m] = -1;
                             // fill the rest with -1 once one fell out
                             for (int m_aux=m+1; m_aux<M; m_aux++) delin2[locationIdx][pp][m_aux] = -1;
@@ -1651,5 +1651,20 @@ public class FeatureExtractor2D extends Thread {
         }
 
     }
+
+	public static void exportCritpointScores(float[][] out_scores, int idx_scores) { // 0,1,2 idx_scores -> END,NON,BIF
+
+		for (int ll=0; ll<critpoint_score2.length; ll++) {
+			if (critpoint_score2[ll]!=null) {
+
+				int x = i2xy[ll][0];
+				int y = i2xy[ll][1];
+
+				out_scores[x][y] = critpoint_score2[ll][idx_scores]; // 0,1,2 corresponds to END,NON,BIF
+
+			}
+
+		}
+	}
 
 }

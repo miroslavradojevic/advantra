@@ -46,9 +46,7 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
 
 	public void run(String sss){
 
-        /*
-        load the image through the menu
-         */
+        // load the image through the menu
         String in_folder = Prefs.get("id.folder", System.getProperty("user.home"));
         OpenDialog.setDefaultDirectory(in_folder);
         OpenDialog dc = new OpenDialog("Select file");
@@ -165,6 +163,7 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
 		// save as tif with detection overlay
 		FileSaver fs = new FileSaver(ip_load);
 		String save_path = det2d.output_dir_name + File.separator + det2d.image_name+".tif";
+		IJ.log("exported: "+save_path);
 		fs.saveAsTiff(save_path);
 
 		if (_enable_interactive) {
