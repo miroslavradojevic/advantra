@@ -1085,52 +1085,6 @@ public class Tools {
         return idx = (idx<0)? idx+len : (idx>=len)? idx-len : idx ;
     }
 
-//    public static int[] hungarianMappingAnglesDeg(float[] ref, float[] curr)  // need to be equal size
-//    {
-//
-//        // match N dimentional arrays using Euclidean distance, output the mapping as array of correspondence indexes
-//        boolean[][]     chkd = new boolean[ref.length][ref.length];
-//        double[][]      dst2 = new double[ref.length][ref.length];
-//
-//        for (int i = 0; i < ref.length; i++) {
-//            for (int j = 0; j < ref.length; j++) {
-//                dst2[i][j] = Math.abs(Tools.wrap_180(curr[i] - ref[j]));
-//            }
-//        }
-//
-//        int[] mapping = new int[ref.length];
-//
-//        for (int check=0; check<ref.length; check++) {
-//
-//            double dst2Min = Double.MAX_VALUE;
-//            int imin = -1;
-//            int jmin = -1;
-//
-//            for (int i=0; i<ref.length; i++) {
-//
-//                for (int j=0; j<ref.length; j++) {
-//                    if (!chkd[i][j] && dst2[i][j]<dst2Min) {
-//                        dst2Min = dst2[i][j];
-//                        imin = i;
-//                        jmin = j;
-//                    }
-//                }
-//
-//            }
-//
-//            // row imin in chkd to true
-//            for (int w=0; w<ref.length; w++) chkd[imin][w] = true;
-//            // col jmin in chkd to true
-//            for (int w=0; w<ref.length; w++) chkd[w][jmin] = true;
-//
-//            mapping[imin]=jmin;
-//
-//        }
-//
-//        return mapping;
-//
-//    }
-
 	public static float[] circularLocalAvg(float[] in, int w)
 	{
 	  	float[] out = new float[in.length];
@@ -1334,7 +1288,8 @@ public class Tools {
         return (float) (dotProd/(Math.sqrt(v12)*Math.sqrt(v32)));
     }
 
-	public static String createDir(String dir_name){
+	public static String createDir(String dir_name)
+	{
 
 		File f = new File(dir_name);
 
@@ -1385,7 +1340,8 @@ public class Tools {
 
 	}
 
-	public static void createDirs(String dirs_names){
+	public static void createDirs(String dirs_names)
+	{
 		try{
 			// Create multiple directories
 			boolean success = (new File(dirs_names)).mkdirs();
@@ -1396,6 +1352,31 @@ public class Tools {
 		catch (Exception e){//Catch exception if any
 			System.err.println("Error: " + e.getMessage());
 		}
+	}
+
+	public static int[] descending(ArrayList<Integer> a)
+	{
+
+		// prepare array with indexes first
+		int[] idx = new int[a.size()];
+		for (int i=0; i<idx.length; i++) idx[i] = i;
+
+		for (int i = 0; i < a.size()-1; i++) {
+			for (int j = i+1; j < a.size(); j++) {
+				if (a.get(j)>a.get(i)) { // desc.
+					int temp 	= a.get(i);
+					a.set(i, a.get(j));
+					a.set(j, temp);
+
+					int temp_idx 	= idx[i];
+					idx[i] 			= idx[j];
+					idx[j]			= temp_idx;
+				}
+			}
+		}
+
+		return idx;
+
 	}
 
 }

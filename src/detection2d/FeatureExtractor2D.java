@@ -70,7 +70,7 @@ public class FeatureExtractor2D extends Thread {
     public static float[][]     ncc2;                       // N(foreground locs.) x 4(max. threads) (ncc moment along the stream)
 	public static float[][]		lhoods2; 					// N(foreground locs.) x 4(max. threads) (normalized 0-1) likelihoods, read from Peak
 	// fuzzy system outputs
-    public static float[][][]   streamline_score2;          // N(foreground locs.) x 4(max. threads) x 3 (off,none,on)
+    public static float[][][]   streamline_score2;          // N(foreground locs.) x 3 (off,none,on)x 4(max. threads)
     public static float[][]   	critpoint_score2;           // N(foreground locs.) x 3(endpoint,nonepoint,bifpoint) given by fuzzy logic
 
     public FeatureExtractor2D(int n0, int n1)
@@ -139,8 +139,8 @@ public class FeatureExtractor2D extends Thread {
         fitsco2   			= new float[i2xy.length][4][];          // fit score
         stdev2   			= new float[i2xy.length][4][];          // variance
         ncc2  			    = new float[i2xy.length][];          	// average of the fit scores along streamline
-		streamline_score2  	= new float[i2xy.length][][];     		// branch score 	fg. location x 2 (off, on) x 4 (direcitons)
-        critpoint_score2    = new float[i2xy.length][];             // critpoint score  fg. location x 2 (off, on)
+		streamline_score2  	= new float[i2xy.length][][];     		// branch score 	fg. location x 3 (off, none, on)x 4 (direcitons)
+        critpoint_score2    = new float[i2xy.length][];             // critpoint score  fg. location x 3 (end, non, jun)
 
     }
 

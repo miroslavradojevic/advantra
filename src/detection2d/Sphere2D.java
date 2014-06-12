@@ -26,7 +26,7 @@ public class Sphere2D {
 
     private static float    arcRes 	        = 0.7f;
     public static float 	arcNbhood       = 2*arcRes;
-    private static float    samplingStep    = 0.7f;
+    private static float    samplingStep    = 0.9f;
 
 //    public static float     R_FULL 	        = 1.00f;
     public static float     T_HALF 	        = 0.50f;

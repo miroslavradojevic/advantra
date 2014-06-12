@@ -149,16 +149,15 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
 
 		det2d.run();
 		det2d.doEvaluation(); // append results if there was a ground truth
-		Overlay ov_bifurcations = det2d.getBifurcationOverlay();
-		Overlay ov_endpoints 	= det2d.getEndpointOverlay();
+		Overlay ov_critpoints = det2d.getDetectionOverlay();
 
-		Overlay ov_all = new Overlay();
-		if (_show_endpoints)
-			for (int i_ov=0; i_ov<ov_endpoints.size(); i_ov++) ov_all.add(ov_endpoints.get(i_ov));
-		if (_show_bifpoints)
-			for (int i_ov=0; i_ov<ov_bifurcations.size(); i_ov++) ov_all.add(ov_bifurcations.get(i_ov));
+//		Overlay ov_all = new Overlay();
+//		if (_show_endpoints)
+//			for (int i_ov=0; i_ov<ov_endpoints.size(); i_ov++) ov_all.add(ov_endpoints.get(i_ov));
+//		if (_show_bifpoints)
+//			for (int i_ov=0; i_ov<ov_bifurcations.size(); i_ov++) ov_all.add(ov_bifurcations.get(i_ov));
 
-		ip_load.setOverlay(ov_all);
+		ip_load.setOverlay(ov_critpoints);
 
 		// save as tif with detection overlay
 		FileSaver fs = new FileSaver(ip_load);

@@ -12,7 +12,7 @@ public class CritpointRegion {
 	public float[][] outward_directions;
 
 
-	public CritpointRegion(RegionType _type, float _centroidX, float _centroidY, float _radius, float _score, float[][] _outward_directions) {
+	public CritpointRegion(RegionType _type, float _centroidX, float _centroidY, float _radius, float _score, float[][] _outward_directions, int nr_directions) {
 
 		this.type = _type;
 		this.centroid = new float[2];
@@ -20,9 +20,11 @@ public class CritpointRegion {
 		this.centroid[1] = _centroidY;
 		this.radius = _radius;
 		this.score = _score;
-		this.outward_directions = new float[_outward_directions.length][_outward_directions[0].length];
-		for (int i = 0; i < _outward_directions.length; i++) {
-			for (int j = 0; j < _outward_directions[0].length; j++) {
+
+
+		this.outward_directions = new float[Math.min(_outward_directions.length, nr_directions)][2];
+		for (int i = 0; i < this.outward_directions.length; i++) {
+			for (int j = 0; j < 2; j++) {
 				this.outward_directions[i][j] = _outward_directions[i][j];
 			}
 		}
