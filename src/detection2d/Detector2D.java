@@ -246,7 +246,7 @@ public class Detector2D {
 			ProfileSpread2D.threshold();
 			ImagePlus testip = new ImagePlus("", ProfileSpread2D.getMask());
 			IJ.saveAs(testip, "Tiff", image_dir+image_name+".mask_profile.tif");
-			System.out.println("" + IJ.d2s( (ProfileSpread2D.getNrCritpointCandidates()*100f)/(inimg_xy.length * inimg_xy[0].length), 2) + " %% candidates");
+			System.out.println("" + IJ.d2s( (ProfileSpread2D.getNrCritpointCandidates()*100f)/(inimg_xy.length * inimg_xy[0].length), 2) + " % candidates");
 			/********/
 
 

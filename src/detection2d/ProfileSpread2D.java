@@ -77,11 +77,19 @@ public class ProfileSpread2D extends Thread {
 
 	public static void threshold(){
 
-		// will threshold the spread FloatProcessor using Minimum automatic threshold algorithm
+
+
+		// will threshold the spread FloatProcessor using available automatic threshold algorithm
 		ImagePlus  spread_ip = new ImagePlus("", getSpread());
-		IJ.setAutoThreshold(spread_ip, "Minimum dark");
+		IJ.setAutoThreshold(spread_ip, "Percentile dark");
 		Prefs.blackBackground = true;
 		IJ.run(spread_ip, "Convert to Mask", "");
+		// output is in spread_ip
+
+
+        // remove those spreads that are having low variation
+        // it is a matter of thresholding the histogram so that it separates two blocks well
+
 
 		// store the thresholded values back to the array
 		for (int i = 0; i < profile_diverse.length; i++) {
@@ -115,7 +123,6 @@ public class ProfileSpread2D extends Thread {
 		return bp;
 
 	}
-
 
 	public static ImageStack getSpreadDistribution(int nr_bins){
 
