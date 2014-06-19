@@ -5,11 +5,15 @@ import aux.ReadSWC;
 import conn.Find_Connected_Regions;
 import ij.IJ;
 import ij.ImagePlus;
+import ij.ImageStack;
+import ij.Prefs;
 import ij.gui.Line;
 import ij.gui.OvalRoi;
 import ij.gui.Overlay;
+import ij.io.FileSaver;
+import ij.process.AutoThresholder;
 import ij.process.ByteProcessor;
-import sun.nio.cs.StreamDecoder;
+import ij.process.ImageProcessor;
 
 import java.awt.*;
 import java.io.*;
@@ -30,8 +34,8 @@ public class Detector2D {
 
 	// parameters
 	float       	s;
+	float 			sigma_ratio; 			// sigma = sigma_ratio * D
 	static float[]  D;
-	int         	L;
 	float       	ncc_high;
 	float       	ncc_low;
 	float 			likelihood_high;
@@ -45,9 +49,10 @@ public class Detector2D {
 
 	int         	M = 1;
 	float       	minCos = -.5f;
-	float       	sampling_crosswise = .5f;
-	float			k = 0.5f;                   // hardcoded, defines the stricktness of the threshold for out membership function, k higher => means more strictness
+	float			k = 4.0f;                   // hardcoded, defines the stricktness of the threshold for out membership function, k higher => means more strictness
 	String          eval_string = "";
+
+
 
 
 
@@ -65,15 +70,15 @@ public class Detector2D {
 	ArrayList<CritpointRegion> detected_regions; // list with the detections
 
     public Detector2D(
-							 ImagePlus ip_load,
-							 float _s,
-							 float[] _D,
-							 int _L,
-							 float _ncc_high,
-							 float _ncc_low,
-							 float _likelihood_high,
-							 float _likelihood_low,
-							 float _output_sigma
+							 ImagePlus 	ip_load,
+							 float 		_s,
+							 float[] 	_D,
+							 float 		_sigma_ratio,
+							 float 		_ncc_high,
+							 float 		_ncc_low,
+							 float 		_likelihood_high,
+							 float 		_likelihood_low,
+							 float 		_output_sigma
     )
 	{
 
@@ -98,46 +103,36 @@ public class Detector2D {
 			return;
 		}
 
-		image_gndtth_endpoints = image_name + ".end";
-		image_gndtth_bifurcations = image_name + ".bif";
-		image_gndtth_crosssections = image_name + ".crs";
+		image_gndtth_endpoints 		= image_name + ".end";
+		image_gndtth_bifurcations 	= image_name + ".bif";
+		image_gndtth_crosssections 	= image_name + ".crs";
 
+		// detection scale define
 		s = _s;
-		D = _D; // just pointer assignement, no memory allocated
-		L = _L;
+		D = _D;
+		sigma_ratio = _sigma_ratio;
+
+		// detection parameters
 		ncc_high = _ncc_high;
 		ncc_low = _ncc_low;
 		likelihood_high = _likelihood_high;
 		likelihood_low = _likelihood_low;
 		output_sigma = _output_sigma;
 
-//		min_D = Float.POSITIVE_INFINITY;
-//		max_D = Float.NEGATIVE_INFINITY;
 		String		Dlist = ""; // for the out directory
-		//			if (_D[i]<min_D) min_D = _D[i];
-//			if (_D[i]>max_D) max_D = _D[i];
 		for (int i=0; i<_D.length; i++) Dlist += IJ.d2s(_D[i], 1) + ((i == _D.length - 1) ? "" : ":");
 
-//		min_region_size = Math.round(min_D);
-//		max_region_size = Math.round(min_D * min_D);
-
-
 		output_membership_th = (float) Math.exp(-(0.5f*0.5f)/(2*output_sigma*output_sigma)); // 0.5 is middle of the output range
-//		System.out.println("border " + output_membership_th);
 		output_membership_th = (float) (1 - Math.pow(output_membership_th,k) * (1-output_membership_th)); // h1 = 1 - h^k * (1-h)
 
-
-//		System.out.println("th was "+output_membership_th);
-
-		output_dir_name = image_dir+String.format(       "det.s.Dlist.M.L.nncH.nccL.lhoodH.lhoodL.outSig_%.1f_%s_%d_%d_%.2f_%.2f_%.2f_%.2f_%.2f",
-														 this.s,
+		output_dir_name = image_dir+String.format(
+														 "det.Dlist.nncH.nccL.lhoodH.lhoodL_%s_%.2f_%.2f_%.2f_%.2f",
 														 Dlist,
-														 M, L,
 														 ncc_high,
 														 ncc_low,
 														 likelihood_high,
-														 likelihood_low,
-														 output_sigma);
+														 likelihood_low
+														 );
 		output_log_name = output_dir_name+ File.separator+"det.csv";
 
 		File f = new File(output_dir_name);
@@ -170,19 +165,22 @@ public class Detector2D {
 		long t1, t2;
 		t1 = System.currentTimeMillis();
 
-		for (int didx = 0; didx<D.length; didx++) {
+		for (int didx = 0; didx<D.length; didx++) { // loop scales D[]
+
+
+			System.out.print("\nD = " + D[didx] + " : ");
+			Sphere2D sph2d = new Sphere2D(D[didx], s, sigma_ratio);
+			//sph2d.showSampling().show(); sph2d.showWeights().show();
+			/********/
 
 
 
 
 
-			Sphere2D sph2d = new Sphere2D(D[didx], s); //sph2d.showSampling().show(); sph2d.showWeights().show();
 
-
-
-
-			float new_masker_radius = 1.5f*sph2d.getOuterRadius();   // important that it is outer radius of the sphere
-			float new_masker_percentile = 30;                   // used to have these two as argument but not necessary
+			System.out.print("Masker2D...");
+			float new_masker_radius = 1.5f*sph2d.getOuterRadius();   	// important that it is outer radius of the sphere
+			float new_masker_percentile = 30;                   		// used to have these two as argument but not necessary
 			Masker2D.loadTemplate(inimg_xy, (int)Math.ceil(new_masker_radius), new_masker_radius, new_masker_percentile); //image, margin, check, percentile
 			int totalLocs = inimg_xy.length * inimg_xy[0].length;
 			Masker2D ms_jobs[] = new Masker2D[CPU_NR];
@@ -199,7 +197,8 @@ public class Detector2D {
 			}
 			Masker2D.defineThreshold();
 			Masker2D.formRemainingOutputs();
-			//new ImagePlus("MASK,r="+IJ.d2s(new_masker_radius,2)+",per="+IJ.d2s(new_masker_percentile,0), Masker2D.getMask()).show();
+			ImagePlus mask = new ImagePlus("mask", Masker2D.getMask());
+			IJ.saveAs(mask, "Tiff", image_dir+image_name+".mask_values.tif");
 			/********/
 
 
@@ -208,9 +207,7 @@ public class Detector2D {
 
 
 
-
-
-//			IJ.log("calculating profiles...");
+			System.out.print("Profiler2D...");
 			Profiler2D.loadTemplate(sph2d, Masker2D.i2xy, Masker2D.xy2i, inimg_xy);
 			int totalProfileComponents = sph2d.getProfileLength();
 			Profiler2D pf_jobs[] = new Profiler2D[CPU_NR];
@@ -225,13 +222,44 @@ public class Detector2D {
 					e.printStackTrace();
 				}
 			}
-
-
-
-
-
 			/********/
-//			IJ.log("extracting peaks...");
+
+
+
+
+
+			System.out.print("ProfileSpread2D...");
+			ProfileSpread2D.loadTemplate(Masker2D.i2xy, Masker2D.xy2i, Profiler2D.prof2, inimg_xy.length, inimg_xy[0].length);
+			int totalProfileLocations = Profiler2D.prof2.length;
+			ProfileSpread2D pv_jobs[] = new ProfileSpread2D[CPU_NR];
+			for (int i = 0; i < pv_jobs.length; i++) {
+				pv_jobs[i] = new ProfileSpread2D(i*totalProfileLocations/CPU_NR,  (i+1)*totalProfileLocations/CPU_NR);
+				pv_jobs[i].start();
+			}
+			for (int i = 0; i < pv_jobs.length; i++) {
+				try {
+					pv_jobs[i].join();
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
+			ProfileSpread2D.threshold();
+			ImagePlus testip = new ImagePlus("", ProfileSpread2D.getMask());
+			IJ.saveAs(testip, "Tiff", image_dir+image_name+".mask_profile.tif");
+			System.out.println("" + IJ.d2s( (ProfileSpread2D.getNrCritpointCandidates()*100f)/(inimg_xy.length * inimg_xy[0].length), 2) + " %% candidates");
+			/********/
+
+
+
+
+
+
+
+
+
+
+
+			System.out.print("PeakExtractor2D...");
 			PeakExtractor2D.loadTemplate(sph2d, Masker2D.i2xy, Profiler2D.prof2, inimg_xy, Masker2D.xy2i);
 			int totalPeakExtrComponents = Profiler2D.prof2.length; // number of profiles == number of locations i2xy.length
 			PeakExtractor2D pe_jobs[] = new PeakExtractor2D[CPU_NR];
@@ -247,15 +275,52 @@ public class Detector2D {
 				}
 			}
 			//PeakExtractor2D.getCircStat().show();
-
-
-
-
-
-
-
 			/********/
-//			IJ.log("fitting model... extracting features... fuzzy detection...");
+
+
+
+
+
+
+
+			System.out.print("Delineator2D...");
+			Delineator2D.loadTemplate(
+											 Masker2D.i2xy,
+											 Masker2D.xy2i,
+											 ProfileSpread2D.profile_diverse,
+											 PeakExtractor2D.peaks_i,
+											 PeakExtractor2D.peaks_w,
+											 inimg_xy,
+											 sph2d,	//D[didx],
+											 M,
+											 minCos
+			);
+			int totalDelineationComponents = PeakExtractor2D.peaks_i.length;
+			Delineator2D dl_jobs[] = new Delineator2D[CPU_NR];
+			for (int i = 0; i < dl_jobs.length; i++) {
+				dl_jobs[i] = new Delineator2D(i*totalDelineationComponents/CPU_NR, (i+1)*totalDelineationComponents/CPU_NR);
+				dl_jobs[i].start();
+			}
+			for (int i = 0; i < dl_jobs.length; i++) {
+				try {
+					dl_jobs[i].join();
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
+//			new ImagePlus("", Delineator2D.getSmoothnessDistribution(64)).show();
+			/********/
+
+
+
+			System.out.println("DID IT!!!");
+			if (true) return;
+
+
+
+
+
+			/*System.out.print("FeatureExtractor2D...");
 			FeatureExtractor2D.loadTemplate(
 												   Masker2D.i2xy,
 												   Masker2D.xy2i,
@@ -266,14 +331,14 @@ public class Detector2D {
 												   M,
 												   minCos,
 												   D[didx],
-												   "MEDIAN",
+												   sigma_ratio,
+
+												   "MEAN",
 												   ncc_high,
 												   ncc_low,
 												   likelihood_high,
 												   likelihood_low,
-												   output_sigma,
-												   L,
-												   sampling_crosswise
+												   output_sigma
 			);
 			int totalPeakAnalyzeComponents = Masker2D.i2xy.length; // number of locations
 			FeatureExtractor2D pa_jobs[] = new FeatureExtractor2D[CPU_NR];
@@ -290,25 +355,22 @@ public class Detector2D {
 			}
 
 
-			// extract the regions to the list
 
 
-
-
-
-
-			/********/
-//			IJ.log("append ends...");
-
+			System.out.print("Append regions... ");
 			// bif-crs clustering parameters
 			float ang_deg = 20f;
 
 			// imagine a square scaled wrt current D[idx] used for detection
-			int			min_region_size = (int) Math.round(0.5f*0.5f*Math.pow(D[didx],2));  // smallest connected region area to be valid critical point
-			int			max_region_size = (int) Math.round(0.9f*0.9f*Math.pow(D[didx],2));  // largest connected region to be valid critical point
+			int			min_region_size = (int) Math.round(0.25f*0.25f*Math.pow(D[didx],2));  // smallest connected region area to be valid critical point
+			int			max_region_size = (int) Math.round(2.0f*2.0f*Math.pow(D[didx],2));  // largest connected region to be valid critical point
 			float 		region_radius 	= D[didx];
+			float sensitivity = 0.7f;
+
+//			System.out.println("diameter " + region_radius + " min = " + min_region_size + " max = " + max_region_size);
 
 			FeatureExtractor2D.exportCritpointScores(critpoint_det, 0); // store critpoint_score2 list into 2d array critpoint_det
+
 			getCritpointRegions(
 																					critpoint_det,
 																					min_region_size,
@@ -320,7 +382,6 @@ public class Detector2D {
 																					detected_regions
 																					);
 
-//			IJ.log("append bifs-crosses...");
 			FeatureExtractor2D.exportCritpointScores(critpoint_det, 2); // store critpoint_score2 list into 2d array critpoint_det
 			getCritpointRegions(
 																					critpoint_det,
@@ -332,6 +393,9 @@ public class Detector2D {
 																					detected_regions
 																					);
 
+																					*/
+
+			System.out.println("finished scale " + D[didx] + " out of " + D.length );
 		}
 
 		t2 = System.currentTimeMillis();
@@ -591,7 +655,7 @@ public class Detector2D {
 			//add region
 			OvalRoi ovroi = new OvalRoi(cx-cr+.5, cy-cr+.5, 2*cr, 2*cr);
 			ovroi.setStrokeWidth(1);
-			ovroi.setFillColor(region_color);
+//			ovroi.setFillColor(region_color);
 			ov.add(ovroi);
 
 			// add directions
@@ -643,28 +707,81 @@ public class Detector2D {
 		ByteProcessor bp = new ByteProcessor(w, h, t);
 		Find_Connected_Regions conn_reg = new Find_Connected_Regions(new ImagePlus("", bp), true);
 		conn_reg.run("");
+
 		//conn_reg.showLabels().show();
-		//FileSaver fs = new FileSaver(conn_reg.showLabels());
-		//fs.saveAsTiff(image_dir+"conn_ends.tif");
+
+		FileSaver fs = new FileSaver(conn_reg.showLabels());
+		if (_choose_type == CritpointRegion.RegionType.END) fs.saveAsTiff(image_dir+"conn_ends"+det_radius+".tif");
+		if (_choose_type == CritpointRegion.RegionType.BIF_CROSS) fs.saveAsTiff(image_dir+"conn_jun"+det_radius+".tif");
+
+
 		ArrayList<ArrayList<int[]>> regs = conn_reg.getConnectedRegions();
 
-		ArrayList<float[]> vxy = new ArrayList<float[]>(); // will be filled up for each region
+		// just thresholding and connected components will give a lot of noisy regions
 
-		// regs are converted into cls
+
+
+		ArrayList<float[]> vxy = new ArrayList<float[]>(); // will be filled up for each SALIENT region
+
+		if (_choose_type== CritpointRegion.RegionType.END) {
+
+			// export binary image
+			ByteProcessor spots = new ByteProcessor(_critpoint_det.length, _critpoint_det[0].length);
+
+
+			System.out.println("Endpoints... what happened? total " + regs.size() + "regions" + minSize + " <> " +maxSize);
+
+			int cnt = 0;
+			for (int i=0; i<regs.size(); i++) {
+
+				if (true) { // regs.get(i).size()>=minSize && regs.get(i).size()<=maxSize
+
+					cnt++;
+					float C=0;        	// score
+
+					for (int aa=0; aa<regs.get(i).size(); aa++) {  // loop elements of the region
+
+						int xcoord = regs.get(i).get(aa)[1];
+						int ycoord = regs.get(i).get(aa)[0];
+						spots.set(xcoord, ycoord, (byte)255);
+						C += _critpoint_det[xcoord][ycoord];
+
+					}
+
+					C /= regs.get(i).size();   // score (calculate it here regardless of the type, says how much average fuzzy score was confident on the output)
+
+					//System.out.println("region elements:  " + regs.get(i).size() + " : " + C );
+
+				}
+			}
+
+			//IJ.saveAs(new ImagePlus("", spots), "Tiff", "/home/miroslav/Desktop/ends.tif");
+
+
+
+		}
+
+		//System.out.println("loop regions.. " + minSize + " till " + maxSize);
+
+		// regs
 		for (int i=0; i<regs.size(); i++) {
+
+//			if (i==1) System.out.println("tried region 1 " + regs.get(i).size());
+
 			if (regs.get(i).size()>=minSize && regs.get(i).size()<=maxSize) {
 
 				float Cx=0, Cy=0; 	// centroid
 				float C=0;        	// score
 				float Cr; 			// radius
 
-				CritpointRegion.RegionType Ctype;   // type
-				float[][] Cdirections;           // directions
+				CritpointRegion.RegionType Ctype;   	// type
+				float[][] Cdirections;           		// directions
 
 				for (int aa=0; aa<regs.get(i).size(); aa++) {  // loop elements of the region
 
 					int xcoord = regs.get(i).get(aa)[1];
 					int ycoord = regs.get(i).get(aa)[0];
+
 
 					Cx += regs.get(i).get(aa)[1];
 					Cy += regs.get(i).get(aa)[0];
@@ -679,154 +796,68 @@ public class Detector2D {
 
 				Cr = det_radius; 				// radius is not calculated but fixed wrt to the parameter
 
+				// choose salient regions before determining their subtype and direction
+
+
 				// second part (type, outward_directions) depends on which type of critical point we deal with
 				Ctype = null;   			// values to add for this region
-				Cdirections = null;
 
-				/*
-					CASE ENDPOINT
-				 */
+				// vxy list
+				vxy.clear();  // list of local directions taken from the region
 
-				if (_choose_type == CritpointRegion.RegionType.END) { // it is endpoint, no need to further reclassify, there is only one direction
+				for (int aa=0; aa<regs.get(i).size(); aa++) {  // loop elements of the region again
 
-					// loop through region members to extract the directions
+					int xcoord = regs.get(i).get(aa)[1];
+					int ycoord = regs.get(i).get(aa)[0];
+					int icoord = Profiler2D.xy2i[xcoord][ycoord];
 
-					vxy.clear();  // list of local directions taken from the region
+					if (icoord!= -1) {  // peaks_i[icoord] is not null
+						// element of the region is in foreground, take its thetas (if they exist)
+						for (int peak_idx = 0; peak_idx < PeakExtractor2D.peaks_i[icoord].length; peak_idx++) {
 
-					for (int aa=0; aa<regs.get(i).size(); aa++) {  // loop elements of the region again
+							// iccord is the location index which is eqivalent to branch index
+							// check if it exists and if it exists check whether the branch is on
+							int curr_peak_i = PeakExtractor2D.peaks_i[icoord][peak_idx];
+							boolean curr_peak_on = FeatureExtractor2D.streamline_score2[icoord][2][peak_idx]>output_membership_th;
 
-						int xcoord = regs.get(i).get(aa)[1];
-						int ycoord = regs.get(i).get(aa)[0];
-						int icoord = Profiler2D.xy2i[xcoord][ycoord];
+							if (curr_peak_i!=-1 && curr_peak_i!=-2 && curr_peak_on) { // indexes of the spatial locations corresponding to peaks
 
-						if (icoord!= -1) {  // peaks_i[icoord] is not null
-							// element of the region is in foreground, take its thetas (if they exist)
-							for (int peak_idx = 0; peak_idx < PeakExtractor2D.peaks_i[icoord].length; peak_idx++) {
+								int peak_x = PeakExtractor2D.i2xy[curr_peak_i][0]; // PeakExtractor2D stores spatial location of the follow-up points
+								int peak_y = PeakExtractor2D.i2xy[curr_peak_i][1];
 
-								// iccord is the location index
-								// which is eqivalent to branch index
-								// check if it exists and if it exists check whether the branch is on
-								int curr_peak_i = PeakExtractor2D.peaks_i[icoord][peak_idx];
-								boolean curr_peak_on = FeatureExtractor2D.streamline_score2[icoord][2][peak_idx]>output_membership_th;
+								float[] unit_vxy = new float[]{peak_x-Cx, peak_y-Cy};
+								float norm_vxy = (float) Math.sqrt(Math.pow(unit_vxy[0],2)+Math.pow(unit_vxy[1],2));
+								unit_vxy[0] = unit_vxy[0] / norm_vxy;
+								unit_vxy[1] = unit_vxy[1] / norm_vxy;
 
-								if (curr_peak_i!=-1 && curr_peak_i!=-2 && curr_peak_on) { // indexes of the spatial locations corresponding to peaks
-
-									int peak_x = PeakExtractor2D.i2xy[curr_peak_i][0]; // PeakExtractor2D stores spatial location of the follow-up points
-									int peak_y = PeakExtractor2D.i2xy[curr_peak_i][1];
-
-									float[] unit_vxy = new float[]{peak_x-Cx, peak_y-Cy};
-									float norm_vxy = (float) Math.sqrt(Math.pow(unit_vxy[0],2)+Math.pow(unit_vxy[1],2));
-									unit_vxy[0] = unit_vxy[0] / norm_vxy;
-									unit_vxy[1] = unit_vxy[1] / norm_vxy;
-
-									vxy.add(unit_vxy);
-
-								}
+								vxy.add(unit_vxy);
 
 							}
 
 						}
 
 					}
-
-
-
-					// use mean-shift to find the main direction out of vxy list
-//					int min_cluster_cnt = 3;// to avoid outliers (int) Math.round(0.8*regs.get(i).size());
-					int[] cls_counts = ClusterDirections.run(vxy, alfa_deg, Cdirections); // gives out descending sorted clusters
-
-					System.out.println(Cdirections.length+" it was");
-
-//					Cdirections = new float[1][2];
-//					Cdirections[0][0] = cls.get(0)[0];
-//					Cdirections[0][1] = cls.get(0)[1];
-
-					Ctype = CritpointRegion.RegionType.END; // this is known
 
 				}
 
-				/*
-					CASE BIFURCATION OR CROSSPOINT (2D)
-				 */
+				ArrayList<float[]> direction_clusters_vxy_count = ClusterDirections.run(vxy, alfa_deg);
 
+				if (_choose_type == CritpointRegion.RegionType.END) {
+					Ctype = CritpointRegion.RegionType.END; // this is known
+				}
 				else if (_choose_type == CritpointRegion.RegionType.BIF_CROSS) {
-					// (unlike endpoint detection) it still has to be defined whether it is bifurcation of cross section based on the scores
-
-					// loop through region members to extract whether it is bif or cross and to extract the directions
-					vxy.clear();
-					for (int aa=0; aa<regs.get(i).size(); aa++) {  // loop elements of the region again, collect the directions
-
-						int xcoord = regs.get(i).get(aa)[1];
-						int ycoord = regs.get(i).get(aa)[0];
-						int icoord = Profiler2D.xy2i[xcoord][ycoord];
-
-						if (icoord!= -1) {  // peaks_i[icoord] is not null
-							// element of the region is in foreground, take its thetas (if they exist) and put them together
-							for (int peak_idx = 0; peak_idx < PeakExtractor2D.peaks_i[icoord].length; peak_idx++) {
-
-								// iccord is the location index
-								// which is eqivalent to branch index
-								// check if it exists and if it exists check whether the branch is on
-								int curr_peak_i = PeakExtractor2D.peaks_i[icoord][peak_idx];
-								boolean curr_peak_on = FeatureExtractor2D.streamline_score2[icoord][2][peak_idx]>output_membership_th;
-
-
-								if (curr_peak_i!=-1 && curr_peak_i!=-2 && curr_peak_on) { // indexes of the spatial locations corresponding to peaks
-
-									int peak_x = PeakExtractor2D.i2xy[curr_peak_i][0]; // PeakExtractor2D stores spatial location of the follow-up points
-									int peak_y = PeakExtractor2D.i2xy[curr_peak_i][1];
-
-									float[] unit_vxy = new float[]{peak_x-Cx, peak_y-Cy};
-									float norm_vxy = (float) Math.sqrt(Math.pow(unit_vxy[0],2)+Math.pow(unit_vxy[1],2));
-									unit_vxy[0] = unit_vxy[0] / norm_vxy;
-									unit_vxy[1] = unit_vxy[1] / norm_vxy;
-
-									vxy.add(unit_vxy);
-
-								}
-
-							}
-
-						}
-
-					}
-
-
-
-
-					// use mean-shift to find the main direction out of vxy list
-//					int min_cluster_cnt = 3;// to avoid outliers (int) Math.round(0.8*regs.get(i).size());
-
-					int[] cls_counts = ClusterDirections.run(vxy, alfa_deg, Cdirections); // list of size-descending sorted clusters for directions (vx, vy)
-					// Cdirections are stored now
-
-//					Cdirections = new float[cls.size()][2];
-//					for (int k=0; k<cls.size(); k++) {
-//						Cdirections[k][0] = cls.get(k)[0];
-//						Cdirections[k][1] = cls.get(k)[1];
-//					}
-
-					// decide whether it is bif (3 clusters) or CROSS (4 clusters)
-					if (cls_counts.length==4 &&  (float)cls_counts[3]/(float)cls_counts[2]>0.8 ) // if the last one is balanced towards smallest remaining
+					// decide whether it is bif (3- clusters) or CROSS (4 clusters)
+					if (direction_clusters_vxy_count.size()==4 &&  direction_clusters_vxy_count.get(3)[2]/direction_clusters_vxy_count.get(2)[2]>0.8) // if the last one is balanced towards smallest remaining
 						Ctype = CritpointRegion.RegionType.CROSS;
 					else
 						Ctype = CritpointRegion.RegionType.BIF;
-
-
 				}
 
-				/*
-					append it here  and prune directions
-				 */
-
-
-
-				System.out.println("----");
-				System.out.println(Ctype);
-				for (int ii = 0; ii < Cdirections.length; ii++) {
-					System.out.println(""+ Arrays.toString(Cdirections[ii]));
+				Cdirections = new float[direction_clusters_vxy_count.size()][2];  // will take 2 columns (3rd will be used to determine if it is crossing)
+				for (int k=0; k<direction_clusters_vxy_count.size(); k++) {
+					Cdirections[k][0] = direction_clusters_vxy_count.get(k)[0];
+					Cdirections[k][1] = direction_clusters_vxy_count.get(k)[1];
 				}
-				System.out.println("----");
 
 				switch (Ctype) {
 					case END:
@@ -843,6 +874,191 @@ public class Detector2D {
 				}
 
 			}
+		}
+
+	}
+
+	public static void print(int atX, int atY)
+	{
+
+//		System.out.println(Arrays.toString(peaks_i[atLoc]));
+
+		int atLoc = Masker2D.xy2i[atX][atY];
+
+		IJ.log(String.format("/**** DETECTOR 2D TOOL (%5d, %5d) [%10d] ****/", atX, atY, atLoc));
+
+		if (atLoc != -1) {  // first level check, intensity masker
+
+			if (Delineator2D.delin2[atLoc]!=null) {  // second level check, profile masker
+
+				String printout = "";
+
+				printout += "\nDELINEATION INDEXES:\n";
+
+				for (int ii=0; ii<Delineator2D.delin2[atLoc].length; ii++) {
+					printout += ii+"\t->\t";
+					for (int jj=0; jj<Delineator2D.delin2[atLoc][ii].length; jj++) {
+
+						if (Delineator2D.delin2[atLoc][ii][jj]==-1) {
+							printout += "BGRD";
+						}
+						else if (Delineator2D.delin2[atLoc][ii][jj]==-2) {
+							printout += "NONE";
+						}
+						else {
+							printout += IJ.d2s(Delineator2D.delin2[atLoc][ii][jj], 2);
+						}
+
+						if (jj==Delineator2D.delin2[atLoc][ii].length-1) printout += "\n";
+						else printout += ",  ";
+					}
+				}
+
+				printout += "\nREFINED LOCS:\n";
+				if (Delineator2D.xy2[atLoc]!=null) {
+
+					for (int b=0; b<Delineator2D.xy2[atLoc].length; b++) {
+
+						printout += b+"\t->\t";
+
+						if (Delineator2D.xy2[atLoc][b]!=null) {
+
+							if (Delineator2D.xy2[atLoc][b][0] != null) {
+
+								for (int l=0; l<Delineator2D.xy2[atLoc][b][0].length; l++) {
+
+									printout += "("+IJ.d2s(Delineator2D.xy2[atLoc][b][0][l], 2)+", "+IJ.d2s(Delineator2D.xy2[atLoc][b][1][l], 2)+")";
+
+									if (l==Delineator2D.xy2[atLoc][b][0].length-1) printout += "\n";
+									else printout += ", ";
+								}
+
+							}
+							else {
+
+								printout += "NULL\n";
+
+							}
+
+
+
+
+						}
+						else {
+							printout += "NONE\n";
+						}
+
+					}
+
+				}
+				else {
+					printout += "SKIPPED CALCULATING HERE (THERE WAS A THREAD POINTING TO BGRD)\n";
+				}
+
+				printout += "\nREFINED VECS:\n";
+				if (Delineator2D.vxy2[atLoc]!=null) {
+
+					for (int b=0; b<Delineator2D.vxy2[atLoc].length; b++) {
+
+						printout += b+"\t->\t";
+
+						if (Delineator2D.vxy2[atLoc][b]!=null) {
+
+							if (Delineator2D.vxy2[atLoc][b][0] != null) {
+
+								for (int l=0; l<Delineator2D.vxy2[atLoc][b][0].length; l++) {
+
+									printout += "("+IJ.d2s(Delineator2D.vxy2[atLoc][b][0][l], 2)+", "+IJ.d2s(Delineator2D.vxy2[atLoc][b][1][l], 2)+")";
+
+									if (l==Delineator2D.vxy2[atLoc][b][0].length-1) printout += "\n";
+									else printout += ", ";
+								}
+
+							}
+							else {
+
+								printout += "NULL\n";
+
+							}
+
+
+						}
+						else {
+							printout += "NONE\n";
+						}
+
+					}
+
+				}
+				else {
+					printout += "SKIPPED CALCULATING HERE (THERE WAS A THREAD POINTING TO BGRD)\n";
+				}
+
+				printout += "branch \t -> \t\t SMOOTH. \t\t LHOOD \t\t AVG_NCC\n";
+
+				if (Delineator2D.smoothness[atLoc]!=null) {
+
+					for (int b=0; b<Delineator2D.smoothness[atLoc].length; b++) {
+						printout += (b+1) +"\t->\t\t";
+						if (!Float.isNaN(Delineator2D.smoothness[atLoc][b])) {
+							printout += "" + IJ.d2s(Delineator2D.smoothness[atLoc][b], 2)+
+												" \t "+IJ.d2s(Delineator2D.smoothness[atLoc][b], 2)+
+												" \t "+IJ.d2s(Delineator2D.smoothness[atLoc][b], 2)
+//												+
+//												"  \t \t  OFF " + IJ.d2s(1, 2)
+//												+
+//												"  \t \t   ON "+  IJ.d2s(1, 2)
+												+"\n"
+							;
+						}
+						else {
+							printout += "NaN\n";
+						}
+					}
+				}
+				else {
+					printout += "NONE(profile was flat)\n";
+				}
+
+
+				/*
+				if (ncc2[atLoc]!=null) {
+					for (int b=0; b<ncc2[atLoc].length; b++) {
+						printout += (b+1) +"\t->\t"; //+ IJ.d2s(ratio2[atLoc][ii], 2) + "\n"
+						if (!Float.isNaN(ncc2[atLoc][b])) {
+							printout += "NCC " + IJ.d2s(ncc2[atLoc][b], 2)+"  \t LHOOD "+IJ.d2s(lhoods2[atLoc][b], 2)+"  \t \t  OFF "
+												+IJ.d2s(streamline_score2[atLoc][0][b], 2)+"  \t  ON "+IJ.d2s(streamline_score2[atLoc][2][b], 2)+"\n";
+						}
+						else {
+							printout += "NONE\n";
+						}
+					}
+				}
+				else {
+					printout += "NONE\n";
+				}
+				*/
+
+//				printout += "\nBRANCH STRENGTH \n...todo...\n";
+
+			/*printout += "\nCRITPOINT \n";
+			if (critpoint_score2[atLoc]!=null) {
+				printout += "END "+critpoint_score2[atLoc][0]+", NONE "+critpoint_score2[atLoc][1]+", BIF "+critpoint_score2[atLoc][2];
+			}
+			else {
+				printout += "NONE\n";
+			}*/
+
+				IJ.log(printout);
+
+			}
+			else {
+				IJ.log("not enough variation in profile, profile masker said so");
+			}
+
+		}
+		else {
+			IJ.log("background point, intensity masker said so");
 		}
 
 	}

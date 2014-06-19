@@ -26,6 +26,8 @@ public class Fitter {
             test_profiles
          */
         int profile_length = 14;
+		float sigma_ratio = 1f/6;
+
         float [] profile_custom;
         profile_custom = new float[]{0.06f, 0.06f, 0.08f, 0.14f, 0.21f, 0.36f, 0.69f, 1.00f, 0.74f, 0.44f, 0.23f, 0.09f, 0.04f, 0.00f}; test_profiles.add(profile_custom);
         profile_custom = new float[]{0.59f, 0.82f, 0.99f, 1.00f, 0.87f, 0.64f, 0.52f, 0.43f, 0.30f, 0.17f, 0.08f, 0.02f, 0.00f, 0.01f}; test_profiles.add(profile_custom);
@@ -77,7 +79,7 @@ public class Fitter {
         }
         new ImagePlus("input profiles", test_profiles_img).show();
 
-        Fitter1D f1d = new Fitter1D(profile_length, true);
+        Fitter1D f1d = new Fitter1D(profile_length, sigma_ratio, true);
         f1d.showTemplates();
 
 		IJ.log("fitting a family of profiles...");
@@ -136,18 +138,20 @@ public class Fitter {
 
         }
 
-        Plot p_all_scores = new Plot("", "", "");
+        Plot p_all_scores = new Plot("compare", "", "");
         p_all_scores.setLimits(0, xaxis1.length, all_min, all_max);
+		p_all_scores.setColor(Color.RED);
+		p_all_scores.setLineWidth(3);
         p_all_scores.addPoints(xaxis1, fit_scores_ncc, Plot.LINE);
+		p_all_scores.draw();
+		p_all_scores.setColor(Color.GREEN);
         p_all_scores.addPoints(xaxis1, fit_scores_mse, Plot.LINE);
+		p_all_scores.draw();
         p_all_scores.show();
 
 //        new ImagePlus("", p_all_scores.getProcessor()).show();
-
         new ImagePlus("ncc fit", fit_ncc).show();
         new ImagePlus("mse fit", fit_mse).show();
-
-//        System.exit(0);
 
     }
 

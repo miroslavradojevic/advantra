@@ -5,3 +5,11 @@ FeatureExtractor2D   (Thread)           : streamline_score2, critpoint_score2, n
 PeakExtractor2D      (Thread)           : peaks_theta, peaks_i, peaks_w, peaks_lhood (inputs: i2xy, xy2i, prof2, inimg_xy)
 Profiler2D           (Thread)           : prof2  (inputs: inimg_xy, xy2i, i2xy)
 Masker2D             (Thread)           : back_xy, mask_xy, criteria, i2xy, xy2i (inputs: inimg_xy)
+
+
+
+features are in (missing values are stored as NaN):
+PeakExtractor2D.peaks_lhood             float[Nlocs][4]         peaks_lhood[loc] cannot be null
+Delineator2D.smoothness                 float[Nlocs][4]         smoothness[loc] can be null
+Ncc2D.average                           float[Nlocs][4]         average[loc] can be null
+

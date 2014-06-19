@@ -37,20 +37,20 @@ public class Fitter1D {
 
     static float low_boundary = 0.01f;          // bottom limit at the boundary
 
-    public Fitter1D(int _vector_len, boolean verbose){
+    public Fitter1D(int _vector_len, float cross_sigma_ratio, boolean verbose){
 
 		// parameters
         vector_len  = _vector_len;
 
 		middle_idx = (vector_len-1) / 2f;
 		// sigma
-		start_sigma = vector_len*0.02f;
-		d_sigma     = vector_len*0.02f;
-		end_sigma   = vector_len*0.16f;
+		start_sigma = cross_sigma_ratio * vector_len * 1.0f;//*0.02f;
+		d_sigma     = cross_sigma_ratio * vector_len * 0.2f;
+		end_sigma   = cross_sigma_ratio * vector_len * 1.0f;//0.16f;
 		// width
 		start_width = 0;
 		d_width     = vector_len*0.05f;
-		end_width   = vector_len*0.35f;
+		end_width   = 0;//vector_len*0.35f;
 		//shift
 		start_shift	= 0;//-vector_len*0.15f;
 		d_shift		= vector_len*0.05f;
@@ -71,7 +71,7 @@ public class Fitter1D {
         // width loop, sigma loop
         for(float width = start_width; width<=end_width; width+=d_width) {
 
-            for (float sigma = start_sigma; sigma <= end_sigma; sigma+=d_sigma) {
+			for (float sigma = start_sigma; sigma <= end_sigma; sigma+=d_sigma) {
 
 				for (float shift = start_shift; shift <= end_shift; shift+=d_shift) {
 
@@ -97,7 +97,7 @@ public class Fitter1D {
 					}
 
                     // check boundary elements are low enough
-                    if (templates_element[0] < low_boundary && templates_element[vector_len-1] < low_boundary) {
+                    //if (templates_element[0] < low_boundary && templates_element[vector_len-1] < low_boundary) {
 
                         templates.add(templates_element.clone());
 
@@ -114,9 +114,10 @@ public class Fitter1D {
 
                         templates_mean_subtr.add(templates_element.clone());
                         templates_mean_subtr_sumsqr.add(sum);
-                        template_legend.add("wdt="+ IJ.d2s(width, 2)+","+"sig="+IJ.d2s(sigma, 2)+","+"shf="+IJ.d2s(shift,2));
+//						System.out.println("wdt="+ IJ.d2s(width, 2)+","+"sig="+IJ.d2s(sigma, 2)+","+"shf="+IJ.d2s(shift,2));
+						template_legend.add("wdt="+ IJ.d2s(width, 2)+","+"sig="+IJ.d2s(sigma, 2)+","+"shf="+IJ.d2s(shift,2));
 
-                    }
+                    //}
 
 				}
 

@@ -28,16 +28,12 @@ public class Sphere2D {
     public static float 	arcNbhood       = 2*arcRes;
     private static float    samplingStep    = 0.9f;
 
-//    public static float     R_FULL 	        = 1.00f;
     public static float     T_HALF 	        = 0.50f;
-    public static int 		weightStdRatioToD = 6;                  // could be a parameter
-//    public static int       MAX_ITER        = 15;
-//    public static int       EPSILON         = 0;
 
     private float 	radius;
-//    private float   scale;
     private float   neuronDiameter;
-    private int     N;
+	private float 	sigma_ratio;
+	private int     N;
 
     private int 	limR, limT;
 
@@ -54,23 +50,22 @@ public class Sphere2D {
     private static ArrayList<float[][]> 	offstXY = new ArrayList<float[][]>(); 	// list of filter offsets for each direction
 
     private static float[] weights;
-
     public static float[][] diffs;
 
     /*
     *********************************************************************
      */
 
-    public Sphere2D(float neuronDiam, float scale)
+    public Sphere2D(float neuronDiam, float scale, float sigma_ratio)
     {
 
         this.radius 	= scale * neuronDiam;
         this.neuronDiameter = neuronDiam;
+		this.sigma_ratio = sigma_ratio;
+
         this.N 	= (int) Math.ceil( ( (2 * Math.PI * radius) / arcRes) );    // N will influence theta list size, and offstXY list size
         this.limT = (int) Math.ceil(T_HALF*neuronDiameter/samplingStep);    // transversal sampling limits
-        //this.limR = (int) Math.ceil(R_FULL*neuronDiameter/samplingStep);    // how many to take radially with given sampling step
-        this.limR = 2 * limT + 1;//(int) Math.ceil(R_FULL*neuronDiameter/samplingStep);    // how many to take radially with given sampling step
-
+        this.limR = 2 * limT + 1; // how many to take radially with given sampling step
 
         theta.clear();
         for (int i=0; i<N; i++) {
@@ -143,11 +138,11 @@ public class Sphere2D {
                         offsetsPerDirection[cnt][1] = py;
 //                        offsetsPerDirection[cnt][2] = pz;
 
-                        //*** HERE DEFINES THE FILTER PROFILE WEIGHTS (only in first iteration (ii=0), the rest are the same)
+                        //*** DEFINES THE FILTER PROFILE WEIGHTS (only in first iteration (ii=0), the rest are the same)
                         if (ii==0) {
                                 float dstAxis = point2line(0, 0,        0, 1,       px, py);
-							float sigm = neuronDiameter/weightStdRatioToD;
-                            weights[cnt] = (float) Math.exp(-(dstAxis*dstAxis)/(2*(neuronDiameter/weightStdRatioToD)*(neuronDiameter/weightStdRatioToD)));
+							float sig = sigma_ratio * neuronDiameter;
+                            weights[cnt] = (float) Math.exp(-(dstAxis*dstAxis)/(2*sig*sig));
 							sumWgt += weights[cnt];
 //							weights[cnt] = (float) ((1-(dstAxis*dstAxis)/(sigm*sigm))*Math.exp(-(dstAxis*dstAxis)/(2*sigm*sigm)));
 //							if (weights[cnt]>0) sumWgtPos+=weights[cnt];
@@ -256,8 +251,8 @@ public class Sphere2D {
 
         float sum = 0;
         for (int k=0; k<weights.length; k++) sum += weights[k];
-		float sigma = neuronDiameter/weightStdRatioToD;
-        return new ImagePlus("weights,sigma="+ IJ.d2s(sigma, 2)+",sum="+IJ.d2s(sum,2), new FloatProcessor((2*limT+1), limR, weights)); // (limR+1)
+		float sig = sigma_ratio * neuronDiameter;
+        return new ImagePlus("weights,sigma="+ IJ.d2s(sig, 2)+",sum="+IJ.d2s(sum,2), new FloatProcessor((2*limT+1), limR, weights)); // (limR+1)
 
     }
 
@@ -278,6 +273,26 @@ public class Sphere2D {
     {
         return (int) Math.ceil(Math.sqrt(Math.pow(neuronDiameter*T_HALF, 2)+Math.pow(radius, 2)));
     }
+
+	public float getScale()
+	{
+		return radius / neuronDiameter;
+	}
+
+	public float getInitialRadialSeparation()
+	{
+		return radius - neuronDiameter;
+	}
+
+	public float getNeuronDiameter()
+	{
+		return neuronDiameter;
+	}
+
+	public float getSphereRadius()
+	{
+		return radius;
+	}
 
     public short extractProfile(int profileIdx, float atX, float atY, float[][] _inimg_xy)
     {

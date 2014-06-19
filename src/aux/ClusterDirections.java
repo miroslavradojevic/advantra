@@ -11,20 +11,21 @@ import java.util.Arrays;
 public class ClusterDirections {
 
 	// cluster directions using mean-shift
-	public static int[] run(ArrayList<float[]> vxy, float alfaDeg, float[][] clustered_directions) {
+	public static ArrayList<float[]> run(ArrayList<float[]> vxy, float alfaDeg) {
 
-		int max_iter = 50;
+		int max_iter = 20;
 		float epsilon = 0.0001f;
 		int min_cluster_cnt = 4; // to avoid taking into account outliers
 		float alfaRad = Deg2Rad(alfaDeg);
-		float[][] vxy_conv = meanShift(vxy, max_iter, epsilon, alfaRad); 			// mean-shift, vxy are normalized
-		int[] out_lab = clustering(vxy_conv, alfaRad); 								// cluster convergences
-		float[][] test = new float[4][2];
-		int[] clustered_cnt = extracting(out_lab, vxy, min_cluster_cnt, test);      	// extract clusters
 
-		System.out.println("got it after" + test.length);
+		float[][] vxy_conv = meanShift(vxy, max_iter, epsilon, alfaRad); 				// mean-shift, vxy are normalized
+		int[] out_lab = clustering(vxy_conv, alfaRad); 									// cluster convergences
+//		float[][] test = new float[4][2];
+		ArrayList<float[]> clustered_vxy_cnt = extracting(out_lab, vxy, min_cluster_cnt);      	// extract clusters
 
-		return clustered_cnt;
+//		System.out.println("got it after" + test.length);
+
+		return clustered_vxy_cnt;
 
 	}
 
@@ -164,10 +165,11 @@ public class ClusterDirections {
 
 	}
 
-	private static int[] extracting(int[] labels, ArrayList<float[]> vals, int min_count, float[][] _clustered_directions)
+	private static ArrayList<float[]> extracting(int[] labels, ArrayList<float[]> vals, int min_count)
 	{
 
 		boolean[] checked = new boolean[labels.length];
+
 		ArrayList<float[]> out = new ArrayList<float[]>();
 		ArrayList<Integer> cnt = new ArrayList<Integer>();    		// to make sure that it outputs sorted list
 
@@ -208,23 +210,29 @@ public class ClusterDirections {
 //		}
 
 		// sort by the counts (take from Sorting.java) descending indexes
-		int[] desc_idx = Tools.descending(cnt);      // it will change cnt list!!!!
+		int[] desc_idx = Tools.descending(cnt);      // it will change cnt list as well!!!!
 		int clusters_nr = (desc_idx.length>4)? 4 : desc_idx.length ;
 
-		//ArrayList<float[]> out_sorted = new ArrayList<float[]>(4); // top 4  if there are as many
+		ArrayList<float[]> out_sorted = new ArrayList<float[]>(clusters_nr); // top 4  if there are as many
 
-		_clustered_directions = new float[clusters_nr][2];
-		System.out.println(clusters_nr+" clusters allocated");
-		int[] clustered_counts = new int[clusters_nr];
+//		out_sorted = new float[clusters_nr][2];
+//		System.out.println(clusters_nr+" clusters allocated");
+//		int[] clustered_counts = new int[clusters_nr];
 
 		for (int ii=0; ii<clusters_nr; ii++) {
-			_clustered_directions[ii][0] = out.get(desc_idx[ii])[0];
-			_clustered_directions[ii][1] = out.get(desc_idx[ii])[1];
-			clustered_counts[ii] = cnt.get(ii);
-			//out_sorted.add(out.get(desc_idx[ii])); // add top 1,2,3 or 4 directions based on the count
+
+//			_clustered_directions[ii][0] = out.get(desc_idx[ii])[0];
+//			_clustered_directions[ii][1] = out.get(desc_idx[ii])[1];
+//			clustered_counts[ii] = cnt.get(ii);
+
+			float vx 	= out.get(desc_idx[ii])[0];
+			float vy 	= out.get(desc_idx[ii])[1];
+			float vcnt 	= cnt.get(ii);  // because cnt is already sorted
+
+			out_sorted.add(new float[]{vx, vy, vcnt}); // add top 1,2,3 or 4 directions based on the count
 		}
 
-		return clustered_counts;
+		return out_sorted;
 
 	}
 

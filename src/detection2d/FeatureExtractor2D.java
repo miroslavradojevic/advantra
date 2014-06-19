@@ -42,6 +42,7 @@ public class FeatureExtractor2D extends Thread {
 
     // PARAMETERS
     public static float     D;
+	public static float		cross_sigma_ratio;
     public static int       M;                              // how much it expands recursively from the center
     public static float     minCos;                         // allowed derail
     private static float    samplingStep;                   // when sampling image values to extract features
@@ -51,6 +52,7 @@ public class FeatureExtractor2D extends Thread {
 	private static int      dim_half;                       // cross profile half-length
     private static String   ncc_estimator;                  // select ncc values estimator
 
+	// detection params...
     private static float    ncc_high_mean;
     private static float    ncc_low_mean;
 	private static float    likelihood_high_mean;
@@ -63,12 +65,15 @@ public class FeatureExtractor2D extends Thread {
     public static int[][][]     delin2;                     // N(foreground locs.) x 4(max. threads) x (1..M) (follow-up locs.) contains index for each location
     public static float[][][][] delin_refined_locs2;        // N(foreground locs.) x 4(max. threads) x 2 x ((1..M) x L) (2 dimensional)
 	public static float[][][][] delin_refined_vecs2;        // N(foreground locs.) x 4(max. threads) x 2 x ((1..M) x L) (2 dimensional)
+
     // features
     public static float[][][]   fitsco2;					// N(foreground locs.) x 4(max. threads) x ((1..M) x L) (fit scores ncc for refined locs)
     public static float[][][]   stdev2;						// N(foreground locs.) x 4(max. threads) x ((1..M) x L) (variances of real values)
+
     // descriptions (calculations on features)
     public static float[][]     ncc2;                       // N(foreground locs.) x 4(max. threads) (ncc moment along the stream)
 	public static float[][]		lhoods2; 					// N(foreground locs.) x 4(max. threads) (normalized 0-1) likelihoods, read from Peak
+
 	// fuzzy system outputs
     public static float[][][]   streamline_score2;          // N(foreground locs.) x 3 (off,none,on)x 4(max. threads)
     public static float[][]   	critpoint_score2;           // N(foreground locs.) x 3(endpoint,nonepoint,bifpoint) given by fuzzy logic
@@ -84,26 +89,33 @@ public class FeatureExtractor2D extends Thread {
 											int[][] _xy2i,
 											int[][] _peaks_i,
 											int[][] _peaks_w,
-											float[][] _peaks_lhood,
+											float[][] _peaks_lhood,  // it was necessary for the detection
+
 											float[][] _inimg_xy,
 											int     _M,
                                     		float   _minCos,
-                                    		float   _D,
+
+											float   _D,
+											float  	_cross_sigma_ratio, // the same one used for profiler, now necessary for the fitter profiles
+
                                             String  _ncc_estimator,
+
                                     		float   _ncc_high_mean,
                                     		float   _ncc_low_mean,
 											float 	_likelihood_high_mean,
 											float 	_likelihood_low_mean,
-											float 	_output_sigma,
-                                    		int     _L,                         // will define sampling longitudinal
-                                    		float   _sampling_crosswise
+											float 	_output_sigma
+//											int     _L,                         // will define sampling longitudinal
+//                                    		float   _sampling_crosswise
     )
     {
         M               = _M;
         minCos          = _minCos;
         D               = _D;
-        L               = _L;
-		samplingStep    = _sampling_crosswise;
+        L               = Math.round(_D) + 1;
+//		System.out.println("L was" + L);
+		samplingStep    = .5f;
+		cross_sigma_ratio = _cross_sigma_ratio;
 
         ncc_estimator = _ncc_estimator;
 
@@ -142,7 +154,7 @@ public class FeatureExtractor2D extends Thread {
 		streamline_score2  	= new float[i2xy.length][][];     		// branch score 	fg. location x 3 (off, none, on)x 4 (direcitons)
         critpoint_score2    = new float[i2xy.length][];             // critpoint score  fg. location x 3 (end, non, jun)
 
-    }
+	}
 
 	public static ImageStack getFuzzyAgg(int atX, int atY){
 
@@ -233,9 +245,10 @@ public class FeatureExtractor2D extends Thread {
 
     public void run()
     {
-        // processor modules for this run - each run should have it's own initialized with the same parameteres
-        Fitter1D fitter  			= new Fitter1D(dim, false); // dim = profile width with current samplingStep, verbose = false
-//			fitter.showTemplates();
+
+		// processor modules for this run - each run should have it's own initialized with the same parameteres
+        Fitter1D fitter  			= new Fitter1D(dim, cross_sigma_ratio, false); // dim = profile width with current samplingStep, verbose = false
+		//fitter.showTemplates();
         Fuzzy2D fls = new Fuzzy2D(
                 // ncc
                 ncc_high_mean,// ncc_high_sigma,      // high
@@ -336,6 +349,8 @@ public class FeatureExtractor2D extends Thread {
             -2  -2 -2     |
              */
 
+
+
             /* delin_refined_locs2[locationIdx] */
             for (int b = 0; b<delin2[locationIdx].length; b++) { // loop 4 branches
 
@@ -398,8 +413,13 @@ public class FeatureExtractor2D extends Thread {
 
             }
 
-            /* calculate delin_refined_vecs2[locationIdx]  using delin_refined_locs2[locationIdx]*/
 
+
+
+
+            /*
+            *	calculate delin_refined_vecs2[locationIdx]  using delin_refined_locs2[locationIdx]
+            */
             if (delin_refined_locs2[locationIdx]!=null) {
                 for (int b = 0; b<delin_refined_locs2[locationIdx].length; b++) {
                     if (delin_refined_locs2[locationIdx][b]!=null) {
@@ -458,10 +478,33 @@ public class FeatureExtractor2D extends Thread {
                 delin_refined_vecs2[locationIdx] = null;
             }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
             /*
             *  calculate fitsco2[locationIdx]  and stdev2[locationIdx] using cross profiles at refined locations
             */
-
 			if (delin_refined_locs2[locationIdx]!=null) {
 
 				for (int b = 0; b<delin_refined_locs2[locationIdx].length; b++) {
@@ -477,13 +520,13 @@ public class FeatureExtractor2D extends Thread {
 
 							int cnt = 0;
 							for (int shift=-dim_half; shift<=dim_half; shift++) {
-								// sample the values using refined points and orthogonal direction
+								// sample the values using refined locs and refined vecs
 								float at_x = delin_refined_locs2[locationIdx][b][0][l] + shift * samplingStep * delin_refined_vecs2[locationIdx][b][0][l];
 								float at_y = delin_refined_locs2[locationIdx][b][1][l] + shift * samplingStep * delin_refined_vecs2[locationIdx][b][1][l];
 								cross_profile[cnt] = Interpolator.interpolateAt(at_x, at_y, inimg_xy);
 								cnt++;
 							}
-							// refined cross-profile is formed
+							// cross-profile is formed
 
 							// extract std of the cross-profile before normalizing it
 							stdev2[locationIdx][b][l] = Stat.std(cross_profile);
@@ -510,8 +553,7 @@ public class FeatureExtractor2D extends Thread {
 
             /*
             *  calculate ncc2[locationIdx] using fitsco2[locationIdx] as an estimate of all the ncc fit scores extracted
-             */
-
+            */
             if (fitsco2[locationIdx]!=null) {
                 ncc2[locationIdx] = new float[4];
                 for (int b = 0; b<fitsco2[locationIdx].length; b++) {
@@ -527,7 +569,8 @@ public class FeatureExtractor2D extends Thread {
                             ncc2[locationIdx][b] = Stat.quantile(fitsco2[locationIdx][b], 6, 20); // hardcoded 6/20
                         }
                         else {
-                            ncc2[locationIdx][b] = Float.NaN;
+							System.out.println("wrong estimator argument...");
+							ncc2[locationIdx][b] = Float.NaN;
                         }
 
                     }
@@ -540,10 +583,12 @@ public class FeatureExtractor2D extends Thread {
                 ncc2[locationIdx]=null;
             }
 
+
+
+
             /*
             *  calculate streamline_score[locationIdx] -> {OFF, NONE, ON} response of each individual branch
             */
-
             if (ncc2[locationIdx]!=null) {
                 streamline_score2[locationIdx] = new float[3][4]; // {OFF, NONE, ON} X NR. BRANCHES
                 for (int b=0; b<ncc2[locationIdx].length; b++) {
@@ -732,13 +777,13 @@ public class FeatureExtractor2D extends Thread {
                 printout += "SKIPPED CALCULATING HERE (THERE WAS A THREAD POINTING TO BGRD)\n";
             }
 
-            printout += "\nNCC AVERAGE  \t  LIKELIHOOD  \t  OFF  \t  ON \n";
+            printout += "\nFEATURES \n";
             if (ncc2[atLoc]!=null) {
                 for (int b=0; b<ncc2[atLoc].length; b++) {
                     printout += (b+1) +"\t->\t"; //+ IJ.d2s(ratio2[atLoc][ii], 2) + "\n"
                     if (!Float.isNaN(ncc2[atLoc][b])) {
-						printout += IJ.d2s(ncc2[atLoc][b], 2)+"  \t  "+IJ.d2s(lhoods2[atLoc][b], 2)+"  \t \t  OFF"
-											+IJ.d2s(streamline_score2[atLoc][0][b], 2)+"  \t  ON"+IJ.d2s(streamline_score2[atLoc][2][b], 2)+"\n";
+						printout += "NCC " + IJ.d2s(ncc2[atLoc][b], 2)+"  \t LHOOD "+IJ.d2s(lhoods2[atLoc][b], 2)+"  \t \t  OFF "
+											+IJ.d2s(streamline_score2[atLoc][0][b], 2)+"  \t  ON "+IJ.d2s(streamline_score2[atLoc][2][b], 2)+"\n";
                     }
                     else {
                         printout += "NONE\n";
@@ -749,7 +794,7 @@ public class FeatureExtractor2D extends Thread {
                 printout += "NONE\n";
             }
 
-			printout += "\nBRANCH STRENGTH \n...todo...\n";
+//			printout += "\nBRANCH STRENGTH \n...todo...\n";
 
 			printout += "\nCRITPOINT \n";
 			if (critpoint_score2[atLoc]!=null) {
@@ -761,15 +806,15 @@ public class FeatureExtractor2D extends Thread {
 
             IJ.log(printout);
 
-			Fuzzy2D fls = new Fuzzy2D(
-											 // ncc
-											 ncc_high_mean,// ncc_high_sigma,      // high
-											 ncc_low_mean, //ncc_low_sigma,   // low
-											 // lhood
-											 likelihood_high_mean, //likelihood_high_sigma, // high
-											 likelihood_low_mean, //likelihood_low_sigma,  // low
-											 output_sigma  // std output membership functions - defines separation margin
-			);
+//			Fuzzy2D fls = new Fuzzy2D(
+//											 // ncc
+//											 ncc_high_mean,// ncc_high_sigma,      // high
+//											 ncc_low_mean, //ncc_low_sigma,   // low
+//											 // lhood
+//											 likelihood_high_mean, //likelihood_high_sigma, // high
+//											 likelihood_low_mean, //likelihood_low_sigma,  // low
+//											 output_sigma  // std output membership functions - defines separation margin
+//			);
 
 
         }
@@ -849,142 +894,7 @@ public class FeatureExtractor2D extends Thread {
     /*
         outputs (to visualize delineation and extracted features)
      */
-    public static Overlay getDelineationOverlay(int atX, int atY)
-    {
 
-        // return the delineated local structure Overlay for visualization
-        Overlay ov = new Overlay();
-
-        /*
-            adds generations of peaks in green
-         */
-        PeakExtractor2D.getPeaks(atX, atY, 3, ov);   // peaks will be stored in ov
-
-        float Rd = 1.5f; // radius of the circles written for delineation
-        Color cd = Color.RED;
-        float wd = 0.25f;
-
-		/*
-		 central location
-		  */
-        OvalRoi ovalroi = new OvalRoi(atX-(Rd/2)+.5f, atY-(Rd/2)+.5f, Rd, Rd);
-		ovalroi.setFillColor(cd);
-		ovalroi.setStrokeWidth(wd);
-        ov.add(ovalroi);
-
-        /*
-            add local cross-section locations (re-calculate) and patch delineation spots (delin2)
-         */
-        if (xy2i[atX][atY]>=0) {
-
-            int[][] delin_at_loc = delin2[xy2i[atX][atY]];
-
-            for (int b = 0; b<delin_at_loc.length; b++) {           // loop 4 branches
-
-                for (int m=0; m<M; m++) {
-
-                    if (delin_at_loc[b][m] >= 0) {
-
-                        int pt_idx = delin_at_loc[b][m]; // there is a point to add
-                        int pt_x = i2xy[pt_idx][0];
-                        int pt_y = i2xy[pt_idx][1];
-
-                        ovalroi = new OvalRoi(pt_x-(Rd/2)+.5f, pt_y-(Rd/2)+.5f, Rd, Rd); // add the point to the overlay
-                        ovalroi.setStrokeColor(cd);
-                        ovalroi.setStrokeWidth(wd);
-                        ov.add(ovalroi);
-
-						// find previous indexes
-						int prev_i, prev_x, prev_y;
-
-						if (m==0) {
-							prev_x = atX;
-							prev_y = atY;
-						}
-						else{
-							prev_i = delin_at_loc[b][m-1];
-							prev_x = i2xy[prev_i][0];
-							prev_y = i2xy[prev_i][1];
-						}
-
-						ArrayList<OvalRoi> line_pts = localPatchCrossProfilesLocs(prev_x, prev_y, pt_x, pt_y);  // will be recalculated
-						for (int aa = 0; aa < line_pts.size(); aa++) ov.add(line_pts.get(aa));
-
-                    }
-
-                }
-
-            }
-
-        }
-
-        /*
-        add refined streamline locations (read from delin_refined_locs2)
-         */
-        int locationIdx = xy2i[atX][atY];
-
-        if (locationIdx!=-1) {
-
-			if (delin_refined_locs2[locationIdx]!=null) {
-				for (int b = 0; b<delin_refined_locs2[locationIdx].length; b++) {
-
-					// check whether there is a refinement at all here, add in case there is
-					if (delin_refined_locs2[locationIdx][b]!=null) {
-
-						// loop points to add them
-						for (int l=0; l<delin_refined_locs2[locationIdx][b][0].length; l++) {
-
-							float refined_x = delin_refined_locs2[locationIdx][b][0][l];
-							float refined_y = delin_refined_locs2[locationIdx][b][1][l];
-
-							ovalroi = new OvalRoi(refined_x-(samplingStep/2)+.5f, refined_y-(samplingStep/2)+.5f, samplingStep, samplingStep);
-							ovalroi.setFillColor(Color.YELLOW);
-							ovalroi.setStrokeWidth(samplingStep/4);
-							ov.add(ovalroi);
-
-						}
-
-					}
-
-				}
-			}
-
-        }
-
-        /*
-        add lines marking the refined cross sections
-         */
-        if (locationIdx!=-1) {
-
-			if (delin_refined_vecs2[locationIdx]!=null) {
-				for (int b=0; b<delin_refined_vecs2[locationIdx].length; b++) {
-
-					if (delin_refined_vecs2[locationIdx][b]!=null) {
-
-						for (int l=0; l<delin_refined_vecs2[locationIdx][b][0].length; l++) {
-
-							float end_1_x = delin_refined_locs2[locationIdx][b][0][l] - dim_half * samplingStep * delin_refined_vecs2[locationIdx][b][0][l];
-							float end_1_y = delin_refined_locs2[locationIdx][b][1][l] - dim_half * samplingStep * delin_refined_vecs2[locationIdx][b][1][l];
-
-							float end_2_x = delin_refined_locs2[locationIdx][b][0][l] + dim_half * samplingStep * delin_refined_vecs2[locationIdx][b][0][l];
-							float end_2_y = delin_refined_locs2[locationIdx][b][1][l] + dim_half * samplingStep * delin_refined_vecs2[locationIdx][b][1][l];
-
-							Line lne = new Line(end_1_x+.5f, end_1_y+.5f, end_2_x+.5f, end_2_y+.5f);
-							lne.setStrokeColor(Color.CYAN);
-							ov.add(lne);
-
-						}
-
-					}
-
-				}
-			}
-
-        }
-
-        return ov;
-
-    }
 
     /*
     visualize the extracted images of square patches in separate frames
@@ -1054,78 +964,78 @@ public class FeatureExtractor2D extends Thread {
     }
 
 	public static ImageStack plotDelineationProfiles(int atX, int atY)
-    {
-		Fitter1D fitter = new Fitter1D(dim, false);
-        ImageStack isOut = new ImageStack(528, 255);
+	{
+		Fitter1D fitter = new Fitter1D(dim, cross_sigma_ratio, false);
+		ImageStack isOut = new ImageStack(528, 255);
 
-        int idx = xy2i[atX][atY]; // read extracted peaks at this location
+		int idx = xy2i[atX][atY]; // read extracted peaks at this location
 
-        if (idx!=-1) {
+		if (idx!=-1) {
 
-            int[][] delin_at_loc = delin2[idx];
-            ArrayList<float[]> profiles_along = new ArrayList<float[]>(); // list of profiles for all branches
+			int[][] delin_at_loc = delin2[idx];
+			ArrayList<float[]> profiles_along = new ArrayList<float[]>(); // list of profiles for all branches
 
-            for (int b = 0; b<delin_at_loc.length; b++) {           // loop 4 branches, b index defines the strength
+			for (int b = 0; b<delin_at_loc.length; b++) {           // loop 4 branches, b index defines the strength
 
-                for (int m = 0; m<M; m++) {
+				for (int m = 0; m<M; m++) {
 
-                    if (delin_at_loc[b][m] != -1) {
+					if (delin_at_loc[b][m] != -1 && delin_at_loc[b][m] != -2) {
 
-                        int curr_i = delin_at_loc[b][m];
-                        int curr_x = i2xy[curr_i][0];
-                        int curr_y = i2xy[curr_i][1];
+						int curr_i = delin_at_loc[b][m];
+						int curr_x = i2xy[curr_i][0];
+						int curr_y = i2xy[curr_i][1];
 
-                        int prev_i, prev_x, prev_y;
+						int prev_i, prev_x, prev_y;
 
-                        if (m==0) {
-                            prev_x = atX;
-                            prev_y = atY;
-                        }
-                        else{
-                            prev_i = delin_at_loc[b][m-1];
-                            prev_x = i2xy[prev_i][0];
-                            prev_y = i2xy[prev_i][1];
-                        }
+						if (m==0) {
+							prev_x = atX;
+							prev_y = atY;
+						}
+						else{
+							prev_i = delin_at_loc[b][m-1];
+							prev_x = i2xy[prev_i][0];
+							prev_y = i2xy[prev_i][1];
+						}
 
-                        // get cross-profile values sampled from the local patch (aligned with the patch)
-                        ArrayList<float[]> vals = localPatchCrossProfiles(prev_x, prev_y, curr_x, curr_y);
+						// get cross-profile values sampled from the local patch (aligned with the patch)
+						ArrayList<float[]> vals = localPatchCrossProfiles(prev_x, prev_y, curr_x, curr_y);
 
-                        // append "vals" to "profiles_along" list
-                        for (int aa = 0; aa < vals.size(); aa++) profiles_along.add(vals.get(aa));
+						// append "vals" to "profiles_along" list
+						for (int aa = 0; aa < vals.size(); aa++) profiles_along.add(vals.get(aa));
 
-                    }
+					}
 
-                } // l loop
+				} // l loop
 
-            } // b loop
+			} // b loop
 
 
-            // plot
-            float[] xx = new float[dim];  // xaxis plot
-            for (int aa=0; aa<dim; aa++) xx[aa] = aa;
+			// plot
+			float[] xx = new float[dim];  // xaxis plot
+			for (int aa=0; aa<dim; aa++) xx[aa] = aa;
 
-            for (int aaa=0; aaa<profiles_along.size(); aaa++) {
-                Plot plt = new Plot("", "", "");
-                plt.setLimits(0, dim-1, 0, 1);
-                plt.addPoints(xx, profiles_along.get(aaa), Plot.LINE);
-                plt.draw();
-                // fitting templates
-                plt.setColor(Color.RED);
-                plt.setLineWidth(2);
-                float[] out_idx_scr = fitter.fit(profiles_along.get(aaa), "NCC");
-                float[] curr_fit = fitter.getTemplate((int)out_idx_scr[0]);
-                plt.addPoints(xx, curr_fit, Plot.LINE);
-                plt.draw();
-                isOut.addSlice("feat="+IJ.d2s(out_idx_scr[1], 2), plt.getProcessor());
-            }
+			for (int aaa=0; aaa<profiles_along.size(); aaa++) {
+				Plot plt = new Plot("", "", "");
+				plt.setLimits(0, dim-1, 0, 1);
+				plt.addPoints(xx, profiles_along.get(aaa), Plot.LINE);
+				plt.draw();
+				// fitting templates
+				plt.setColor(Color.RED);
+				plt.setLineWidth(2);
+				float[] out_idx_scr = fitter.fit(profiles_along.get(aaa), "NCC");
+				float[] curr_fit = fitter.getTemplate((int)out_idx_scr[0]);
+				plt.addPoints(xx, curr_fit, Plot.LINE);
+				plt.draw();
+				isOut.addSlice("feat="+ IJ.d2s(out_idx_scr[1], 2), plt.getProcessor());
+			}
 
-        }
+		}
 
-        if (isOut.getSize()==0) {
-            isOut.addSlice(new ByteProcessor(528,255));
-        }
+		if (isOut.getSize()==0) {
+			isOut.addSlice(new ByteProcessor(528,255));
+		}
 
-        return isOut;
+		return isOut;
 
 	}
 
@@ -1180,7 +1090,7 @@ public class FeatureExtractor2D extends Thread {
             }
 
             Plot p = new Plot("", "", "");
-            p.setLimits(0, max_axis, -1, 1.01);//Math.min(min_feat, mu_ON-.1f), Math.max(max_feat, mu_OFF+.1f));
+            p.setLimits(0, max_axis, 0, 1.01);//Math.min(min_feat, mu_ON-.1f), Math.max(max_feat, mu_OFF+.1f));
             p.addPoints(xaxis, yaxis1, Plot.X);
             p.draw();
 
@@ -1495,41 +1405,7 @@ public class FeatureExtractor2D extends Thread {
     }
 
     // (VIZ) list of of local patch cross profile line segments described with dots
-	private static ArrayList<OvalRoi> localPatchCrossProfilesLocs(float x1, float y1, float x2, float y2)
-    {
 
-		float l = (float) Math.sqrt(Math.pow(x2-x1, 2)+Math.pow(y2-y1, 2));
-		float vx = (x2-x1)/l;
-		float vy = (y2-y1)/l;
-		float wx = vy;
-		float wy = -vx;
-
-        float x_root = x2 - vx * D;
-        float y_root = y2 - wx * D;
-
-        float R = samplingStep/2;
-
-		ArrayList<OvalRoi> pts = new ArrayList<OvalRoi>(dim*L);
-
-		for (int ii=0; ii<L; ii++) { // loops L of them in radial direction
-
-			for (int jj=-dim_half; jj<=dim_half; jj++) { // loops vector w
-
-                float curr_x = x_root + ii * samplingStepLongitudinal * vx + jj * samplingStep * vy;
-				float curr_y = y_root + ii * samplingStepLongitudinal * wx + jj * samplingStep * wy;
-
-				OvalRoi pt = new OvalRoi(curr_x+.5f-(R/2), curr_y+.5f-(R/2), R, R);
-				pt.setFillColor(Color.BLUE);
-				pt.setStrokeWidth(R/2);
-                pts.add(pt);
-
-			}
-
-		}
-
-		return pts;
-
-	}
 
     /*
         refined locations per cross profile with outward direction estimation, based on the first patch refined points

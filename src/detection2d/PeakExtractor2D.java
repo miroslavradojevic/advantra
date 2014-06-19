@@ -25,8 +25,8 @@ public class PeakExtractor2D extends Thread {
 
     public static Sphere2D      sph2d;                      //
     public static float[][]     inimg_xy;                   //
-    public static int[][] 	    i2xy;                       // selected locations
-    public static int[][]     	xy2i;                       //
+    public static int[][] 	    i2xy;                       // index to xy location
+    public static int[][]     	xy2i;                       // xy location to index
     public static short[][]	    prof2;                      // profiles
 
     public static int       MAX_ITER        = 50;           //
@@ -35,11 +35,12 @@ public class PeakExtractor2D extends Thread {
     private static float TWO_PI = (float) (2 * Math.PI);
     private static float ONE_PI = (float) (1 * Math.PI);
 
-    // OUTPUTS (everything that can be calculated from the peaks)
+    // OUTPUTS (everything that can be calculated from the profiles)
     public static float[][][]	peaks_theta;                // N x 4 x 1    4 selected peaks in abscissa coordinates X
     public static int[][]       peaks_i;             		// N x 4        4 selected peaks in indexed format (rounded locations)
     public static int[][]       peaks_w;                    // N x 4        peak weights
-	public static float[][]     peaks_lhood;            // N x 4        peak probability distribution  (this will be a feature)
+	public static float[][]     peaks_lhood;            	// N x 4        peak probability distribution  (this will be a feature)
+
 //    public static float[][]     circ_stats;					// N x 5    circular statistics
 	// 0: R_        mean resultant length,
 	//    R_sym     mean resultant length pairs
@@ -512,7 +513,7 @@ public class PeakExtractor2D extends Thread {
             float profile_max = Float.MIN_VALUE;
 
             for (int i=0; i<len; i++) {
-                f[i] = ((Profiler2D.prof2[idx][i] & 0xffff) / 65535f) * 255f; // retrieve the profile from static array
+                f[i] = ((prof2[idx][i] & 0xffff) / 65535f) * 255f; // retrieve the profile
                 fx[i] = (i / (float) len) * 360; // abscissa in degs
 
                 if (f[i]>profile_max) profile_max = f[i];
