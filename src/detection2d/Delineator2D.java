@@ -261,9 +261,6 @@ public class Delineator2D extends Thread {
 						xy2[locationIdx][b][0] 	= new float[count_patches*L]; // x coordinates allocate
 						xy2[locationIdx][b][1] 	= new float[count_patches*L]; // y coordinates allocate
                         xy_local[b] = new float[2][count_patches*L] ;   // aux variable allocate
-//                        xy_local[b][0] 			= new float[count_patches*L];
-//                        xy_local[b][1] 			= new float[count_patches*L]; // aux variable allocate
-//						smoothness[locationIdx][b] = 0; 					 // initialize
 
 						// fill  up the allocated arrays for each patch
 						for (int m = 0; m<M; m++) {      					// loop patches outwards, from the beginning
@@ -335,12 +332,11 @@ public class Delineator2D extends Thread {
                 // store clusters in mask at this location : local image patch 4 x 2N+1 x 2N+1
 				// all elements are filled up
 
-//				System.out.println(mask[0].length);
 				for (int cmask = 0; cmask < mask.length; cmask++) {
 					for (int xmask = 0; xmask < mask[0].length; xmask++) {
-						for (int ymask = 0; ymask < mask[1].length; ymask++) {
-							//System.out.println(cmask + " : " + xmask + " : " + ymask);
-							mask[cmask][xmask][ymask] = (byte)0;
+						for (int ymask = 0; ymask < mask[0][0].length; ymask++) {
+
+                            mask[cmask][xmask][ymask] = (byte)0;
 
 							int xc = i2xy[locationIdx][0];
 							int yc = i2xy[locationIdx][1];
@@ -384,39 +380,7 @@ public class Delineator2D extends Thread {
 
 				}
 
-                if (i2xy[locationIdx][0]==332 && i2xy[locationIdx][1]==270) {
 
-					// reformat the array
-					int W = mask[0].length;
-					int H = mask[1].length;
-					int L = mask.length;
-
-					byte[][] mask_out = new byte[L][W*H];
-					for (int cmask = 0; cmask < L; cmask++) {
-						for (int xmask = 0; xmask < W; xmask++) {
-							for (int ymask = 0; ymask < H; ymask++) {
-								mask_out[cmask][ymask*W+xmask] = mask[cmask][xmask][ymask];
-							}
-						}
-					}
-
-					// export current mask
-					ImageStack is_out = new ImageStack(W, H);
-					for (int i = 0; i < mask_out.length; i++) {
-						ByteProcessor bp_out = new ByteProcessor(W, H, mask_out[i]);
-						is_out.addSlice(bp_out);
-					}
-
-                    for (int i = 0; i < biggest_clusters.size(); i++) {
-                        for (int j = 0; j < biggest_clusters.get(i).size(); j++) {
-                            System.out.println("cluster " + i + " ,element " + j + " : " + Arrays.toString(biggest_clusters.get(i).get(j)) + " -> " +
-                                    Math.floor(biggest_clusters.get(i).get(j)[0]- (i2xy[locationIdx][0]-Nimg)) + " , " +
-                                    Math.floor(biggest_clusters.get(i).get(j)[1]- (i2xy[locationIdx][1]-Nimg))
-                            );
-                        }
-                    }
-                    new ImagePlus("MASK", is_out).show();
-                }
 
 
 
@@ -426,8 +390,6 @@ public class Delineator2D extends Thread {
                 *   and fill xy2sel[locationIdx]
                 */
                 if (xy2[locationIdx]!=null) {
-
-
 
 					int root_x = i2xy[locationIdx][0] - Nimg;
 					int root_y = i2xy[locationIdx][1] - Nimg;
@@ -453,24 +415,40 @@ public class Delineator2D extends Thread {
 
 								if (j>=L) {
 									xy2sel[locationIdx][i][j] = false;
-									break;
+									//break;
 								}
+                                else {
 
-                                // see if it belongs to the rest of the branches
-                                for (int k = 0; k < biggest_clusters.size(); k++) {
-                                    if (k!=i && biggest_clusters.get(k).size()>=L/2f) {  // i - branch that we loop, k - branch that we ar checking
+                                    xy2sel[locationIdx][i][j] = true; // we expect it to be added unless...
 
-                                        boolean belongs = (mask[k][((int) Math.floor(picked_x - root_x))][((int) Math.floor(picked_y - root_y))]&0xff) > 0;
-                                        //belongs_to_cluster(picked_x, picked_y, biggest_clusters.get(k), samplingStepLongitudinal);
+                                    // see if it belongs to the rest of the branches
+                                    for (int k = 0; k < biggest_clusters.size(); k++) {
+                                        if (k!=i && biggest_clusters.get(k).size()>=L/2f) {  // i - branch that we loop, k - branch that we are checking
 
-                                        if (belongs) {
-											xy2sel[locationIdx][i][j] = false;
-                                            break;
-                                        }
-                                        else {
-                                            local_xy_to_add.add(new float[]{picked_x_local, picked_y_local}); // pass local xy that should have been filled up, same as xy2
+                                            int xx = ((int) Math.floor(picked_x - root_x));
+                                            xx = xx<0? 0 : xx;
+                                            xx = xx>=mask[0].length? mask[0].length : xx;
+
+                                            int yy = ((int) Math.floor(picked_y - root_y));
+                                            yy = yy<0? 0 : yy;
+                                            yy = yy>=mask[0][0].length? mask[0][0].length : yy;
+
+                                            boolean belongs = (mask[k][xx][yy]&0xff) > 0;
+
+                                            if (belongs) {
+                                                xy2sel[locationIdx][i][j] = false;
+                                                //break;
+                                            }
+                                            //else {
+                                            //    local_xy_to_add.add(new float[]{picked_x_local, picked_y_local}); // pass local xy that should have been filled up, same as xy2
+                                            //}
                                         }
                                     }
+
+                                    if (xy2sel[locationIdx][i][j]) {
+                                        local_xy_to_add.add(new float[]{picked_x_local, picked_y_local});
+                                    }
+
                                 }
 
                             }
@@ -495,10 +473,111 @@ public class Delineator2D extends Thread {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 /*
-				*	smoothness[locationIdx]
+				*	smoothness[locationIdx] using selected_xy_local
 				*/
 
+                for (int i = 0; i < selected_xy_local.size(); i++) {
+
+                    int nr_pts = selected_xy_local.get(i).size();
+
+                    if (nr_pts>=3) { // 3 are enough for second derivative calculation
+
+                        smoothness[locationIdx][i] = 0;
+                        for (int j = 0; j <nr_pts-2; j++) {
+
+                            float x0 = selected_xy_local.get(i).get(j)[0];
+                            float y0 = selected_xy_local.get(i).get(j)[1];
+
+                            float x1 = selected_xy_local.get(i).get(j+1)[0];
+                            float y1 = selected_xy_local.get(i).get(j+1)[1];
+
+                            float x2 = selected_xy_local.get(i).get(j+2)[0];
+                            float y2 = selected_xy_local.get(i).get(j+2)[1];
+
+                            float f2 = ( (y2-y1)/(x2-x1) - (y1-y0)/(x1-x0) ) / (x1-x0);
+                            float dx = x1-x0;
+
+                            smoothness[locationIdx][i] += f2*f2*dx;
+
+                        }
+
+                    }
+                    else {
+                        smoothness[locationIdx][i] = Float.NaN;
+                    }
+
+                }
+
+
+
+
+                if (i2xy[locationIdx][0]==334 && i2xy[locationIdx][1]==241 && true) {
+
+                    // reformat the array
+                    int W = mask[0].length;
+                    int H = mask[0][0].length;
+                    int L = mask.length;
+
+                    byte[][] mask_out = new byte[L][W*H];
+                    for (int cmask = 0; cmask < L; cmask++) {
+                        for (int xmask = 0; xmask < W; xmask++) {
+                            for (int ymask = 0; ymask < H; ymask++) {
+                                mask_out[cmask][ymask*W+xmask] = mask[cmask][xmask][ymask];
+                            }
+                        }
+                    }
+
+                    // export current mask
+                    ImageStack is_out = new ImageStack(W, H);
+                    for (int i = 0; i < mask_out.length; i++) {
+                        ByteProcessor bp_out = new ByteProcessor(W, H, mask_out[i]);
+                        is_out.addSlice(bp_out);
+                    }
+
+                    for (int i = 0; i < biggest_clusters.size(); i++) {
+                        for (int j = 0; j < biggest_clusters.get(i).size(); j++) {
+                            System.out.println("cluster " + i + " ,element " + j + " : " + Arrays.toString(biggest_clusters.get(i).get(j)) + " -> " +
+                                            Math.floor(biggest_clusters.get(i).get(j)[0]- (i2xy[locationIdx][0]-Nimg)) + " , " +
+                                            Math.floor(biggest_clusters.get(i).get(j)[1]- (i2xy[locationIdx][1]-Nimg))
+                            );
+                        }
+                    }
+                    new ImagePlus("MASK", is_out).show();
+
+                    System.out.println("smthness: "+Arrays.toString(smoothness[locationIdx]));
+
+                    for (int i = 0; i <selected_xy_local.size(); i++) {
+                        System.out.print(i + " ->  ");
+                        for (int j = 0; j < selected_xy_local.get(i).size(); j++) {
+                            System.out.print("\t" + Arrays.toString(selected_xy_local.get(i).get(j)) + "");
+                        }
+                        System.out.println("");
+                    }
+
+                }
 
 
 
@@ -811,8 +890,9 @@ public class Delineator2D extends Thread {
 			refined_centerline_locs_xy[0][init_index + ii] = refined_x; // ii is radial index
 			refined_centerline_locs_xy[1][init_index + ii] = refined_y;
 			// store cross y values
-            refined_local_ptch_xy[0][init_index + ii] = yptch;
-            refined_local_ptch_xy[1][init_index + ii] = ii * samplingStepLongitudinal;
+            refined_local_ptch_xy[0][init_index + ii] = ii * samplingStepLongitudinal;
+            refined_local_ptch_xy[1][init_index + ii] = yptch;
+
 
 		}  // end looping radial indexes
 
@@ -965,7 +1045,7 @@ public class Delineator2D extends Thread {
 								float refined_y = xy2[locationIdx][b][1][l];
 
 								ovalroi = new OvalRoi(refined_x-(samplingStep/2)+.5f, refined_y-(samplingStep/2)+.5f, samplingStep, samplingStep);
-								ovalroi.setFillColor(Color.YELLOW);
+								ovalroi.setFillColor(xy2sel[locationIdx][b][l]?Color.YELLOW:new Color(1f,1f,0f,0.5f));     // Color.YELLOW
 								ovalroi.setStrokeWidth(samplingStep/4);
 								ov.add(ovalroi);
 

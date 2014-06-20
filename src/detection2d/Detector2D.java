@@ -994,7 +994,9 @@ public class Detector2D {
 					printout += "SKIPPED CALCULATING HERE (THERE WAS A THREAD POINTING TO BGRD)\n";
 				}
 
-				printout += "branch \t -> \t\t SMOOTH. \t\t LHOOD \t\t AVG_NCC\n";
+
+
+				printout += "b \t -> \t\t STH. \t\t LHOOD \t\t NCC.\n";
 
 				if (Delineator2D.smoothness[atLoc]!=null) {
 
