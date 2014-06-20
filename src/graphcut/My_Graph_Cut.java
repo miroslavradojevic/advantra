@@ -94,7 +94,7 @@ import mpicbg.imglib.type.numeric.RealType;
  * @author Jan Funke <jan.funke@inf.tu-dresden.de>
  * @version 0.1
  */
-public class Graph_Cut<T extends RealType<T>> implements PlugIn {
+public class My_Graph_Cut<T extends RealType<T>> implements PlugIn {
 
     // the image the gui was started with
     private ImagePlus imp;
