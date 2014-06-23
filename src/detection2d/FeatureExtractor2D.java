@@ -163,13 +163,15 @@ public class FeatureExtractor2D extends Thread {
 		if (locationIdx!=-1 && critpoint_score2[locationIdx]!=null) {
 
 			Fuzzy2D fls = new Fuzzy2D(
-											 // ncc
-											 ncc_high_mean,// ncc_high_sigma,      // high
-											 ncc_low_mean, //ncc_low_sigma,   // low
-											 // lhood
-											 likelihood_high_mean, //likelihood_high_sigma, // high
-											 likelihood_low_mean, //likelihood_low_sigma,  // low
-											 output_sigma  // std output membership functions - defines separation margin
+											    // ncc
+											    ncc_high_mean,// ncc_high_sigma,      // high
+											    ncc_low_mean, //ncc_low_sigma,   // low
+											    // lhood
+											    likelihood_high_mean, //likelihood_high_sigma, // high
+											    likelihood_low_mean, //likelihood_low_sigma,  // low
+                                                0,
+                                                0,
+											    output_sigma  // std output membership functions - defines separation margin
 			);
 
 			if (ncc2[locationIdx]!=null) {
@@ -255,6 +257,7 @@ public class FeatureExtractor2D extends Thread {
                 // lhood
                 likelihood_high_mean, //likelihood_high_sigma, // high
                 likelihood_low_mean, //likelihood_low_sigma,  // low
+                0,0,
                 output_sigma  // std output membership functions - defines separation margin
         );
         // aux variables

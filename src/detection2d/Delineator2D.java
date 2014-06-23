@@ -1157,4 +1157,12 @@ public class Delineator2D extends Thread {
 
 	}
 
+    float[] getSmoothnessHigh_Low(float off_percentile, float on_sensitivity)
+    {
+        // check the distribution of smoothness values
+        return new float[2];
+
+
+    }
+
 }
