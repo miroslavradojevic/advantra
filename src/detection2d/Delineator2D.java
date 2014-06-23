@@ -19,11 +19,11 @@ import java.util.Arrays;
  */
 public class Delineator2D extends Thread {
 
-	// associate the peaks and link follow-up points, delineate local structure
+	// associate the peaks and link follow-up points, delineate local structure, extract smoothness feature
 
 	private int begN, endN;
 
-	// INPUT:
+	// INPUT
 	public static int[][] 	    i2xy;                       // selected locations
 	public static int[][]     	xy2i;                       // need for recursion
 	public static int[][]       peaks_i;             	    // list of extracted peaks: N x 4 every FG location with 4 extracted peaks in indexed format
@@ -34,16 +34,14 @@ public class Delineator2D extends Thread {
 	public static float     D;								// neuron diameter parameter
 	public static int       M;                              // how much it expands recursively from the center
 	public static float     minCos;                         // allowed derail
-	private static int		L;                              // will define how many are taken along the diameter, in radial direction
+	public static int		L = Integer.MIN_VALUE;          // will define how many are taken along the diameter, in radial direction
 
-	private static float 	dx0 = Float.NaN;				// needs to be initialized
-	private static float	dx  = Float.NaN;
 	private static int 		windowSize = 5;                 // vxy (refined vectors) calculate by averaging neighbouring directions
-	private static float 	samplingStep    = .5f;          // cross-side sampling step
-	private static float    samplingStepLongitudinal;       // sampling along the streamline of patches
-	private static int      dim;                            // cross profile length (number of samples in a cross-profile)
-	private static int      dim_half;                       // cross profile half-length
-
+	public static float 	samplingStep    = .5f;          // cross-side sampling step
+	private static float    samplingStepLongitudinal = Integer.MIN_VALUE; // sampling along the streamline of patches
+	public static int       dim;                            // cross profile length (number of samples in a cross-profile)
+	public static int      	dim_half;                       // cross profile half-length
+	private static float	clusteringDisk = Float.NaN;
 
     private static int      Nimg = Integer.MIN_VALUE;// wrt sphere size
     private static float    outer_radius = Float.NaN;
@@ -90,13 +88,10 @@ public class Delineator2D extends Thread {
 		dim_half = (int) Math.ceil( D / (samplingStep*2) );
 		dim = 2*dim_half + 1;
 
+		clusteringDisk = 1.5f * samplingStepLongitudinal;
+
         outer_radius = _extractionSphere.getOuterRadius();
         Nimg = (int) Math.ceil(outer_radius);
-
-        System.out.println("N=" + Nimg + " patch_size = " + (2*Nimg+1));
-
-		dx0 			= _extractionSphere.getInitialRadialSeparation();
-		dx 				= samplingStepLongitudinal;
 
 		// allocate output
 		delin2 				= new int[i2xy.length][4][M];
@@ -106,27 +101,28 @@ public class Delineator2D extends Thread {
 				for (int k=0; k<delin2[i][j].length; k++)
 					delin2[i][j][k] = -2;
 
-		xy2 		= new float[i2xy.length][4][2][];       // N (foreground points) x 4 (branches) x 2 (x,y) x M*1..L (along branches) (x,y)
-		xy2sel      = new boolean[i2xy.length][4][];
+		xy2 		= new float[i2xy.length][4][2][];      // N (foreground points) x 4 (branches) x 2 (x,y) x M*1..L (along branches) (x,y)
+		xy2sel      = new boolean[i2xy.length][4][];       // N (foreground points) x 4 (branches) x M*1..L
 		smoothness 	= new float[xy2.length][4];            // N(foreground locs.)   x 4 (branches)
-		vxy2 		= new float[i2xy.length][4][2][];       // N (foreground points) x 4 (branches) x 2 (vx,vy) x M*1..L (along branches) (vx,vy)
-
+		vxy2 		= new float[i2xy.length][4][2][];      // N (foreground points) x 4 (branches) x 2 (vx,vy) x M*1..L (along branches) (vx,vy)
 
 	}
 
 	public void run()
 	{
 
-        // aux
+        //*** aux
         // to store selected local cross section xy values (side output when calculating refined locs)
         float[][][] xy_local = new float[4][2][]; // same variable will be used for all the locations
-        ArrayList<ArrayList<float[]>> biggest_clusters = new ArrayList<ArrayList<float[]>>(4); // allocate 4 clusters
-        for (int i = 0; i < 4; i++) biggest_clusters.add(new ArrayList<float[]>(1));  // size = 4x0
-        ArrayList<ArrayList<float[]>> selected_xy_local = new ArrayList<ArrayList<float[]>>(4);
-        for (int i = 0; i < 4; i++) selected_xy_local.add(new ArrayList<float[]>(1)); // size = 4X0
-        byte[][][] mask = new byte[4][2*Nimg+1][2*Nimg+1];
 
-        // aux
+		ArrayList<ArrayList<float[]>> biggest_clusters = new ArrayList<ArrayList<float[]>>(4); // allocate 4 clusters
+        for (int i = 0; i < 4; i++) biggest_clusters.add(new ArrayList<float[]>(1));  // size = 4x0
+
+		byte[][][] mask = new byte[4][2*Nimg+1][2*Nimg+1];
+
+		ArrayList<ArrayList<float[]>> selected_xy_local = new ArrayList<ArrayList<float[]>>(4);
+        for (int i = 0; i < 4; i++) selected_xy_local.add(new ArrayList<float[]>(1)); // size = 4X0
+        //*** aux
 
 		for (int locationIdx = begN; locationIdx < endN; locationIdx++) {
 
@@ -139,9 +135,9 @@ public class Delineator2D extends Thread {
 			}
 			else {
 
-				/*
-				* 	delin2[locationIdx]
-				*/
+				/**************************************************************************
+				 	delin2[locationIdx]
+				**************************************************************************/
 				for (int pp = 0; pp<peaks_i[locationIdx].length; pp++) {  // loop 4 allocated branches (1st generation)
 					// access individual peaks at this point (-2:not exist, -1:background, >=0:foreground)
 					if (peaks_i[locationIdx][pp] >= 0) {
@@ -204,38 +200,17 @@ public class Delineator2D extends Thread {
 
 				}
 
-
-
-
-				/*
-				examples delin2[locationIdx][][] indexes start from the one defined with the first index
-				(M=3):
+				/**************************************************************************
+				examples delin2[locationIdx][4][M], (M=3):
 				23  34 56
-				678 -1 -1
-				-2  -2 -2
-				--------------
-				23  -2 -2      -> still extract the features
-				678 -1 -1      -> still extract the features
-				-2  -2 -2      -> whole streamline is empty nothing was filled up there
-				--------------
-				23  -2 -2
-				678 -1 -1
-				-1  -1 -1      -> peak in background from the beginning (don't use it, unsure, skip this case in detection)
-				--------------
-				23  90 101    |
-				-2  -2 -2     |-> endpoint candidate
-				-2  -2 -2     |
-				*/
+				678 -1 -1      -> went into background or couldn't find successor
+				-2  -2 -2      -> does not exist
+				 **************************************************************************/
 
-
-
-
-
-
-				/*
-				* 	xy2[locationIdx]
-				* 	xy_local[][][]  used temporarily to accumulate variables for the smoothness calculation
-				*/
+				/**************************************************************************
+				 	xy2[locationIdx]
+				 	xy_local[4][2][]  used to accumulate patch variables (xy) for smoothness calculation
+				**************************************************************************/
 				for (int b = 0; b<delin2[locationIdx].length; b++) { // loop 4 branches
 
 					if (delin2[locationIdx][b][0]==-1) {
@@ -289,11 +264,7 @@ public class Delineator2D extends Thread {
 															 prev_x, prev_y, curr_x, curr_y,
 															 m * L,        // start from
 															 xy2[locationIdx][b],
-                                                             xy_local[b]);
-
-								// smoothness summed only along the first patch
-//								if (m==0) smoothness[locationIdx][b] = get_smoothness;
-
+                                                             xy_local[b]); //side output: local values for derivation are stored in xy_local[4][2][]
 							}
 							else break; // because the rest are filled up with -1 or -2 anyway
 
@@ -303,201 +274,26 @@ public class Delineator2D extends Thread {
 
 				} // loop branches
 
-                /*
-                *   biggest_clusters   (local variable) using xy2
-                */
-                // extract biggest cluster for each branch with refined points if there is branch
-                if (xy2[locationIdx]!=null) {
-                    for (int i = 0; i < xy2[locationIdx].length; i++) { // loop branches
-                        if (xy2[locationIdx][i]!=null) { // there are points to cluster
-                            float[] xref = xy2[locationIdx][i][0];
-                            float[] yref = xy2[locationIdx][i][1];
-                            biggest_clusters.get(i).clear();
-                            biggest_clusters.set(i, largest_cluster(xref, yref, 1.5f*samplingStepLongitudinal));
-                        }
-                        else {
-                            biggest_clusters.get(i).clear();
-                        }
-                    }
-                }
-                else { // all clusters are zero size
-                    for (int i = 0; i < biggest_clusters.size(); i++) biggest_clusters.get(i).clear();
-                }
-
-
-
-
-
-
-                // store clusters in mask at this location : local image patch 4 x 2N+1 x 2N+1
-				// all elements are filled up
-
-				for (int cmask = 0; cmask < mask.length; cmask++) {
-					for (int xmask = 0; xmask < mask[0].length; xmask++) {
-						for (int ymask = 0; ymask < mask[0][0].length; ymask++) {
-
-                            mask[cmask][xmask][ymask] = (byte)0;
-
-							int xc = i2xy[locationIdx][0];
-							int yc = i2xy[locationIdx][1];
-
-							float xc_real = xc - Nimg + xmask + 0.5f; // inverse way would be: floor(real_x-Nimg)
-							float yc_real = yc - Nimg + ymask + 0.5f;
-							float rc_real = (float) 0.5; //(0.5*Math.sqrt(2));
-
-//                        if (i2xy[locationIdx][0]==332 && i2xy[locationIdx][1]==270) {
-//                            System.out.println("fill up value = "  + inimg_xy[xc ][yc  ]);
-//                        }
-//                        mask.set(xmask, ymask, (int) inimg_xy[xc-Nimg+xmask][yc-Nimg+ymask]);
-
-							// compare with extracted collection of biggest clusters
-							//for (int i = 0; i < biggest_clusters.size(); i++) {
-
-								if (biggest_clusters.get(cmask).size()>0) {
-
-									for (int j = 0; j < biggest_clusters.get(cmask).size(); j++) {
-
-										float cluster_element_x = biggest_clusters.get(cmask).get(j)[0];
-										float cluster_element_y = biggest_clusters.get(cmask).get(j)[1];
-										float cluster_element_r = samplingStepLongitudinal;
-
-										boolean overlap = dist2(xc_real, yc_real, cluster_element_x, cluster_element_y) <= Math.pow(rc_real + cluster_element_r, 2);
-
-										if (overlap) {
-											mask[cmask][xmask][ymask] = (byte)64;
-										}
-
-									}
-
-								}
-
-
-							//}
-
-						}
-
-					}
-
-				}
-
-
-
-
-
-
-                /*
-                *   selected_xy_local (judging on whether the corresponding xy2 belonged to the biggest cluste in other branch)
-                *   and fill xy2sel[locationIdx]
-                */
-                if (xy2[locationIdx]!=null) {
-
-					int root_x = i2xy[locationIdx][0] - Nimg;
-					int root_y = i2xy[locationIdx][1] - Nimg;
-
-                    for (int i = 0; i < xy2[locationIdx].length; i++) {
-
-						if (xy2[locationIdx][i]!=null) {
-
-							int nr_refs = xy2[locationIdx][i][0].length; // nr x coordinates
-
-							xy2sel[locationIdx][i] = new boolean[nr_refs];
-							Arrays.fill(xy2sel[locationIdx][i], true);
-
-                            ArrayList<float[]> local_xy_to_add = new ArrayList<float[]>(L);
-
-							// which ones to throw away?
-                            for (int j = 0; j < xy2[locationIdx][i][0].length; j++) { // loop coordinates
-
-                                float picked_x = xy2[locationIdx][i][0][j];
-                                float picked_y = xy2[locationIdx][i][1][j];
-                                float picked_x_local = xy_local[i][0][j];
-                                float picked_y_local = xy_local[i][1][j];
-
-								if (j>=L) {
-									xy2sel[locationIdx][i][j] = false;
-									//break;
-								}
-                                else {
-
-                                    xy2sel[locationIdx][i][j] = true; // we expect it to be added unless...
-
-                                    // see if it belongs to the rest of the branches
-                                    for (int k = 0; k < biggest_clusters.size(); k++) {
-                                        if (k!=i && biggest_clusters.get(k).size()>=L/2f) {  // i - branch that we loop, k - branch that we are checking
-
-                                            int xx = ((int) Math.floor(picked_x - root_x));
-                                            xx = xx<0? 0 : xx;
-                                            xx = xx>=mask[0].length? mask[0].length : xx;
-
-                                            int yy = ((int) Math.floor(picked_y - root_y));
-                                            yy = yy<0? 0 : yy;
-                                            yy = yy>=mask[0][0].length? mask[0][0].length : yy;
-
-                                            boolean belongs = (mask[k][xx][yy]&0xff) > 0;
-
-                                            if (belongs) {
-                                                xy2sel[locationIdx][i][j] = false;
-                                                //break;
-                                            }
-                                            //else {
-                                            //    local_xy_to_add.add(new float[]{picked_x_local, picked_y_local}); // pass local xy that should have been filled up, same as xy2
-                                            //}
-                                        }
-                                    }
-
-                                    if (xy2sel[locationIdx][i][j]) {
-                                        local_xy_to_add.add(new float[]{picked_x_local, picked_y_local});
-                                    }
-
-                                }
-
-                            }
-
-                            selected_xy_local.get(i).clear();
-                            selected_xy_local.set(i, local_xy_to_add);
-
-                        }
-                        else {
-							xy2sel[locationIdx][i] = null;
-                            selected_xy_local.get(i).clear();
-                        }
-                    }
-                }
-                else {
-					xy2sel[locationIdx] = null;
-                    for (int i = 0; i < selected_xy_local.size(); i++) selected_xy_local.get(i).clear();
-                }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                /*
-				*	smoothness[locationIdx] using selected_xy_local
-				*/
+				// takes into account the spatioal distribution of the refined points along branches
+				/**************************************************************************
+                   biggest_clusters (local variable) using xy2
+                **************************************************************************/
+				extractClustersForRefinedStreamlineLocations(biggest_clusters, xy2[locationIdx]); // expects refined points in array [locId][4][2][M*(1..L)]
+
+				/**************************************************************************
+				   mask using biggest_clusters
+				**************************************************************************/
+				extractLocalClusterMask(mask, biggest_clusters, locationIdx); // forms mask that marks spatial regions corresponding to the biggest cluster for each branch
+
+				/**************************************************************************
+                	xy2sel[locationIdx]
+                    selected_xy_local (list judging on whether the corresponding xy2 belonged to the biggest cluster in other branch)
+				**************************************************************************/
+			    extractRefinedStreamlineSelection(xy2sel[locationIdx], selected_xy_local, xy2[locationIdx], locationIdx, xy_local, biggest_clusters, mask); // extract selection to calculate second derivative (hence smoothness)
+
+				/**************************************************************************
+					smoothness[locationIdx] using selected_xy_local
+				**************************************************************************/
 
                 for (int i = 0; i < selected_xy_local.size(); i++) {
 
@@ -531,163 +327,9 @@ public class Delineator2D extends Thread {
 
                 }
 
-
-
-
-                if (i2xy[locationIdx][0]==334 && i2xy[locationIdx][1]==241 && true) {
-
-                    // reformat the array
-                    int W = mask[0].length;
-                    int H = mask[0][0].length;
-                    int L = mask.length;
-
-                    byte[][] mask_out = new byte[L][W*H];
-                    for (int cmask = 0; cmask < L; cmask++) {
-                        for (int xmask = 0; xmask < W; xmask++) {
-                            for (int ymask = 0; ymask < H; ymask++) {
-                                mask_out[cmask][ymask*W+xmask] = mask[cmask][xmask][ymask];
-                            }
-                        }
-                    }
-
-                    // export current mask
-                    ImageStack is_out = new ImageStack(W, H);
-                    for (int i = 0; i < mask_out.length; i++) {
-                        ByteProcessor bp_out = new ByteProcessor(W, H, mask_out[i]);
-                        is_out.addSlice(bp_out);
-                    }
-
-                    for (int i = 0; i < biggest_clusters.size(); i++) {
-                        for (int j = 0; j < biggest_clusters.get(i).size(); j++) {
-                            System.out.println("cluster " + i + " ,element " + j + " : " + Arrays.toString(biggest_clusters.get(i).get(j)) + " -> " +
-                                            Math.floor(biggest_clusters.get(i).get(j)[0]- (i2xy[locationIdx][0]-Nimg)) + " , " +
-                                            Math.floor(biggest_clusters.get(i).get(j)[1]- (i2xy[locationIdx][1]-Nimg))
-                            );
-                        }
-                    }
-                    new ImagePlus("MASK", is_out).show();
-
-                    System.out.println("smthness: "+Arrays.toString(smoothness[locationIdx]));
-
-                    for (int i = 0; i <selected_xy_local.size(); i++) {
-                        System.out.print(i + " ->  ");
-                        for (int j = 0; j < selected_xy_local.get(i).size(); j++) {
-                            System.out.print("\t" + Arrays.toString(selected_xy_local.get(i).get(j)) + "");
-                        }
-                        System.out.println("");
-                    }
-
-                }
-
-
-
-
-                /*
-				// side result -local values for derivation are stored in auxilliary variable xy_local[4]([2][]):
-				//  null in case there was nothing to take from
-				// array with local xy values in case there was a refined branch
-				for (int loop_bches = 0; loop_bches < xy2[locationIdx].length; loop_bches++) {
-
-                    ArrayList<float[]> selected_local_xy = new ArrayList<float[]>(L);
-
-					if (xy2[locationIdx][loop_bches]==null) {
-
-//						smoothness[locationIdx][loop_bches] = Float.NaN; // did it once, just in case
-					}
-					else {
-						// refined coordinates of the branch exist, calculate second derivative
-
-						// before that calculate the distance towards the other refined branch
-						// check if it the refined point was erroneously assigned to the other branch
-						// criteria: there are at least two points close enough in some other branch
-						// in order to conclude that it was captured by that branch - second smallest distance
-//						boolean[] use_it = new boolean[L]; // use only first L (one patch)
-
-
-
-						for (int i = 0; i < xy2[locationIdx][loop_bches][0].length; i++) {
-
-
-							//find smallest second minimum towards the other branch
-							float all_2nd_closest = Float.POSITIVE_INFINITY;
-
-							for (int j = 0; j < xy2[locationIdx].length; j++) { // loop other bches
-								if (j!=loop_bches && xy2[locationIdx][j]!=null) { // valid other bch
-
-									// j is a valid branch index to check, loop along it, look for 2nd closest
-
-									float bch_2nd_closest = Float.NaN;
-									float bch_1st_closest = dist(
-																		xy2[locationIdx][loop_bches][0][i],
-																		xy2[locationIdx][loop_bches][1][i],
-
-																		xy2[locationIdx][j][0][0],
-																		xy2[locationIdx][j][1][0]
-									);
-									for (int k = 0; k < xy2[locationIdx][j][0].length; k++) {
-										float curr_dist = dist(
-																	  xy2[locationIdx][loop_bches][0][i],
-																	  xy2[locationIdx][loop_bches][1][i],
-
-																	  xy2[locationIdx][j][0][k],
-																	  xy2[locationIdx][j][1][k]
-																	  );
-										if (curr_dist<bch_1st_closest) {
-											bch_2nd_closest = bch_1st_closest;
-											bch_1st_closest = curr_dist;
-										}
-									}
-
-									// got 1st and 2nd for bch j
-
-									if (bch_2nd_closest<all_2nd_closest){
-										all_2nd_closest = bch_2nd_closest; // add it to overall
-									}
-
-								}
-							} // loop other bches
-
-							// got best 2nd distance for point i in branch loop_bches
-							if (all_2nd_closest<=samplingStepLongitudinal) {
-								selected_local_xy.add();
-							}
-
-						}
-
-						// finished extracting local_xy for second derivative calculation
-                        // calculate the derivative
-
-
-						float[] dy = new float[L];
-
-						float[] dx = new float[L];
-
-
-						// calculate derivative and smoothness
-
-
-
-
-
-
-					}
-
-				}
-				*/
-				
-
-                // use auxilliary variable xy_local to calculate smoothness by integrating second derivative
-                // this is an improved more robust version that takes into account the spatioal distribution
-                // of the refined points along branches
-
-
-
-
-
-
-				/*
-				*	vxy2[locationIdx]
-				*/
+				/**************************************************************************
+					vxy2[locationIdx]
+				**************************************************************************/
 				if (xy2[locationIdx]!=null) {
 					for (int b = 0; b<xy2[locationIdx].length; b++) {
 						if (xy2[locationIdx][b]!=null) {
@@ -941,6 +583,63 @@ public class Delineator2D extends Thread {
 		Hist.getDistribution(concatenate_smoothness_scores, nr_bins, bins, distribution);
 		Plot p = new Plot("", "", "", bins, distribution, Plot.LINE);
 		is_out.addSlice("", p.getProcessor());
+		return is_out;
+
+	}
+
+	public static ImageStack getClusterMask(int atX, int atY)
+	{
+
+		int locIdx = xy2i[atX][atY];
+		ImageStack is_out = new ImageStack(2*Nimg+1, 2*Nimg+1);
+
+
+		if (locIdx>=0) {
+
+			// define clusters
+			ArrayList<ArrayList<float[]>> biggest_clusters = new ArrayList<ArrayList<float[]>>(4); // allocate 4 clusters
+			for (int i = 0; i < 4; i++) biggest_clusters.add(new ArrayList<float[]>(1));  // size = 4x0
+
+			// extract clusters
+			extractClustersForRefinedStreamlineLocations(biggest_clusters, xy2[locIdx]);
+
+			// define mask
+			byte[][][] mask = new byte[4][2*Nimg+1][2*Nimg+1];
+
+			// extract mask
+			extractLocalClusterMask(mask, biggest_clusters, locIdx);
+
+			// reformat the array
+			int W = mask[0].length;
+			int H = mask[0][0].length;
+			int L = mask.length;
+
+			byte[][] mask_out = new byte[L][W*H];
+			for (int cmask = 0; cmask < L; cmask++) {
+				for (int xmask = 0; xmask < W; xmask++) {
+					for (int ymask = 0; ymask < H; ymask++) {
+						mask_out[cmask][ymask*W+xmask] = mask[cmask][xmask][ymask];
+					}
+				}
+			}
+
+			// export current mask
+			for (int i = 0; i < mask_out.length; i++) {
+				ByteProcessor bp_out = new ByteProcessor(W, H, mask_out[i]);
+				is_out.addSlice(bp_out);
+			}
+
+			System.out.println("Extracted biggest clusters at ("+atX+","+atY+"): ");
+			for (int i = 0; i < biggest_clusters.size(); i++) {
+				for (int j = 0; j < biggest_clusters.get(i).size(); j++) {
+					System.out.println("cluster " + i + " ,element " + j + " : " + Arrays.toString(biggest_clusters.get(i).get(j)));
+				}
+			}
+
+			System.out.println("smoothness : "+Arrays.toString(smoothness[locIdx]));
+
+		}
+
 		return is_out;
 
 	}
@@ -1300,5 +999,162 @@ public class Delineator2D extends Thread {
     {
         return (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1);
     }
+
+	private static void extractClustersForRefinedStreamlineLocations(
+																			ArrayList<ArrayList<float[]>> _biggest_clusters,
+																			float[][][] _xy2_at_loc)
+	{
+
+		// extract biggest cluster for each branch with refined points if there is branch
+		if (_xy2_at_loc!=null) {
+			for (int i = 0; i < _xy2_at_loc.length; i++) { 		// loop branches
+				if (_xy2_at_loc[i]!=null) { 					// there are points to cluster
+					float[] xref = _xy2_at_loc[i][0];
+					float[] yref = _xy2_at_loc[i][1];
+					_biggest_clusters.get(i).clear();
+					_biggest_clusters.set(i, largest_cluster(xref, yref, clusteringDisk)); // sets cluster as list of connected xy-disk locations
+				}
+				else {
+					_biggest_clusters.get(i).clear();
+				}
+			}
+		}
+		else { // all clusters are zero size
+			for (int i = 0; i < _biggest_clusters.size(); i++) _biggest_clusters.get(i).clear();
+		}
+
+	}
+
+	private static void extractLocalClusterMask(
+													   byte[][][] _mask,
+													   ArrayList<ArrayList<float[]>> _biggest_clusters,
+													   int _location)
+	{
+
+		// store clusters in mask at this location : local image patch 4 x 2N+1 x 2N+1
+		for (int cmask = 0; cmask < _mask.length; cmask++) {
+			for (int xmask = 0; xmask < _mask[0].length; xmask++) {
+				for (int ymask = 0; ymask < _mask[0][0].length; ymask++) {
+
+					_mask[cmask][xmask][ymask] = (byte)0;
+
+					int xc = i2xy[_location][0];
+					int yc = i2xy[_location][1];
+
+					float xc_real = xc - Nimg + xmask + 0.5f; // inverse way would be: floor(real_x-Nimg)
+					float yc_real = yc - Nimg + ymask + 0.5f;
+					float rc_real = (float) 0.5;// 4 connectivity //(0.5*Math.sqrt(2));
+
+					// compare with extracted collection of biggest clusters
+					if (_biggest_clusters.get(cmask).size()>0) {
+
+						for (int j = 0; j < _biggest_clusters.get(cmask).size(); j++) {
+
+							float cluster_element_x = _biggest_clusters.get(cmask).get(j)[0];
+							float cluster_element_y = _biggest_clusters.get(cmask).get(j)[1];
+							float cluster_element_r = clusteringDisk;
+
+							boolean overlap = dist2(xc_real, yc_real, cluster_element_x, cluster_element_y) <= Math.pow(rc_real + cluster_element_r, 2);
+
+							if (overlap) {
+								_mask[cmask][xmask][ymask] = (byte)64;
+							}
+
+						}
+
+					}
+
+				}
+
+			}
+
+		}
+
+	}
+
+	private static void extractRefinedStreamlineSelection(
+																 boolean[][] _xy2sel_at_loc,                       // output
+																 ArrayList<ArrayList<float[]>> _selected_xy_local, // output
+
+																 float[][][] _xy2_at_loc,
+																 int _loc,
+																 float[][][] _xy_local,
+
+																 ArrayList<ArrayList<float[]>> _biggest_clusters,
+																 byte[][][] _mask)
+	{
+
+		if (_xy2_at_loc!=null) {
+
+			int root_x = i2xy[_loc][0] - Nimg;
+			int root_y = i2xy[_loc][1] - Nimg;
+
+			for (int i = 0; i < _xy2_at_loc.length; i++) {
+
+				if (_xy2_at_loc[i]!=null) {
+
+					int nr_refs = _xy2_at_loc[i][0].length; // nr x coordinates
+
+					_xy2sel_at_loc[i] = new boolean[nr_refs];
+					Arrays.fill(_xy2sel_at_loc[i], true);
+
+					ArrayList<float[]> local_xy_to_add = new ArrayList<float[]>(L);
+
+					// which ones to throw away?
+					for (int j = 0; j < _xy2_at_loc[i][0].length; j++) { // j loops coordinates of one streamline
+
+						float picked_x = _xy2_at_loc[i][0][j];
+						float picked_y = _xy2_at_loc[i][1][j];
+						float picked_x_local = _xy_local[i][0][j];
+						float picked_y_local = _xy_local[i][1][j];
+
+						if (j>=L) {
+							_xy2sel_at_loc[i][j] = false;
+						}
+						else {
+
+							_xy2sel_at_loc[i][j] = true; // we expect it to be added unless...
+
+							// see if it belongs to the rest of the branches
+							for (int k = 0; k < _biggest_clusters.size(); k++) {
+								if (k!=i && _biggest_clusters.get(k).size()>=L/2f) {  // i - branch that we loop, k - branch that we are checking
+
+									int xx = ((int) Math.floor(picked_x - root_x));
+									xx = xx<0? 0 : xx;
+									xx = xx>=_mask[0].length? _mask[0].length : xx;
+
+									int yy = ((int) Math.floor(picked_y - root_y));
+									yy = yy<0? 0 : yy;
+									yy = yy>=_mask[0][0].length? _mask[0][0].length : yy;
+
+									boolean belongs = (_mask[k][xx][yy]&0xff) > 0;
+
+									if (belongs) _xy2sel_at_loc[i][j] = false;
+								}
+							}
+
+							if (_xy2sel_at_loc[i][j])
+								local_xy_to_add.add(new float[]{picked_x_local, picked_y_local});
+
+						}
+
+					}
+
+					_selected_xy_local.get(i).clear();
+					_selected_xy_local.set(i, local_xy_to_add);
+
+				}
+				else {
+					_xy2sel_at_loc[i] = null;
+					_selected_xy_local.get(i).clear();
+				}
+			}
+		}
+		else {
+			for (int i = 0; i < _xy2sel_at_loc.length; i++) _xy2sel_at_loc[i] = null;
+			for (int i = 0; i < _selected_xy_local.size(); i++) _selected_xy_local.get(i).clear();
+		}
+
+	}
 
 }

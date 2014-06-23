@@ -113,7 +113,6 @@ public class FeatureExtractor2D extends Thread {
         minCos          = _minCos;
         D               = _D;
         L               = Math.round(_D) + 1;
-//		System.out.println("L was" + L);
 		samplingStep    = .5f;
 		cross_sigma_ratio = _cross_sigma_ratio;
 

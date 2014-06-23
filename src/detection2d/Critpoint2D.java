@@ -43,8 +43,10 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
     ImageStack      pfl_is4 = null;
 
 	ImageWindow   	pfl_iw4 = null;
+	ImageWindow   	pfl_iw3 = null;
 
 	boolean first4 = true;
+	boolean first3 = true;
 
     ImageCanvas cnv;
 
@@ -219,13 +221,19 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
         int clickX = cnv.offScreenX(e.getX());
         int clickY = cnv.offScreenY(e.getY());
 
-		/*
-		pfl_is3 = FeatureExtractor2D.plotDelineationProfiles(clickX, clickY);
+
+		pfl_is3 = Delineator2D.getClusterMask(clickX, clickY); //plotDelineationProfiles(clickX, clickY);
+		if (pfl_is3.getSize()>0) pfl_im3.setStack("cluster_mask", pfl_is3);
+		if (first3) {
+			pfl_im3.show();
+			pfl_iw3 = pfl_im3.getWindow();
+			pfl_iw3.setLocationAndSize(upper_left_x+plot_w, upper_left_y, plot_h, plot_h);
+			first3 = false;
+		}
+
 		pfl_im3.setStack("fitting_scores", pfl_is3);
 		ImageWindow iw = pfl_im3.getWindow();
 		pfl_im3.show();
-		*/
-
 
 		/*
 		pfl_is2 = FeatureExtractor2D.plotDelineationFeatures(clickX, clickY);

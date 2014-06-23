@@ -16,20 +16,32 @@ import java.util.Arrays;
  */
 public class Fuzzy2D {
 
-    // two inputs ncc (average ncc along the streamline), and streamline likelihood
-	// output 1 - saying whether one streamline (that takes ncc and likelihood) is ON or OFF
-	// output 2 - saying whether up to three streamlines taken are END, NONE, or BIF
+    // 3 inputs:
+	// lhood		(up to 4 peaks of the filtering profile: template convolved to obtain profile values)
+	// smoothness   (integral of the second derivative of the refined locations)
+    // ncc 			(ncc of the template used with the underlying image contents)
+	// 3 outputs:
+	// output 1 - only for the streamline with the highest lhood (1): ON, NONE or OFF
+	// output 2 - saying whether other streamline (that takes lhood, smoothness and ncc) is ON, NONE or OFF
+	// output 3 - saying whether location is END, NONE, or BIF (up to three streamlines taken)
 
-	// define the average ncc range (values below 0 are cut off)
+
+	// ncc range (values below 0 are cut off)
 	float ncc_start = 0;
     float ncc_end 	= 1;
 	float ncc_high; // trapezoid
 	float ncc_low;
 
+	// likelihood range
     float likelihood_start 	= 0;
     float likelihood_end 	= 1;
 	float likelihood_high; // trapezoid
 	float likelihood_low;
+
+	// smoothness range
+	float smoothness_start = 0;
+	float smoothness_end = 4; // 4*D^3
+
 
 	float 	output_sigma;
 

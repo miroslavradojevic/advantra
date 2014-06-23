@@ -171,17 +171,15 @@ public class Detector2D {
 			System.out.print("\nD = " + D[didx] + " : ");
 			Sphere2D sph2d = new Sphere2D(D[didx], s, sigma_ratio);
 			//sph2d.showSampling().show(); sph2d.showWeights().show();
-			/********/
-
-
-
-
-
-
+			/********************************************************************/
 			System.out.print("Masker2D...");
 			float new_masker_radius = 1.5f*sph2d.getOuterRadius();   	// important that it is outer radius of the sphere
 			float new_masker_percentile = 30;                   		// used to have these two as argument but not necessary
-			Masker2D.loadTemplate(inimg_xy, (int)Math.ceil(new_masker_radius), new_masker_radius, new_masker_percentile); //image, margin, check, percentile
+			Masker2D.loadTemplate(
+										 inimg_xy,
+										 (int)Math.ceil(new_masker_radius),
+										 new_masker_radius,
+										 new_masker_percentile); //image, margin, check, percentile
 			int totalLocs = inimg_xy.length * inimg_xy[0].length;
 			Masker2D ms_jobs[] = new Masker2D[CPU_NR];
 			for (int i = 0; i < ms_jobs.length; i++) {
@@ -197,18 +195,15 @@ public class Detector2D {
 			}
 			Masker2D.defineThreshold();
 			Masker2D.formRemainingOutputs();
-			ImagePlus mask = new ImagePlus("mask", Masker2D.getMask());
-			IJ.saveAs(mask, "Tiff", image_dir+image_name+".mask_values.tif");
-			/********/
-
-
-
-
-
-
-
+			//ImagePlus mask = new ImagePlus("mask", Masker2D.getMask());
+			//IJ.saveAs(mask, "Tiff", image_dir+image_name+".mask_values.tif");
+			/********************************************************************/
 			System.out.print("Profiler2D...");
-			Profiler2D.loadTemplate(sph2d, Masker2D.i2xy, Masker2D.xy2i, inimg_xy);
+			Profiler2D.loadTemplate(
+										   sph2d,
+										   Masker2D.i2xy,
+										   Masker2D.xy2i,
+										   inimg_xy);
 			int totalProfileComponents = sph2d.getProfileLength();
 			Profiler2D pf_jobs[] = new Profiler2D[CPU_NR];
 			for (int i = 0; i < pf_jobs.length; i++) {
@@ -222,14 +217,14 @@ public class Detector2D {
 					e.printStackTrace();
 				}
 			}
-			/********/
-
-
-
-
-
+			/********************************************************************/
 			System.out.print("ProfileSpread2D...");
-			ProfileSpread2D.loadTemplate(Masker2D.i2xy, Masker2D.xy2i, Profiler2D.prof2, inimg_xy.length, inimg_xy[0].length);
+			ProfileSpread2D.loadTemplate(
+												Masker2D.i2xy,
+												Masker2D.xy2i,
+												Profiler2D.prof2,
+												inimg_xy.length,
+												inimg_xy[0].length);
 			int totalProfileLocations = Profiler2D.prof2.length;
 			ProfileSpread2D pv_jobs[] = new ProfileSpread2D[CPU_NR];
 			for (int i = 0; i < pv_jobs.length; i++) {
@@ -244,21 +239,10 @@ public class Detector2D {
 				}
 			}
 			ProfileSpread2D.threshold();
-			ImagePlus testip = new ImagePlus("", ProfileSpread2D.getMask());
-			IJ.saveAs(testip, "Tiff", image_dir+image_name+".mask_profile.tif");
-			System.out.println("" + IJ.d2s( (ProfileSpread2D.getNrCritpointCandidates()*100f)/(inimg_xy.length * inimg_xy[0].length), 2) + " % candidates");
-			/********/
-
-
-
-
-
-
-
-
-
-
-
+			//ImagePlus testip = new ImagePlus("", ProfileSpread2D.getMask());
+			//IJ.saveAs(testip, "Tiff", image_dir+image_name+".mask_profile.tif");
+			System.out.print(" " + IJ.d2s((ProfileSpread2D.getNrCritpointCandidates() * 100f) / (inimg_xy.length * inimg_xy[0].length), 2) + " % candidates...");
+			/********************************************************************/
 			System.out.print("PeakExtractor2D...");
 			PeakExtractor2D.loadTemplate(sph2d, Masker2D.i2xy, Profiler2D.prof2, inimg_xy, Masker2D.xy2i);
 			int totalPeakExtrComponents = Profiler2D.prof2.length; // number of profiles == number of locations i2xy.length
@@ -275,14 +259,7 @@ public class Detector2D {
 				}
 			}
 			//PeakExtractor2D.getCircStat().show();
-			/********/
-
-
-
-
-
-
-
+			/********************************************************************/
 			System.out.print("Delineator2D...");
 			Delineator2D.loadTemplate(
 											 Masker2D.i2xy,
@@ -309,17 +286,31 @@ public class Detector2D {
 				}
 			}
 //			new ImagePlus("", Delineator2D.getSmoothnessDistribution(64)).show();
-			/********/
-
-
-
-			System.out.println("DID IT!!!");
-			if (true) return;
-
-
-
-
-
+			/********************************************************************/
+			System.out.print("Ncc2D...");
+			Ncc2D.loadTemplate(
+									  Delineator2D.xy2,
+									  Delineator2D.vxy2,
+									  Delineator2D.L,
+									  Delineator2D.dim,
+									  Delineator2D.samplingStep,
+									  inimg_xy,
+									  sigma_ratio
+			);
+			int totalNccExtractionComponents = Delineator2D.xy2.length;
+			Ncc2D ncc_jobs[] = new Ncc2D[CPU_NR];
+			for (int i = 0; i < ncc_jobs.length; i++) {
+				ncc_jobs[i] = new Ncc2D(i*totalNccExtractionComponents/CPU_NR, (i+1)*totalNccExtractionComponents/CPU_NR);
+				ncc_jobs[i].start();
+			}
+			for (int i = 0; i < ncc_jobs.length; i++) {
+				try {
+					ncc_jobs[i].join();
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
+			/********************************************************************/
 			/*System.out.print("FeatureExtractor2D...");
 			FeatureExtractor2D.loadTemplate(
 												   Masker2D.i2xy,
@@ -395,7 +386,7 @@ public class Detector2D {
 
 																					*/
 
-			System.out.println("finished scale " + D[didx] + " out of " + D.length );
+			System.out.println("    " + didx + "/" + D.length );
 		}
 
 		t2 = System.currentTimeMillis();
@@ -881,8 +872,6 @@ public class Detector2D {
 	public static void print(int atX, int atY)
 	{
 
-//		System.out.println(Arrays.toString(peaks_i[atLoc]));
-
 		int atLoc = Masker2D.xy2i[atX][atY];
 
 		IJ.log(String.format("/**** DETECTOR 2D TOOL (%5d, %5d) [%10d] ****/", atX, atY, atLoc));
@@ -1003,9 +992,9 @@ public class Detector2D {
 					for (int b=0; b<Delineator2D.smoothness[atLoc].length; b++) {
 						printout += (b+1) +"\t->\t\t";
 						if (!Float.isNaN(Delineator2D.smoothness[atLoc][b])) {
-							printout += "" + IJ.d2s(Delineator2D.smoothness[atLoc][b], 2)+
-												" \t "+IJ.d2s(Delineator2D.smoothness[atLoc][b], 2)+
-												" \t "+IJ.d2s(Delineator2D.smoothness[atLoc][b], 2)
+							printout += 		       IJ.d2s(Delineator2D.smoothness[atLoc][b], 2)+
+												" \t "+IJ.d2s(PeakExtractor2D.peaks_lhood[atLoc][b], 2)+
+												" \t "+IJ.d2s(PeakExtractor2D.peaks_lhood[atLoc][b], 2)
 //												+
 //												"  \t \t  OFF " + IJ.d2s(1, 2)
 //												+

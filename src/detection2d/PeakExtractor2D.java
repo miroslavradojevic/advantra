@@ -21,6 +21,8 @@ import java.util.Arrays;
  */
 public class PeakExtractor2D extends Thread {
 
+	// extract local profile peaks and their normalized height as likelihood feature
+
     private int begN, endN;
 
     public static Sphere2D      sph2d;                      //
