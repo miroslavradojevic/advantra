@@ -1,8 +1,10 @@
 package detection2d;
 
 import detection2d.Fuzzy2D;
+import ij.ImagePlus;
 import ij.Prefs;
 import ij.gui.GenericDialog;
+import ij.gui.NonBlockingGenericDialog;
 import ij.plugin.PlugIn;
 
 import java.util.Arrays;
@@ -10,14 +12,15 @@ import java.util.Arrays;
 /**
  * Created by miroslav on 3/25/14.
  * terminal call
- * java
- * -jar ~/jarlib/ij.jar -ijpath ~/ImageJ/plugins/  -run "Fuzzy2DTest"
+ * java -jar ~/jarlib/ij.jar -ijpath ~/ImageJ/plugins/  -run "Fuzzy2DTest"
  */
 public class Fuzzy2DTest implements PlugIn {
 
+	NonBlockingGenericDialog gd = new NonBlockingGenericDialog("TEST");
+
 	public void run(String s) {demo();}
 
-	public static void demo()
+	public void demo()
 	{
 
 		float ncc_high                  = (float)   Prefs.get("critpoint.detection2d.ncc_high", 0.9f);
@@ -31,7 +34,12 @@ public class Fuzzy2DTest implements PlugIn {
 
 		float output_sigma					= (float) 	Prefs.get("critpoint.detection2d.output_sigma", 0.4f);
 
-		GenericDialog gd = new GenericDialog("TEST");
+//		NonBlockingGenericDialog gd1 = new NonBlockingGenericDialog("my_title");
+//		gd1.addMessage("Hehehhe");
+//		gd1.showDialog();
+//		if (gd1.wasCanceled()) return;
+
+
 		gd.addNumericField("NCC HIGH", 	        ncc_high, 			        2,  5, "");
 		gd.addNumericField("NCC LOW",           ncc_low, 		            2,  5, "");
 		gd.addNumericField("LIKELIHOOD HIGH", 	likelihood_high, 			2,  10, "");
@@ -39,7 +47,7 @@ public class Fuzzy2DTest implements PlugIn {
         gd.addNumericField("SMOOTHNESS HIGH", 	smoothness_high, 			2,  10, "");
         gd.addNumericField("SMOOTHNESS LOW",    smoothness_low, 		    2,  10, "");
 
-		gd.addNumericField("OUT SIGMA",    output_sigma, 		    1,  10, "");
+		gd.addNumericField("OUT SIGMA",    		output_sigma, 		    	1,  10, "");
 
 		gd.showDialog();
 		if (gd.wasCanceled()) return;
@@ -51,7 +59,9 @@ public class Fuzzy2DTest implements PlugIn {
         smoothness_high  	= (float) gd.getNextNumber();   Prefs.set("critpoint.detection2d.smoothness_high", 	smoothness_high);
         smoothness_low 	= (float) gd.getNextNumber();       Prefs.set("critpoint.detection2d.smoothness_low", 	smoothness_low);
 
-		output_sigma 	= (float) gd.getNextNumber(); Prefs.set("critpoint.detection2d.output_sigma", 	output_sigma);
+		output_sigma 	= (float) gd.getNextNumber(); 		Prefs.set("critpoint.detection2d.output_sigma", 	output_sigma);
+
+
 
 		Fuzzy2D test = new Fuzzy2D(
 													  // ncc
@@ -67,19 +77,27 @@ public class Fuzzy2DTest implements PlugIn {
 		);
 		test.showFuzzification();
 		test.showDefuzzification();
-		//test.showDefuzzificationSurface();
 
-//		float[] temp = new float[2];
+		// test when having one input
+		float ncc1 = .9f;
+		float lhood1 = .9f;
+		float smooth1 = 5f;
+		float[] out = new float[3];
+		test.verbose = true;
+		test.critpointScore(ncc1, lhood1, smooth1, out);
+		test.clearLog();
+		test.critpointScore(ncc1, lhood1, smooth1, 		ncc1, lhood1, smooth1, out);
+		new ImagePlus("", test.fls_steps).show();
+		System.out.println(Arrays.toString(out));
+
 //		System.out.print("(1, 1) -> " + test.branchStrengthDefuzzified(1f, 1f));
-//		test.branchStrengthFuzzified(1f, 1f, temp);
+//		test.branchStrengthFuzzified(1f, 1f, 1f, temp);
 //		System.out.println(" -> " + Arrays.toString(temp));
 //		test.showAgg();
-//
 //		System.out.print("(.9, .9) -> " + test.branchStrengthDefuzzified(.9f, .9f));
 //		test.branchStrengthFuzzified(.9f, .9f, temp);
 //		System.out.println(" -> " + Arrays.toString(temp));
 //		test.showAgg();
-
 //        System.out.print("endpoint on membership (.9, .9, .5, .3) -> " + test.endpointFuzzified(.9f, .9f, .5f, .3f));
 
 	}

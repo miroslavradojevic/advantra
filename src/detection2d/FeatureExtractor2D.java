@@ -192,14 +192,14 @@ public class FeatureExtractor2D extends Thread {
 					case 1:
 						ncc_1 = ncc2[locationIdx][b_sel.get(0)];
 						likelihood_1 = lhoods2[locationIdx][b_sel.get(0)];
-						is_out = fls.critpointScore(ncc_1, likelihood_1, tmp, show_agg);
+						fls.critpointScore(ncc_1, likelihood_1, 99, tmp);
 						break;
 					case 2:
 						ncc_1 = ncc2[locationIdx][b_sel.get(0)];
 						likelihood_1 = lhoods2[locationIdx][b_sel.get(0)];
 						ncc_2 = ncc2[locationIdx][b_sel.get(1)];
 						likelihood_2 = lhoods2[locationIdx][b_sel.get(1)];
-						is_out = fls.critpointScore(ncc_1, likelihood_1, ncc_2, likelihood_2, tmp, show_agg);
+						fls.critpointScore(ncc_1, likelihood_1, 99, ncc_2, likelihood_2, 99, tmp);
 						break;
 					case 3:
 						ncc_1 = ncc2[locationIdx][b_sel.get(0)];
@@ -208,7 +208,7 @@ public class FeatureExtractor2D extends Thread {
 						likelihood_2 = lhoods2[locationIdx][b_sel.get(1)];
 						ncc_3 = ncc2[locationIdx][b_sel.get(2)];
 						likelihood_3 = lhoods2[locationIdx][b_sel.get(2)];
-						is_out = fls.critpointScore(ncc_1, likelihood_1, ncc_2, likelihood_2, ncc_3, likelihood_3, tmp, show_agg);
+						fls.critpointScore(ncc_1, likelihood_1, 99, ncc_2, likelihood_2, 99, ncc_3, likelihood_3, 99, tmp);
 						break;
 					case 4:
 						ncc_1 = ncc2[locationIdx][b_sel.get(0)];
@@ -219,7 +219,7 @@ public class FeatureExtractor2D extends Thread {
 						likelihood_3 = lhoods2[locationIdx][b_sel.get(2)];
 						ncc_4 = ncc2[locationIdx][b_sel.get(3)];
 						likelihood_4 = lhoods2[locationIdx][b_sel.get(3)];
-						is_out = fls.critpointScore(ncc_1, likelihood_1, ncc_2, likelihood_2, ncc_3, likelihood_3, ncc_4, likelihood_4, tmp, show_agg);
+						fls.critpointScore(ncc_1, likelihood_1, 99, ncc_2, likelihood_2, 99, ncc_3, likelihood_3, 99, ncc_4, likelihood_4, 99, tmp);
 						break;
 					default:
 						//imp_out = null;
@@ -595,7 +595,7 @@ public class FeatureExtractor2D extends Thread {
                 streamline_score2[locationIdx] = new float[3][4]; // {OFF, NONE, ON} X NR. BRANCHES
                 for (int b=0; b<ncc2[locationIdx].length; b++) {
                     if (!Float.isNaN(ncc2[locationIdx][b])) {
-                        fls.branchStrength(ncc2[locationIdx][b], lhoods2[locationIdx][b], streamline_off_none_on);
+                        fls.branchStrength(ncc2[locationIdx][b], lhoods2[locationIdx][b], 99, streamline_off_none_on);
                         streamline_score2[locationIdx][0][b] = streamline_off_none_on[0];
                         streamline_score2[locationIdx][1][b] = streamline_off_none_on[1];
                         streamline_score2[locationIdx][2][b] = streamline_off_none_on[2];
@@ -631,7 +631,7 @@ public class FeatureExtractor2D extends Thread {
                     case 1:
                         ncc_1 = ncc2[locationIdx][b_sel.get(0)];
                         likelihood_1 = lhoods2[locationIdx][b_sel.get(0)];
-						fls.critpointScore(ncc_1, likelihood_1, critpoint_endpoint_nonepoint_bifpoint, false);
+						fls.critpointScore(ncc_1, likelihood_1, 99, critpoint_endpoint_nonepoint_bifpoint);
 						critpoint_score2[locationIdx][0] = critpoint_endpoint_nonepoint_bifpoint[0];
 						critpoint_score2[locationIdx][1] = critpoint_endpoint_nonepoint_bifpoint[1];
 						critpoint_score2[locationIdx][2] = critpoint_endpoint_nonepoint_bifpoint[2];
@@ -642,7 +642,7 @@ public class FeatureExtractor2D extends Thread {
                         ncc_2 = ncc2[locationIdx][b_sel.get(1)];
                         likelihood_2 = lhoods2[locationIdx][b_sel.get(1)];
 
-						fls.critpointScore(ncc_1, likelihood_1, ncc_2, likelihood_2, critpoint_endpoint_nonepoint_bifpoint, false);
+						fls.critpointScore(ncc_1, likelihood_1, 99, ncc_2, likelihood_2, 99, critpoint_endpoint_nonepoint_bifpoint);
 						critpoint_score2[locationIdx][0] = critpoint_endpoint_nonepoint_bifpoint[0];
 						critpoint_score2[locationIdx][1] = critpoint_endpoint_nonepoint_bifpoint[1];
 						critpoint_score2[locationIdx][2] = critpoint_endpoint_nonepoint_bifpoint[2];
@@ -655,7 +655,7 @@ public class FeatureExtractor2D extends Thread {
                         ncc_3 = ncc2[locationIdx][b_sel.get(2)];
                         likelihood_3 = lhoods2[locationIdx][b_sel.get(2)];
 
-						fls.critpointScore(ncc_1, likelihood_1, ncc_2, likelihood_2, ncc_3, likelihood_3, critpoint_endpoint_nonepoint_bifpoint, false);
+						fls.critpointScore(ncc_1, likelihood_1, 99, ncc_2, likelihood_2, 99, ncc_3, likelihood_3, 99, critpoint_endpoint_nonepoint_bifpoint);
 						critpoint_score2[locationIdx][0] = critpoint_endpoint_nonepoint_bifpoint[0];
 						critpoint_score2[locationIdx][1] = critpoint_endpoint_nonepoint_bifpoint[1];
 						critpoint_score2[locationIdx][2] = critpoint_endpoint_nonepoint_bifpoint[2];
@@ -670,7 +670,7 @@ public class FeatureExtractor2D extends Thread {
                         ncc_4 = ncc2[locationIdx][b_sel.get(3)];
                         likelihood_4 = lhoods2[locationIdx][b_sel.get(3)];
 
-						fls.critpointScore(ncc_1, likelihood_1, ncc_2, likelihood_2, ncc_3, likelihood_3, ncc_4, likelihood_4, critpoint_endpoint_nonepoint_bifpoint, false);
+						fls.critpointScore(ncc_1, likelihood_1, 99, ncc_2, likelihood_2, 99, ncc_3, likelihood_3, 99, ncc_4, likelihood_4, 99, critpoint_endpoint_nonepoint_bifpoint);
 						critpoint_score2[locationIdx][0] = critpoint_endpoint_nonepoint_bifpoint[0];
 						critpoint_score2[locationIdx][1] = critpoint_endpoint_nonepoint_bifpoint[1];
 						critpoint_score2[locationIdx][2] = critpoint_endpoint_nonepoint_bifpoint[2];

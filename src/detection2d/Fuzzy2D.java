@@ -2,6 +2,7 @@ package detection2d;
 
 import aux.Stat;
 
+import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.Plot;
@@ -21,11 +22,9 @@ public class Fuzzy2D {
 	// lhood		(up to 4 peaks of the filtering profile: template convolved to obtain profile values)
 	// smoothness   (integral of the second derivative of the refined locations)
     // ncc 			(ncc of the template used with the underlying image contents)
-	// 3 outputs:
-	// output 1 - only for the streamline with the highest lhood (1): ON or OFF
-	// output 2 - saying whether other streamline (that takes lhood, smoothness and ncc) is ON, NONE or OFF
-	// output 3 - saying whether location is END, NONE, or BIF (up to three streamlines taken)
-
+	// 2 outputs:
+	// output 1 - saying whether other streamline (that takes lhood, smoothness and ncc) is ON, NONE or OFF
+	// output 2 - saying whether location is END, NONE, or BIF (up to three streamlines taken)
 
 	// ncc range (values below 0 are cut off)
 	float ncc_start = 0;
@@ -47,40 +46,30 @@ public class Fuzzy2D {
 
 	float 	output_sigma;
 
-    // output 1 can be off or on
-    float   output1_range_start;
-    float   output1_range_ended;
-    float   output1_off = 0f;
-//    float   output1_none = 1f;
-    float   output1_on = 2f;
-
-    // output 2 can be off, none or on
-	float 	output2_range_start;
-	float 	output2_range_ended;
-	float 	output2_off  = 0f;
-	float 	output2_none = 1f;
-	float   output2_on 	 = 2f;
+    // output 1 can be off, none or on
+	float 	output1_range_start;
+	float 	output1_range_ended;
+	float 	output1_off  = 0f;
+	float 	output1_none = 1f;
+	float   output1_on 	 = 2f;
 
     // output 3 can be end, none or jun
-	float 	output3_range_start;
-	float 	output3_range_ended;
-	float 	output3_endpoint = 1f;
-	float   output3_nonpoint = 2f;
-	float   output3_bifpoint = 3f;
+	float 	output2_range_start;
+	float 	output2_range_ended;
+	float 	output2_endpoint = 1f;
+	float   output2_nonpoint = 2f;
+	float   output2_bifpoint = 3f;
 
-    int      N1 = 100;         		// number of points to aggregate for each output, hardcoded, need to cover the range well
+    int      N1 = 100;         		// number of points to aggregate for each output, hardcoded, need to cover the range (x_min, x_max) well
 	int		 N2 = N1;
-	int		 N3 = N1;
 
     // fuzzification parameters
     float[] 	x1;      	    	// serve as x axis for membership, aggregation functions for output1 (range output1_range_start to output1_range_ended)
     float[] 	x2;      	    	// serve as x axis for membership, aggregation functions for output2 (range output2_range_start to output2_range_ended)
-    float[] 	x3;      	    	// serve as x axis for membership, aggregation functions for output3 (range output3_range_start to output3_range_ended)
     float x_min = Float.POSITIVE_INFINITY, x_max = Float.NEGATIVE_INFINITY;
 
-    public float[] 	agg1;            // serve as aggregation for output1
-    public float[] 	agg2;            // serve as aggregation for output2
-    public float[] 	agg3;            // serve as aggregation for output2
+    public float[] 	agg1;            // serve as aggregation for output1 (off, none, on)
+    public float[] 	agg2;            // serve as aggregation for output2 (end, none, bif)
 
     // output categories
     float[] 	v_off;
@@ -99,8 +88,8 @@ public class Fuzzy2D {
     float[] 	q_nonpoint;
     float[] 	q_bifpoint;
 
-    // current detection log
-    public boolean verbose = false; // if verbose, the stack will be updated
+    // detection log
+    public boolean verbose = false; // if verbose, the stack will be appended with score for each detection afterwards
     public ImageStack fls_steps = new ImageStack(528, 255); // will append current decisions each time they're done if we decide to set verbose=true
 
 
@@ -127,61 +116,54 @@ public class Fuzzy2D {
 		output1_range_start = output1_off-3*output_sigma;
 		output1_range_ended = output1_on+3*output_sigma;
 
-        output2_range_start = output2_off-3*output_sigma;
-        output2_range_ended = output2_on+3*output_sigma;
-
-        output3_range_start = output3_endpoint-3*output_sigma;
-		output3_range_ended = output3_bifpoint+3*output_sigma;
+        output2_range_start = output2_endpoint-3*output_sigma;
+        output2_range_ended = output2_bifpoint+3*output_sigma;
 
         x1 = new float[N1]; // output1 range
 		x2 = new float[N2]; // output2 range
-		x3 = new float[N3]; // output3 range
 
         for (int i=0; i<N1; i++) x1[i] = output1_range_start + i * ( (output1_range_ended-output1_range_start) / (N1-1));
         for (int i=0; i<N2; i++) x2[i] = output2_range_start + i * ( (output2_range_ended-output2_range_start) / (N2-1));
-        for (int i=0; i<N3; i++) x3[i] = output3_range_start + i * ( (output3_range_ended-output3_range_start) / (N3-1));
 
         for (int i=0; i<N1; i++) {if(x1[i]<x_min) x_min = x1[i]; if(x1[i]>x_max) x_max = x1[i];}
         for (int i=0; i<N2; i++) {if(x2[i]<x_min) x_min = x2[i]; if(x2[i]>x_max) x_max = x2[i];}
-        for (int i=0; i<N3; i++) {if(x3[i]<x_min) x_min = x3[i]; if(x3[i]>x_max) x_max = x3[i];}
 
         // output membership functions
         q_off = new float[N1];
         for (int i=0; i<N1; i++)
 			q_off[i] = (float) Math.exp(-Math.pow(x1[i] - output1_off, 2) / (2 * Math.pow(output_sigma, 2)));
 
-		q_none = new float[N2];
-		for (int i=0; i<N2; i++)
-			q_none[i] = (float) Math.exp(-Math.pow(x1[i] - output2_none, 2) / (2 * Math.pow(output_sigma, 2)));
+		q_none = new float[N1];
+		for (int i=0; i<N1; i++)
+			q_none[i] = (float) Math.exp(-Math.pow(x1[i] - output1_none, 2) / (2 * Math.pow(output_sigma, 2)));
 
 		q_on = new float[N1];
         for (int i=0; i<N1; i++)
 			q_on[i] = (float) Math.exp(-Math.pow(x1[i] - output1_on, 2) / (2 * Math.pow(output_sigma, 2)));
 
-		q_endpoint = new float[N3];
-		for (int i=0; i<N3; i++)
-			q_endpoint[i] = (float) Math.exp(-Math.pow(x3[i] - output3_endpoint, 2) / (2 * Math.pow(output_sigma, 2)));
+		q_endpoint = new float[N2];
+		for (int i=0; i<N2; i++)
+			q_endpoint[i] = (float) Math.exp(-Math.pow(x2[i] - output2_endpoint, 2) / (2 * Math.pow(output_sigma, 2)));
 
-		q_nonpoint = new float[N3];
-		for (int i=0; i<N3; i++)
-			q_nonpoint[i] = (float) Math.exp(-Math.pow(x3[i] - output3_nonpoint, 2) / (2 * Math.pow(output_sigma, 2)));
+		q_nonpoint = new float[N2];
+		for (int i=0; i<N2; i++)
+			q_nonpoint[i] = (float) Math.exp(-Math.pow(x2[i] - output2_nonpoint, 2) / (2 * Math.pow(output_sigma, 2)));
 
-		q_bifpoint = new float[N3];
-		for (int i=0; i<N3; i++)
-			q_bifpoint[i] = (float) Math.exp(-Math.pow(x3[i] - output3_bifpoint, 2) / (2 * Math.pow(output_sigma, 2)));
+		q_bifpoint = new float[N2];
+		for (int i=0; i<N2; i++)
+			q_bifpoint[i] = (float) Math.exp(-Math.pow(x2[i] - output2_bifpoint, 2) / (2 * Math.pow(output_sigma, 2)));
 
         // aux arrays used for calculations
         agg1 = new float[N1];
         agg2 = new float[N2];
-        agg3 = new float[N3];
 
         v_off = new float[N1];
-		v_none = new float[N2];
+		v_none = new float[N1];
         v_on  = new float[N1];
 
-		v_endpoint = new float[N3];
-		v_nonpoint = new float[N3];
-		v_bifpoint = new float[N3];
+		v_endpoint = new float[N2];
+		v_nonpoint = new float[N2];
+		v_bifpoint = new float[N2];
 
         verbose = false;
         // clear the log
@@ -191,10 +173,13 @@ public class Fuzzy2D {
 
     public void clearLog()
     {
-        for (int i = 0; i < fls_steps.getSize(); i++) fls_steps.deleteSlice(i + 1);
+//		System.out.println("size before " + fls_steps.getSize());
+		while (fls_steps.getSize()>0) {
+			fls_steps.deleteLastSlice();
+		}
+//		for (int i = 0; i < fls_steps.getSize(); i++) {fls_steps.deleteSlice(i + 1);
+//			System.out.println(""+(i+1));}
     }
-
-
 
     /*
     fuzzification of the ncc input
@@ -322,69 +307,24 @@ public class Fuzzy2D {
         Plot p = new Plot("", "", ""); p.setLimits(x_min, x_max, 0, 1);
         p.setColor(Color.RED);
         p.addPoints(x1, q_on, Plot.LINE);
+		p.setColor(Color.GREEN);
+		p.addPoints(x1, q_none, Plot.LINE);
         p.setColor(Color.BLUE);
         p.addPoints(x1, q_off, Plot.LINE);
         is_out.addSlice("OUT1", p.getProcessor());
 
         p = new Plot("", "", ""); p.setLimits(x_min, x_max, 0, 1);
         p.setColor(Color.RED);
-        p.addPoints(x2, q_on, Plot.LINE);
+        p.addPoints(x2, q_bifpoint, Plot.LINE);
         p.setColor(Color.GREEN);
-        p.addPoints(x2, q_none, Plot.LINE);
+        p.addPoints(x2, q_nonpoint, Plot.LINE);
         p.setColor(Color.BLUE);
-        p.addPoints(x2, q_off, Plot.LINE);
+        p.addPoints(x2, q_endpoint, Plot.LINE);
         is_out.addSlice("OUT2", p.getProcessor());
-
-		p = new Plot("", "", ""); p.setLimits(x_min, x_max, 0, 1);
-        p.setColor(Color.RED);
-        p.addPoints(x3, q_bifpoint, Plot.LINE);
-		p.setColor(Color.GREEN);
-		p.addPoints(x3, q_nonpoint, Plot.LINE);
-		p.setColor(Color.BLUE);
-		p.addPoints(x3, q_endpoint, Plot.LINE);
-        is_out.addSlice("OUT3", p.getProcessor());
 
         new ImagePlus("DEFUZZIFICATION", is_out).show();
 
     }
-
-//	public void showDefuzzificationSurface(){
-//
-//		int w = 200; 	// 0 / 1
-//		int h = w; 		// 0 / 1
-//
-//		ImageStack is_out = new ImageStack(w, h);
-//
-//		float[][] t = new float[w][h];
-//		float[][] t_off = new float[w][h];
-//		float[][] t_none = new float[w][h];
-//		float[][] t_on = new float[w][h];
-//		float[] dummy = new float[3];
-//
-//		for (int x=0; x<w; x++) {
-//
-//			for (int y=0; y<h; y++) {
-//
-//				float ncc = ncc_start + x * ((ncc_end-ncc_start)/(w-1));
-//				float likelihood = likelihood_start + y * ((likelihood_end-likelihood_start)/(h-1));
-//				branchStrength(ncc, likelihood, dummy);
-//				t[x][y] = branchStrength(ncc,likelihood);
-//				t_off[x][y] 	= dummy[0];
-//				t_none[x][y] 	= dummy[1];
-//				t_on[x][y] 		= dummy[2];
-//
-//			}
-//
-//		}
-//
-//		is_out.addSlice("branch strength defuzzified", new FloatProcessor(t));
-//		is_out.addSlice("off", new FloatProcessor(t_off));
-//		is_out.addSlice("none", new FloatProcessor(t_none));
-//		is_out.addSlice("on", new FloatProcessor(t_on));
-//
-//		new ImagePlus("output", is_out).show();
-//
-//	}
 
     private float[] fi_off(float z)
     {
@@ -470,43 +410,6 @@ public class Fuzzy2D {
     *  and one where it separates the membership to output categories
      */
 
-//    private float pointerBranchStrength(float ncc_in, float smoothness_in)
-//    {
-//        Arrays.fill(agg1, 0);
-//        float[] cur;
-//        float mu;
-//
-//        mu = min(h_ncc_low(ncc_in),     h_smoothness_low(smoothness_in));   cur = fi_off(mu);   accumulate(cur, agg1);
-//        mu = min(h_ncc_low(ncc_in),     h_smoothness_high(smoothness_in));  cur = fi_off(mu);   accumulate(cur, agg1);
-//        mu = min(h_ncc_high(ncc_in),    h_smoothness_low(smoothness_in));   cur = fi_off(mu);   accumulate(cur, agg1);
-//        mu = min(h_ncc_high(ncc_in),    h_smoothness_high(smoothness_in));  cur = fi_on(mu);    accumulate(cur, agg1);
-//
-//        return get_agg1_centroid();
-//
-//    }
-//
-//    private float pointerBranchStrength(float ncc_in, float smoothness_in, float[] output_1_OFF_ON)
-//    {
-//
-//        float defuzz = pointerBranchStrength(ncc_in, smoothness_in); // will update agg1
-//        output_1_OFF_ON[0] = (float) Math.exp(-Math.pow(defuzz - output1_off, 2) / (2 * Math.pow(output_sigma, 2)));
-//        output_1_OFF_ON[1] = (float) Math.exp(-Math.pow(defuzz - output1_on, 2)  / (2 * Math.pow(output_sigma, 2)));
-//
-//        if (verbose) {
-//            Plot p = new Plot("", "", "");
-//            p.setLimits(x_min, x_max, 0 ,1);
-//            p.addPoints(x1, agg1, Plot.LINE);
-//            float[][] pks_abscissa = new float[][]{ {defuzz, defuzz}, {0, 1} }; // 0 -> abscissa, 1 -> limits
-//            p.setColor(Color.RED);
-//            p.setLineWidth(2);
-//            p.addPoints(pks_abscissa[0], pks_abscissa[1], Plot.LINE);
-//            p.draw();
-//        }
-//
-//        return defuzz;
-//
-//    }
-
     /****************************************************************************/
 
     private float branchStrength(float ncc_in, float likelihood_in, float smoothness_in)
@@ -532,15 +435,12 @@ public class Fuzzy2D {
 	public void branchStrength(float ncc_in, float likelihood_in, float smoothness_in, float[] output_2_OFF_NONE_ON) // output_off_none_on: [off_score, none_score, on_score]
 	{
 		float defuzz = branchStrength(ncc_in, likelihood_in, smoothness_in);   // will update agg1
-        output_2_OFF_NONE_ON[0] = (float) Math.exp(-Math.pow(defuzz - output2_off, 2)   / (2 * Math.pow(output_sigma, 2)));
-        output_2_OFF_NONE_ON[1] = (float) Math.exp(-Math.pow(defuzz - output2_none, 2)  / (2 * Math.pow(output_sigma, 2)));
-        output_2_OFF_NONE_ON[2] = (float) Math.exp(-Math.pow(defuzz - output2_on, 2)    / (2 * Math.pow(output_sigma, 2)));
+        output_2_OFF_NONE_ON[0] = (float) Math.exp(-Math.pow(defuzz - output1_off, 2)   / (2 * Math.pow(output_sigma, 2)));
+        output_2_OFF_NONE_ON[1] = (float) Math.exp(-Math.pow(defuzz - output1_none, 2)  / (2 * Math.pow(output_sigma, 2)));
+        output_2_OFF_NONE_ON[2] = (float) Math.exp(-Math.pow(defuzz - output1_on, 2)    / (2 * Math.pow(output_sigma, 2)));
 
-        if (verbose) {
-
-
-
-        }
+		String title = "ON="+ IJ.d2s(output_2_OFF_NONE_ON[2], 2);
+        if (verbose)  appendAgg1(defuzz, title);
 	}
 
 	/****************************************************************************/
@@ -548,73 +448,52 @@ public class Fuzzy2D {
 	private float critpointScore(float ncc_1, float likelihood_1, float smoothness_1)  // if there is only one then assume it is pointerBranch
 	{
 
-		float[] t = new float[2];
-        pointerBranchStrength(ncc_1, smoothness_1, t);   // will update agg1
+		float[] t = new float[3];
+        branchStrength(ncc_1, likelihood_1, smoothness_1, t);   // will update agg1 & append if verbose is true
 		float b1_is_off 	= t[0];
-		float b1_is_on 		= t[1];
+		float b1_is_none	= t[1];
+		float b1_is_on 		= t[2];
 
         Arrays.fill(agg2, 0);
 		float mu;
 		float[] cur;
 
 		mu = b1_is_off;     cur = fi_nonpoint(mu);   	accumulate(cur, agg2);
-//		mu = b1_is_none;    cur = fi_nonpoint(mu);   	accumulate(cur, agg2);
+		mu = b1_is_none;    cur = fi_nonpoint(mu);   	accumulate(cur, agg2);
 		mu = b1_is_on;      cur = fi_endpoint(mu);    	accumulate(cur, agg2);
-        return get_agg2_centroid();
+
+		return get_agg2_centroid();
 
 	}
 
-    public void critpointScore(float ncc_1, float likelihood_1, float smoothness_1, float[] output_3_END_NON_JUN)
+    public void critpointScore(float ncc_1, float likelihood_1, float smoothness_1,
+							   float[] output_3_END_NON_JUN)
     {
 
         float defuzz = critpointScore(ncc_1, likelihood_1, smoothness_1);
-        output_3_END_NON_JUN[0] = (float) Math.exp(-Math.pow(defuzz - output3_endpoint, 2) / (2 * Math.pow(output_sigma, 2)));
-        output_3_END_NON_JUN[1] = (float) Math.exp(-Math.pow(defuzz - output3_nonpoint, 2) / (2 * Math.pow(output_sigma, 2)));
-        output_3_END_NON_JUN[2] = (float) Math.exp(-Math.pow(defuzz - output3_bifpoint, 2) / (2 * Math.pow(output_sigma, 2)));
+        output_3_END_NON_JUN[0] = (float) Math.exp(-Math.pow(defuzz - output2_endpoint, 2) / (2 * Math.pow(output_sigma, 2)));
+        output_3_END_NON_JUN[1] = (float) Math.exp(-Math.pow(defuzz - output2_nonpoint, 2) / (2 * Math.pow(output_sigma, 2)));
+        output_3_END_NON_JUN[2] = (float) Math.exp(-Math.pow(defuzz - output2_bifpoint, 2) / (2 * Math.pow(output_sigma, 2)));
 
-        if (verbose) appendAgg2(defuzz, "1 input");
+		String title = "JUN="+IJ.d2s(output_3_END_NON_JUN[2],2);
+        if (verbose) appendAgg2(defuzz, title);
     }
 
-    private void appendAgg1(float defuzz_to_plot, String title)
-    {
-        Plot p = new Plot("", "", "");
-        p.setLimits(x_min, x_max, 0 ,1);
-        p.addPoints(x1, agg1, Plot.LINE);
-        float[][] pks_abscissa = new float[][]{ {defuzz_to_plot, defuzz_to_plot}, {0, 1} }; // 0 -> abscissa, 1 -> limits
-        p.setColor(Color.RED);
-        p.setLineWidth(2);
-        p.addPoints(pks_abscissa[0], pks_abscissa[1], Plot.LINE);
-        p.draw();
-        fls_steps.addSlice(title, p.getProcessor());
-    }
-
-    private void appendAgg2(float defuzz_to_plot, String title)
-    {
-        Plot p = new Plot("", "", "");
-        p.setLimits(x_min, x_max, 0 , 1);
-        p.addPoints(x2, agg2, Plot.LINE);
-        p.draw();
-        float[][] pks_abscissa = new float[][]{ {defuzz_to_plot, defuzz_to_plot}, {0, 1} }; // 0 -> abscissa, 1 -> limits
-        p.setColor(Color.RED);
-        p.setLineWidth(2);
-        p.addPoints(pks_abscissa[0], pks_abscissa[1], Plot.LINE);
-        p.draw();
-        fls_steps.addSlice(title, p.getProcessor());
-    }
+	/****************************************************************************/
 
 	private float critpointScore(
-									float ncc_1, float likelihood_1,
-									float ncc_2, float likelihood_2)
+									float ncc_1, float likelihood_1, float smoothness_1,
+									float ncc_2, float likelihood_2, float smoothness_2)
 	{
 
         float[] t = new float[3];
 
-        branchStrength(ncc_1, likelihood_1, t);
+        branchStrength(ncc_1, likelihood_1, smoothness_1, t);
         float b1_is_off 	= t[0];
         float b1_is_none 	= t[1];
         float b1_is_on 		= t[2];
 
-        branchStrength(ncc_2, likelihood_2, t);
+        branchStrength(ncc_2, likelihood_2, smoothness_2, t);
         float b2_is_off 	= t[0];
         float b2_is_none 	= t[1];
         float b2_is_on 		= t[2];
@@ -623,59 +502,53 @@ public class Fuzzy2D {
         float mu;
         float[] cur;
 
-        // rules
         mu = min(b1_is_off, 	b2_is_off);     cur = fi_nonpoint(mu); 	accumulate(cur, agg2);
+		mu = min(b1_is_on, 		b2_is_on);      cur = fi_nonpoint(mu); 	accumulate(cur, agg2);
+
 		mu = min(b1_is_off, 	b2_is_on);      cur = fi_endpoint(mu); 	accumulate(cur, agg2);
 		mu = min(b1_is_on, 		b2_is_off);     cur = fi_endpoint(mu); 	accumulate(cur, agg2);
-		mu = min(b1_is_on, 		b2_is_on);      cur = fi_nonpoint(mu); 	accumulate(cur, agg2);
+
 		mu = max(b1_is_none, 	b2_is_none);	cur = fi_nonpoint(mu); 	accumulate(cur, agg2);
 
         return get_agg2_centroid();
 
     }
 
-    public ImageStack critpointScore(
-									float ncc_1, float likelihood_1,
-                                  	float ncc_2, float likelihood_2, float[] output_endpoint_nonpoint_bifpoint, boolean verbose)
+    public void critpointScore(
+									float ncc_1, float likelihood_1, float smoothness_1,
+                                  	float ncc_2, float likelihood_2, float smoothness_2,
+									float[] output_endpoint_nonpoint_bifpoint)
     {
-        float defuzz = critpointScore(ncc_1, likelihood_1, ncc_2, likelihood_2);
-		output_endpoint_nonpoint_bifpoint[0] = (float) Math.exp(-Math.pow(defuzz - output3_endpoint, 2) / (2 * Math.pow(output_sigma, 2)));
-		output_endpoint_nonpoint_bifpoint[1] = (float) Math.exp(-Math.pow(defuzz - output3_nonpoint, 2) / (2 * Math.pow(output_sigma, 2)));
-		output_endpoint_nonpoint_bifpoint[2] = (float) Math.exp(-Math.pow(defuzz - output3_bifpoint, 2) / (2 * Math.pow(output_sigma, 2)));
+        float defuzz = critpointScore(ncc_1, likelihood_1, smoothness_1, ncc_2, likelihood_2, smoothness_2);
+		output_endpoint_nonpoint_bifpoint[0] = (float) Math.exp(-Math.pow(defuzz - output2_endpoint, 2) / (2 * Math.pow(output_sigma, 2)));
+		output_endpoint_nonpoint_bifpoint[1] = (float) Math.exp(-Math.pow(defuzz - output2_nonpoint, 2) / (2 * Math.pow(output_sigma, 2)));
+		output_endpoint_nonpoint_bifpoint[2] = (float) Math.exp(-Math.pow(defuzz - output2_bifpoint, 2) / (2 * Math.pow(output_sigma, 2)));
 
-        ImageStack is_out = new ImageStack(528, 255);
-        if (verbose) {
-			Plot p = new Plot("agg", "", "", x2, agg2, Plot.LINE);
-            p.draw();
-            float[][] pks_abscissa = new float[][]{ {defuzz, defuzz}, {0, 1} }; // 0 -> abscissa, 1 -> limits
-            p.setColor(Color.RED);
-            p.setLineWidth(2);
-            p.addPoints(pks_abscissa[0], pks_abscissa[1], Plot.LINE);
-            p.draw();
-			is_out.addSlice(p.getProcessor());
-		}
+		String title = "JUN="+IJ.d2s(output_endpoint_nonpoint_bifpoint[2],2);
+        if (verbose) appendAgg2(defuzz, title);
 
-		return is_out;
     }
 
-    private float critpointScore(	float ncc_1, float likelihood_1,
-                                    float ncc_2, float likelihood_2,
-                                    float ncc_3, float likelihood_3)
+	/****************************************************************************/
+
+    private float critpointScore(	float ncc_1, float likelihood_1, float smoothness_1,
+                                    float ncc_2, float likelihood_2, float smoothness_2,
+                                    float ncc_3, float likelihood_3, float smoothness_3)
     {
 
         float[] t = new float[3];
 
-        branchStrength(ncc_1, likelihood_1, t);
+        branchStrength(ncc_1, likelihood_1, smoothness_1, t);
         float b1_is_off 	= t[0];
         float b1_is_none 	= t[1];
         float b1_is_on 		= t[2];
 
-        branchStrength(ncc_2, likelihood_2, t);
+        branchStrength(ncc_2, likelihood_2, smoothness_2, t);
         float b2_is_off 	= t[0];
         float b2_is_none 	= t[1];
         float b2_is_on 		= t[2];
 
-        branchStrength(ncc_3, likelihood_3, t);
+        branchStrength(ncc_3, likelihood_3, smoothness_3, t);
         float b3_is_off 	= t[0];
         float b3_is_none 	= t[1];
         float b3_is_on 		= t[2];
@@ -685,71 +558,64 @@ public class Fuzzy2D {
         float mu;
         float[] cur;
 
-        // rules
-        mu = min(b1_is_off, b2_is_off, b3_is_off);     cur = fi_nonpoint(mu); accumulate(cur, agg2);
-		mu = min(b1_is_off, b2_is_off, b3_is_on);      cur = fi_endpoint(mu); accumulate(cur, agg2);
-		mu = min(b1_is_off, b2_is_on,  b3_is_off);     cur = fi_endpoint(mu); accumulate(cur, agg2);
-		mu = min(b1_is_off, b2_is_on,  b3_is_on);      cur = fi_nonpoint(mu); accumulate(cur, agg2);
+        mu = min(b1_is_off, b2_is_off, b3_is_off);     	cur = fi_nonpoint(mu); accumulate(cur, agg2);
+		mu = min(b1_is_off, b2_is_on,  b3_is_on);      	cur = fi_nonpoint(mu); accumulate(cur, agg2);
+		mu = min(b1_is_on, 	b2_is_off, b3_is_on);       cur = fi_nonpoint(mu); accumulate(cur, agg2);
+		mu = min(b1_is_on, 	b2_is_on,  b3_is_off);      cur = fi_nonpoint(mu); accumulate(cur, agg2);
 
-		mu = min(b1_is_on, b2_is_off, b3_is_off);      cur = fi_endpoint(mu); accumulate(cur, agg2);
-        mu = min(b1_is_on, b2_is_off, b3_is_on);       cur = fi_nonpoint(mu); accumulate(cur, agg2);
-        mu = min(b1_is_on, b2_is_on,  b3_is_off);      cur = fi_nonpoint(mu); accumulate(cur, agg2);
-        mu = min(b1_is_on, b2_is_on,  b3_is_on);       cur = fi_bifpoint(mu); accumulate(cur, agg2);
+		mu = min(b1_is_off, b2_is_off, b3_is_on);      	cur = fi_endpoint(mu); accumulate(cur, agg2);
+		mu = min(b1_is_off, b2_is_on,  b3_is_off);     	cur = fi_endpoint(mu); accumulate(cur, agg2);
+		mu = min(b1_is_on, 	b2_is_off, b3_is_off);      cur = fi_endpoint(mu); accumulate(cur, agg2);
 
-		mu = max(b1_is_none, b2_is_none, b3_is_none);  cur = fi_nonpoint(mu); accumulate(cur, agg2);
+		mu = min(b1_is_on, 	b2_is_on,  b3_is_on);       cur = fi_bifpoint(mu); accumulate(cur, agg2);
+
+		mu = max(b1_is_none, b2_is_none, b3_is_none);  	cur = fi_nonpoint(mu); accumulate(cur, agg2);
 
         return get_agg2_centroid();
 
     }
 
-    public ImageStack critpointScore(
-                                    float ncc_1, float likelihood_1,
-                                    float ncc_2, float likelihood_2,
-                                    float ncc_3, float likelihood_3, float[] output_endpoint_nonpoint_bifpoint, boolean verbose)
+    public void critpointScore(
+                                    float ncc_1, float likelihood_1, float smoothness_1,
+                                    float ncc_2, float likelihood_2, float smoothness_2,
+                                    float ncc_3, float likelihood_3, float smoothness_3,
+									float[] output_endpoint_nonpoint_bifpoint)
     {
-        float defuzz = critpointScore(ncc_1, likelihood_1, ncc_2, likelihood_2, ncc_3, likelihood_3);
-		output_endpoint_nonpoint_bifpoint[0] = (float) Math.exp(-Math.pow(defuzz - output3_endpoint, 2) / (2 * Math.pow(output_sigma, 2)));
-		output_endpoint_nonpoint_bifpoint[1] = (float) Math.exp(-Math.pow(defuzz - output3_nonpoint, 2) / (2 * Math.pow(output_sigma, 2)));
-		output_endpoint_nonpoint_bifpoint[2] = (float) Math.exp(-Math.pow(defuzz - output3_bifpoint, 2) / (2 * Math.pow(output_sigma, 2)));
+        float defuzz = critpointScore(ncc_1, likelihood_1, smoothness_1, ncc_2, likelihood_2, smoothness_2, ncc_3, likelihood_3, smoothness_3);
+		output_endpoint_nonpoint_bifpoint[0] = (float) Math.exp(-Math.pow(defuzz - output2_endpoint, 2) / (2 * Math.pow(output_sigma, 2)));
+		output_endpoint_nonpoint_bifpoint[1] = (float) Math.exp(-Math.pow(defuzz - output2_nonpoint, 2) / (2 * Math.pow(output_sigma, 2)));
+		output_endpoint_nonpoint_bifpoint[2] = (float) Math.exp(-Math.pow(defuzz - output2_bifpoint, 2) / (2 * Math.pow(output_sigma, 2)));
 
-        ImageStack is_out = new ImageStack(528, 255);
-        if (verbose) {
-			Plot p = new Plot("agg", "", "", x2, agg2, Plot.LINE);
-            p.draw();
-            float[][] pks_abscissa = new float[][]{ {defuzz, defuzz}, {0, 1} }; // 0 -> abscissa, 1 -> limits
-            p.setColor(Color.RED);
-            p.setLineWidth(2);
-            p.addPoints(pks_abscissa[0], pks_abscissa[1], Plot.LINE);
-            p.draw();
-			is_out.addSlice(p.getProcessor());
-		}
-		return is_out;
+		String title = "JUN="+IJ.d2s(output_endpoint_nonpoint_bifpoint[2],2);
+        if (verbose) appendAgg2(defuzz, title);
     }
 
-    private float critpointScore(    float ncc_1, float likelihood_1,
-                                     float ncc_2, float likelihood_2,
-                                     float ncc_3, float likelihood_3,
-                                     float ncc_4, float likelihood_4)
+	/****************************************************************************/
+
+    private float critpointScore(    float ncc_1, float likelihood_1, float smoothness_1,
+                                     float ncc_2, float likelihood_2, float smoothness_2,
+                                     float ncc_3, float likelihood_3, float smoothness_3,
+                                     float ncc_4, float likelihood_4, float smoothness_4)
     {
 
         float[] t = new float[3];
 
-        branchStrength(ncc_1, likelihood_1, t);
+        branchStrength(ncc_1, likelihood_1, smoothness_1, t);
         float b1_is_off 	= t[0];
         float b1_is_none 	= t[1];
         float b1_is_on 		= t[2];
 
-        branchStrength(ncc_2, likelihood_2, t);
+        branchStrength(ncc_2, likelihood_2, smoothness_2, t);
         float b2_is_off 	= t[0];
         float b2_is_none 	= t[1];
         float b2_is_on 		= t[2];
 
-		branchStrength(ncc_3, likelihood_3, t);
+		branchStrength(ncc_3, likelihood_3, smoothness_3, t);
         float b3_is_off 	= t[0];
         float b3_is_none 	= t[1];
         float b3_is_on 		= t[2];
 
-        branchStrength(ncc_4, likelihood_4, t);
+        branchStrength(ncc_4, likelihood_4, smoothness_4, t);
         float b4_is_off 	= t[0];
         float b4_is_none 	= t[1];
         float b4_is_on 		= t[2];
@@ -758,7 +624,6 @@ public class Fuzzy2D {
         float mu;
         float[] cur;
 
-        // rules
         mu = min(b1_is_off, 	b2_is_off, 	b3_is_off, 	b4_is_off);      cur = fi_nonpoint(mu);  accumulate(cur, agg2); // 0000
 		mu = min(b1_is_off, 	b2_is_off, 	b3_is_off, 	b4_is_on);       cur = fi_endpoint(mu);  accumulate(cur, agg2); // 0001 (end)
 		mu = min(b1_is_off, 	b2_is_off, 	b3_is_on, 	b4_is_off);      cur = fi_endpoint(mu);  accumulate(cur, agg2); // 0010 (end)
@@ -793,29 +658,20 @@ public class Fuzzy2D {
 
     }
 
-    public ImageStack critpointScore(
-                                   float ncc_1, float likelihood_1,
-                                   float ncc_2, float likelihood_2,
-                                   float ncc_3, float likelihood_3,
-                                   float ncc_4, float likelihood_4, float[] output_endpoint_nonpoint_bifpoint, boolean verbose)
+    public void critpointScore(
+                                   float ncc_1, float likelihood_1, float smoothness_1,
+                                   float ncc_2, float likelihood_2, float smoothness_2,
+                                   float ncc_3, float likelihood_3, float smoothness_3,
+                                   float ncc_4, float likelihood_4, float smoothness_4,
+								   float[] output_endpoint_nonpoint_bifpoint)
     {
-        float defuzz = critpointScore(ncc_1, likelihood_1, ncc_2, likelihood_2, ncc_3, likelihood_3, ncc_4, likelihood_4);
-		output_endpoint_nonpoint_bifpoint[0] = (float) Math.exp(-Math.pow(defuzz - output3_endpoint, 2) / (2 * Math.pow(output_sigma, 2)));
-		output_endpoint_nonpoint_bifpoint[1] = (float) Math.exp(-Math.pow(defuzz - output3_nonpoint, 2) / (2 * Math.pow(output_sigma, 2)));
-		output_endpoint_nonpoint_bifpoint[2] = (float) Math.exp(-Math.pow(defuzz - output3_bifpoint, 2) / (2 * Math.pow(output_sigma, 2)));
+        float defuzz = critpointScore(ncc_1, likelihood_1, smoothness_1, ncc_2, likelihood_2, smoothness_2, ncc_3, likelihood_3, smoothness_3, ncc_4, likelihood_4, smoothness_4);
+		output_endpoint_nonpoint_bifpoint[0] = (float) Math.exp(-Math.pow(defuzz - output2_endpoint, 2) / (2 * Math.pow(output_sigma, 2)));
+		output_endpoint_nonpoint_bifpoint[1] = (float) Math.exp(-Math.pow(defuzz - output2_nonpoint, 2) / (2 * Math.pow(output_sigma, 2)));
+		output_endpoint_nonpoint_bifpoint[2] = (float) Math.exp(-Math.pow(defuzz - output2_bifpoint, 2) / (2 * Math.pow(output_sigma, 2)));
 
-        ImageStack is_out = new ImageStack(528, 255);
-        if (verbose) {
-			Plot p = new Plot("agg", "", "", x2, agg2, Plot.LINE);
-            p.draw();
-            float[][] pks_abscissa = new float[][]{ {defuzz, defuzz}, {0, 1} }; // 0 -> abscissa, 1 -> limits
-            p.setColor(Color.RED);
-            p.setLineWidth(2);
-            p.addPoints(pks_abscissa[0], pks_abscissa[1], Plot.LINE);
-            p.draw();
-			is_out.addSlice(p.getProcessor());
-		}
-		return is_out;
+		String title = "JUN="+IJ.d2s(output_endpoint_nonpoint_bifpoint[2],2);
+        if (verbose) appendAgg2(defuzz, title);
 
     }
 
@@ -862,7 +718,6 @@ public class Fuzzy2D {
         return Math.min(in1, min(in2, in3, in4));
     }
 
-
     private static final void accumulate(float[] values, float[] accumulator)
     {
         for (int i=0; i<values.length; i++) if (values[i]>accumulator[i]) accumulator[i] = values[i];
@@ -881,6 +736,33 @@ public class Fuzzy2D {
 	private static final float max(float in1, float in2, float in3, float in4)
 	{
 		return Math.max(in1, max(in2, in3, in4));
+	}
+
+	private void appendAgg1(float defuzz_to_plot, String title)
+	{
+		Plot p = new Plot("", "", "");
+		p.setLimits(x_min, x_max, 0 ,1);
+		p.addPoints(x1, agg1, Plot.LINE);
+		float[][] pks_abscissa = new float[][]{ {defuzz_to_plot, defuzz_to_plot}, {0, 1} }; // 0 -> abscissa, 1 -> limits
+		p.setColor(Color.RED);
+		p.setLineWidth(2);
+		p.addPoints(pks_abscissa[0], pks_abscissa[1], Plot.LINE);
+		p.draw();
+		fls_steps.addSlice(title, p.getProcessor());
+	}
+
+	private void appendAgg2(float defuzz_to_plot, String title)
+	{
+		Plot p = new Plot("", "", "");
+		p.setLimits(x_min, x_max, 0 , 1);
+		p.addPoints(x2, agg2, Plot.LINE);
+		p.draw();
+		float[][] pks_abscissa = new float[][]{ {defuzz_to_plot, defuzz_to_plot}, {0, 1} }; // 0 -> abscissa, 1 -> limits
+		p.setColor(Color.RED);
+		p.setLineWidth(2);
+		p.addPoints(pks_abscissa[0], pks_abscissa[1], Plot.LINE);
+		p.draw();
+		fls_steps.addSlice(title, p.getProcessor());
 	}
 
 }
