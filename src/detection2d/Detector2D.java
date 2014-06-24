@@ -38,10 +38,14 @@ public class Detector2D {
 	static float[]  D;
 	float       	ncc_high;
 	float       	ncc_low;
-	float 			likelihood_high;
-	float 			likelihood_low;
-	float			output_sigma;
 
+    float 			likelihood_high;
+	float 			likelihood_low;
+
+    float           smoothness_high;            // smoothness_high is actually lower than smoothness_low
+    float           smoothness_low;             // they are automatically calculated fro mthe distribution of smoothness values
+
+    float			output_sigma;
 
 	float 		output_membership_th;       	// based on k and output_sigma
 
@@ -49,12 +53,8 @@ public class Detector2D {
 
 	int         	M = 1;
 	float       	minCos = -.5f;
-	float			k = 4.0f;                   // hardcoded, defines the stricktness of the threshold for out membership function, k higher => means more strictness
+	float			k = 2.0f;                   // hardcoded, defines the stricktness of the threshold for out membership function, k higher => means more strictness
 	String          eval_string = "";
-
-
-
-
 
 	String		output_dir_name; 		    	// parameter coded output folder name
 	String 		output_log_name;
@@ -62,8 +62,6 @@ public class Detector2D {
 
 
 	int         CPU_NR;
-
-
 
 	// output
 	static float[][] critpoint_det; 		// store 2d grid with detection scores (size of the image itself)
@@ -286,7 +284,14 @@ public class Detector2D {
 				}
 			}
 //			new ImagePlus("", Delineator2D.getSmoothnessDistribution(64)).show();
-			/********************************************************************/
+            // smoothness high/low
+            int percentile = 70;
+            float sensitivity = 0.5f;
+            float val = Delineator2D.getSmoothnessPercentile(percentile);
+            System.out.println(percentile + " percentile " + val);
+            float high = sensitivity*val;
+            System.out.println(high + " high threshold");
+            /********************************************************************/
 			System.out.print("Ncc2D...");
 			Ncc2D.loadTemplate(
 									  Delineator2D.xy2,
@@ -310,7 +315,45 @@ public class Detector2D {
 					e.printStackTrace();
 				}
 			}
-			/********************************************************************/
+            /********************************************************************/
+
+
+
+
+
+            /********************************************************************/
+            System.out.print("FuzzyDetector2D...");
+            FuzzyDetector2D.loadTemplate(
+                    Ncc2D.scores,
+                    PeakExtractor2D.peaks_lhood,
+                    Delineator2D.smoothness,
+
+                    ncc_high,        // user
+                    ncc_low,         // user
+
+                    likelihood_high,  // user
+                    likelihood_low,   // user
+
+                    smoothness_high,  // automatic
+                    smoothness_low,   // automatic
+
+                    output_sigma
+            );
+            int totalFuzzyDetectorComponents = PeakExtractor2D.peaks_lhood.length;
+            FuzzyDetector2D fd_jobs[] = new FuzzyDetector2D[CPU_NR];
+            for (int i = 0; i < fd_jobs.length; i++) {
+                fd_jobs[i] = new FuzzyDetector2D(i*totalFuzzyDetectorComponents/CPU_NR, (i+1)*totalFuzzyDetectorComponents/CPU_NR);
+                fd_jobs[i].start();
+            }
+            for (int i = 0; i < fd_jobs.length; i++) {
+                try {
+                    fd_jobs[i].join();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+            /********************************************************************/
+
 			/*System.out.print("FeatureExtractor2D...");
 			FeatureExtractor2D.loadTemplate(
 												   Masker2D.i2xy,
@@ -344,50 +387,40 @@ public class Detector2D {
 					e.printStackTrace();
 				}
 			}
+			*/
 
 
 
 
-			System.out.print("Append regions... ");
-			// bif-crs clustering parameters
-			float ang_deg = 20f;
+//			System.out.print("Append regions... ");
+//			float ang_deg = 20f;
+//			int			min_region_size = (int) Math.round(0.25f*0.25f*Math.pow(D[didx],2));  // smallest connected region area to be valid critical point
+//			int			max_region_size = (int) Math.round(2.0f*2.0f*Math.pow(D[didx],2));  // largest connected region to be valid critical point
+//			float 		region_radius 	= D[didx];
+//			float sensitivity = 0.7f;
+//			FeatureExtractor2D.exportCritpointScores(critpoint_det, 0); // store critpoint_score2 list into 2d array critpoint_det
+//			getCritpointRegions(
+//																					critpoint_det,
+//																					min_region_size,
+//																					max_region_size,
+//									   												region_radius,	          // the same radius will be assigned at each scale
+//																					CritpointRegion.RegionType.END,
+//																					ang_deg,
+//																					detected_regions
+//																					);
+//			FeatureExtractor2D.exportCritpointScores(critpoint_det, 2); // store critpoint_score2 list into 2d array critpoint_det
+//			getCritpointRegions(
+//																					critpoint_det,
+//																					min_region_size,
+//																					max_region_size,
+//									   												region_radius,
+//																					CritpointRegion.RegionType.BIF_CROSS,
+//																					ang_deg,
+//																					detected_regions
+//																					);
+//			System.out.println("    " + didx + "/" + D.length );
 
-			// imagine a square scaled wrt current D[idx] used for detection
-			int			min_region_size = (int) Math.round(0.25f*0.25f*Math.pow(D[didx],2));  // smallest connected region area to be valid critical point
-			int			max_region_size = (int) Math.round(2.0f*2.0f*Math.pow(D[didx],2));  // largest connected region to be valid critical point
-			float 		region_radius 	= D[didx];
-			float sensitivity = 0.7f;
-
-//			System.out.println("diameter " + region_radius + " min = " + min_region_size + " max = " + max_region_size);
-
-			FeatureExtractor2D.exportCritpointScores(critpoint_det, 0); // store critpoint_score2 list into 2d array critpoint_det
-
-			getCritpointRegions(
-																					critpoint_det,
-																					min_region_size,
-																					max_region_size,
-									   												region_radius,	          // the same radius will be assigned at each scale
-																					CritpointRegion.RegionType.END,
-																					ang_deg,
-//																					min_clust_cnt,
-																					detected_regions
-																					);
-
-			FeatureExtractor2D.exportCritpointScores(critpoint_det, 2); // store critpoint_score2 list into 2d array critpoint_det
-			getCritpointRegions(
-																					critpoint_det,
-																					min_region_size,
-																					max_region_size,
-									   												region_radius,
-																					CritpointRegion.RegionType.BIF_CROSS,
-																					ang_deg,
-																					detected_regions
-																					);
-
-																					*/
-
-			System.out.println("    " + didx + "/" + D.length );
-		}
+        }
 
 		t2 = System.currentTimeMillis();
 		IJ.log("done. " + ((t2 - t1) / 1000f) + "sec.");

@@ -1,10 +1,23 @@
-CritpointInspector2D (PlugInFilter) - uses Detector2D and graphic interface, adds the possibility to interact with the detection
 Critpoint2D          (PlugIn)       - uses Detector2D just to do the raw detection without graphic interface
-Detector2D           (Java class)       :
-FeatureExtractor2D   (Thread)           : streamline_score2, critpoint_score2, ncc2, fitsco2, stddev2, delin_refined_vecs2, delin_refined_locs2, delin2
-PeakExtractor2D      (Thread)           : peaks_theta, peaks_i, peaks_w, peaks_lhood (inputs: i2xy, xy2i, prof2, inimg_xy)
-Profiler2D           (Thread)           : prof2  (inputs: inimg_xy, xy2i, i2xy)
+
+
+Detector2D           (Java class)       : carries out the detection by calling threaded classes
+
+
 Masker2D             (Thread)           : back_xy, mask_xy, criteria, i2xy, xy2i (inputs: inimg_xy)
+->
+Profiler2D           (Thread)           : prof2  (inputs: inimg_xy, xy2i, i2xy)
+->
+ProfileSpread2D
+->
+PeakExtractor2D      (Thread)           : peaks_theta, peaks_i, peaks_w, peaks_lhood (inputs: i2xy, xy2i, prof2, inimg_xy)
+->
+Delineator2D
+->
+Ncc2D
+->
+FuzzyDetector2D
+->
 
 
 

@@ -2,6 +2,7 @@ package detection2d;
 
 import aux.Hist;
 import aux.Interpolator;
+import aux.Stat;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.Line;
@@ -1157,12 +1158,74 @@ public class Delineator2D extends Thread {
 
 	}
 
-    float[] getSmoothnessHigh_Low(float off_percentile, float on_sensitivity)
+    public static float getSmoothnessPercentile(int perc)
     {
-        // check the distribution of smoothness values
-        return new float[2];
+        // check the distribution of (non-normalized) smoothness values
+        // loop through all to count all the valid smoothness values
+        int count = 0;
+        float min_smoothness = Float.POSITIVE_INFINITY;
+        float max_smoothness = Float.NEGATIVE_INFINITY;
 
+        for (int i = 0; i < smoothness.length; i++) {
 
+            if (smoothness[i]!=null) {
+
+                for (int j = 0; j < smoothness[i].length; j++) {
+
+                    if (!Float.isNaN(smoothness[i][j])) {
+
+                        count++;
+                        if (smoothness[i][j]<min_smoothness) min_smoothness = smoothness[i][j];
+                        if (smoothness[i][j]>max_smoothness) max_smoothness = smoothness[i][j];
+
+                    }
+
+                }
+
+            }
+
+        }
+
+        System.out.println(count + " smoothness values found");
+        System.out.println(min_smoothness + " -> min. smoothness");
+        System.out.println(max_smoothness + " -> max. smoothness");
+
+        float[] all_sth = new float[count];
+
+        count = 0;
+
+        for (int i = 0; i < smoothness.length; i++) {
+
+            if (smoothness[i]!=null) {
+
+                for (int j = 0; j < smoothness[i].length; j++) {
+
+                    if (!Float.isNaN(smoothness[i][j])) {
+
+                        all_sth[count++] = smoothness[i][j];
+
+                    }
+
+                }
+
+            }
+
+        }
+
+        int t20 = get20(perc);
+
+        return Stat.quantile(all_sth, t20, 20);
+
+    }
+
+    private static int get20(int percentile)
+    {
+        percentile = (percentile< 1)?  1 : percentile;
+        percentile = (percentile>99)? 99 : percentile;
+        int t20 = Math.round((20f*percentile)/100f);
+        t20 = (t20< 1)? 1  : t20;
+        t20 = (t20>19)? 19 : t20;
+        return t20;
     }
 
 }

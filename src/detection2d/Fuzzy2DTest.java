@@ -39,7 +39,6 @@ public class Fuzzy2DTest implements PlugIn {
 //		gd1.showDialog();
 //		if (gd1.wasCanceled()) return;
 
-
 		gd.addNumericField("NCC HIGH", 	        ncc_high, 			        2,  5, "");
 		gd.addNumericField("NCC LOW",           ncc_low, 		            2,  5, "");
 		gd.addNumericField("LIKELIHOOD HIGH", 	likelihood_high, 			2,  10, "");
@@ -86,7 +85,11 @@ public class Fuzzy2DTest implements PlugIn {
 		test.verbose = true;
 		test.critpointScore(ncc1, lhood1, smooth1, out);
 		test.clearLog();
-		test.critpointScore(ncc1, lhood1, smooth1, 		ncc1, lhood1, smooth1, out);
+		test.critpointScore(
+                ncc1, lhood1, smooth1,
+                ncc1, lhood1, smooth1,
+                ncc1, lhood1, smooth1,
+                out);
 		new ImagePlus("", test.fls_steps).show();
 		System.out.println(Arrays.toString(out));
 
