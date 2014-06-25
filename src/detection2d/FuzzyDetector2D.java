@@ -27,6 +27,7 @@ public class FuzzyDetector2D extends Thread {
     // OUTPUT
     public static float[]   	endpoint_score;         // N(foreground locs.) x 1(endpoint) given by fuzzy logic
     public static float[]   	junction_score;         // N(foreground locs.) x 1(bifpoint) given by fuzzy logic
+	public static float[][]		branch_score;			// N(foreground locs.) x 4 (off, none, on) values for up to 4 peaks found
 
     public FuzzyDetector2D(int n0, int n1)
     {
@@ -66,8 +67,9 @@ public class FuzzyDetector2D extends Thread {
         output_sigma = _output_sigma;
 
         // allocate outputs
-        endpoint_score = new float[nr_points];
-        junction_score = new float[nr_points];
+        endpoint_score 	= new float[nr_points];
+        junction_score  = new float[nr_points];
+		branch_score	= new float[nr_points][4];
 
     }
 
@@ -88,7 +90,8 @@ public class FuzzyDetector2D extends Thread {
         );
         fls.verbose = false; // make it sure that there is no logging...
         float[] tmp = new float[3];// will take end,non,jun score using fls, will be sequaentially used
-        float ncc_1=0, lhood_1=0, smthness_1=0,
+        float[] tmp1 = new float[4];
+		float ncc_1=0, lhood_1=0, smthness_1=0,
                 ncc_2=0, lhood_2=0, smthness_2=0,
                     ncc_3=0, lhood_3=0, smthness_3=0,
                         ncc_4=0, lhood_4=0, smthness_4=0; // allocate potential inputs (up to 4 scores for three categories)
@@ -141,7 +144,7 @@ public class FuzzyDetector2D extends Thread {
                 switch (cnt_valid) {
                     case 0: break; // all were NaN do nothing, they're already initialized to zero
                     case 1: fls.critpointScore(ncc_1, lhood_1, smthness_1, tmp); break;
-                    case 2: fls.critpointScore(ncc_1, lhood_1, smthness_1, ncc_2, lhood_2, smthness_2, tmp); break;
+                    case 2: fls.critpointScore(ncc_1, lhood_1, smthness_1, ncc_2, lhood_2, smthness_2, tmp, tmp1); break;
                     case 3: fls.critpointScore(ncc_1, lhood_1, smthness_1, ncc_2, lhood_2, smthness_2, ncc_3, lhood_3, smthness_3, tmp); break;
                     case 4: fls.critpointScore(ncc_1, lhood_1, smthness_1, ncc_2, lhood_2, smthness_2, ncc_3, lhood_3, smthness_3, ncc_4, lhood_4, smthness_4, tmp); break;
                 }
@@ -150,6 +153,10 @@ public class FuzzyDetector2D extends Thread {
                 endpoint_score[locationIdx] = tmp[0];
                 junction_score[locationIdx] = tmp[2];
 
+				branch_score[locationIdx][0] = tmp1[0];
+				branch_score[locationIdx][1] = tmp1[1];
+				branch_score[locationIdx][2] = tmp1[2];
+				branch_score[locationIdx][3] = tmp1[3];
 
             } // else it stays zero... do nothing, they're already initialized to zero
 

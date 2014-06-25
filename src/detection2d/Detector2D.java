@@ -5,20 +5,15 @@ import aux.ReadSWC;
 import conn.Find_Connected_Regions;
 import ij.IJ;
 import ij.ImagePlus;
-import ij.ImageStack;
-import ij.Prefs;
 import ij.gui.Line;
 import ij.gui.OvalRoi;
 import ij.gui.Overlay;
 import ij.io.FileSaver;
-import ij.process.AutoThresholder;
 import ij.process.ByteProcessor;
-import ij.process.ImageProcessor;
 
 import java.awt.*;
 import java.io.*;
 import java.util.ArrayList;
-import java.util.Arrays;
 
 /**
  * Created by miroslav on 16-5-14.
@@ -284,13 +279,12 @@ public class Detector2D {
 				}
 			}
 //			new ImagePlus("", Delineator2D.getSmoothnessDistribution(64)).show();
-            // smoothness high/low
             int percentile = 70;
             float sensitivity = 0.5f;
-            float val = Delineator2D.getSmoothnessPercentile(percentile);
-            System.out.println(percentile + " percentile " + val);
-            float high = sensitivity*val;
-            System.out.println(high + " high threshold");
+            smoothness_high = Delineator2D.getSmoothnessPercentile(percentile);
+            smoothness_low = sensitivity * smoothness_high;
+            System.out.println("smoothness_high: " + smoothness_high);
+            System.out.println("smoothness_low:  " + smoothness_low);
             /********************************************************************/
 			System.out.print("Ncc2D...");
 			Ncc2D.loadTemplate(
@@ -315,12 +309,6 @@ public class Detector2D {
 					e.printStackTrace();
 				}
 			}
-            /********************************************************************/
-
-
-
-
-
             /********************************************************************/
             System.out.print("FuzzyDetector2D...");
             FuzzyDetector2D.loadTemplate(
@@ -353,7 +341,6 @@ public class Detector2D {
                 }
             }
             /********************************************************************/
-
 			/*System.out.print("FeatureExtractor2D...");
 			FeatureExtractor2D.loadTemplate(
 												   Masker2D.i2xy,
@@ -388,11 +375,8 @@ public class Detector2D {
 				}
 			}
 			*/
-
-
-
-
-//			System.out.print("Append regions... ");
+			/********************************************************************/
+			System.out.print("Append regions... ");
 //			float ang_deg = 20f;
 //			int			min_region_size = (int) Math.round(0.25f*0.25f*Math.pow(D[didx],2));  // smallest connected region area to be valid critical point
 //			int			max_region_size = (int) Math.round(2.0f*2.0f*Math.pow(D[didx],2));  // largest connected region to be valid critical point
@@ -418,7 +402,7 @@ public class Detector2D {
 //																					ang_deg,
 //																					detected_regions
 //																					);
-//			System.out.println("    " + didx + "/" + D.length );
+			System.out.println("    " + didx + "/" + D.length );
 
         }
 
@@ -738,20 +722,14 @@ public class Detector2D {
 		if (_choose_type == CritpointRegion.RegionType.END) fs.saveAsTiff(image_dir+"conn_ends"+det_radius+".tif");
 		if (_choose_type == CritpointRegion.RegionType.BIF_CROSS) fs.saveAsTiff(image_dir+"conn_jun"+det_radius+".tif");
 
+		if (true) return;
 
 		ArrayList<ArrayList<int[]>> regs = conn_reg.getConnectedRegions();
 
-		// just thresholding and connected components will give a lot of noisy regions
-
-
-
-		ArrayList<float[]> vxy = new ArrayList<float[]>(); // will be filled up for each SALIENT region
-
-		if (_choose_type== CritpointRegion.RegionType.END) {
+		if (_choose_type== CritpointRegion.RegionType.END) {// DEBUG: just thresholding and connected components will give a lot of noisy regions
 
 			// export binary image
 			ByteProcessor spots = new ByteProcessor(_critpoint_det.length, _critpoint_det[0].length);
-
 
 			System.out.println("Endpoints... what happened? total " + regs.size() + "regions" + minSize + " <> " +maxSize);
 
@@ -781,11 +759,11 @@ public class Detector2D {
 
 			//IJ.saveAs(new ImagePlus("", spots), "Tiff", "/home/miroslav/Desktop/ends.tif");
 
-
-
 		}
 
 		//System.out.println("loop regions.. " + minSize + " till " + maxSize);
+
+		ArrayList<float[]> vxy = new ArrayList<float[]>(); // will be filled up for each SALIENT region
 
 		// regs
 		for (int i=0; i<regs.size(); i++) {
@@ -842,7 +820,7 @@ public class Detector2D {
 							// iccord is the location index which is eqivalent to branch index
 							// check if it exists and if it exists check whether the branch is on
 							int curr_peak_i = PeakExtractor2D.peaks_i[icoord][peak_idx];
-							boolean curr_peak_on = FeatureExtractor2D.streamline_score2[icoord][2][peak_idx]>output_membership_th;
+							boolean curr_peak_on = true;//streamline_score2[icoord][2][peak_idx]>output_membership_th;
 
 							if (curr_peak_i!=-1 && curr_peak_i!=-2 && curr_peak_on) { // indexes of the spatial locations corresponding to peaks
 
@@ -900,6 +878,22 @@ public class Detector2D {
 			}
 		}
 
+	}
+
+	private static void exportCritpointScores(float[][] critpoint2d, float[] critpoint1d, int[][] _i2xy) {
+
+		for (int ll=0; ll<critpoint1d.length; ll++) {
+
+			//if (critpoint1d[ll]!=null) {
+
+			int x = _i2xy[ll][0];
+			int y = _i2xy[ll][1];
+
+			critpoint2d[x][y] = critpoint1d[ll];
+
+			//}
+
+		}
 	}
 
 	public static void print(int atX, int atY)

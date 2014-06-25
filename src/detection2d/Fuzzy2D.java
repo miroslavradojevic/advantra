@@ -439,7 +439,9 @@ public class Fuzzy2D {
         output_2_OFF_NONE_ON[1] = (float) Math.exp(-Math.pow(defuzz - output1_none, 2)  / (2 * Math.pow(output_sigma, 2)));
         output_2_OFF_NONE_ON[2] = (float) Math.exp(-Math.pow(defuzz - output1_on, 2)    / (2 * Math.pow(output_sigma, 2)));
 
-		String title = "ON="+ IJ.d2s(output_2_OFF_NONE_ON[2], 2);
+		String title = 	"OFF=" + IJ.d2s(output_2_OFF_NONE_ON[0], 2) +
+						"?  =" + IJ.d2s(output_2_OFF_NONE_ON[1], 2) +
+						"ON =" + IJ.d2s(output_2_OFF_NONE_ON[2], 2);
         if (verbose)  appendAgg1(defuzz, title);
 	}
 
@@ -467,7 +469,8 @@ public class Fuzzy2D {
 	}
 
     public void critpointScore(float ncc_1, float likelihood_1, float smoothness_1,
-							   float[] output_3_END_NON_JUN)
+							   float[] output_3_END_NON_JUN,
+							   float[] branch_saliency)
     {
 
         float defuzz = critpointScore(ncc_1, likelihood_1, smoothness_1);
@@ -481,28 +484,36 @@ public class Fuzzy2D {
 
 	/****************************************************************************/
 
-	private float critpointScore(
+    public void critpointScore(
 									float ncc_1, float likelihood_1, float smoothness_1,
-									float ncc_2, float likelihood_2, float smoothness_2)
-	{
+                                  	float ncc_2, float likelihood_2, float smoothness_2,
+									float[] output_endpoint_nonpoint_bifpoint,
+									float[] branch_saliency) // branch_saliency has to have length 4
+    {
+        //critpointScore(ncc_1, likelihood_1, smoothness_1, ncc_2, likelihood_2, smoothness_2);
 
-        float[] t = new float[3];
+		float[] t = new float[3];
 
-        branchStrength(ncc_1, likelihood_1, smoothness_1, t);
-        float b1_is_off 	= t[0];
-        float b1_is_none 	= t[1];
-        float b1_is_on 		= t[2];
+		branchStrength(ncc_1, likelihood_1, smoothness_1, t);
+		float b1_is_off 	= t[0];
+		float b1_is_none 	= t[1];
+		float b1_is_on 		= t[2];
+		branch_saliency[0] = b1_is_on;
 
-        branchStrength(ncc_2, likelihood_2, smoothness_2, t);
-        float b2_is_off 	= t[0];
-        float b2_is_none 	= t[1];
-        float b2_is_on 		= t[2];
+		branchStrength(ncc_2, likelihood_2, smoothness_2, t);
+		float b2_is_off 	= t[0];
+		float b2_is_none 	= t[1];
+		float b2_is_on 		= t[2];
+		branch_saliency[1] 	= b2_is_on;
 
-        Arrays.fill(agg2, 0);
-        float mu;
-        float[] cur;
+		branch_saliency[2] 	= Float.NaN;
+		branch_saliency[3] 	= Float.NaN;
 
-        mu = min(b1_is_off, 	b2_is_off);     cur = fi_nonpoint(mu); 	accumulate(cur, agg2);
+		Arrays.fill(agg2, 0);
+		float mu;
+		float[] cur;
+
+		mu = min(b1_is_off, 	b2_is_off);     cur = fi_nonpoint(mu); 	accumulate(cur, agg2);
 		mu = min(b1_is_on, 		b2_is_on);      cur = fi_nonpoint(mu); 	accumulate(cur, agg2);
 
 		mu = min(b1_is_off, 	b2_is_on);      cur = fi_endpoint(mu); 	accumulate(cur, agg2);
@@ -510,21 +521,16 @@ public class Fuzzy2D {
 
 		mu = max(b1_is_none, 	b2_is_none);	cur = fi_nonpoint(mu); 	accumulate(cur, agg2);
 
-        return get_agg2_centroid();
+		float defuzz =  get_agg2_centroid();
 
-    }
-
-    public void critpointScore(
-									float ncc_1, float likelihood_1, float smoothness_1,
-                                  	float ncc_2, float likelihood_2, float smoothness_2,
-									float[] output_endpoint_nonpoint_bifpoint)
-    {
-        float defuzz = critpointScore(ncc_1, likelihood_1, smoothness_1, ncc_2, likelihood_2, smoothness_2);
 		output_endpoint_nonpoint_bifpoint[0] = (float) Math.exp(-Math.pow(defuzz - output2_endpoint, 2) / (2 * Math.pow(output_sigma, 2)));
 		output_endpoint_nonpoint_bifpoint[1] = (float) Math.exp(-Math.pow(defuzz - output2_nonpoint, 2) / (2 * Math.pow(output_sigma, 2)));
 		output_endpoint_nonpoint_bifpoint[2] = (float) Math.exp(-Math.pow(defuzz - output2_bifpoint, 2) / (2 * Math.pow(output_sigma, 2)));
 
-		String title = "JUN="+IJ.d2s(output_endpoint_nonpoint_bifpoint[2],2);
+		String title = 			"END=" + IJ.d2s(output_endpoint_nonpoint_bifpoint[0],2) +
+							   	"NON=" + IJ.d2s(output_endpoint_nonpoint_bifpoint[1],2) +
+							   	"JUN=" + IJ.d2s(output_endpoint_nonpoint_bifpoint[2],2);
+
         if (verbose) appendAgg2(defuzz, title);
 
     }
