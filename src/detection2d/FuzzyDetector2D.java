@@ -142,11 +142,11 @@ public class FuzzyDetector2D extends Thread {
                 }
 
                 switch (cnt_valid) {
-                    case 0: break; // all were NaN do nothing, they're already initialized to zero
-                    case 1: fls.critpointScore(ncc_1, lhood_1, smthness_1, tmp); break;
+                    case 0: break; // all were NaN do nothing, they're already initialized to default
+                    case 1: fls.critpointScore(ncc_1, lhood_1, smthness_1, tmp, tmp1); break;
                     case 2: fls.critpointScore(ncc_1, lhood_1, smthness_1, ncc_2, lhood_2, smthness_2, tmp, tmp1); break;
-                    case 3: fls.critpointScore(ncc_1, lhood_1, smthness_1, ncc_2, lhood_2, smthness_2, ncc_3, lhood_3, smthness_3, tmp); break;
-                    case 4: fls.critpointScore(ncc_1, lhood_1, smthness_1, ncc_2, lhood_2, smthness_2, ncc_3, lhood_3, smthness_3, ncc_4, lhood_4, smthness_4, tmp); break;
+                    case 3: fls.critpointScore(ncc_1, lhood_1, smthness_1, ncc_2, lhood_2, smthness_2, ncc_3, lhood_3, smthness_3, tmp, tmp1); break;
+                    case 4: fls.critpointScore(ncc_1, lhood_1, smthness_1, ncc_2, lhood_2, smthness_2, ncc_3, lhood_3, smthness_3, ncc_4, lhood_4, smthness_4, tmp, tmp1); break;
                 }
 
                 // store the critpoint scores
@@ -158,7 +158,7 @@ public class FuzzyDetector2D extends Thread {
 				branch_score[locationIdx][2] = tmp1[2];
 				branch_score[locationIdx][3] = tmp1[3];
 
-            } // else it stays zero... do nothing, they're already initialized to zero
+            } // else it stays zero... do nothing, they're already initialized to default
 
         }
 

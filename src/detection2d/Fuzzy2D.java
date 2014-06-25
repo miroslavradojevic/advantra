@@ -440,58 +440,55 @@ public class Fuzzy2D {
         output_2_OFF_NONE_ON[2] = (float) Math.exp(-Math.pow(defuzz - output1_on, 2)    / (2 * Math.pow(output_sigma, 2)));
 
 		String title = 	"OFF=" + IJ.d2s(output_2_OFF_NONE_ON[0], 2) +
-						"?  =" + IJ.d2s(output_2_OFF_NONE_ON[1], 2) +
-						"ON =" + IJ.d2s(output_2_OFF_NONE_ON[2], 2);
+						"?="   + IJ.d2s(output_2_OFF_NONE_ON[1], 2) +
+						"ON="  + IJ.d2s(output_2_OFF_NONE_ON[2], 2);
         if (verbose)  appendAgg1(defuzz, title);
 	}
 
 	/****************************************************************************/
-
-	private float critpointScore(float ncc_1, float likelihood_1, float smoothness_1)  // if there is only one then assume it is pointerBranch
-	{
-
-		float[] t = new float[3];
-        branchStrength(ncc_1, likelihood_1, smoothness_1, t);   // will update agg1 & append if verbose is true
-		float b1_is_off 	= t[0];
-		float b1_is_none	= t[1];
-		float b1_is_on 		= t[2];
-
-        Arrays.fill(agg2, 0);
-		float mu;
-		float[] cur;
-
-		mu = b1_is_off;     cur = fi_nonpoint(mu);   	accumulate(cur, agg2);
-		mu = b1_is_none;    cur = fi_nonpoint(mu);   	accumulate(cur, agg2);
-		mu = b1_is_on;      cur = fi_endpoint(mu);    	accumulate(cur, agg2);
-
-		return get_agg2_centroid();
-
-	}
-
     public void critpointScore(float ncc_1, float likelihood_1, float smoothness_1,
 							   float[] output_3_END_NON_JUN,
 							   float[] branch_saliency)
     {
 
-        float defuzz = critpointScore(ncc_1, likelihood_1, smoothness_1);
+        float[] t = new float[3];
+        branchStrength(ncc_1, likelihood_1, smoothness_1, t);   // will update agg1 & append if verbose is true
+        float b1_is_off 	= t[0];
+        float b1_is_none	= t[1];
+        float b1_is_on 		= t[2];
+        branch_saliency[0]  = b1_is_on;
+
+        branch_saliency[1]  = Float.NaN;
+        branch_saliency[2]  = Float.NaN;
+        branch_saliency[3]  = Float.NaN;
+
+        Arrays.fill(agg2, 0);
+        float mu;
+        float[] cur;
+
+        mu = b1_is_off;     cur = fi_nonpoint(mu);   	accumulate(cur, agg2);
+        mu = b1_is_none;    cur = fi_nonpoint(mu);   	accumulate(cur, agg2);
+        mu = b1_is_on;      cur = fi_endpoint(mu);    	accumulate(cur, agg2);
+
+        float defuzz = get_agg2_centroid();
+
         output_3_END_NON_JUN[0] = (float) Math.exp(-Math.pow(defuzz - output2_endpoint, 2) / (2 * Math.pow(output_sigma, 2)));
         output_3_END_NON_JUN[1] = (float) Math.exp(-Math.pow(defuzz - output2_nonpoint, 2) / (2 * Math.pow(output_sigma, 2)));
         output_3_END_NON_JUN[2] = (float) Math.exp(-Math.pow(defuzz - output2_bifpoint, 2) / (2 * Math.pow(output_sigma, 2)));
 
-		String title = "JUN="+IJ.d2s(output_3_END_NON_JUN[2],2);
+		String title =  "END=" + IJ.d2s(output_3_END_NON_JUN[0],2) +
+                        "NON=" + IJ.d2s(output_3_END_NON_JUN[1],2) +
+                        "JUN=" + IJ.d2s(output_3_END_NON_JUN[2],2);
         if (verbose) appendAgg2(defuzz, title);
+
     }
-
 	/****************************************************************************/
-
     public void critpointScore(
 									float ncc_1, float likelihood_1, float smoothness_1,
                                   	float ncc_2, float likelihood_2, float smoothness_2,
 									float[] output_endpoint_nonpoint_bifpoint,
 									float[] branch_saliency) // branch_saliency has to have length 4
     {
-        //critpointScore(ncc_1, likelihood_1, smoothness_1, ncc_2, likelihood_2, smoothness_2);
-
 		float[] t = new float[3];
 
 		branchStrength(ncc_1, likelihood_1, smoothness_1, t);
@@ -534,149 +531,143 @@ public class Fuzzy2D {
         if (verbose) appendAgg2(defuzz, title);
 
     }
-
 	/****************************************************************************/
-
-    private float critpointScore(	float ncc_1, float likelihood_1, float smoothness_1,
+    public void critpointScore(
+                                    float ncc_1, float likelihood_1, float smoothness_1,
                                     float ncc_2, float likelihood_2, float smoothness_2,
-                                    float ncc_3, float likelihood_3, float smoothness_3)
+                                    float ncc_3, float likelihood_3, float smoothness_3,
+									float[] output_endpoint_nonpoint_bifpoint,
+                                    float[] branch_saliency)
     {
-
         float[] t = new float[3];
 
         branchStrength(ncc_1, likelihood_1, smoothness_1, t);
         float b1_is_off 	= t[0];
         float b1_is_none 	= t[1];
         float b1_is_on 		= t[2];
+        branch_saliency[0]  = b1_is_on;
 
         branchStrength(ncc_2, likelihood_2, smoothness_2, t);
         float b2_is_off 	= t[0];
         float b2_is_none 	= t[1];
         float b2_is_on 		= t[2];
+        branch_saliency[1]  = b2_is_on;
 
         branchStrength(ncc_3, likelihood_3, smoothness_3, t);
         float b3_is_off 	= t[0];
         float b3_is_none 	= t[1];
         float b3_is_on 		= t[2];
+        branch_saliency[2]  = b3_is_on;
 
+        branch_saliency[3] 	= Float.NaN;
 
         Arrays.fill(agg2, 0);
         float mu;
         float[] cur;
 
         mu = min(b1_is_off, b2_is_off, b3_is_off);     	cur = fi_nonpoint(mu); accumulate(cur, agg2);
-		mu = min(b1_is_off, b2_is_on,  b3_is_on);      	cur = fi_nonpoint(mu); accumulate(cur, agg2);
-		mu = min(b1_is_on, 	b2_is_off, b3_is_on);       cur = fi_nonpoint(mu); accumulate(cur, agg2);
-		mu = min(b1_is_on, 	b2_is_on,  b3_is_off);      cur = fi_nonpoint(mu); accumulate(cur, agg2);
+        mu = min(b1_is_off, b2_is_on,  b3_is_on);      	cur = fi_nonpoint(mu); accumulate(cur, agg2);
+        mu = min(b1_is_on, 	b2_is_off, b3_is_on);       cur = fi_nonpoint(mu); accumulate(cur, agg2);
+        mu = min(b1_is_on, 	b2_is_on,  b3_is_off);      cur = fi_nonpoint(mu); accumulate(cur, agg2);
 
-		mu = min(b1_is_off, b2_is_off, b3_is_on);      	cur = fi_endpoint(mu); accumulate(cur, agg2);
-		mu = min(b1_is_off, b2_is_on,  b3_is_off);     	cur = fi_endpoint(mu); accumulate(cur, agg2);
-		mu = min(b1_is_on, 	b2_is_off, b3_is_off);      cur = fi_endpoint(mu); accumulate(cur, agg2);
+        mu = min(b1_is_off, b2_is_off, b3_is_on);      	cur = fi_endpoint(mu); accumulate(cur, agg2);
+        mu = min(b1_is_off, b2_is_on,  b3_is_off);     	cur = fi_endpoint(mu); accumulate(cur, agg2);
+        mu = min(b1_is_on, 	b2_is_off, b3_is_off);      cur = fi_endpoint(mu); accumulate(cur, agg2);
 
-		mu = min(b1_is_on, 	b2_is_on,  b3_is_on);       cur = fi_bifpoint(mu); accumulate(cur, agg2);
+        mu = min(b1_is_on, 	b2_is_on,  b3_is_on);       cur = fi_bifpoint(mu); accumulate(cur, agg2);
 
-		mu = max(b1_is_none, b2_is_none, b3_is_none);  	cur = fi_nonpoint(mu); accumulate(cur, agg2);
+        mu = max(b1_is_none, b2_is_none, b3_is_none);  	cur = fi_nonpoint(mu); accumulate(cur, agg2);
 
-        return get_agg2_centroid();
+        float defuzz = get_agg2_centroid();
 
-    }
-
-    public void critpointScore(
-                                    float ncc_1, float likelihood_1, float smoothness_1,
-                                    float ncc_2, float likelihood_2, float smoothness_2,
-                                    float ncc_3, float likelihood_3, float smoothness_3,
-									float[] output_endpoint_nonpoint_bifpoint)
-    {
-        float defuzz = critpointScore(ncc_1, likelihood_1, smoothness_1, ncc_2, likelihood_2, smoothness_2, ncc_3, likelihood_3, smoothness_3);
-		output_endpoint_nonpoint_bifpoint[0] = (float) Math.exp(-Math.pow(defuzz - output2_endpoint, 2) / (2 * Math.pow(output_sigma, 2)));
+        output_endpoint_nonpoint_bifpoint[0] = (float) Math.exp(-Math.pow(defuzz - output2_endpoint, 2) / (2 * Math.pow(output_sigma, 2)));
 		output_endpoint_nonpoint_bifpoint[1] = (float) Math.exp(-Math.pow(defuzz - output2_nonpoint, 2) / (2 * Math.pow(output_sigma, 2)));
 		output_endpoint_nonpoint_bifpoint[2] = (float) Math.exp(-Math.pow(defuzz - output2_bifpoint, 2) / (2 * Math.pow(output_sigma, 2)));
 
-		String title = "JUN="+IJ.d2s(output_endpoint_nonpoint_bifpoint[2],2);
+		String title =  "END=" + IJ.d2s(output_endpoint_nonpoint_bifpoint[0],2) +
+                        "NON=" + IJ.d2s(output_endpoint_nonpoint_bifpoint[1],2) +
+                        "JUN=" + IJ.d2s(output_endpoint_nonpoint_bifpoint[2],2);
         if (verbose) appendAgg2(defuzz, title);
+
     }
-
 	/****************************************************************************/
-
-    private float critpointScore(    float ncc_1, float likelihood_1, float smoothness_1,
-                                     float ncc_2, float likelihood_2, float smoothness_2,
-                                     float ncc_3, float likelihood_3, float smoothness_3,
-                                     float ncc_4, float likelihood_4, float smoothness_4)
+    public void critpointScore(
+                                   float ncc_1, float likelihood_1, float smoothness_1,
+                                   float ncc_2, float likelihood_2, float smoothness_2,
+                                   float ncc_3, float likelihood_3, float smoothness_3,
+                                   float ncc_4, float likelihood_4, float smoothness_4,
+								   float[] output_endpoint_nonpoint_bifpoint,
+                                   float[] branch_saliency)
     {
-
         float[] t = new float[3];
 
         branchStrength(ncc_1, likelihood_1, smoothness_1, t);
         float b1_is_off 	= t[0];
         float b1_is_none 	= t[1];
         float b1_is_on 		= t[2];
+        branch_saliency[0]  = Float.NaN;
 
         branchStrength(ncc_2, likelihood_2, smoothness_2, t);
         float b2_is_off 	= t[0];
         float b2_is_none 	= t[1];
         float b2_is_on 		= t[2];
+        branch_saliency[1]  = Float.NaN;
 
-		branchStrength(ncc_3, likelihood_3, smoothness_3, t);
+        branchStrength(ncc_3, likelihood_3, smoothness_3, t);
         float b3_is_off 	= t[0];
         float b3_is_none 	= t[1];
         float b3_is_on 		= t[2];
+        branch_saliency[2]  = Float.NaN;
 
         branchStrength(ncc_4, likelihood_4, smoothness_4, t);
         float b4_is_off 	= t[0];
         float b4_is_none 	= t[1];
         float b4_is_on 		= t[2];
+        branch_saliency[3]  = Float.NaN;
 
         Arrays.fill(agg2, 0);
         float mu;
         float[] cur;
 
         mu = min(b1_is_off, 	b2_is_off, 	b3_is_off, 	b4_is_off);      cur = fi_nonpoint(mu);  accumulate(cur, agg2); // 0000
-		mu = min(b1_is_off, 	b2_is_off, 	b3_is_off, 	b4_is_on);       cur = fi_endpoint(mu);  accumulate(cur, agg2); // 0001 (end)
-		mu = min(b1_is_off, 	b2_is_off, 	b3_is_on, 	b4_is_off);      cur = fi_endpoint(mu);  accumulate(cur, agg2); // 0010 (end)
-		mu = min(b1_is_off, 	b2_is_off, 	b3_is_on,  	b4_is_on);       cur = fi_nonpoint(mu);  accumulate(cur, agg2); // 0011
+        mu = min(b1_is_off, 	b2_is_off, 	b3_is_off, 	b4_is_on);       cur = fi_endpoint(mu);  accumulate(cur, agg2); // 0001 (end)
+        mu = min(b1_is_off, 	b2_is_off, 	b3_is_on, 	b4_is_off);      cur = fi_endpoint(mu);  accumulate(cur, agg2); // 0010 (end)
+        mu = min(b1_is_off, 	b2_is_off, 	b3_is_on,  	b4_is_on);       cur = fi_nonpoint(mu);  accumulate(cur, agg2); // 0011
 
-		mu = min(b1_is_off, 	b2_is_on,   b3_is_off,  b4_is_off);      cur = fi_endpoint(mu);  accumulate(cur, agg2); // 0100 (end)
-		mu = min(b1_is_off, 	b2_is_on, 	b3_is_off,  b4_is_on);       cur = fi_nonpoint(mu);  accumulate(cur, agg2); // 0101
-		mu = min(b1_is_off, 	b2_is_on, 	b3_is_on,  	b4_is_off);      cur = fi_nonpoint(mu);  accumulate(cur, agg2); // 0110
-		mu = min(b1_is_off, 	b2_is_on, 	b3_is_on,  	b4_is_on);       cur = fi_bifpoint(mu);  accumulate(cur, agg2); // 0111 (bif)
+        mu = min(b1_is_off, 	b2_is_on,   b3_is_off,  b4_is_off);      cur = fi_endpoint(mu);  accumulate(cur, agg2); // 0100 (end)
+        mu = min(b1_is_off, 	b2_is_on, 	b3_is_off,  b4_is_on);       cur = fi_nonpoint(mu);  accumulate(cur, agg2); // 0101
+        mu = min(b1_is_off, 	b2_is_on, 	b3_is_on,  	b4_is_off);      cur = fi_nonpoint(mu);  accumulate(cur, agg2); // 0110
+        mu = min(b1_is_off, 	b2_is_on, 	b3_is_on,  	b4_is_on);       cur = fi_bifpoint(mu);  accumulate(cur, agg2); // 0111 (bif)
 
-		mu = min(b1_is_on, 		b2_is_off, 	b3_is_off, 	b4_is_off);      cur = fi_endpoint(mu);  accumulate(cur, agg2); // 1000 (end)
-		mu = min(b1_is_on,  	b2_is_off,  b3_is_off,  b4_is_on);       cur = fi_nonpoint(mu);  accumulate(cur, agg2); // 1001
+        mu = min(b1_is_on, 		b2_is_off, 	b3_is_off, 	b4_is_off);      cur = fi_endpoint(mu);  accumulate(cur, agg2); // 1000 (end)
+        mu = min(b1_is_on,  	b2_is_off,  b3_is_off,  b4_is_on);       cur = fi_nonpoint(mu);  accumulate(cur, agg2); // 1001
         mu = min(b1_is_on,  	b2_is_off, 	b3_is_on,  	b4_is_off);      cur = fi_nonpoint(mu);  accumulate(cur, agg2); // 1010
         mu = min(b1_is_on,  	b2_is_off, 	b3_is_on,  	b4_is_on);       cur = fi_bifpoint(mu);  accumulate(cur, agg2); // 1011 (bif)
 
-		mu = min(b1_is_on,  	b2_is_on, 	b3_is_off,  b4_is_off);      cur = fi_nonpoint(mu);  accumulate(cur, agg2); // 1100
+        mu = min(b1_is_on,  	b2_is_on, 	b3_is_off,  b4_is_off);      cur = fi_nonpoint(mu);  accumulate(cur, agg2); // 1100
         mu = min(b1_is_on,  	b2_is_on, 	b3_is_off,  b4_is_on);       cur = fi_bifpoint(mu);  accumulate(cur, agg2); // 1101 (bif)
         mu = min(b1_is_on,  	b2_is_on, 	b3_is_on,  	b4_is_off);      cur = fi_bifpoint(mu);  accumulate(cur, agg2); // 1110 (bif)
         mu = min(b1_is_on,  	b2_is_on, 	b3_is_on,  	b4_is_on);       cur = fi_bifpoint(mu);  accumulate(cur, agg2); // 1111 (bif)
 
-		mu = min(b1_is_none,	b2_is_on, 	b3_is_on, 	b4_is_on);		 cur = fi_bifpoint(mu);  accumulate(cur, agg2); // x111 (bif)
-		mu = min(b1_is_on,		b2_is_none, b3_is_on, 	b4_is_on);		 cur = fi_bifpoint(mu);  accumulate(cur, agg2); // 1x11 (bif)
-		mu = min(b1_is_on,		b2_is_on, 	b3_is_none, b4_is_on);		 cur = fi_bifpoint(mu);  accumulate(cur, agg2); // 11x1 (bif)
-		mu = min(b1_is_on,		b2_is_on, 	b3_is_on,   b4_is_none);     cur = fi_bifpoint(mu);  accumulate(cur, agg2); // 111x (bif)
+        mu = min(b1_is_none,	b2_is_on, 	b3_is_on, 	b4_is_on);		 cur = fi_bifpoint(mu);  accumulate(cur, agg2); // x111 (bif)
+        mu = min(b1_is_on,		b2_is_none, b3_is_on, 	b4_is_on);		 cur = fi_bifpoint(mu);  accumulate(cur, agg2); // 1x11 (bif)
+        mu = min(b1_is_on,		b2_is_on, 	b3_is_none, b4_is_on);		 cur = fi_bifpoint(mu);  accumulate(cur, agg2); // 11x1 (bif)
+        mu = min(b1_is_on,		b2_is_on, 	b3_is_on,   b4_is_none);     cur = fi_bifpoint(mu);  accumulate(cur, agg2); // 111x (bif)
 
-		mu = min(b1_is_none,	1-b2_is_on, 1-b3_is_on,  1-b4_is_on);    cur = fi_nonpoint(mu);  accumulate(cur, agg2); // x1_1_1_
-		mu = min(1-b1_is_on,	b2_is_none, 1-b3_is_on,  1-b4_is_on);    cur = fi_nonpoint(mu);  accumulate(cur, agg2); // 1_x1_1_
-		mu = min(1-b1_is_on,	1-b2_is_on, b3_is_none,  1-b4_is_on);    cur = fi_nonpoint(mu);  accumulate(cur, agg2); // 1_1_x1_
-		mu = min(1-b1_is_on,	1-b2_is_on, 1-b3_is_on,  b4_is_none);    cur = fi_nonpoint(mu);  accumulate(cur, agg2); // 1_1_1_x
+        mu = min(b1_is_none,	1-b2_is_on, 1-b3_is_on,  1-b4_is_on);    cur = fi_nonpoint(mu);  accumulate(cur, agg2); // x1_1_1_
+        mu = min(1-b1_is_on,	b2_is_none, 1-b3_is_on,  1-b4_is_on);    cur = fi_nonpoint(mu);  accumulate(cur, agg2); // 1_x1_1_
+        mu = min(1-b1_is_on,	1-b2_is_on, b3_is_none,  1-b4_is_on);    cur = fi_nonpoint(mu);  accumulate(cur, agg2); // 1_1_x1_
+        mu = min(1-b1_is_on,	1-b2_is_on, 1-b3_is_on,  b4_is_none);    cur = fi_nonpoint(mu);  accumulate(cur, agg2); // 1_1_1_x
 
-        return get_agg2_centroid();
+        float defuzz = get_agg2_centroid();
 
-    }
-
-    public void critpointScore(
-                                   float ncc_1, float likelihood_1, float smoothness_1,
-                                   float ncc_2, float likelihood_2, float smoothness_2,
-                                   float ncc_3, float likelihood_3, float smoothness_3,
-                                   float ncc_4, float likelihood_4, float smoothness_4,
-								   float[] output_endpoint_nonpoint_bifpoint)
-    {
-        float defuzz = critpointScore(ncc_1, likelihood_1, smoothness_1, ncc_2, likelihood_2, smoothness_2, ncc_3, likelihood_3, smoothness_3, ncc_4, likelihood_4, smoothness_4);
-		output_endpoint_nonpoint_bifpoint[0] = (float) Math.exp(-Math.pow(defuzz - output2_endpoint, 2) / (2 * Math.pow(output_sigma, 2)));
+        output_endpoint_nonpoint_bifpoint[0] = (float) Math.exp(-Math.pow(defuzz - output2_endpoint, 2) / (2 * Math.pow(output_sigma, 2)));
 		output_endpoint_nonpoint_bifpoint[1] = (float) Math.exp(-Math.pow(defuzz - output2_nonpoint, 2) / (2 * Math.pow(output_sigma, 2)));
 		output_endpoint_nonpoint_bifpoint[2] = (float) Math.exp(-Math.pow(defuzz - output2_bifpoint, 2) / (2 * Math.pow(output_sigma, 2)));
 
-		String title = "JUN="+IJ.d2s(output_endpoint_nonpoint_bifpoint[2],2);
+		String title =  "END=" + IJ.d2s(output_endpoint_nonpoint_bifpoint[0],2) +
+                        "NON=" + IJ.d2s(output_endpoint_nonpoint_bifpoint[1],2) +
+                        "JUN=" + IJ.d2s(output_endpoint_nonpoint_bifpoint[2],2);
         if (verbose) appendAgg2(defuzz, title);
 
     }

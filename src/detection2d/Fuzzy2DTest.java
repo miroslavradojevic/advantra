@@ -81,27 +81,18 @@ public class Fuzzy2DTest implements PlugIn {
 		float ncc1 = .9f;
 		float lhood1 = .9f;
 		float smooth1 = 5f;
-		float[] out = new float[3];
+		float[] out = new float[3];    // critpoint
+		float[] out1 = new float[4];   // on/off/none for each branch
 		test.verbose = true;
-		test.critpointScore(ncc1, lhood1, smooth1, out);
+		test.critpointScore(ncc1, lhood1, smooth1, out, out1);
 		test.clearLog();
 		test.critpointScore(
                 ncc1, lhood1, smooth1,
                 ncc1, lhood1, smooth1,
                 ncc1, lhood1, smooth1,
-                out);
+                out, out1);
 		new ImagePlus("", test.fls_steps).show();
 		System.out.println(Arrays.toString(out));
-
-//		System.out.print("(1, 1) -> " + test.branchStrengthDefuzzified(1f, 1f));
-//		test.branchStrengthFuzzified(1f, 1f, 1f, temp);
-//		System.out.println(" -> " + Arrays.toString(temp));
-//		test.showAgg();
-//		System.out.print("(.9, .9) -> " + test.branchStrengthDefuzzified(.9f, .9f));
-//		test.branchStrengthFuzzified(.9f, .9f, temp);
-//		System.out.println(" -> " + Arrays.toString(temp));
-//		test.showAgg();
-//        System.out.print("endpoint on membership (.9, .9, .5, .3) -> " + test.endpointFuzzified(.9f, .9f, .5f, .3f));
 
 	}
 

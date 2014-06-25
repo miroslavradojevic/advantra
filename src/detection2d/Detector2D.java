@@ -279,12 +279,12 @@ public class Detector2D {
 				}
 			}
 //			new ImagePlus("", Delineator2D.getSmoothnessDistribution(64)).show();
-            int percentile = 70;
+            int percentile = 70;        // tODO these go as arguments
             float sensitivity = 0.5f;
             smoothness_high = Delineator2D.getSmoothnessPercentile(percentile);
             smoothness_low = sensitivity * smoothness_high;
-            System.out.println("smoothness_high: " + smoothness_high);
-            System.out.println("smoothness_low:  " + smoothness_low);
+            System.out.print("smoothness_high: " + smoothness_high);
+            System.out.print("smoothness_low:  " + smoothness_low);
             /********************************************************************/
 			System.out.print("Ncc2D...");
 			Ncc2D.loadTemplate(
@@ -381,8 +381,7 @@ public class Detector2D {
 //			int			min_region_size = (int) Math.round(0.25f*0.25f*Math.pow(D[didx],2));  // smallest connected region area to be valid critical point
 //			int			max_region_size = (int) Math.round(2.0f*2.0f*Math.pow(D[didx],2));  // largest connected region to be valid critical point
 //			float 		region_radius 	= D[didx];
-//			float sensitivity = 0.7f;
-//			FeatureExtractor2D.exportCritpointScores(critpoint_det, 0); // store critpoint_score2 list into 2d array critpoint_det
+			exportCritpointScores(critpoint_det, FuzzyDetector2D.endpoint_score, Masker2D.i2xy);
 //			getCritpointRegions(
 //																					critpoint_det,
 //																					min_region_size,
