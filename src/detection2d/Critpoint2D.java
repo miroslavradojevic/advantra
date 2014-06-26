@@ -72,11 +72,11 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
         /*
         	load the detection parameters
          */
-        boolean _show_junctions, _show_endpoints, _enable_interactive;
+        boolean _show_junctions, _show_endpoints, _enable_interactive, _save_midresults;
         float _s;
 		float _sigma_ratio;
         String _Dlist="";
-        float _ncc_high, _ncc_low, _likelihood_high, _likelihood_low, _output_sigma;
+        float _ncc_high, _ncc_low, _likelihood_high, _likelihood_low, _smoothness_low, _smoothness_high, _output_sigma;
 
         // check if the parameters were submitted through the macro before rising up the Generic Dialog
         // enables calling plugin from the macro without opening the graphical window
@@ -161,7 +161,7 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
 										_output_sigma
 		);
 
-
+		if (_save_midresults) det2d.save_midresults = true;
 		det2d.run();
 
 		System.out.println("DONE.");

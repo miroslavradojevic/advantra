@@ -42,7 +42,7 @@ public class Detector2D {
 
     float			output_sigma;
 
-	float 		output_membership_th;       	// based on k and output_sigma
+	float 			output_membership_th;       // based on k and output_sigma
 
 
 
@@ -50,17 +50,19 @@ public class Detector2D {
 	float       	minCos = -.5f;
 	float			k = 2.0f;                   // hardcoded, defines the stricktness of the threshold for out membership function, k higher => means more strictness
 	String          eval_string = "";
+	public boolean 	save_midresults = false;
+	String midresults_dir = "";
 
 	String		output_dir_name; 		    	// parameter coded output folder name
 	String 		output_log_name;
 	PrintWriter logWriter = null;
 
-
 	int         CPU_NR;
 
 	// output
-	static float[][] critpoint_det; 		// store 2d grid with detection scores (size of the image itself)
-	ArrayList<CritpointRegion> detected_regions; // list with the detections
+	static float[][] critpoint_det; 				// store 2d grid with detection scores (size of the image itself)
+	ArrayList<CritpointRegion> detected_regions; 	// list with the detections
+	static int[][]   region_map;					// pixel at (x,y) assigned to one region from the list by storing its index
 
     public Detector2D(
 							 ImagePlus 	ip_load,
@@ -127,6 +129,7 @@ public class Detector2D {
 														 likelihood_low
 														 );
 		output_log_name = output_dir_name+ File.separator+"det.csv";
+		midresults_dir = image_dir+image_name + "_midresults" + File.separator;
 
 		File f = new File(output_dir_name);
 		if (!f.exists()) {
@@ -144,6 +147,11 @@ public class Detector2D {
 		try {
 			logWriter = new PrintWriter(new BufferedWriter(new FileWriter(output_log_name, true)));
 		} catch (IOException e) {}
+
+		File f1 = new File(midresults_dir);
+		if (!f1.exists()) {
+			f1.mkdirs();
+		}
 
 		CPU_NR = Runtime.getRuntime().availableProcessors() + 1;
 
@@ -188,8 +196,10 @@ public class Detector2D {
 			}
 			Masker2D.defineThreshold();
 			Masker2D.formRemainingOutputs();
-			//ImagePlus mask = new ImagePlus("mask", Masker2D.getMask());
-			//IJ.saveAs(mask, "Tiff", image_dir+image_name+".mask_values.tif");
+			if (save_midresults) {
+				ImagePlus mask = new ImagePlus("mask", Masker2D.getMask());
+				IJ.saveAs(mask, "Tiff", midresults_dir+"mask.tif");
+			}
 			/********************************************************************/
 			System.out.print("Profiler2D...");
 			Profiler2D.loadTemplate(
@@ -232,8 +242,10 @@ public class Detector2D {
 				}
 			}
 			ProfileSpread2D.threshold();
-			//ImagePlus testip = new ImagePlus("", ProfileSpread2D.getMask());
-			//IJ.saveAs(testip, "Tiff", image_dir+image_name+".mask_profile.tif");
+			if (save_midresults) {
+				ImagePlus testip = new ImagePlus("", ProfileSpread2D.getMask());
+				IJ.saveAs(testip, "Tiff", midresults_dir+"mask_profile.tif");
+			}
 			System.out.print(" " + IJ.d2s((ProfileSpread2D.getNrCritpointCandidates() * 100f) / (inimg_xy.length * inimg_xy[0].length), 2) + " % candidates...");
 			/********************************************************************/
 			System.out.print("PeakExtractor2D...");
@@ -278,11 +290,13 @@ public class Detector2D {
 					e.printStackTrace();
 				}
 			}
-//			new ImagePlus("", Delineator2D.getSmoothnessDistribution(64)).show();
-            int percentile = 70;        // tODO these go as arguments
+			if (save_midresults) {
+				//new ImagePlus("", Delineator2D.getSmoothnessDistribution(64)).show();
+			}
+            int percentile = 90;        // tODO these go as arguments
             float sensitivity = 0.5f;
-            smoothness_high = Delineator2D.getSmoothnessPercentile(percentile);
-            smoothness_low = sensitivity * smoothness_high;
+            smoothness_high = 20;//Delineator2D.getSmoothnessPercentile(percentile);
+            smoothness_low = 10;//sensitivity * smoothness_high;
             System.out.print("smoothness_high: " + smoothness_high);
             System.out.print("smoothness_low:  " + smoothness_low);
             /********************************************************************/
@@ -377,20 +391,20 @@ public class Detector2D {
 			*/
 			/********************************************************************/
 			System.out.print("Append regions... ");
-//			float ang_deg = 20f;
-//			int			min_region_size = (int) Math.round(0.25f*0.25f*Math.pow(D[didx],2));  // smallest connected region area to be valid critical point
-//			int			max_region_size = (int) Math.round(2.0f*2.0f*Math.pow(D[didx],2));  // largest connected region to be valid critical point
-//			float 		region_radius 	= D[didx];
+			float ang_deg = 20f;
+			int			min_region_size = (int) Math.round(0.25f*0.25f*Math.pow(D[didx],2));  // smallest connected region area to be valid critical point
+			int			max_region_size = (int) Math.round(2.0f*2.0f*Math.pow(D[didx],2));  // largest connected region to be valid critical point
+			float 		region_radius 	= D[didx];
 			exportCritpointScores(critpoint_det, FuzzyDetector2D.endpoint_score, Masker2D.i2xy);
-//			getCritpointRegions(
-//																					critpoint_det,
-//																					min_region_size,
-//																					max_region_size,
-//									   												region_radius,	          // the same radius will be assigned at each scale
-//																					CritpointRegion.RegionType.END,
-//																					ang_deg,
-//																					detected_regions
-//																					);
+			getCritpointRegions(
+																					critpoint_det,
+																					min_region_size,
+																					max_region_size,
+									   												region_radius,	          // the same radius will be assigned at each scale
+																					CritpointRegion.RegionType.END,
+																					ang_deg,
+																					detected_regions
+																					);
 //			FeatureExtractor2D.exportCritpointScores(critpoint_det, 2); // store critpoint_score2 list into 2d array critpoint_det
 //			getCritpointRegions(
 //																					critpoint_det,
@@ -716,10 +730,11 @@ public class Detector2D {
 		conn_reg.run("");
 
 		//conn_reg.showLabels().show();
-
-		FileSaver fs = new FileSaver(conn_reg.showLabels());
-		if (_choose_type == CritpointRegion.RegionType.END) fs.saveAsTiff(image_dir+"conn_ends"+det_radius+".tif");
-		if (_choose_type == CritpointRegion.RegionType.BIF_CROSS) fs.saveAsTiff(image_dir+"conn_jun"+det_radius+".tif");
+		if (save_midresults) {
+			FileSaver fs = new FileSaver(conn_reg.showLabels());
+			if (_choose_type == CritpointRegion.RegionType.END) fs.saveAsTiff(midresults_dir+"conn_ends"+det_radius+".tif");
+			if (_choose_type == CritpointRegion.RegionType.BIF_CROSS) fs.saveAsTiff(midresults_dir+"conn_jun"+det_radius+".tif");
+		}
 
 		if (true) return;
 
@@ -1011,27 +1026,12 @@ public class Detector2D {
 
 
 
-				printout += "b \t -> \t\t STH. \t\t LHOOD \t\t NCC.\n";
+				printout += "b -> LHOOD STHNESS NCC\n";
 
-				if (Delineator2D.smoothness[atLoc]!=null) {
-
-					for (int b=0; b<Delineator2D.smoothness[atLoc].length; b++) {
-						printout += (b+1) +"\t->\t\t";
-						if (!Float.isNaN(Delineator2D.smoothness[atLoc][b])) {
-							printout += 		       IJ.d2s(Delineator2D.smoothness[atLoc][b], 2)+
-												" \t "+IJ.d2s(PeakExtractor2D.peaks_lhood[atLoc][b], 2)+
-												" \t "+IJ.d2s(PeakExtractor2D.peaks_lhood[atLoc][b], 2)
-//												+
-//												"  \t \t  OFF " + IJ.d2s(1, 2)
-//												+
-//												"  \t \t   ON "+  IJ.d2s(1, 2)
-												+"\n"
-							;
-						}
-						else {
-							printout += "NaN\n";
-						}
-					}
+				if (Delineator2D.smoothness[atLoc]!=null && Ncc2D.scores[atLoc]!=null) {
+					// Delineator2D.smoothness[atLoc].length
+					for (int b=0; b<4; b++)
+						printout += (b + 1) + " -> " + IJ.d2s(PeakExtractor2D.peaks_lhood[atLoc][b], 1) + " " + IJ.d2s(Delineator2D.smoothness[atLoc][b], 1) + " " + IJ.d2s(Ncc2D.scores[atLoc][b], 1) + "\n";
 				}
 				else {
 					printout += "NONE(profile was flat)\n";

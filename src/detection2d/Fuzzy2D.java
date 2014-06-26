@@ -250,82 +250,6 @@ public class Fuzzy2D {
             return 0;
     }
 
-    public void showFuzzification()
-    {
-
-        ImageStack is_out = new ImageStack(528, 255);
-        int NN = 51; // number of points for plotting
-
-        // ncc input fuzzification
-        float[] xx = new float[NN];
-        float[] yy_high = new float[NN]; // all the inputs will be fuzzified as high/low membership degree
-        float[] yy_low = new float[NN];
-
-        // input 1: ncc
-        for (int ii=0; ii<xx.length; ii++) xx[ii] = ncc_start + ii * ( (ncc_end-ncc_start) / (NN-1));
-        for (int ii=0; ii<xx.length; ii++) yy_high[ii] = h_ncc_high(xx[ii]);
-        for (int ii=0; ii<xx.length; ii++) yy_low[ii] = h_ncc_low(xx[ii]);
-        Plot p = new Plot("ncc", "", "", xx, yy_high, Plot.LINE);
-        p.setColor(Color.RED);
-        p.draw();
-        p.setColor(Color.BLUE);
-        p.addPoints(xx, yy_low, Plot.LINE);
-        is_out.addSlice("NCC", p.getProcessor());
-
-        // input 2: likelihood
-        for (int ii=0; ii<xx.length; ii++) xx[ii] = likelihood_start + ii * ( (likelihood_end-likelihood_start) / (NN-1));
-        for (int ii=0; ii<xx.length; ii++) yy_high[ii] = h_likelihood_high(xx[ii]);
-        for (int ii=0; ii<xx.length; ii++) yy_low[ii] = h_likelihood_low(xx[ii]);
-
-        p = new Plot("likelihood", "", "", xx, yy_high, Plot.LINE);
-        p.setColor(Color.RED);
-        p.draw();
-        p.setColor(Color.BLUE);
-        p.addPoints(xx, yy_low, Plot.LINE);
-        is_out.addSlice("LIKELIHOOD", p.getProcessor());
-
-        // input 3: smoothness
-        for (int ii=0; ii<xx.length; ii++) xx[ii] = smoothness_start + ii * ( (smoothness_end-smoothness_start) / (NN-1));
-        for (int ii=0; ii<xx.length; ii++) yy_high[ii] = h_smoothness_high(xx[ii]);
-        for (int ii=0; ii<xx.length; ii++) yy_low[ii] = h_smoothness_low(xx[ii]);
-
-        p = new Plot("smoothness", "", "", xx, yy_high, Plot.LINE);
-        p.setColor(Color.RED);
-        p.draw();
-        p.setColor(Color.BLUE);
-        p.addPoints(xx, yy_low, Plot.LINE);
-        is_out.addSlice("SMOOTHNESS", p.getProcessor());
-
-        new ImagePlus("FUZZIFICATION", is_out).show();
-
-    }
-
-    public void showDefuzzification()
-    {
-        ImageStack is_out = new ImageStack(528,255);
-
-        Plot p = new Plot("", "", ""); p.setLimits(x_min, x_max, 0, 1);
-        p.setColor(Color.RED);
-        p.addPoints(x1, q_on, Plot.LINE);
-		p.setColor(Color.GREEN);
-		p.addPoints(x1, q_none, Plot.LINE);
-        p.setColor(Color.BLUE);
-        p.addPoints(x1, q_off, Plot.LINE);
-        is_out.addSlice("OUT1", p.getProcessor());
-
-        p = new Plot("", "", ""); p.setLimits(x_min, x_max, 0, 1);
-        p.setColor(Color.RED);
-        p.addPoints(x2, q_bifpoint, Plot.LINE);
-        p.setColor(Color.GREEN);
-        p.addPoints(x2, q_nonpoint, Plot.LINE);
-        p.setColor(Color.BLUE);
-        p.addPoints(x2, q_endpoint, Plot.LINE);
-        is_out.addSlice("OUT2", p.getProcessor());
-
-        new ImagePlus("DEFUZZIFICATION", is_out).show();
-
-    }
-
     private float[] fi_off(float z)
     {
         Arrays.fill(v_off, 0);
@@ -434,6 +358,9 @@ public class Fuzzy2D {
 
 	public void branchStrength(float ncc_in, float likelihood_in, float smoothness_in, float[] output_2_OFF_NONE_ON) // output_off_none_on: [off_score, none_score, on_score]
 	{
+
+
+
 		float defuzz = branchStrength(ncc_in, likelihood_in, smoothness_in);   // will update agg1
         output_2_OFF_NONE_ON[0] = (float) Math.exp(-Math.pow(defuzz - output1_off, 2)   / (2 * Math.pow(output_sigma, 2)));
         output_2_OFF_NONE_ON[1] = (float) Math.exp(-Math.pow(defuzz - output1_none, 2)  / (2 * Math.pow(output_sigma, 2)));
@@ -450,6 +377,8 @@ public class Fuzzy2D {
 							   float[] output_3_END_NON_JUN,
 							   float[] branch_saliency)
     {
+
+		if (verbose) appendFuzzification(ncc_1, likelihood_1, smoothness_1);
 
         float[] t = new float[3];
         branchStrength(ncc_1, likelihood_1, smoothness_1, t);   // will update agg1 & append if verbose is true
@@ -489,6 +418,9 @@ public class Fuzzy2D {
 									float[] output_endpoint_nonpoint_bifpoint,
 									float[] branch_saliency) // branch_saliency has to have length 4
     {
+
+		if (verbose) appendFuzzification(ncc_1, likelihood_1, smoothness_1);
+
 		float[] t = new float[3];
 
 		branchStrength(ncc_1, likelihood_1, smoothness_1, t);
@@ -496,6 +428,8 @@ public class Fuzzy2D {
 		float b1_is_none 	= t[1];
 		float b1_is_on 		= t[2];
 		branch_saliency[0] = b1_is_on;
+
+		if (verbose) appendFuzzification(ncc_2, likelihood_2, smoothness_2);
 
 		branchStrength(ncc_2, likelihood_2, smoothness_2, t);
 		float b2_is_off 	= t[0];
@@ -539,6 +473,9 @@ public class Fuzzy2D {
 									float[] output_endpoint_nonpoint_bifpoint,
                                     float[] branch_saliency)
     {
+
+		if (verbose) appendFuzzification(ncc_1, likelihood_1, smoothness_1);
+
         float[] t = new float[3];
 
         branchStrength(ncc_1, likelihood_1, smoothness_1, t);
@@ -547,11 +484,15 @@ public class Fuzzy2D {
         float b1_is_on 		= t[2];
         branch_saliency[0]  = b1_is_on;
 
+		if (verbose) appendFuzzification(ncc_2, likelihood_2, smoothness_2);
+
         branchStrength(ncc_2, likelihood_2, smoothness_2, t);
         float b2_is_off 	= t[0];
         float b2_is_none 	= t[1];
         float b2_is_on 		= t[2];
         branch_saliency[1]  = b2_is_on;
+
+		if (verbose) appendFuzzification(ncc_3, likelihood_3, smoothness_3);
 
         branchStrength(ncc_3, likelihood_3, smoothness_3, t);
         float b3_is_off 	= t[0];
@@ -599,6 +540,9 @@ public class Fuzzy2D {
 								   float[] output_endpoint_nonpoint_bifpoint,
                                    float[] branch_saliency)
     {
+
+		if (verbose) appendFuzzification(ncc_1, likelihood_1, smoothness_1);
+
         float[] t = new float[3];
 
         branchStrength(ncc_1, likelihood_1, smoothness_1, t);
@@ -607,17 +551,23 @@ public class Fuzzy2D {
         float b1_is_on 		= t[2];
         branch_saliency[0]  = Float.NaN;
 
+		if (verbose) appendFuzzification(ncc_2, likelihood_2, smoothness_2);
+
         branchStrength(ncc_2, likelihood_2, smoothness_2, t);
         float b2_is_off 	= t[0];
         float b2_is_none 	= t[1];
         float b2_is_on 		= t[2];
         branch_saliency[1]  = Float.NaN;
 
+		if (verbose) appendFuzzification(ncc_3, likelihood_3, smoothness_3);
+
         branchStrength(ncc_3, likelihood_3, smoothness_3, t);
         float b3_is_off 	= t[0];
         float b3_is_none 	= t[1];
         float b3_is_on 		= t[2];
         branch_saliency[2]  = Float.NaN;
+
+		if (verbose) appendFuzzification(ncc_4, likelihood_4, smoothness_4);
 
         branchStrength(ncc_4, likelihood_4, smoothness_4, t);
         float b4_is_off 	= t[0];
@@ -760,6 +710,133 @@ public class Fuzzy2D {
 		p.addPoints(pks_abscissa[0], pks_abscissa[1], Plot.LINE);
 		p.draw();
 		fls_steps.addSlice(title, p.getProcessor());
+	}
+
+	private void appendFuzzification(float ncc_i, float likelihood_i, float smoothness_i)
+	{
+		int NN = 51;
+		float[] xx = new float[NN];
+		float[] yy_high = new float[NN]; // all the inputs will be fuzzified as high/low membership degree
+		float[] yy_low = new float[NN];
+
+		// input 1: ncc
+		for (int ii=0; ii<xx.length; ii++) xx[ii] = ncc_start + ii * ( (ncc_end-ncc_start) / (NN-1));
+		for (int ii=0; ii<xx.length; ii++) yy_high[ii] = (h_ncc_high(xx[ii])<=h_ncc_high(ncc_i))? h_ncc_high(xx[ii]) : h_ncc_high(ncc_i) ;
+		for (int ii=0; ii<xx.length; ii++) yy_low[ii] = (h_ncc_low(xx[ii]) <=h_ncc_low(ncc_i))? h_ncc_low(xx[ii])  : h_ncc_low(ncc_i);
+		Plot p = new Plot("", "", "");
+		p.setLimits(ncc_start, ncc_end, 0, 1);
+		p.setColor(Color.RED);
+		p.addPoints(xx, yy_high, Plot.LINE);
+		//p.draw();
+		p.setColor(Color.BLUE);
+		p.addPoints(xx, yy_low, Plot.LINE);
+		String tit_ncc = "NCC(LOW=" + IJ.d2s(h_ncc_low(ncc_i),1) + ",HIGH=" + IJ.d2s(h_ncc_high(ncc_i),1) + ")";
+		fls_steps.addSlice(tit_ncc, p.getProcessor());
+
+		// input 2: likelihood
+		for (int ii=0; ii<xx.length; ii++) xx[ii] = likelihood_start + ii * ( (likelihood_end-likelihood_start) / (NN-1));
+		for (int ii=0; ii<xx.length; ii++) yy_high[ii] = (h_likelihood_high(xx[ii])<=h_likelihood_high(likelihood_i))? h_likelihood_high(xx[ii]) : h_likelihood_high(likelihood_i);
+		for (int ii=0; ii<xx.length; ii++) yy_low[ii] = (h_likelihood_low(xx[ii])<=h_likelihood_low(likelihood_i))? h_likelihood_low(xx[ii]) : h_likelihood_low(likelihood_i);
+		p = new Plot("", "", "");
+		p.setLimits(likelihood_start, likelihood_end, 0, 1);
+		p.setColor(Color.RED);
+		p.addPoints(xx, yy_high, Plot.LINE);
+//		p.draw();
+		p.setColor(Color.BLUE);
+		p.addPoints(xx, yy_low, Plot.LINE);
+		String tit_lhood = "LHOOD(LOW=" + IJ.d2s(h_likelihood_low(likelihood_i),1) + ",HIGH=" + IJ.d2s(h_likelihood_high(likelihood_i),1) + ")";
+		fls_steps.addSlice(tit_lhood, p.getProcessor());
+
+		// input 3: smoothness
+		for (int ii=0; ii<xx.length; ii++) xx[ii] = smoothness_start + ii * ( (smoothness_end-smoothness_start) / (NN-1));
+		for (int ii=0; ii<xx.length; ii++) yy_high[ii] = (h_smoothness_high(xx[ii])<=h_smoothness_high(smoothness_i))? h_smoothness_high(xx[ii]) : h_smoothness_high(smoothness_i);
+		for (int ii=0; ii<xx.length; ii++) yy_low[ii] = (h_smoothness_low(xx[ii])<=h_smoothness_low(smoothness_i))? h_smoothness_low(xx[ii]) : h_smoothness_low(smoothness_i);
+		p = new Plot("", "", "");
+		p.setLimits(smoothness_start, smoothness_end, 0, 1);
+		p.setColor(Color.RED);
+		p.addPoints(xx, yy_high, Plot.LINE);
+//		p.draw();
+		p.setColor(Color.BLUE);
+		p.addPoints(xx, yy_low, Plot.LINE);
+		String tit_sthness = "SMTH(LOW=" + IJ.d2s(h_smoothness_low(smoothness_i),1) + ",HIGH=" + IJ.d2s(h_smoothness_high(smoothness_i),1) + ")";
+		fls_steps.addSlice(tit_sthness, p.getProcessor());
+
+	}
+
+	public void showFuzzification()
+	{
+
+		ImageStack is_out = new ImageStack(528, 255);
+		int NN = 51; // number of points for plotting
+
+		// ncc input fuzzification
+		float[] xx = new float[NN];
+		float[] yy_high = new float[NN]; // all the inputs will be fuzzified as high/low membership degree
+		float[] yy_low = new float[NN];
+
+		// input 1: ncc
+		for (int ii=0; ii<xx.length; ii++) xx[ii] = ncc_start + ii * ( (ncc_end-ncc_start) / (NN-1));
+		for (int ii=0; ii<xx.length; ii++) yy_high[ii] = h_ncc_high(xx[ii]);
+		for (int ii=0; ii<xx.length; ii++) yy_low[ii] = h_ncc_low(xx[ii]);
+		Plot p = new Plot("ncc", "", "", xx, yy_high, Plot.LINE);
+		p.setColor(Color.RED);
+		p.draw();
+		p.setColor(Color.BLUE);
+		p.addPoints(xx, yy_low, Plot.LINE);
+		is_out.addSlice("NCC", p.getProcessor());
+
+		// input 2: likelihood
+		for (int ii=0; ii<xx.length; ii++) xx[ii] = likelihood_start + ii * ( (likelihood_end-likelihood_start) / (NN-1));
+		for (int ii=0; ii<xx.length; ii++) yy_high[ii] = h_likelihood_high(xx[ii]);
+		for (int ii=0; ii<xx.length; ii++) yy_low[ii] = h_likelihood_low(xx[ii]);
+
+		p = new Plot("likelihood", "", "", xx, yy_high, Plot.LINE);
+		p.setColor(Color.RED);
+		p.draw();
+		p.setColor(Color.BLUE);
+		p.addPoints(xx, yy_low, Plot.LINE);
+		is_out.addSlice("LIKELIHOOD", p.getProcessor());
+
+		// input 3: smoothness
+		for (int ii=0; ii<xx.length; ii++) xx[ii] = smoothness_start + ii * ( (smoothness_end-smoothness_start) / (NN-1));
+		for (int ii=0; ii<xx.length; ii++) yy_high[ii] = h_smoothness_high(xx[ii]);
+		for (int ii=0; ii<xx.length; ii++) yy_low[ii] = h_smoothness_low(xx[ii]);
+
+		p = new Plot("smoothness", "", "", xx, yy_high, Plot.LINE);
+		p.setColor(Color.RED);
+		p.draw();
+		p.setColor(Color.BLUE);
+		p.addPoints(xx, yy_low, Plot.LINE);
+		is_out.addSlice("SMOOTHNESS", p.getProcessor());
+
+		new ImagePlus("FUZZIFICATION", is_out).show();
+
+	}
+
+	public void showDefuzzification()
+	{
+		ImageStack is_out = new ImageStack(528,255);
+
+		Plot p = new Plot("", "", ""); p.setLimits(x_min, x_max, 0, 1);
+		p.setColor(Color.RED);
+		p.addPoints(x1, q_on, Plot.LINE);
+		p.setColor(Color.GREEN);
+		p.addPoints(x1, q_none, Plot.LINE);
+		p.setColor(Color.BLUE);
+		p.addPoints(x1, q_off, Plot.LINE);
+		is_out.addSlice("OUT1", p.getProcessor());
+
+		p = new Plot("", "", ""); p.setLimits(x_min, x_max, 0, 1);
+		p.setColor(Color.RED);
+		p.addPoints(x2, q_bifpoint, Plot.LINE);
+		p.setColor(Color.GREEN);
+		p.addPoints(x2, q_nonpoint, Plot.LINE);
+		p.setColor(Color.BLUE);
+		p.addPoints(x2, q_endpoint, Plot.LINE);
+		is_out.addSlice("OUT2", p.getProcessor());
+
+		new ImagePlus("DEFUZZIFICATION", is_out).show();
+
 	}
 
 }
