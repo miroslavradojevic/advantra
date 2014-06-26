@@ -630,14 +630,15 @@ public class Delineator2D extends Thread {
 				is_out.addSlice(bp_out);
 			}
 
-			System.out.println("Extracted biggest clusters at ("+atX+","+atY+"): ");
-			for (int i = 0; i < biggest_clusters.size(); i++) {
-				for (int j = 0; j < biggest_clusters.get(i).size(); j++) {
-					System.out.println("cluster " + i + " ,element " + j + " : " + Arrays.toString(biggest_clusters.get(i).get(j)));
-				}
-			}
 
-			System.out.println("smoothness : "+Arrays.toString(smoothness[locIdx]));
+//			System.out.println("Extracted biggest clusters at ("+atX+","+atY+"): ");
+//			for (int i = 0; i < biggest_clusters.size(); i++) {
+//				for (int j = 0; j < biggest_clusters.get(i).size(); j++) {
+//					System.out.println("cluster " + i + " ,element " + j + " : " + Arrays.toString(biggest_clusters.get(i).get(j)));
+//				}
+//			}
+//
+//			System.out.println("smoothness : "+Arrays.toString(smoothness[locIdx]));
 
 		}
 

@@ -1,5 +1,7 @@
 package detection2d;
 
+import java.util.Arrays;
+
 /**
  * Created by miroslav on 22-6-14.
  */
@@ -88,7 +90,9 @@ public class FuzzyDetector2D extends Thread {
 
                 output_sigma  // std output membership functions - defines separation
         );
+        fls.clearLog();
         fls.verbose = false; // make it sure that there is no logging...
+
         float[] tmp = new float[3];// will take end,non,jun score using fls, will be sequaentially used
         float[] tmp1 = new float[4];
 		float ncc_1=0, lhood_1=0, smthness_1=0,
@@ -108,9 +112,9 @@ public class FuzzyDetector2D extends Thread {
                 for (int i = 0; i < 4; i++) {
 
                     boolean score_exists =
-                            Float.isNaN(ncc[locationIdx][i]) &&
-                            Float.isNaN(lhood[locationIdx][i]) &&
-                            Float.isNaN(smthness[locationIdx][i]);
+                            !Float.isNaN(ncc[locationIdx][i]) &&
+                            !Float.isNaN(lhood[locationIdx][i]) &&
+                            !Float.isNaN(smthness[locationIdx][i]);
 
                     if (score_exists) {
 
@@ -131,23 +135,31 @@ public class FuzzyDetector2D extends Thread {
                                 ncc_3       = ncc[locationIdx][i];
                                 lhood_3     = lhood[locationIdx][i];
                                 smthness_3  = smthness[locationIdx][i];
+                                break;
                             case 4:
                                 ncc_4       = ncc[locationIdx][i];
                                 lhood_4     = lhood[locationIdx][i];
                                 smthness_4  = smthness[locationIdx][i];
+                                break;
                         }
 
                     }
 
                 }
 
-                switch (cnt_valid) {
-                    case 0: break; // all were NaN do nothing, they're already initialized to default
+
+
+
+                switch (cnt_valid) { // be sure that tmp and tmp1 are set
+                    case 0: Arrays.fill(tmp, 0); Arrays.fill(tmp1, 0); break; // all were NaN, set the critpoint and branch ON scores to zero
                     case 1: fls.critpointScore(ncc_1, lhood_1, smthness_1, tmp, tmp1); break;
                     case 2: fls.critpointScore(ncc_1, lhood_1, smthness_1, ncc_2, lhood_2, smthness_2, tmp, tmp1); break;
                     case 3: fls.critpointScore(ncc_1, lhood_1, smthness_1, ncc_2, lhood_2, smthness_2, ncc_3, lhood_3, smthness_3, tmp, tmp1); break;
                     case 4: fls.critpointScore(ncc_1, lhood_1, smthness_1, ncc_2, lhood_2, smthness_2, ncc_3, lhood_3, smthness_3, ncc_4, lhood_4, smthness_4, tmp, tmp1); break;
+                    default: Arrays.fill(tmp, 0); Arrays.fill(tmp1, 0); break;
                 }
+
+
 
                 // store the critpoint scores
                 endpoint_score[locationIdx] = tmp[0];
