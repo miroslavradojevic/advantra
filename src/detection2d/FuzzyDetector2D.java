@@ -147,9 +147,6 @@ public class FuzzyDetector2D extends Thread {
 
                 }
 
-
-
-
                 switch (cnt_valid) { // be sure that tmp and tmp1 are set
                     case 0: Arrays.fill(tmp, 0); Arrays.fill(tmp1, 0); break; // all were NaN, set the critpoint and branch ON scores to zero
                     case 1: fls.critpointScore(ncc_1, lhood_1, smthness_1, tmp, tmp1); break;

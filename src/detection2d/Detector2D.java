@@ -54,18 +54,18 @@ public class Detector2D {
 	float			k = 0.8f;                   // hardcoded, defines the stricktness of the threshold for out membership function, k higher => means more strictness
 	String          eval_string = "";
 	public boolean 	save_midresults = true;
-	String midresults_dir = "";
+	String          midresults_dir = "";
     public boolean  auto_smoothness = false;
 
-	public boolean do_junctions = true;
-	public boolean do_endpoints = true;
+	public boolean  do_junctions = true;
+	public boolean  do_endpoints = true;
 
 
-	String		output_dir_name; 		    	// parameter coded output folder name
-	String 		output_log_name;
-	PrintWriter logWriter = null;
+	String		    output_dir_name; 		    	// parameter coded output folder name
+	String 		    output_log_name;
+	PrintWriter     logWriter = null;
 
-    Fuzzy2D sample_fls = null; // will be used for user interaction (to simulate detection for features extracted at single locations)
+    Fuzzy2D         sample_fls = null; // will be used for user interaction (to simulate detection for features extracted at single locations)
 
 	int         CPU_NR;
 
@@ -85,9 +85,9 @@ public class Detector2D {
 	ArrayList[][] cumm_directions_jun = null;
 
 	float[] kernel = new float[9];     // for score regularisation
-	float sensitivity = 0.7f;
-	int Nreg = 3;
-	float ang_deg = 20f;  // ms parameter
+	public float threshold = 0.75f;
+	public int Nreg = 4;
+	public float ang_deg = 20f;  // ms parameter
 
 	ArrayList<CritpointRegion> detected_regions; 	// list with the detections
 
@@ -411,6 +411,10 @@ public class Detector2D {
 					e.printStackTrace();
 				}
 			}
+            if (save_midresults) {
+                ImagePlus testip = new ImagePlus("", Ncc2D.getTemplates());
+                IJ.saveAs(testip, "Tiff", midresults_dir+"fitter_templates_"+D[didx]+".tif");
+            }
             /********************************************************************/
             System.out.print("FuzzyDetector2D...");
             FuzzyDetector2D.loadTemplate(
@@ -444,13 +448,6 @@ public class Detector2D {
             }
             /********************************************************************/
 			/********************************************************************/
-
-            // with D we expect to capture ~(D/2)^2*pi pixel area
-			//float 		region_radius 	= D[didx];
-            //float       target_area = Math.round(Math.pow((region_radius/2),2) * Math.PI);
-            //int			min_region_size = (int) Math.ceil(0.1*target_area);  // (int) Math.round(0.25f*0.25f*Math.pow(D[didx],2));  // smallest connected region area to be valid critical point
-            //int			max_region_size = Math.round(5*target_area);    // (int) Math.round(2.0f*2.0f*Math.pow(D[didx],2));  // largest connected region to be valid critical point
-            //min_region_size = (min_region_size<ridiculously_low)? ridiculously_low : min_region_size;
 			if (do_endpoints) {
 
 				System.out.print("AppendEndpoints...");
@@ -473,7 +470,7 @@ public class Detector2D {
 				}
 
 				// get the threshold
-				float thr = sensitivity * getMaximum(map_scores_end);
+				float thr = threshold * getMaximum(map_scores_end);
 
 				// apply the threshold & save
 				threshold(map_scores_end, thr, map_region_end);
@@ -514,7 +511,7 @@ public class Detector2D {
 				}
 
 				// get the threshold
-				float thr = sensitivity * getMaximum(map_scores_jun);
+				float thr = threshold * getMaximum(map_scores_jun);
 
 				// apply the threshold & save
 				threshold(map_scores_jun, thr, map_region_jun);
@@ -533,27 +530,6 @@ public class Detector2D {
 
 			}
 
-
-
-//            appendCritpointRegions(
-//																					critpoint_det,
-//																					min_region_size,
-//																					max_region_size,
-//									   												region_radius,	          // the same radius will be assigned at each scale
-//																					CritpointRegion.RegionType.END,
-//																					ang_deg,
-//																					detected_regions
-//																					);
-//			FeatureExtractor2D.exportCritpointScores(critpoint_det, 2); // store critpoint_score2 list into 2d array critpoint_det
-//			getCritpointRegions(
-//																					critpoint_det,
-//																					min_region_size,
-//																					max_region_size,
-//									   												region_radius,
-//																					CritpointRegion.RegionType.BIF_CROSS,
-//																					ang_deg,
-//																					detected_regions
-//																					);
 			System.out.println(" " + didx + "/" + (D.length-1) );
 
         }
@@ -942,8 +918,10 @@ public class Detector2D {
 
                 //add region
                 OvalRoi ovroi = new OvalRoi(cx-cr+.5, cy-cr+.5, 2*cr, 2*cr);
-                ovroi.setStrokeWidth(1);
-//			    ovroi.setFillColor(region_color);
+                ovroi.setStrokeWidth(2);
+			    ovroi.setStrokeColor(region_color);
+			    ovroi.setFillColor(region_color);
+
                 ov.add(ovroi);
 
                 // add directions
@@ -951,7 +929,7 @@ public class Detector2D {
                     float dx = detected_regions.get(i).outward_directions[j][0];
                     float dy = detected_regions.get(i).outward_directions[j][1];
                     Line l = new Line(cx+.5f, cy+.5f, cx+1.5*cr*dx+.5f, cy+1.5*cr*dy+.5f);
-                    l.setStrokeWidth(3);
+                    l.setStrokeWidth(2);
                     l.setStrokeColor(region_color);
                     l.setFillColor(region_color);
                     ov.add(l);
@@ -985,7 +963,6 @@ public class Detector2D {
 		// regs
 		for (int i=0; i<regs.size(); i++) {
 
-			//if (regs.get(i).size()>=minSize && regs.get(i).size()<=maxSize) {
 
 				float Cx=0, Cy=0; 	// centroid
 				float C=0;        	// score
@@ -1015,8 +992,7 @@ public class Detector2D {
 				// second part (type, outward_directions) depends on which type of critical point we deal with
 				Ctype = null;   			// values to add for this region
 
-				// vxy list
-				vxy.clear();  // list of local directions taken from the region, clear before starting for each region
+				vxy.clear();  // vxy list of local directions taken from the region, clear before starting for each region
 
 				for (int aa=0; aa<regs.get(i).size(); aa++) {  // loop elements of the region again to combine the directions together
 
@@ -1047,40 +1023,88 @@ public class Detector2D {
 
 				}
 
-				ArrayList<float[]> direction_clusters_vxy_count = ClusterDirections.run(vxy, alfa_deg);
+            // vxy list is formed.. to make sense - take those that had more than certain amount of directions
+            // to be sure that the mean shift makes sense and the region itself is salient to be added at all
+            // (has enought directions to make the decision)
+            if (_choose_type == CritpointRegion.RegionType.END && vxy.size()>2) {
 
-				if (_choose_type == CritpointRegion.RegionType.END) {
-					Ctype = CritpointRegion.RegionType.END; // this is known
-				}
-				else if (_choose_type == CritpointRegion.RegionType.BIF_CROSS) {
-					// decide whether it is bif (3- clusters) or CROSS (4 clusters)
-					if (direction_clusters_vxy_count.size()==4 &&  direction_clusters_vxy_count.get(3)[2]/direction_clusters_vxy_count.get(2)[2]>0.8) // if the last one is balanced towards smallest remaining
-						Ctype = CritpointRegion.RegionType.CROSS;
-					else
-						Ctype = CritpointRegion.RegionType.BIF;
-				}
+                ArrayList<float[]> direction_clusters_vxy_count = ClusterDirections.run(vxy, alfa_deg);
+                //System.out.println(direction_clusters_vxy_count.size() + " directions clustered out of " + vxy.size() + " directions at category " + i + " (" + _choose_type + ") with" + regs.get(i).size() + " locations in region");
+                Ctype = CritpointRegion.RegionType.END; // this is known
 
-				Cdirections = new float[direction_clusters_vxy_count.size()][2];  // will take 2 columns (3rd will be used to determine if it is crossing)
-				for (int k=0; k<direction_clusters_vxy_count.size(); k++) {
-					Cdirections[k][0] = direction_clusters_vxy_count.get(k)[0];
-					Cdirections[k][1] = direction_clusters_vxy_count.get(k)[1];
-				}
 
-				switch (Ctype) {
-					case END:
-						region_list.add(new CritpointRegion(Ctype, Cx, Cy, Cr, C, Cdirections, 1)); // take one from the top only, no need to differentiate
-						break;
-					case BIF:
-						region_list.add(new CritpointRegion(Ctype, Cx, Cy, Cr, C, Cdirections, 3));
-						break;
-					case CROSS:
-						region_list.add(new CritpointRegion(Ctype, Cx, Cy, Cr, C, Cdirections, 4));
-						break;
-					default:
-						break;
-				}
+                Cdirections = new float[direction_clusters_vxy_count.size()][2];  // will take 2 columns (3rd will be used to determine if it is crossing)
+                for (int k=0; k<direction_clusters_vxy_count.size(); k++) {
+                    Cdirections[k][0] = direction_clusters_vxy_count.get(k)[0];
+                    Cdirections[k][1] = direction_clusters_vxy_count.get(k)[1];
+                }
 
-			//}
+                region_list.add(new CritpointRegion(Ctype, Cx, Cy, Cr, C, Cdirections, 1)); // take one from the top only, no need to differentiate
+
+            }
+            else if (_choose_type == CritpointRegion.RegionType.BIF_CROSS && vxy.size()>4) {
+
+                ArrayList<float[]> direction_clusters_vxy_count = ClusterDirections.run(vxy, alfa_deg);
+                //System.out.println(direction_clusters_vxy_count.size() + " directions clustered out of " + vxy.size() + " directions at category " + i + " (" + _choose_type + ") with" + regs.get(i).size() + " locations in region");
+
+                // decide whether it is bif (3- clusters) or CROSS (4 clusters) // &&  direction_clusters_vxy_count.get(3)[2]/direction_clusters_vxy_count.get(2)[2]>0.8
+                if (direction_clusters_vxy_count.size()==4 ) // if the last one is balanced towards smallest remaining
+                    Ctype = CritpointRegion.RegionType.CROSS;
+                else
+                    Ctype = CritpointRegion.RegionType.BIF;
+
+                Cdirections = new float[direction_clusters_vxy_count.size()][2];  // will take 2 columns (3rd will be used to determine if it is crossing)
+                for (int k=0; k<direction_clusters_vxy_count.size(); k++) {
+                    Cdirections[k][0] = direction_clusters_vxy_count.get(k)[0];
+                    Cdirections[k][1] = direction_clusters_vxy_count.get(k)[1];
+                }
+
+                switch (Ctype) {
+                    case BIF:
+                        region_list.add(new CritpointRegion(Ctype, Cx, Cy, Cr, C, Cdirections, 3));
+                        break;
+                    case CROSS:
+                        region_list.add(new CritpointRegion(Ctype, Cx, Cy, Cr, C, Cdirections, 4));
+                        break;
+                    default:
+                        break;
+                }
+
+
+
+            }
+            else {
+                // nothing, it was too obscure to make the decision
+                //Ctype = null;
+                //Cdirections = null;
+            }
+
+
+
+//				ArrayList<float[]> direction_clusters_vxy_count = ClusterDirections.run(vxy, alfa_deg);
+//
+//                System.out.println(direction_clusters_vxy_count.size() + " directions clustered out of " + vxy.size() + " directions at category " + i + " (" + _choose_type + ") with" + regs.get(i).size() + " locations in region");
+//
+//				if (_choose_type == CritpointRegion.RegionType.END) {
+//					Ctype = CritpointRegion.RegionType.END; // this is known
+//				}
+//				else if (_choose_type == CritpointRegion.RegionType.BIF_CROSS) {
+//					// decide whether it is bif (3- clusters) or CROSS (4 clusters)
+//					// &&  direction_clusters_vxy_count.get(3)[2]/direction_clusters_vxy_count.get(2)[2]>0.8
+//                    if (direction_clusters_vxy_count.size()==4 ) // if the last one is balanced towards smallest remaining
+//						Ctype = CritpointRegion.RegionType.CROSS;
+//					else
+//						Ctype = CritpointRegion.RegionType.BIF;
+//				}
+//
+//				Cdirections = new float[direction_clusters_vxy_count.size()][2];  // will take 2 columns (3rd will be used to determine if it is crossing)
+//				for (int k=0; k<direction_clusters_vxy_count.size(); k++) {
+//					Cdirections[k][0] = direction_clusters_vxy_count.get(k)[0];
+//					Cdirections[k][1] = direction_clusters_vxy_count.get(k)[1];
+//				}
+
+
+
 		}
 
 	}

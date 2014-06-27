@@ -35,9 +35,9 @@ public class Fitter2D {
 
 		middle_idx = (patch_tangen_len-1) / 2f;
 		// sigma
-		start_sigma = _cross_sigma_ratio * patch_tangen_len * 1.0f;//*0.02f;
-		d_sigma     = start_sigma; // dummy
-		end_sigma   = start_sigma; // only one value of sigma
+		start_sigma = _cross_sigma_ratio * patch_tangen_len * 0.7f;//*0.02f;
+		d_sigma     = _cross_sigma_ratio * patch_tangen_len * 0.3f; // dummy
+		end_sigma   = _cross_sigma_ratio * patch_tangen_len * 1.31f; // only one value of sigma
 		// width
 		start_width = 0;
 		d_width     = patch_tangen_len;

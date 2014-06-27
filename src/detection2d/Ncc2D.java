@@ -4,6 +4,7 @@ import aux.Interpolator;
 import aux.Stat;
 import fit.Fitter2D;
 import ij.ImagePlus;
+import ij.ImageStack;
 
 
 /**
@@ -11,54 +12,58 @@ import ij.ImagePlus;
  */
 public class Ncc2D extends Thread {
 
-	private int begN, endN;
+    private int begN, endN;
 
-	// INPUT
-	public static float[][][][] xy2;        				// N(foreground locs.) x 4(max. threads) x 2 x ((1..M) x L) (2 dimensional)
-	public static float[][][][] vxy2;        				// N(foreground locs.) x 4(max. threads) x 2 x ((1..M) x L) (2 dimensional)
+    // INPUT
+    public static float[][][][] xy2;                        // N(foreground locs.) x 4(max. threads) x 2 x ((1..M) x L) (2 dimensional)
+    public static float[][][][] vxy2;                        // N(foreground locs.) x 4(max. threads) x 2 x ((1..M) x L) (2 dimensional)
 
-	public static float tanSampling = Float.NaN;  			// tangential sampling step (inherited from Delineator2D)
-	public static float[][]		inimg_xy;				    // input image (necessary for feature extraction)
+    public static float tanSampling = Float.NaN;            // tangential sampling step (inherited from Delineator2D)
+    public static float[][] inimg_xy;                    // input image (necessary for feature extraction)
 
-	public static float cross_sigma_ratio = Float.NaN;			// necessary for the fitter template defeinition
-	public static int patchRadLen 	= Integer.MIN_VALUE;    // radial
-	public static int patchTanLen   = Integer.MIN_VALUE;    // cross
-	public static int patchTanLenHalf   = Integer.MIN_VALUE;// cross
+    public static float cross_sigma_ratio = Float.NaN;            // necessary for the fitter template defeinition
+    public static int patchRadLen = Integer.MIN_VALUE;    // radial
+    public static int patchTanLen = Integer.MIN_VALUE;    // cross
+    public static int patchTanLenHalf = Integer.MIN_VALUE;// cross
 
-	// OUTPUT
-	public static float[][]		scores;					// N(foreground locs.) x 4(max. threads) patch fitting ncc score
+    // OUTPUT
+    public static float[][] scores;                    // N(foreground locs.) x 4(max. threads) patch fitting ncc score
 
-	public Ncc2D(int n0, int n1)
-	{
-		this.begN = n0;
-		this.endN = n1;
-	}
+    public Ncc2D(int n0, int n1) {
+        this.begN = n0;
+        this.endN = n1;
+    }
 
-	public static void loadTemplate(
-										   float[][][][] _xy2,
-										   float[][][][] _vxy2,
-										   int _patchRadLen,
-										   int _patchTanLen,
-										   float _tanSampling,
-										   float[][] _inimg_xy,
-										   float _sigma_ratio
-	)
-	{
-		xy2 = _xy2;
-		vxy2 = _vxy2;
+    public static void loadTemplate(
+            float[][][][] _xy2,
+            float[][][][] _vxy2,
+            int _patchRadLen,
+            int _patchTanLen,
+            float _tanSampling,
+            float[][] _inimg_xy,
+            float _sigma_ratio
+    ) {
+        xy2 = _xy2;
+        vxy2 = _vxy2;
 
-		tanSampling = _tanSampling;
-		inimg_xy = _inimg_xy;
+        tanSampling = _tanSampling;
+        inimg_xy = _inimg_xy;
 
-		cross_sigma_ratio = _sigma_ratio;
-		patchRadLen = _patchRadLen;   // how many samples will be taken radially
-		patchTanLen = _patchTanLen;   // how many along the cross section
-		patchTanLenHalf = (_patchTanLen-1) / 2; // patchTanLen = 2 * patchTanLenHalf + 1
+        cross_sigma_ratio = _sigma_ratio;
+        patchRadLen = _patchRadLen;   // how many samples will be taken radially
+        patchTanLen = _patchTanLen;   // how many along the cross section
+        patchTanLenHalf = (_patchTanLen - 1) / 2; // patchTanLen = 2 * patchTanLenHalf + 1
 
-		// allocate output
-		scores = new float[xy2.length][4];            // N(foreground locs.)   x 4 (branches)
+        // allocate output
+        scores = new float[xy2.length][4];            // N(foreground locs.)   x 4 (branches)
 
-	}
+    }
+
+    public static ImageStack getTemplates()
+    {
+        Fitter2D fitter  			= new Fitter2D(patchRadLen, patchTanLen, cross_sigma_ratio, false);
+        return fitter.getTemplates();
+    }
 
 	public void run() {
 

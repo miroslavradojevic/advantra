@@ -349,8 +349,8 @@ public class Fuzzy2D {
         mu = min(h_likelihood_low(likelihood_in),   h_smoothness_high(smoothness_in),   h_ncc_high(ncc_in));	cur = fi_none(mu);	accumulate(cur, agg1); //?
         mu = min(h_likelihood_high(likelihood_in),  h_smoothness_low(smoothness_in),    h_ncc_low(ncc_in));	    cur = fi_none(mu);	accumulate(cur, agg1);
         mu = min(h_likelihood_high(likelihood_in),  h_smoothness_low(smoothness_in),    h_ncc_high(ncc_in));	cur = fi_none(mu);	accumulate(cur, agg1);
-        mu = min(h_likelihood_high(likelihood_in),  h_smoothness_high(smoothness_in),    h_ncc_low(ncc_in));	cur = fi_none(mu);	accumulate(cur, agg1);
 
+        mu = min(h_likelihood_high(likelihood_in),  h_smoothness_high(smoothness_in),    h_ncc_low(ncc_in));	cur = fi_none(mu);	accumulate(cur, agg1);
         mu = min(h_likelihood_high(likelihood_in),  h_smoothness_high(smoothness_in),    h_ncc_high(ncc_in));	cur = fi_on(mu);	accumulate(cur, agg1);
 
         return get_agg1_centroid();

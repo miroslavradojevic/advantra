@@ -1161,6 +1161,7 @@ public class Delineator2D extends Thread {
 
     public static float getSmoothnessPercentile(int perc)
     {
+
         // check the distribution of (non-normalized) smoothness values
         // loop through all to count all the valid smoothness values
         int count = 0;
