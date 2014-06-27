@@ -183,8 +183,12 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
 										_output_sigma
 		);
 
-		det2d.save_midresults = _save_midresults;
-        det2d.auto_smoothness = _auto_smoothness;
+		// they are initialized by default already
+		det2d.save_midresults = _save_midresults;    // t
+        det2d.auto_smoothness = _auto_smoothness;    // f
+		det2d.do_endpoints = _show_endpoints;        // t
+		det2d.do_junctions = _show_junctions;        // t
+
 		det2d.run();
 
 		System.out.println("DONE.");
