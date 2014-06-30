@@ -198,14 +198,11 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
 		det2d.run();
 
 		System.out.println("DONE.");
-		/*
-		det2d.doEvaluation();
-		*/
 
 		Overlay ov_critpoints = det2d.getDetectionOverlay();
 		ip_load.setOverlay(ov_critpoints);
 
-		// save as tif with detection overlay
+		// save as tif with detection overlay (this will be input for evaluation, comparison with gndtth swc file)
 		FileSaver fs = new FileSaver(ip_load);
 		String save_path = det2d.output_dir_name + File.separator + det2d.image_name+".tif";
 		IJ.log("exported: "+save_path);

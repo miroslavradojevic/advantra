@@ -102,7 +102,25 @@ public class Ncc2D extends Thread {
 						// patch[] is formed, 1d array stores 2d patch row-by-row
 
 						// normalize it before fitting
-						Stat.normalize(ptch); // stays in ptch variable
+						//Stat.normalize(ptch); // stays in ptch variable
+
+						// normalize row by row (due to the patch)  patchRadLen x 2*patchTanLenHalf+1
+						for (int radIdx = 0; radIdx < patchRadLen; radIdx++) {
+
+							// max per tangential row
+							float row_max = Float.NEGATIVE_INFINITY;
+							for (int tanIdx = 0; tanIdx < patchTanLen; tanIdx++) {
+								if (ptch[radIdx*patchTanLen+tanIdx]>row_max) {
+									row_max = ptch[radIdx*patchTanLen+tanIdx];
+								}
+							}
+
+							// normalize
+							for (int tanIdx = 0; tanIdx < patchTanLen; tanIdx++) {
+								ptch[radIdx*patchTanLen+tanIdx] /= row_max;
+							}
+
+						}
 
 						// calculate the ncc fit
 

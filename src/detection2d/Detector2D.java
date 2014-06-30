@@ -28,9 +28,6 @@ public class Detector2D {
 	String 		image_dir;
 	String		image_name;
 	float[][] 	inimg_xy;               	// store input image as an array
-	String 		image_gndtth_endpoints;		// ground truth swc file with critical points to evaluate, same name as input image
-	String 		image_gndtth_bifurcations;
-	String 		image_gndtth_crosssections;
 
 	// parameters
 	float       	s;
@@ -51,8 +48,8 @@ public class Detector2D {
 
 	int         	M = 1;
 	float       	minCos = -.5f;
-	float			k = 0.8f;                   // hardcoded, defines the stricktness of the threshold for out membership function, k higher => means more strictness
-	String          eval_string = "";
+	float			k = 0.8f;                   	// hardcoded, defines the stricktness of the threshold for out membership function, k higher => means more strictness
+
 	public boolean 	save_midresults = true;
 	String          midresults_dir = "";
     public boolean  auto_smoothness = false;
@@ -60,12 +57,9 @@ public class Detector2D {
 	public boolean  do_junctions = true;
 	public boolean  do_endpoints = true;
 
-
 	String		    output_dir_name; 		    	// parameter coded output folder name
-	String 		    output_log_name;
-	PrintWriter     logWriter = null;
 
-    Fuzzy2D         sample_fls = null; // will be used for user interaction (to simulate detection for features extracted at single locations)
+    Fuzzy2D         sample_fls = null; 				// will be used for user interaction (to simulate detection for features extracted at single locations)
 
 	int         CPU_NR;
 
@@ -84,10 +78,10 @@ public class Detector2D {
 	ArrayList[][] cumm_directions_end = null;
 	ArrayList[][] cumm_directions_jun = null;
 
-	float[] kernel = new float[9];     // for score regularisation
+	float[] kernel = new float[9];     				// for score regularisation
 	public float threshold = 0.75f;
 	public int Nreg = 4;
-	public float ang_deg = 20f;  // ms parameter
+	public float ang_deg = 20f;  					// ms parameter
 
 	ArrayList<CritpointRegion> detected_regions; 	// list with the detections
 
@@ -127,9 +121,6 @@ public class Detector2D {
 			return;
 		}
 
-		image_gndtth_endpoints 		= image_name + ".end";
-		image_gndtth_bifurcations 	= image_name + ".bif";
-		image_gndtth_crosssections 	= image_name + ".crs";
 
 		// detection scale define
 		s = _s;
@@ -159,7 +150,7 @@ public class Detector2D {
 														 likelihood_high,
 														 likelihood_low
 														 );
-		output_log_name = output_dir_name+ File.separator+"det.csv";
+
 		midresults_dir = image_dir+image_name + "_midresults" + File.separator;
 
 		File f = new File(output_dir_name);
@@ -167,17 +158,17 @@ public class Detector2D {
 
 			f.mkdirs();
 
-			try {
-				logWriter = new PrintWriter(output_log_name);
-				logWriter.print("name,\tTP_BIF,\tFP_BIF,\tFN_BIF,\tP_BIF,\tR_BIF,\tTP_END,\tFP_END,\tFN_END,\tP_END,\tR_END\n");
-				logWriter.close();
-			} catch (FileNotFoundException ex) {}
+//			try {
+//				logWriter = new PrintWriter(output_log_name);
+//				logWriter.print("name,\tTP_BIF,\tFP_BIF,\tFN_BIF,\tP_BIF,\tR_BIF,\tTP_END,\tFP_END,\tFN_END,\tP_END,\tR_END\n");
+//				logWriter.close();
+//			} catch (FileNotFoundException ex) {}
 
 		}
 		// if it exists already in the folder, just prepare to append on the existing file
-		try {
-			logWriter = new PrintWriter(new BufferedWriter(new FileWriter(output_log_name, true)));
-		} catch (IOException e) {}
+//		try {
+//			logWriter = new PrintWriter(new BufferedWriter(new FileWriter(output_log_name, true)));
+//		} catch (IOException e) {}
 
 		File f1 = new File(midresults_dir);
 		if (!f1.exists()) {
@@ -669,218 +660,6 @@ public class Detector2D {
 
 	}
 
-	public void doEvaluation() // once the  list is completed useful to compare
-	{
-
-		// loop detected_regions to evaluate detection wrt .bif .end or .crs ground truth file at the same location
-		// as the image evaluation is done per bifurcations, endpoints, cross-points and junctions (bifurcations and cross-points)
-		// string format:
-		// file_name
-			// tp_BIF fp_BIF fn_BIF
-				// tp_END fp_END fn_END
-					// tp_CRS fp_CRS fn_CRS
-						// tp_JUN fp_JUN fn_JUN
-
-		eval_string = ""; // initialize before appending in following calls
-
-		int tp, fp, fn;
-		ReadSWC reader;
-		boolean[] annots;  // necessary for fn calculation
-
-		boolean bif_annot_exists = new File(image_dir+image_gndtth_bifurcations).exists();
-		boolean end_annot_exists = new File(image_dir+image_gndtth_endpoints).exists();
-		boolean crs_annot_exists = new File(image_dir+image_gndtth_crosssections).exists();
-
-		if (bif_annot_exists && end_annot_exists && crs_annot_exists) {
-
-			// BIF
-			tp = 0; fp = 0; fn = 0;
-			reader = new ReadSWC(image_dir+image_gndtth_bifurcations);
-			annots = new boolean[reader.nodes.size()];
-
-			// loop all detected BIF regions (all sorts of critical points are in the same list now)
-			for (int a=0; a<detected_regions.size(); a++) {
-				if (detected_regions.get(a).type== CritpointRegion.RegionType.BIF) {
-
-
-					boolean found = false;
-
-					float ax = detected_regions.get(a).centroid[0];
-					float ay = detected_regions.get(a).centroid[1];
-					float ar = detected_regions.get(a).radius;
-
-					for (int b=0; b<reader.nodes.size(); b++) {
-
-						float bx = reader.nodes.get(b)[reader.XCOORD];
-						float by = reader.nodes.get(b)[reader.YCOORD];
-						float br = reader.nodes.get(b)[reader.RADIUS];
-
-						if (circlesOverlap(ax, ay, ar, bx, by, br)) {// two roi circles overlap
-							found = true;
-							tp++;
-							annots[b] = true;
-						}
-					}
-
-					if (!found) fp++;  // detected but was not in the list of annotated ones
-
-
-				}
-			}
-
-			for (int a=0; a<annots.length; a++) if (!annots[a]) fn++;
-			eval_string += "\""+image_name+"\",\t" + tp + ",\t" + fp + ",\t"+fn+ ",\t";
-
-
-			// END
-			tp = 0; fp = 0; fn = 0;
-			reader = new ReadSWC(image_dir+image_gndtth_endpoints);
-			annots = new boolean[reader.nodes.size()];
-
-			for (int a=0; a<detected_regions.size(); a++) {
-				if (detected_regions.get(a).type== CritpointRegion.RegionType.END) {
-
-					boolean found = false;
-
-					float ax = detected_regions.get(a).centroid[0];
-					float ay = detected_regions.get(a).centroid[1];
-					float ar = detected_regions.get(a).radius;
-
-					for (int b=0; b<reader.nodes.size(); b++) {
-
-						float bx = reader.nodes.get(b)[reader.XCOORD];
-						float by = reader.nodes.get(b)[reader.YCOORD];
-						float br = reader.nodes.get(b)[reader.RADIUS];
-
-						if (circlesOverlap(ax, ay, ar, bx, by, br)) {// two roi circles overlap
-							found = true;
-							tp++;
-							annots[b] = true;
-						}
-					}
-
-					if (!found) fp++;  // detected but was not in the list of annotated ones
-
-				}
-			}
-
-			for (int a=0; a<annots.length; a++) if (!annots[a]) fn++;
-			eval_string += tp + ",\t" + fp + ",\t" + fn + ",\t";
-
-
-
-
-			// CRS
-			tp = 0; fp = 0; fn = 0;
-			reader = new ReadSWC(image_dir+image_gndtth_crosssections);
-			annots = new boolean[reader.nodes.size()];
-
-			for (int a=0; a<detected_regions.size(); a++) {
-				if (detected_regions.get(a).type== CritpointRegion.RegionType.CROSS) {
-
-					boolean found = false;
-
-					float ax = detected_regions.get(a).centroid[0];
-					float ay = detected_regions.get(a).centroid[1];
-					float ar = detected_regions.get(a).radius;
-
-					for (int b=0; b<reader.nodes.size(); b++) {
-
-						float bx = reader.nodes.get(b)[reader.XCOORD];
-						float by = reader.nodes.get(b)[reader.YCOORD];
-						float br = reader.nodes.get(b)[reader.RADIUS];
-
-						if (circlesOverlap(ax, ay, ar, bx, by, br)) {// two roi circles overlap
-							found = true;
-							tp++;
-							annots[b] = true;
-						}
-					}
-
-					if (!found) fp++;  // detected but was not in the list of annotated ones
-
-				}
-			}
-
-			for (int a=0; a<annots.length; a++) if (!annots[a]) fn++;
-			eval_string += tp + ",\t" + fp + ",\t" + fn + ",\t";
-
-
-
-
-
-			// JUN (BIF+CRS)
-			tp = 0; fp = 0; fn = 0;
-			ReadSWC readerBIF = new ReadSWC(image_dir+image_gndtth_bifurcations);
-			ReadSWC readerCRS = new ReadSWC(image_dir+image_gndtth_crosssections);
-			annots = new boolean[readerBIF.nodes.size() + readerCRS.nodes.size()];
-
-			for (int a=0; a<detected_regions.size(); a++) {
-				if (detected_regions.get(a).type== CritpointRegion.RegionType.BIF || detected_regions.get(a).type== CritpointRegion.RegionType.CROSS) {
-
-					boolean found = false;
-
-					float ax = detected_regions.get(a).centroid[0];
-					float ay = detected_regions.get(a).centroid[1];
-					float ar = detected_regions.get(a).radius;
-
-					for (int b=0; b<readerBIF.nodes.size(); b++) {
-
-						float bx = readerBIF.nodes.get(b)[reader.XCOORD];
-						float by = readerBIF.nodes.get(b)[reader.YCOORD];
-						float br = readerBIF.nodes.get(b)[reader.RADIUS];
-
-						if (circlesOverlap(ax, ay, ar, bx, by, br)) {// two roi circles overlap
-							found = true;
-							tp++;
-							annots[b] = true;
-						}
-					}
-
-					for (int b = readerBIF.nodes.size(); b<readerBIF.nodes.size()+readerCRS.nodes.size(); b++) {
-
-						float bx = readerCRS.nodes.get(b-readerBIF.nodes.size())[reader.XCOORD];
-						float by = readerCRS.nodes.get(b-readerBIF.nodes.size())[reader.YCOORD];
-						float br = readerCRS.nodes.get(b-readerBIF.nodes.size())[reader.RADIUS];
-
-						if (circlesOverlap(ax, ay, ar, bx, by, br)) {// two roi circles overlap
-							found = true;
-							tp++;
-							annots[b] = true;
-						}
-
-					}
-
-					if (!found) fp++;  // detected but was not in the list of annotated ones
-
-				}
-			}
-
-			for (int a=0; a<annots.length; a++) if (!annots[a]) fn++;
-			eval_string += tp + ",\t" + fp + ",\t" + fn;
-
-
-
-		}   // incomplete annotation
-		else
-			eval_string += "\"" + image_name + "\",\t" +
-								   Float.NaN + ",\t" + Float.NaN + ",\t" + Float.NaN + ",\t" +    // bif
-								   Float.NaN + ",\t" + Float.NaN + ",\t" + Float.NaN + ",\t" +    // end
-								   Float.NaN + ",\t" + Float.NaN + ",\t" + Float.NaN + ",\t" +    // crs
-								   Float.NaN + ",\t" + Float.NaN + ",\t" + Float.NaN;             // jun (bif+crs)
-
-		logWriter.println(eval_string);
-		IJ.log(""+eval_string);
-
-		logWriter.close();
-
-	}
-
-	private boolean circlesOverlap(float x1, float y1, float r1, float x2, float y2, float r2)
-	{
-		return Math.pow(x1-x2,2)+Math.pow(y1-y2,2) <= Math.pow(r1+r2,2);
-	}
-
 	public Overlay getDetectionOverlay()
 	{
 
@@ -900,15 +679,15 @@ public class Detector2D {
                 Color region_color = null;
                 switch (ctype) {
                     case BIF:
-                        region_color = new Color(1, 0, 0, sc);
+                        region_color = Color.RED;//new Color(1, 0, 0, sc);
                         break;
 
                     case END:
-                        region_color = new Color(1, 1, 0, sc);
+                        region_color = Color.YELLOW;//new Color(1, 1, 0, sc);
                         break;
 
                     case CROSS:
-                        region_color = new Color(0, 1, 0, sc);
+                        region_color = Color.GREEN;//new Color(0, 1, 0, sc);
                         break;
 
                     default:
