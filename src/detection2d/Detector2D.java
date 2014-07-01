@@ -660,10 +660,10 @@ public class Detector2D {
 
 	}
 
-	public Overlay getDetectionOverlay()
+	public Overlay getDetectionOverlay() // this overlay will be used in evaluation later on
 	{
 
-		// create Overlay with CritpointRegions
+		// create Overlay using list of CritpointRegions
 		Overlay ov = new Overlay();
 
 		for (int i=0; i<detected_regions.size(); i++) {
@@ -707,7 +707,7 @@ public class Detector2D {
                 for (int j = 0; j < detected_regions.get(i).outward_directions.length; j++) {
                     float dx = detected_regions.get(i).outward_directions[j][0];
                     float dy = detected_regions.get(i).outward_directions[j][1];
-                    Line l = new Line(cx+.5f, cy+.5f, cx+1.5*cr*dx+.5f, cy+1.5*cr*dy+.5f);
+                    Line l = new Line(cx+.5f, cy+.5f, cx+2*cr*dx+.5f, cy+2*cr*dy+.5f);
                     l.setStrokeWidth(2);
                     l.setStrokeColor(region_color);
                     l.setFillColor(region_color);
@@ -722,7 +722,7 @@ public class Detector2D {
 
 	}
 
-	private void appendDetectedRegions(// appends to the list of CritpointRegion, using connected components to optimize region segmentation
+	private void appendDetectedRegions( // appends to the list of CritpointRegion, using connected components to optimize region segmentation
 																  ByteProcessor _region_map,
 																  ArrayList[][] _peaks_map,
 																  FloatProcessor _score_map,

@@ -345,13 +345,13 @@ public class Fuzzy2D {
 		mu = min(h_likelihood_low(likelihood_in),   h_smoothness_low(smoothness_in),    h_ncc_low(ncc_in));	    cur = fi_off(mu);	accumulate(cur, agg1);
 		mu = min(h_likelihood_low(likelihood_in),   h_smoothness_low(smoothness_in),    h_ncc_high(ncc_in));	cur = fi_off(mu);	accumulate(cur, agg1);
 		mu = min(h_likelihood_low(likelihood_in),   h_smoothness_high(smoothness_in),   h_ncc_low(ncc_in));	    cur = fi_off(mu);	accumulate(cur, agg1);
+//        mu = min(h_likelihood_low(likelihood_in),   h_smoothness_high(smoothness_in),   h_ncc_high(ncc_in));	cur = fi_none(mu);	accumulate(cur, agg1); //?
 
-        mu = min(h_likelihood_low(likelihood_in),   h_smoothness_high(smoothness_in),   h_ncc_high(ncc_in));	cur = fi_none(mu);	accumulate(cur, agg1); //?
         mu = min(h_likelihood_high(likelihood_in),  h_smoothness_low(smoothness_in),    h_ncc_low(ncc_in));	    cur = fi_none(mu);	accumulate(cur, agg1);
         mu = min(h_likelihood_high(likelihood_in),  h_smoothness_low(smoothness_in),    h_ncc_high(ncc_in));	cur = fi_none(mu);	accumulate(cur, agg1);
+        mu = min(h_likelihood_high(likelihood_in),  h_smoothness_high(smoothness_in),   h_ncc_low(ncc_in));	    cur = fi_none(mu);	accumulate(cur, agg1);
 
-        mu = min(h_likelihood_high(likelihood_in),  h_smoothness_high(smoothness_in),    h_ncc_low(ncc_in));	cur = fi_none(mu);	accumulate(cur, agg1);
-        mu = min(h_likelihood_high(likelihood_in),  h_smoothness_high(smoothness_in),    h_ncc_high(ncc_in));	cur = fi_on(mu);	accumulate(cur, agg1);
+        mu = min(h_likelihood_high(likelihood_in),  h_smoothness_high(smoothness_in),   h_ncc_high(ncc_in));	cur = fi_on(mu);	accumulate(cur, agg1);
 
         return get_agg1_centroid();
     }
@@ -599,15 +599,17 @@ public class Fuzzy2D {
         mu = min(b1_is_on,  	b2_is_on, 	b3_is_on,  	b4_is_off);      cur = fi_bifpoint(mu);  accumulate(cur, agg2); // 1110 (bif)
         mu = min(b1_is_on,  	b2_is_on, 	b3_is_on,  	b4_is_on);       cur = fi_bifpoint(mu);  accumulate(cur, agg2); // 1111 (bif)
 
-        mu = min(b1_is_none,	b2_is_on, 	b3_is_on, 	b4_is_on);		 cur = fi_bifpoint(mu);  accumulate(cur, agg2); // x111 (bif)
-        mu = min(b1_is_on,		b2_is_none, b3_is_on, 	b4_is_on);		 cur = fi_bifpoint(mu);  accumulate(cur, agg2); // 1x11 (bif)
-        mu = min(b1_is_on,		b2_is_on, 	b3_is_none, b4_is_on);		 cur = fi_bifpoint(mu);  accumulate(cur, agg2); // 11x1 (bif)
-        mu = min(b1_is_on,		b2_is_on, 	b3_is_on,   b4_is_none);     cur = fi_bifpoint(mu);  accumulate(cur, agg2); // 111x (bif)
+        mu = max(b1_is_none,    b2_is_none, b3_is_none, b4_is_none);     cur = fi_nonpoint(mu);  accumulate(cur, agg2);
 
-        mu = min(b1_is_none,	1-b2_is_on, 1-b3_is_on,  1-b4_is_on);    cur = fi_nonpoint(mu);  accumulate(cur, agg2); // x1_1_1_
-        mu = min(1-b1_is_on,	b2_is_none, 1-b3_is_on,  1-b4_is_on);    cur = fi_nonpoint(mu);  accumulate(cur, agg2); // 1_x1_1_
-        mu = min(1-b1_is_on,	1-b2_is_on, b3_is_none,  1-b4_is_on);    cur = fi_nonpoint(mu);  accumulate(cur, agg2); // 1_1_x1_
-        mu = min(1-b1_is_on,	1-b2_is_on, 1-b3_is_on,  b4_is_none);    cur = fi_nonpoint(mu);  accumulate(cur, agg2); // 1_1_1_x
+//        mu = min(b1_is_none,	b2_is_on, 	b3_is_on, 	b4_is_on);		 cur = fi_bifpoint(mu);  accumulate(cur, agg2); // x111 (bif)
+//        mu = min(b1_is_on,		b2_is_none, b3_is_on, 	b4_is_on);		 cur = fi_bifpoint(mu);  accumulate(cur, agg2); // 1x11 (bif)
+//        mu = min(b1_is_on,		b2_is_on, 	b3_is_none, b4_is_on);		 cur = fi_bifpoint(mu);  accumulate(cur, agg2); // 11x1 (bif)
+//        mu = min(b1_is_on,		b2_is_on, 	b3_is_on,   b4_is_none);     cur = fi_bifpoint(mu);  accumulate(cur, agg2); // 111x (bif)
+
+//        mu = min(b1_is_none,	1-b2_is_on, 1-b3_is_on,  1-b4_is_on);    cur = fi_nonpoint(mu);  accumulate(cur, agg2); // x1_1_1_
+//        mu = min(1-b1_is_on,	b2_is_none, 1-b3_is_on,  1-b4_is_on);    cur = fi_nonpoint(mu);  accumulate(cur, agg2); // 1_x1_1_
+//        mu = min(1-b1_is_on,	1-b2_is_on, b3_is_none,  1-b4_is_on);    cur = fi_nonpoint(mu);  accumulate(cur, agg2); // 1_1_x1_
+//        mu = min(1-b1_is_on,	1-b2_is_on, 1-b3_is_on,  b4_is_none);    cur = fi_nonpoint(mu);  accumulate(cur, agg2); // 1_1_1_x
 
         float defuzz = get_agg2_centroid();
 
