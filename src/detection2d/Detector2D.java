@@ -460,7 +460,7 @@ public class Detector2D {
 
 				// get the threshold - automatical - choose it once the largest connected component drops below D^2, to be consistent with the scale
 				float max_score = getMaximum(map_scores_end);
-				for (float thr = 0.2f; thr<=0.9; thr+=0.05) {
+				for (float thr = 0.5f; thr<=0.9; thr+=0.05) {
 
 					threshold(map_scores_end, thr*max_score, map_region_end); // apply threshld: input, threshold_value, output
 					ip_exporter.setProcessor(map_region_end); // to see the connected components largest element area
@@ -512,7 +512,7 @@ public class Detector2D {
 
 				// get the threshold - automatical - choose it once the largest connected component drops below D^2, to be consistent with the scale
 				float max_score = getMaximum(map_scores_jun);
-				for (float thr = 0.2f; thr<=0.9; thr+=0.05) {
+				for (float thr = 0.5f; thr<=0.9; thr+=0.05) {
 
 					threshold(map_scores_jun, thr*max_score, map_region_jun); // apply threshld: input, threshold_value, output
 					ip_exporter.setProcessor(map_region_jun); // to see the connected components largest element area
@@ -1035,10 +1035,9 @@ public class Detector2D {
 
                 printout += "\nEND <- NONE -> JUN\n";
 
-                printout += "END->" + FuzzyDetector2D.endpoint_score[atLoc] + " JUN ->" + FuzzyDetector2D.junction_score[atLoc];
+                printout += IJ.d2s(FuzzyDetector2D.endpoint_score[atLoc],2) + "<- NONE ->" + IJ.d2s(FuzzyDetector2D.junction_score[atLoc],2);
 
 //                if (FuzzyDetector2D.endpoint_score[atLoc]!=null && Ncc2D.scores[atLoc]!=null) {
-//
 //                    for (int b=0; b<4; b++)
 //                        printout += b + " -> " + IJ.d2s(PeakExtractor2D.peaks_lhood[atLoc][b], 1) + " " + IJ.d2s(Delineator2D.smoothness[atLoc][b], 1) + " " + IJ.d2s(Ncc2D.scores[atLoc][b], 1) + "\n";
 //                }

@@ -43,6 +43,7 @@ public class Delineator2D extends Thread {
 	public static int       dim;                            // cross profile length (number of samples in a cross-profile)
 	public static int      	dim_half;                       // cross profile half-length
 	private static float	clusteringDisk = Float.NaN;
+    private static float[]  patch_profile;                  // auxiliary variable filled up at each cross-section when calculating refined xy points
 
     private static int      Nimg = Integer.MIN_VALUE;// wrt sphere size
     private static float    outer_radius = Float.NaN;
@@ -88,6 +89,13 @@ public class Delineator2D extends Thread {
 		samplingStepLongitudinal = D / (float)(L-1);
 		dim_half = (int) Math.ceil( D / (samplingStep*2) );
 		dim = 2*dim_half + 1;
+
+        // patch_profile used for cross-sections - initialize and assign side values
+        patch_profile = new float[2*dim_half+1 +2 +2];
+        patch_profile[0] = Float.NEGATIVE_INFINITY;
+        patch_profile[1] = Float.NEGATIVE_INFINITY;
+        patch_profile[patch_profile.length-1] = Float.NEGATIVE_INFINITY;
+        patch_profile[patch_profile.length-2] = Float.NEGATIVE_INFINITY;
 
 		clusteringDisk = 1.5f * samplingStepLongitudinal;
 
@@ -300,7 +308,7 @@ public class Delineator2D extends Thread {
 
                     int nr_pts = selected_xy_local.get(i).size();
 
-                    if (nr_pts>=3) { // 3 are enough for second derivative calculation
+                    if (nr_pts>=(float)L/2) { // 3 are enough for second derivative calculation, needs more for robustness
 
                         smoothness[locationIdx][i] = 0;
                         for (int j = 0; j <nr_pts-2; j++) {
@@ -475,31 +483,50 @@ public class Delineator2D extends Thread {
 		float x_root = x2 - vx * D;
 		float y_root = y2 - wx * D;
 
-		for (int ii=0; ii<L; ii++) {         // loops L of them in radial direction with 0(root coordinate) and L included
+        // aux recursion variables for local max index
 
-			// precompute the profile in advance to seek its local maximum
-			float[] patch_profile = new float[2*dim_half+1 +2 +2];
+        int central_idx = (patch_profile.length - 1) / 2;
 
-			patch_profile[0] = Float.NEGATIVE_INFINITY;
-			patch_profile[1] = Float.NEGATIVE_INFINITY;
+        int curr_local_max_idx_from_beg = -1;
+        int prev_local_max_idx_from_beg = (patch_profile.length - 1) / 2;
 
-			patch_profile[patch_profile.length-1] = Float.NEGATIVE_INFINITY;
-			patch_profile[patch_profile.length-2] = Float.NEGATIVE_INFINITY;
+        int curr_local_max_idx_from_cen = -1;//(patch_profile.length - 1) / 2; // central idx
+        int prev_local_max_idx_from_cen = 0;//(patch_profile.length - 1) / 2; // central idx
 
+        float curr_refined_x = Float.NaN;
+        float prev_refined_x = x_root + 0 * samplingStepLongitudinal * vx + 0 * samplingStep * vy;
+
+        float curr_refined_y = Float.NaN;
+        float prev_refined_y = y_root + 0 * samplingStepLongitudinal * wx + 0 * samplingStep * wy;
+
+        float curr_yptch = Float.NaN;
+        float prev_yptch = 0 * samplingStep;
+
+        boolean found_local_max; // aux
+        float offset_min;
+
+        for (int ii=0; ii<L; ii++) {  // loops L of them in radial direction with 0(root coordinate) and L included
+
+            // patch_profile fill-up
+            // fill in the patch_profile variable (allocated upon construction) - for this radial cross-section
 			for (int jj=-dim_half; jj<=dim_half; jj++) {
 				float curr_x = x_root + ii * samplingStepLongitudinal * vx + jj * samplingStep * vy;
 				float curr_y = y_root + ii * samplingStepLongitudinal * wx + jj * samplingStep * wy;
 				patch_profile[jj+dim_half+2] = Interpolator.interpolateAt(curr_x, curr_y, inimg_xy);
-			}   // patch_profile formed
+			}
+			// patch_profile filled-up, it won't touch the side values (2 at each side)
 
-			// find local max and take the one with min dist towards center
+			// find local max and take the one with min dist towards previous local max abscissa
+            found_local_max = false;
 
-			// initialize values to optimize in this iteration
-			float refined_x = x_root + ii * samplingStepLongitudinal * vx + (-dim_half-1) * samplingStep * vy;
-			float refined_y = y_root + ii * samplingStepLongitudinal * wx + (-dim_half-1) * samplingStep * wy;
-			float yptch = (-dim_half-1) * samplingStep; // starts from the patch border, keep patch cross-projection along the cross-section
+            // ii marks longitudinal index, tangential index is set to
+//			float refined_x = x_root + ii * samplingStepLongitudinal * vx + (  prev_local_max_idx  ) * samplingStep * vy;
+//			float refined_y = y_root + ii * samplingStepLongitudinal * wx + (  prev_local_max_idx  ) * samplingStep * wy;
+//			float yptch = (  prev_local_max_idx  ) * samplingStep; // starts from the patch border, keep patch cross-projection along the cross-section
 
-			float offset_min = Math.abs(1 - (patch_profile.length-1)/2) * samplingStep;
+			offset_min = Float.MAX_VALUE;//Math.abs(1 - (patch_profile.length-1)/2) * samplingStep;
+//            int index_from_center   = -1;
+//            int index_from_beg      = -1;
 
 			for (int loop_prof=2; loop_prof<patch_profile.length-2; loop_prof++) {
 				boolean is_local_max =
@@ -509,20 +536,52 @@ public class Delineator2D extends Thread {
 								patch_profile[loop_prof]>=patch_profile[loop_prof+2];
 				if (is_local_max) {
 					// measure dist
-					float dist_from_center = Math.abs(loop_prof - (patch_profile.length - 1) / 2) * samplingStep;
-					if (dist_from_center<offset_min) {
-						offset_min = dist_from_center;
+//					float dist_from_prev_local_max = Math.abs(loop_prof - prev_local_max_idx_from_beg) * samplingStep; // because loop_prof is from the beginning
+					float dist_from_prev_local_max = Math.abs(loop_prof - central_idx) * samplingStep; // because loop_prof is from the beginning
 
-						int index_from_center = loop_prof-dim_half-2; // will range from -dim_half to +dim_half  as loop_prof changes
-						refined_x = x_root + ii * samplingStepLongitudinal * vx + index_from_center * samplingStep * vy;
-						refined_y = y_root + ii * samplingStepLongitudinal * wx + index_from_center * samplingStep * wy;
-						yptch = index_from_center * samplingStep;
+                    if (dist_from_prev_local_max<offset_min) {
+
+                        offset_min = dist_from_prev_local_max;
+
+						curr_local_max_idx_from_cen = loop_prof-dim_half-2; // will range from -dim_half to +dim_half  as loop_prof changes
+                        curr_local_max_idx_from_beg = loop_prof;
+
+						curr_refined_x  = x_root + ii * samplingStepLongitudinal * vx + curr_local_max_idx_from_cen * samplingStep * vy;
+						curr_refined_y  = y_root + ii * samplingStepLongitudinal * wx + curr_local_max_idx_from_cen * samplingStep * wy;
+						curr_yptch      = curr_local_max_idx_from_cen * samplingStep;
+
+                        found_local_max = true;
 
 					}
 				}
 			}
 
-			// store refined_x, refined_y
+            float refined_x, refined_y, yptch;  // there will be stored
+
+            if (found_local_max) {
+                // use the new values
+
+
+                refined_x = curr_refined_x;
+                refined_y = curr_refined_y;
+                yptch = curr_yptch;
+
+                prev_refined_x = curr_refined_x;
+                prev_refined_y = curr_refined_y;
+                prev_yptch = curr_yptch;
+                prev_local_max_idx_from_beg = curr_local_max_idx_from_beg;
+                prev_local_max_idx_from_cen = curr_local_max_idx_from_cen;
+
+            }
+            else {
+                // don't change
+                refined_x = prev_refined_x;
+                refined_y = prev_refined_y;
+                yptch = prev_yptch;
+
+            }
+
+			// store refined_x, refined_y, yptch
 			refined_centerline_locs_xy[0][init_index + ii] = refined_x; // ii is radial index
 			refined_centerline_locs_xy[1][init_index + ii] = refined_y;
 			// store cross y values
