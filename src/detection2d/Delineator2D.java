@@ -475,14 +475,7 @@ public class Delineator2D extends Thread {
 		float x_root = x2 - vx * D;
 		float y_root = y2 - wx * D;
 
-		// varibles necessary for the smoothness calculation
-//		float sthness = 0; 									// integral of squared second derivatives per dx
-
-//		float yptch_3 = 0;
-//		float yptch_2 = 0;   								// keep the values for the recursion
-//		float yptch_1 = 0;
-
-		for (int ii=0; ii<L; ii++) {                        // loops L of them in radial direction with 0(root coordinate) and L included
+		for (int ii=0; ii<L; ii++) {         // loops L of them in radial direction with 0(root coordinate) and L included
 
 			// precompute the profile in advance to seek its local maximum
 			float[] patch_profile = new float[2*dim_half+1 +2 +2];
@@ -510,7 +503,7 @@ public class Delineator2D extends Thread {
 
 			for (int loop_prof=2; loop_prof<patch_profile.length-2; loop_prof++) {
 				boolean is_local_max =
-						patch_profile[loop_prof]>=patch_profile[loop_prof-1] &&
+								patch_profile[loop_prof]>=patch_profile[loop_prof-1] &&
 								patch_profile[loop_prof]>=patch_profile[loop_prof-2] &&
 								patch_profile[loop_prof]>=patch_profile[loop_prof+1] &&
 								patch_profile[loop_prof]>=patch_profile[loop_prof+2];

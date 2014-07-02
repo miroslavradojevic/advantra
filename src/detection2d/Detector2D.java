@@ -42,7 +42,7 @@ public class Detector2D {
     float           smoothness_high;            // smoothness_high is actually lower than smoothness_low
     float           smoothness_low;             // they are automatically calculated fro mthe distribution of smoothness values
 
-    float			output_sigma;
+    float			output_sigma = 0.45f;
 
 	float 			output_membership_th;       // based on k and output_sigma
 
@@ -79,9 +79,8 @@ public class Detector2D {
 	ArrayList[][] cumm_directions_jun = null;
 
 	float[] kernel = new float[9];     				// for score regularisation
-	public float threshold = 0.75f;
 	public int Nreg = 4;
-	public float ang_deg = 20f;  					// ms parameter
+	public float ang_deg = 15f;  					// ms parameter
 
 	ArrayList<CritpointRegion> detected_regions; 	// list with the detections
 
@@ -95,8 +94,8 @@ public class Detector2D {
 							 float 		_likelihood_high,
 							 float 		_likelihood_low,
                              float      _smoothness_high,
-                             float      _smoothness_low,
-							 float 		_output_sigma
+                             float      _smoothness_low
+//							 float 		_output_sigma
     )
 	{
 
@@ -134,7 +133,7 @@ public class Detector2D {
 		likelihood_low = _likelihood_low;
         smoothness_high = _smoothness_high;
         smoothness_low = _smoothness_low;
-		output_sigma = _output_sigma;
+//		output_sigma = _output_sigma;
 
 		String		Dlist = ""; // for the out directory
 		for (int i=0; i<_D.length; i++) Dlist += IJ.d2s(_D[i], 1) + ((i == _D.length - 1) ? "" : ":");
@@ -241,7 +240,7 @@ public class Detector2D {
 			/********************************************************************/
 			System.out.print("Masker2D...");
 			float new_masker_radius = 1.5f*sph2d.getOuterRadius();   	// important that it is outer radius of the sphere
-			float new_masker_percentile = 30;                   		// used to have these two as argument but not necessary
+			float new_masker_percentile = 50;                   		// used to have these two as argument but not necessary
 			Masker2D.loadTemplate(
 										 inimg_xy,
 										 (int)Math.ceil(new_masker_radius),
@@ -437,7 +436,6 @@ public class Detector2D {
                     e.printStackTrace();
                 }
             }
-            /********************************************************************/
 			/********************************************************************/
 			if (do_endpoints) {
 
@@ -450,36 +448,48 @@ public class Detector2D {
 					IJ.saveAs(ip_exporter, "Tiff", midresults_dir+"map_scores_end_"+D[didx]+".tif");
 				}
 
-				// regularization
-				for (int i = 0; i < Nreg; i++) {
-					map_scores_end.convolve(kernel, 3, 3);
-				}
+				for (int i = 0; i < Nreg; i++) map_scores_end.convolve(kernel, 3, 3); // regularization
 
 				if (save_midresults) {
 					ip_exporter.setProcessor(map_scores_end);
 					IJ.saveAs(ip_exporter, "Tiff", midresults_dir+"map_scores_end_reg_"+D[didx]+".tif");
 				}
 
-				// get the threshold
-				float thr = threshold * getMaximum(map_scores_end);
+				// map_scores_end -> map_region_end
 
-				// apply the threshold & save
-				threshold(map_scores_end, thr, map_region_end);
-				if (save_midresults) {
-					ip_exporter.setProcessor(map_region_end);
-					IJ.saveAs(ip_exporter, "Tiff", midresults_dir+"map_region_end_"+D[didx]+".tif");
+
+				// get the threshold - automatical - choose it once the largest connected component drops below D^2, to be consistent with the scale
+				float max_score = getMaximum(map_scores_end);
+				for (float thr = 0.2f; thr<=0.9; thr+=0.05) {
+
+					threshold(map_scores_end, thr*max_score, map_region_end); // apply threshld: input, threshold_value, output
+					ip_exporter.setProcessor(map_region_end); // to see the connected components largest element area
+
+					Find_Connected_Regions cnn = new Find_Connected_Regions(ip_exporter, true);
+					cnn.run("");
+					ArrayList<ArrayList<int[]>> regg = cnn.getConnectedRegions();
+
+					int max_size = Integer.MIN_VALUE;
+					for (int j = 0; j < regg.size(); j++) {
+						if (regg.get(j).size() > max_size)
+							max_size = regg.get(j).size();
+					}
+					if (max_size<=D[didx]*D[didx])
+						break;
+
 				}
 
-				// get current-scale region map (end. or jun.), save it
+				if (save_midresults) {
+					IJ.saveAs(ip_exporter, "Tiff", midresults_dir+"map_region_end_"+D[didx]+"_.tif");
+				}
 
-				// append  to the all-scale region map (using "OR")
-				appendLogicalOr(cumm_regions_end, map_region_end);
+				appendLogicalOr(cumm_regions_end, map_region_end); // append  to the all-scale region map (using "OR")
 
 				// append all-scale direction map
 				appendDirections(cumm_directions_end, map_region_end, Profiler2D.xy2i, PeakExtractor2D.i2xy, PeakExtractor2D.peaks_i, FuzzyDetector2D.branch_score, output_membership_th);
 
 			}
-
+			/********************************************************************/
 			if (do_junctions) {
 
 				System.out.print("AppendJunctions...");
@@ -491,30 +501,41 @@ public class Detector2D {
 					IJ.saveAs(ip_exporter, "Tiff", midresults_dir+"map_scores_jun_"+D[didx]+".tif");
 				}
 
-				// regularization
-				for (int i = 0; i < Nreg; i++) {
-					map_scores_end.convolve(kernel, 3, 3);
-				}
+				for (int i = 0; i < Nreg; i++) map_scores_jun.convolve(kernel, 3, 3); // regularization
 
 				if (save_midresults) {
 					ip_exporter.setProcessor(map_scores_jun);
 					IJ.saveAs(ip_exporter, "Tiff", midresults_dir+"map_scores_jun_reg_"+D[didx]+".tif");
 				}
 
-				// get the threshold
-				float thr = threshold * getMaximum(map_scores_jun);
+				// map_scores_jun -> map_region_jun
 
-				// apply the threshold & save
-				threshold(map_scores_jun, thr, map_region_jun);
-				if (save_midresults) {
-					ip_exporter.setProcessor(map_region_jun);
-					IJ.saveAs(ip_exporter, "Tiff", midresults_dir+"map_region_jun_"+D[didx]+".tif");
+				// get the threshold - automatical - choose it once the largest connected component drops below D^2, to be consistent with the scale
+				float max_score = getMaximum(map_scores_jun);
+				for (float thr = 0.2f; thr<=0.9; thr+=0.05) {
+
+					threshold(map_scores_jun, thr*max_score, map_region_jun); // apply threshld: input, threshold_value, output
+					ip_exporter.setProcessor(map_region_jun); // to see the connected components largest element area
+
+					Find_Connected_Regions cnn = new Find_Connected_Regions(ip_exporter, true);
+					cnn.run("");
+					ArrayList<ArrayList<int[]>> regg = cnn.getConnectedRegions();
+
+					int max_size = Integer.MIN_VALUE;
+					for (int j = 0; j < regg.size(); j++) {
+						if (regg.get(j).size() > max_size)
+							max_size = regg.get(j).size();
+					}
+					if (max_size<=D[didx]*D[didx])
+						break;
+
 				}
 
-				// get current-scale region map (end. or jun.), save it
+				if (save_midresults) {
+					IJ.saveAs(ip_exporter, "Tiff", midresults_dir+"map_region_jun_"+D[didx]+"_.tif");
+				}
 
-				// append  to the all-scale region map (using "OR")
-				appendLogicalOr(cumm_regions_jun, map_region_jun);
+				appendLogicalOr(cumm_regions_jun, map_region_jun); // append  to the all-scale region map (using "OR")
 
 				// append all-scale direction map
 				appendDirections(cumm_directions_jun, map_region_jun, Profiler2D.xy2i, PeakExtractor2D.i2xy, PeakExtractor2D.peaks_i, FuzzyDetector2D.branch_score, output_membership_th);

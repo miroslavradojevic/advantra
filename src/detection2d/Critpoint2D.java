@@ -80,8 +80,8 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
         float _s;
 		float _sigma_ratio;
         String _Dlist="";
-        float _ncc_high, _ncc_low, _likelihood_high, _likelihood_low, _smoothness_low, _smoothness_high, _output_sigma;
-        float _threshold;
+        float _ncc_high, _ncc_low, _likelihood_high, _likelihood_low, _smoothness_low, _smoothness_high;//, _output_sigma;
+//        float _threshold;
 
         // check if the parameters were submitted through the macro before rising up the Generic Dialog
         // enables calling plugin from the macro without opening the graphical window
@@ -103,8 +103,8 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
             _likelihood_low			= (float) 	Prefs.get("critpoint.detection2d.likelihood_low", 	0.30f);
             _smoothness_high        = (float)   Prefs.get("critpoint.detection2d.smoothness_high", 	10f);
             _smoothness_low         = (float)   Prefs.get("critpoint.detection2d.smoothness_low", 	20f);
-            _output_sigma			= (float) 	Prefs.get("critpoint.detection2d.output_sigma", 	0.45f);
-            _threshold              = (float)   Prefs.get("critpoint.detection2d.threshold", 	    0.75f);
+//            _output_sigma			= (float) 	Prefs.get("critpoint.detection2d.output_sigma", 	0.45f);
+//            _threshold              = (float)   Prefs.get("critpoint.detection2d.threshold", 	    0.75f);
 
             GenericDialog gd = new GenericDialog("DETECTOR2D");
 
@@ -123,8 +123,8 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
             gd.addNumericField("LIKELIHOOD_LOW",    _likelihood_low, 	2,  10, "");
             gd.addNumericField("SMOOTHNESS_HIGH", 	_smoothness_high, 	2,  10, "");
             gd.addNumericField("SMOOTHNESS_LOW",    _smoothness_low, 	2,  10, "");
-            gd.addNumericField("OUT_SIG",    		_output_sigma, 		2,  10, "");
-            gd.addNumericField("THRESHOLD",         _threshold,         2,  20, "");
+//            gd.addNumericField("OUT_SIG",    		_output_sigma, 		2,  10, "");
+//            gd.addNumericField("THRESHOLD",         _threshold,         2,  20, "");
 
             gd.showDialog();
             if (gd.wasCanceled()) return;
@@ -141,8 +141,8 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
             _likelihood_low = (float) gd.getNextNumber();   		Prefs.set("critpoint.detection2d.likelihood_low", 	_likelihood_low);
             _smoothness_high= (float) gd.getNextNumber();   		Prefs.set("critpoint.detection2d.smoothness_high", 	_smoothness_high);
             _smoothness_low = (float) gd.getNextNumber();   		Prefs.set("critpoint.detection2d.smoothness_low", 	_smoothness_low);
-            _output_sigma 	= (float) gd.getNextNumber();           Prefs.set("critpoint.detection2d.output_sigma", 	_output_sigma);
-            _threshold      = (float) gd.getNextNumber();           Prefs.set("critpoint.detection2d.threshold", 	    _threshold);
+//            _output_sigma 	= (float) gd.getNextNumber();           Prefs.set("critpoint.detection2d.output_sigma", 	_output_sigma);
+//            _threshold      = (float) gd.getNextNumber();           Prefs.set("critpoint.detection2d.threshold", 	    _threshold);
 
         }
         else { // continue with macro arguments without rising graphic window
@@ -163,8 +163,8 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
             _likelihood_low     = Float.valueOf(Macro.getValue(Macro.getOptions(), "LIKELIHOOD_LOW", String.valueOf(0.0)));
             _smoothness_high    = Float.valueOf(Macro.getValue(Macro.getOptions(), "SMOOTHNESS_HIGH", String.valueOf(10)));
             _smoothness_low     = Float.valueOf(Macro.getValue(Macro.getOptions(), "SMOOTHNESS_LOW", String.valueOf(20)));
-            _output_sigma       = Float.valueOf(Macro.getValue(Macro.getOptions(), "OUT_SIG", String.valueOf(0.45)));
-            _threshold          = Float.valueOf(Macro.getValue(Macro.getOptions(), "THRESHOLD", String.valueOf(0.75)));
+//            _output_sigma       = Float.valueOf(Macro.getValue(Macro.getOptions(), "OUT_SIG", String.valueOf(0.45)));
+//            _threshold          = Float.valueOf(Macro.getValue(Macro.getOptions(), "THRESHOLD", String.valueOf(0.75)));
 
         }
 
@@ -184,8 +184,8 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
 										_likelihood_high,
 										_likelihood_low,
                                         _smoothness_high,
-                                        _smoothness_low,
-										_output_sigma
+                                        _smoothness_low
+//										_output_sigma
 		);
 
 		// they are initialized by default already , this just overwrites the
@@ -193,7 +193,7 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
         det2d.auto_smoothness = _auto_smoothness;    // f
 		det2d.do_endpoints = _show_endpoints;        // t
 		det2d.do_junctions = _show_junctions;        // t
-        det2d.threshold = _threshold;
+//        det2d.threshold = _threshold;
 
 		det2d.run();
 
