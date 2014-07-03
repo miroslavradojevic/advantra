@@ -140,7 +140,7 @@ public class Detector2D {
 
 		output_membership_th = (float) Math.exp(-(0.5f*0.5f)/(2*output_sigma*output_sigma)); // 0.5 is middle of the output range
 		output_membership_th = (float) (1 - Math.pow(output_membership_th,k) * (1-output_membership_th)); // h1 = 1 - h^k * (1-h)
-
+		System.out.println("th = "+ output_membership_th);
 		output_dir_name = image_dir+String.format(
 														 "det.Dlist.nncH.nccL.lhoodH.lhoodL_%s_%.2f_%.2f_%.2f_%.2f",
 														 Dlist,
