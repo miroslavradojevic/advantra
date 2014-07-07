@@ -232,10 +232,10 @@ public class Evaluator2D implements PlugIn {
 
 		String eval = 		    "\""+det_file_name + "\", "
 							  + "\""+gndtth_tag    + "\", "
-							  + tp_JUN + ", " + fp_JUN + ", " + fn_JUN + ", " + IJ.d2s(p_JUN, 2) + ", " + IJ.d2s(r_JUN,2) + ", "
-							  + tp_BIF + ", " + fp_BIF + ", " + fn_BIF + ", " + p_BIF + ", " + r_BIF + ", "
-							  + tp_CRS + ", " + fp_CRS + ", " + fn_CRS + ", " + p_CRS + ", " + r_CRS + ", "
-							  + tp_END + ", " + fp_END + ", " + fn_END + ", " + p_END + ", " + r_END;
+							  + tp_JUN + ", " + fp_JUN + ", " + fn_JUN + ", " + IJ.d2s(p_JUN, 2) + ", " + IJ.d2s(r_JUN, 2) + ", "
+							  + tp_BIF + ", " + fp_BIF + ", " + fn_BIF + ", " + IJ.d2s(p_BIF, 2) + ", " + IJ.d2s(r_BIF, 2) + ", "
+							  + tp_CRS + ", " + fp_CRS + ", " + fn_CRS + ", " + IJ.d2s(p_CRS, 2) + ", " + IJ.d2s(r_CRS, 2) + ", "
+							  + tp_END + ", " + fp_END + ", " + fn_END + ", " + IJ.d2s(p_END, 2) + ", " + IJ.d2s(r_END, 2);
 
 
 		//System.out.println(legend);
