@@ -48,9 +48,9 @@ public class Detector2D {
 
 	int         	M = 1;
 	float       	minCos = -.5f;
-	float			k = 0.8f;                   	// hardcoded, defines the stricktness of the threshold for out membership function, k higher => means more strictness
+	float			k = 0.4f;                   	// hardcoded, defines the stricktness of the threshold for out membership function, k higher => means more strictness
 
-	public boolean 	save_midresults = true;
+	private boolean 	save_midresults = false;
 	String          midresults_dir = "";
     public boolean  auto_smoothness = false;
 
@@ -79,8 +79,8 @@ public class Detector2D {
 	ArrayList[][] cumm_directions_jun = null;
 
 	float[] kernel = new float[9];     				// for score regularisation
-	public int Nreg = 4;
-	public float ang_deg = 15f;  					// ms parameter
+	public int Nreg = 1;
+	public float ang_deg = 20f;  					// ms parameter
 
 	ArrayList<CritpointRegion> detected_regions; 	// list with the detections
 
@@ -95,7 +95,6 @@ public class Detector2D {
 							 float 		_likelihood_low,
                              float      _smoothness_high,
                              float      _smoothness_low
-//							 float 		_output_sigma
     )
 	{
 
@@ -133,59 +132,30 @@ public class Detector2D {
 		likelihood_low = _likelihood_low;
         smoothness_high = _smoothness_high;
         smoothness_low = _smoothness_low;
-//		output_sigma = _output_sigma;
 
 		String		Dlist = ""; // for the out directory
 		for (int i=0; i<_D.length; i++) Dlist += IJ.d2s(_D[i], 1) + ((i == _D.length - 1) ? "" : ":");
 
 		output_membership_th = (float) Math.exp(-(0.5f*0.5f)/(2*output_sigma*output_sigma)); // 0.5 is middle of the output range
 		output_membership_th = (float) (1 - Math.pow(output_membership_th,k) * (1-output_membership_th)); // h1 = 1 - h^k * (1-h)
-		System.out.println("th = "+ output_membership_th);
+
 		output_dir_name = image_dir+String.format(
-														 "det.Dlist.nncH.nccL.lhoodH.lhoodL_%s_%.2f_%.2f_%.2f_%.2f",
+														 "DET.D.nncH.nccL.lhoodH.lhoodL.sthH.sthL_"+
+														 "%s_%.2f_%.2f_%.2f_%.2f_%.2f_%.2f",
 														 Dlist,
 														 ncc_high,
 														 ncc_low,
 														 likelihood_high,
-														 likelihood_low
+														 likelihood_low,
+														 smoothness_high,
+														 smoothness_low
 														 );
 
 		midresults_dir = image_dir+image_name + "_midresults" + File.separator;
 
-		File f = new File(output_dir_name);
-		if (!f.exists()) {
-
-			f.mkdirs();
-
-//			try {
-//				logWriter = new PrintWriter(output_log_name);
-//				logWriter.print("name,\tTP_BIF,\tFP_BIF,\tFN_BIF,\tP_BIF,\tR_BIF,\tTP_END,\tFP_END,\tFN_END,\tP_END,\tR_END\n");
-//				logWriter.close();
-//			} catch (FileNotFoundException ex) {}
-
-		}
-		// if it exists already in the folder, just prepare to append on the existing file
-//		try {
-//			logWriter = new PrintWriter(new BufferedWriter(new FileWriter(output_log_name, true)));
-//		} catch (IOException e) {}
-
-		File f1 = new File(midresults_dir);
-		if (!f1.exists()) {
-			f1.mkdirs();
-		}
-        else { // clean it, reset with each exec
-            File[] files = f1.listFiles();
-            for (File file : files)
-            {
-                if (!file.delete())
-                    System.out.println("Failed to delete " + file);
-            }
-        }
-
 		CPU_NR = Runtime.getRuntime().availableProcessors() + 1;
 
 		// allocate outputs
-//		critpoint_det = new float[ip_load.getWidth()][ip_load.getHeight()];
 		map_region_end = new ByteProcessor(ip_load.getWidth(), ip_load.getHeight());
 		map_region_jun = new ByteProcessor(ip_load.getWidth(), ip_load.getHeight());
 
@@ -222,16 +192,41 @@ public class Detector2D {
 
     }
 
+	public void saveMidresults(boolean flag) {
+		// will put the flag on and create the output folder for midresults
+
+		save_midresults = flag;
+
+		if (save_midresults) {  // if set to true create the folder as well
+			File f1 = new File(midresults_dir);
+			if (!f1.exists()) {
+				f1.mkdirs();
+			}
+			else { // clean it, reset with each exec
+				File[] files = f1.listFiles();
+				for (File file : files)
+				{
+					if (!file.delete())
+						System.out.println("Failed to delete " + file);
+				}
+			}
+		}
+
+
+	}
+
     public void run()
 	{
+
+		File f = new File(output_dir_name);
+		if (!f.exists()) f.mkdirs();
 
 		long t1, t2;
 		t1 = System.currentTimeMillis();
 
 		for (int didx = 0; didx<D.length; didx++) { // loop scales D[]
 
-
-			System.out.print("\nD = " + D[didx] + " : ");
+			System.out.print("D = " + D[didx] + " : ");
 			Sphere2D sph2d = new Sphere2D(D[didx], s, sigma_ratio);
             if (save_midresults) {
                 IJ.saveAs(sph2d.showSampling(), "Tiff", midresults_dir+"sampling_"+D[didx]+".tif");
@@ -364,9 +359,9 @@ public class Detector2D {
                 float sensitivity = 0.5f;
                 smoothness_high = Delineator2D.getSmoothnessPercentile(percentile);
                 smoothness_low = sensitivity * smoothness_high;
-                System.out.print("new smoothness_high: " + smoothness_high);
-                System.out.print("new smoothness_low:  " + smoothness_low);
-                System.out.println("new fls...");
+//                System.out.print("new smoothness_high: " + smoothness_high);
+//                System.out.print("new smoothness_low:  " + smoothness_low);
+//                System.out.println("new fls...");
                 sample_fls = new Fuzzy2D(// redefine flas used later for simulating, for visualizations (should be the same as the one in FuzzyDetector2D.run())
                         ncc_high, // ncc
                         ncc_low,
@@ -448,7 +443,10 @@ public class Detector2D {
 					IJ.saveAs(ip_exporter, "Tiff", midresults_dir+"map_scores_end_"+D[didx]+".tif");
 				}
 
+				// regularization
+				float max_before_reg = getMaximum(map_scores_end);
 				for (int i = 0; i < Nreg; i++) map_scores_end.convolve(kernel, 3, 3); // regularization
+				float max_after_reg = getMaximum(map_scores_end);
 
 				if (save_midresults) {
 					ip_exporter.setProcessor(map_scores_end);
@@ -456,37 +454,18 @@ public class Detector2D {
 				}
 
 				// map_scores_end -> map_region_end
-
-
-				// get the threshold - automatical - choose it once the largest connected component drops below D^2, to be consistent with the scale
-				float max_score = getMaximum(map_scores_end);
-				for (float thr = 0.5f; thr<=0.9; thr+=0.05) {
-
-					threshold(map_scores_end, thr*max_score, map_region_end); // apply threshld: input, threshold_value, output
-					ip_exporter.setProcessor(map_region_end); // to see the connected components largest element area
-
-					Find_Connected_Regions cnn = new Find_Connected_Regions(ip_exporter, true);
-					cnn.run("");
-					ArrayList<ArrayList<int[]>> regg = cnn.getConnectedRegions();
-
-					int max_size = Integer.MIN_VALUE;
-					for (int j = 0; j < regg.size(); j++) {
-						if (regg.get(j).size() > max_size)
-							max_size = regg.get(j).size();
-					}
-					if (max_size<=D[didx]*D[didx])
-						break;
-
-				}
+				threshold(map_scores_end, output_membership_th*(max_after_reg/max_before_reg), map_region_end); // apply threshold: input, threshold_value, output
 
 				if (save_midresults) {
+					ip_exporter.setProcessor(map_region_end);
 					IJ.saveAs(ip_exporter, "Tiff", midresults_dir+"map_region_end_"+D[didx]+"_.tif");
 				}
 
 				appendLogicalOr(cumm_regions_end, map_region_end); // append  to the all-scale region map (using "OR")
 
 				// append all-scale direction map
-				appendDirections(cumm_directions_end, map_region_end, Profiler2D.xy2i, PeakExtractor2D.i2xy, PeakExtractor2D.peaks_i, FuzzyDetector2D.branch_score, output_membership_th);
+				appendDirections(cumm_directions_end, map_region_end,
+										Profiler2D.xy2i, PeakExtractor2D.i2xy, PeakExtractor2D.peaks_i, FuzzyDetector2D.branch_score, output_membership_th);
 
 			}
 			/********************************************************************/
@@ -501,7 +480,10 @@ public class Detector2D {
 					IJ.saveAs(ip_exporter, "Tiff", midresults_dir+"map_scores_jun_"+D[didx]+".tif");
 				}
 
+				// regularization
+				float max_before_reg = getMaximum(map_scores_jun);
 				for (int i = 0; i < Nreg; i++) map_scores_jun.convolve(kernel, 3, 3); // regularization
+				float max_after_reg = getMaximum(map_scores_jun);
 
 				if (save_midresults) {
 					ip_exporter.setProcessor(map_scores_jun);
@@ -509,42 +491,24 @@ public class Detector2D {
 				}
 
 				// map_scores_jun -> map_region_jun
-
-				// get the threshold - automatical - choose it once the largest connected component drops below D^2, to be consistent with the scale
-				float max_score = getMaximum(map_scores_jun);
-				for (float thr = 0.5f; thr<=0.9; thr+=0.05) {
-
-					threshold(map_scores_jun, thr*max_score, map_region_jun); // apply threshld: input, threshold_value, output
-					ip_exporter.setProcessor(map_region_jun); // to see the connected components largest element area
-
-					Find_Connected_Regions cnn = new Find_Connected_Regions(ip_exporter, true);
-					cnn.run("");
-					ArrayList<ArrayList<int[]>> regg = cnn.getConnectedRegions();
-
-					int max_size = Integer.MIN_VALUE;
-					for (int j = 0; j < regg.size(); j++) {
-						if (regg.get(j).size() > max_size)
-							max_size = regg.get(j).size();
-					}
-					if (max_size<=D[didx]*D[didx])
-						break;
-
-				}
+				threshold(map_scores_jun, output_membership_th*(max_after_reg/max_before_reg), map_region_jun); // apply threshld: input, threshold_value, output
 
 				if (save_midresults) {
+					ip_exporter.setProcessor(map_region_jun);
 					IJ.saveAs(ip_exporter, "Tiff", midresults_dir+"map_region_jun_"+D[didx]+"_.tif");
 				}
 
 				appendLogicalOr(cumm_regions_jun, map_region_jun); // append  to the all-scale region map (using "OR")
 
 				// append all-scale direction map
-				appendDirections(cumm_directions_jun, map_region_jun, Profiler2D.xy2i, PeakExtractor2D.i2xy, PeakExtractor2D.peaks_i, FuzzyDetector2D.branch_score, output_membership_th);
+				appendDirections(cumm_directions_jun, map_region_jun,
+										Profiler2D.xy2i, PeakExtractor2D.i2xy, PeakExtractor2D.peaks_i, FuzzyDetector2D.branch_score, output_membership_th);
 
 			}
 
 			System.out.println(" " + didx + "/" + (D.length-1) );
 
-        }
+        } // loop D[]
 
 		if (do_endpoints) {
 			if (save_midresults) {
@@ -552,7 +516,11 @@ public class Detector2D {
 				IJ.saveAs(ip_exporter, "Tiff", midresults_dir+"cumm_regions_end.tif");
 			}
 
-			appendDetectedRegions(cumm_regions_end, cumm_directions_end, map_scores_end, CritpointRegion.RegionType.END, ang_deg, detected_regions); // append in detected_regions
+			appendDetectedRegions(
+										 cumm_regions_end,
+										 cumm_directions_end,
+										 map_scores_end, CritpointRegion.RegionType.END, ang_deg,
+										 detected_regions); // append in detected_regions
 
 		}
 
@@ -562,14 +530,18 @@ public class Detector2D {
 				IJ.saveAs(ip_exporter, "Tiff", midresults_dir+"cumm_regions_jun.tif");
 			}
 
-			appendDetectedRegions(cumm_regions_jun, cumm_directions_jun, map_scores_jun, CritpointRegion.RegionType.BIF_CROSS, ang_deg, detected_regions); // append in detected_regions
+			appendDetectedRegions(
+										 cumm_regions_jun,
+										 cumm_directions_jun,
+										 map_scores_jun, CritpointRegion.RegionType.BIF_CROSS, ang_deg,
+										 detected_regions); // append in detected_regions
 
 		}
 
 		t2 = System.currentTimeMillis();
 		System.out.println("done. " + ((t2 - t1) / 1000f) + "sec.");
 
-	}
+	} // run()
 
 	private static void fillUp(FloatProcessor critpoint2d, float[] critpoint1d, int[][] _i2xy) {
 		for (int ll=0; ll<critpoint1d.length; ll++) {
@@ -681,12 +653,49 @@ public class Detector2D {
 
 	}
 
+	public void saveDetection(String path)
+	{
+		PrintWriter     logWriter = null;
+		try {
+			logWriter = new PrintWriter(path);
+			logWriter.print("");
+			logWriter.close();
+		} catch (FileNotFoundException ex) {}
+
+		try {
+			logWriter = new PrintWriter(new BufferedWriter(new FileWriter(path, true)));
+			logWriter.println("# MY DETECTIONS: X, Y, RADIUS, SCORE, TYPE, DIRECTIONS ");
+		} catch (IOException e) {}
+
+		for (int ii=0; ii<detected_regions.size(); ii++) {
+			String curr_detection = "";
+
+			curr_detection += IJ.d2s(detected_regions.get(ii).centroid[0],2)+", ";
+			curr_detection += IJ.d2s(detected_regions.get(ii).centroid[1],2)+", ";
+			curr_detection += IJ.d2s(detected_regions.get(ii).radius,2)+", ";
+			curr_detection += IJ.d2s(detected_regions.get(ii).score,2)+", ";
+			curr_detection += detected_regions.get(ii).type+", ";
+
+			int nr_directions = detected_regions.get(ii).outward_directions.length;
+			float[][] directs = detected_regions.get(ii).outward_directions;
+			for (int i = 0; i < nr_directions; i++) {
+				curr_detection += IJ.d2s(directs[i][0],2)+", "+IJ.d2s(directs[i][1],2);
+				if (i<nr_directions-1) curr_detection += ", ";
+			}
+
+			logWriter.println(curr_detection);
+		}
+
+		logWriter.close();
+
+	}
+
 	public Overlay getDetectionOverlay() // this overlay will be used in evaluation later on
 	{
 
 		// create Overlay using list of CritpointRegions
 		Overlay ov = new Overlay();
-
+//		System.out.println(detected_regions.size() + " regions detected ");
 		for (int i=0; i<detected_regions.size(); i++) {
 
             if (detected_regions.get(i) != null) {
@@ -718,17 +727,18 @@ public class Detector2D {
 
                 //add region
                 OvalRoi ovroi = new OvalRoi(cx-cr+.5, cy-cr+.5, 2*cr, 2*cr);
-                ovroi.setStrokeWidth(2);
+                ovroi.setStrokeWidth(1);
 			    ovroi.setStrokeColor(region_color);
 			    ovroi.setFillColor(region_color);
 
                 ov.add(ovroi);
 
                 // add directions
+				float scale_direction = 1.3f;
                 for (int j = 0; j < detected_regions.get(i).outward_directions.length; j++) {
                     float dx = detected_regions.get(i).outward_directions[j][0];
                     float dy = detected_regions.get(i).outward_directions[j][1];
-                    Line l = new Line(cx+.5f, cy+.5f, cx+2*cr*dx+.5f, cy+2*cr*dy+.5f);
+                    Line l = new Line(cx+.5f, cy+.5f, cx+scale_direction*cr*dx+.5f, cy+scale_direction*cr*dy+.5f);
                     l.setStrokeWidth(2);
                     l.setStrokeColor(region_color);
                     l.setFillColor(region_color);
@@ -787,7 +797,7 @@ public class Detector2D {
 
 				C /= regs.get(i).size();    // score (calculate it here regardless of the type, says how much average fuzzy score was confident on the output)
 
-				Cr = (float) (2f * Math.sqrt(regs.get(i).size()/3f)); 		    // radius is wrt to the area
+				Cr = (float) (1f * Math.sqrt(regs.get(i).size()/3.14f)); 		    // radius is wrt to the area
 
 				// second part (type, outward_directions) depends on which type of critical point we deal with
 				Ctype = null;   			// values to add for this region

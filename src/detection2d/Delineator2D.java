@@ -44,8 +44,6 @@ public class Delineator2D extends Thread {
 	public static int       dim;                            // cross profile length (number of samples in a cross-profile)
 	public static int      	dim_half;                       // cross profile half-length
 	public static int 		half_window;
-	private static float[]  patch_profile;                  // auxiliary variable filled up at each cross-section when calculating refined xy points
-	private static float[]	cumsum;							// cummulative sum (for local average calculation)
 
 	private static float	clusteringDisk = Float.NaN;
 
@@ -89,18 +87,19 @@ public class Delineator2D extends Thread {
 		D 				= _extractionSphere.getNeuronDiameter();
 		M               = _M;
 		minCos          = _minCos;
-		L               = (int) (Math.ceil(_extractionSphere.getNeuronDiameter()) + 2);  // added two because of second derivative calcualtion on the refined locations
+		L               = (int) (Math.ceil(_extractionSphere.getNeuronDiameter()) + 3);  // added two because of second derivative calcualtion on the refined locations
 
 		samplingStepLongitudinal = D / (float)(L-1);
+
+//		System.out.println("longitudinal: " + samplingStepLongitudinal);
 
 		// dim for the cross-profile
 		dim_half = (int) Math.ceil( D / (samplingStep*2) );
 		dim = 2*dim_half + 1;
 		half_window = (int) Math.round(((float)dim/4f - 1) * 0.5); // dim for the cross-profile window
+//		System.out.println("" + dim + " ,,,, " + half_window);
 		half_window = (half_window<1)? 1 : half_window;
-		System.out.println("w2 = " + half_window);
-		patch_profile = new float[dim]; // patch_profile used for cross-sections - initialize
-		cumsum = new float[dim]; // cummulative sum
+//		System.out.println("w2 = " + half_window);
 
 		clusteringDisk = 1.5f * samplingStepLongitudinal;
 
@@ -137,10 +136,12 @@ public class Delineator2D extends Thread {
 		ArrayList<ArrayList<float[]>> selected_xy_local = new ArrayList<ArrayList<float[]>>(4);
         for (int i = 0; i < 4; i++) selected_xy_local.add(new ArrayList<float[]>(1)); // size = 4X0
 
-		// TODO add the profile here
+		// cross-profile allocation here
+		float[]  	patch_profile 	= new float[dim]; // patch_profile used for cross-sections - initialize, auxiliary variable filled up at each cross-section when calculating refined xy points
+		float[]		cumsum 			= new float[dim]; // cummulative sum (for local average calculation)
 
 
-        //*** aux
+		//*** aux
 
 		for (int locationIdx = begN; locationIdx < endN; locationIdx++) {
 
@@ -277,13 +278,15 @@ public class Delineator2D extends Thread {
 									prev_y = i2xy[prev_i][1];
 								}
 
-								boolean debug = i2xy[locationIdx][0]==254 && i2xy[locationIdx][1]==305;
 								// get refined locations sampled from the local patch (aligned with the patch)
 								localPatchRefinedLocs(
 															 prev_x, prev_y, curr_x, curr_y,
 															 m * L,        // start from
 															 xy2[locationIdx][b],
-                                                             xy_local[b], debug); //side output: local values for derivation are stored in xy_local[4][2][]
+                                                             xy_local[b],
+															 patch_profile,  // one profile is allocated and referenced here, filled up each time
+															 cumsum
+								); //side output: local values for derivation are stored in xy_local[4][2][]
 							}
 							else break; // because the rest are filled up with -1 or -2 anyway
 
@@ -479,7 +482,10 @@ public class Delineator2D extends Thread {
 	private static void localPatchRefinedLocs(float x1, float y1, float x2, float y2,
 											  int init_index,
 											  float[][] refined_centerline_locs_xy,
-											  float[][] refined_local_ptch_xy, boolean debug)
+											  float[][] refined_local_ptch_xy,
+											  float[] _patch_profile,
+											  float[] _cumsum
+	)
 	{
         /*
             standard way to loop through a patch defined with 2 points
@@ -497,33 +503,18 @@ public class Delineator2D extends Thread {
 		float cross_profile_max;
 		float loc_avg;
 
-
-
         for (int ii=0; ii<L; ii++) {  // loops L of them in radial direction with 0(root coordinate) and L included
-
-			Arrays.fill(patch_profile, Float.NaN);
-			Arrays.fill(cumsum, Float.NaN);
-
 
             // patch_profile fill-up
 			for (int jj=-dim_half; jj<=dim_half; jj++) {
 				float curr_x = x_root + ii * samplingStepLongitudinal * vx + jj * samplingStep * vy;
 				float curr_y = y_root + ii * samplingStepLongitudinal * wx + jj * samplingStep * wy;
-				patch_profile[jj+dim_half] = Interpolator.interpolateAt(curr_x, curr_y, inimg_xy);
-				cumsum[jj+dim_half] = patch_profile[jj+dim_half];
-				if (jj+dim_half>0){}
-					//cumsum[jj+dim_half] += cumsum[jj+dim_half-1];
+				_patch_profile[jj+dim_half] = Interpolator.interpolateAt(curr_x, curr_y, inimg_xy);
+				_cumsum[jj+dim_half] = _patch_profile[jj+dim_half];
+				if (jj+dim_half>0)
+					_cumsum[jj+dim_half] += _cumsum[jj+dim_half-1];
 			}
 			// patch_profile, cumsum filled-up
-
-			if (debug) {
-				System.out.println(ii + " : ");
-				System.out.println("profile");
-				System.out.println(Arrays.toString(patch_profile));
-				System.out.println("cummulative");
-				System.out.println(Arrays.toString(cumsum));
-			}
-
 
 			// find max, max is calculated as local average
             found_local_max = false;
@@ -543,11 +534,11 @@ public class Delineator2D extends Thread {
 			for (int jj=0; jj<dim; jj++) {
 
 				if (jj<=half_window)
-					loc_avg = cumsum[jj + half_window] / (1 + half_window + jj);
+					loc_avg = _cumsum[jj + half_window] / (1 + half_window + jj);
 				else if (jj>half_window && jj<=dim-1-half_window)
-					loc_avg = (cumsum[jj + half_window] - cumsum[jj - 1 - half_window]) / (1 + 2 * half_window);
+					loc_avg = (_cumsum[jj + half_window] - _cumsum[jj - 1 - half_window]) / (1 + 2 * half_window);
 				else
-					loc_avg = (cumsum[dim - 1] - cumsum[jj - 1 - half_window]) / (1 + half_window + (dim - 1 - jj));
+					loc_avg = (_cumsum[dim - 1] - _cumsum[jj - 1 - half_window]) / (1 + half_window + (dim - 1 - jj));
 
 				if (loc_avg>cross_profile_max) {
 
@@ -565,25 +556,7 @@ public class Delineator2D extends Thread {
 
 			}
 
-//            if (found_local_max) {
-//                // use the new values
-//                refined_x = curr_refined_x;
-//                refined_y = curr_refined_y;
-//                yptch = curr_yptch;
-//                prev_refined_x = curr_refined_x;
-//                prev_refined_y = curr_refined_y;
-//                prev_yptch = curr_yptch;
-//                prev_local_max_idx_from_beg = curr_local_max_idx_from_beg;
-//                prev_local_max_idx_from_cen = curr_local_max_idx_from_cen;
-//            }
-//            else {
-//                // don't change
-//                refined_x = prev_refined_x;
-//                refined_y = prev_refined_y;
-//                yptch = prev_yptch;
-//            }
-
-			if (!found_local_max) System.out.println("happens");
+//			if (!found_local_max) System.out.println("couldn't optimize cross-section");
 
 			// store refined_x, refined_y, yptch
 			refined_centerline_locs_xy[0][init_index + ii] = refined_x; // ii is radial index

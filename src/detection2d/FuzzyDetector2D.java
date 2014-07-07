@@ -99,7 +99,8 @@ public class FuzzyDetector2D extends Thread {
                 ncc_2=0, lhood_2=0, smthness_2=0,
                     ncc_3=0, lhood_3=0, smthness_3=0,
                         ncc_4=0, lhood_4=0, smthness_4=0; // allocate potential inputs (up to 4 scores for three categories)
-        int cnt_valid;
+
+		int cnt_valid, cnt_existing;
         // aux
 
         for (int locationIdx = begN; locationIdx < endN; locationIdx++) {
@@ -108,15 +109,22 @@ public class FuzzyDetector2D extends Thread {
 
                 // take those that are !=NaN and supply them to the decision scheme
                 cnt_valid = 0;
+				cnt_existing = 0;
 
                 for (int i = 0; i < 4; i++) {
 
-                    boolean score_exists =
+                    boolean score_valid =
                             !Float.isNaN(ncc[locationIdx][i]) &&
                             !Float.isNaN(lhood[locationIdx][i]) &&
                             !Float.isNaN(smthness[locationIdx][i]);
 
-                    if (score_exists) {
+					boolean score_exists =
+									!Float.isNaN(ncc[locationIdx][i]) ||
+									!Float.isNaN(lhood[locationIdx][i]) ||
+									!Float.isNaN(smthness[locationIdx][i]);
+
+
+                    if (score_valid) {
 
                         cnt_valid++;
                         // assign to dummy variables
@@ -145,18 +153,27 @@ public class FuzzyDetector2D extends Thread {
 
                     }
 
+					if (score_exists) {
+
+						cnt_existing++;
+
+					}
+
                 }
 
-                switch (cnt_valid) { // be sure that tmp and tmp1 are set
-                    case 0: Arrays.fill(tmp, 0); Arrays.fill(tmp1, 0); break; // all were NaN, set the critpoint and branch ON scores to zero
-                    case 1: fls.critpointScore(ncc_1, lhood_1, smthness_1, tmp, tmp1); break;
-                    case 2: fls.critpointScore(ncc_1, lhood_1, smthness_1, ncc_2, lhood_2, smthness_2, tmp, tmp1); break;
-                    case 3: fls.critpointScore(ncc_1, lhood_1, smthness_1, ncc_2, lhood_2, smthness_2, ncc_3, lhood_3, smthness_3, tmp, tmp1); break;
-                    case 4: fls.critpointScore(ncc_1, lhood_1, smthness_1, ncc_2, lhood_2, smthness_2, ncc_3, lhood_3, smthness_3, ncc_4, lhood_4, smthness_4, tmp, tmp1); break;
-                    default: Arrays.fill(tmp, 0); Arrays.fill(tmp1, 0); break;
-                }
-
-
+				if (cnt_existing==cnt_valid) {
+					switch (cnt_valid) { // be sure that tmp and tmp1 are set
+						case 0: Arrays.fill(tmp, 0); Arrays.fill(tmp1, 0); break; // all were NaN, set the critpoint and branch ON scores to zero
+						case 1: fls.critpointScore(ncc_1, lhood_1, smthness_1, tmp, tmp1); break;
+						case 2: fls.critpointScore(ncc_1, lhood_1, smthness_1, ncc_2, lhood_2, smthness_2, tmp, tmp1); break;
+						case 3: fls.critpointScore(ncc_1, lhood_1, smthness_1, ncc_2, lhood_2, smthness_2, ncc_3, lhood_3, smthness_3, tmp, tmp1); break;
+						case 4: fls.critpointScore(ncc_1, lhood_1, smthness_1, ncc_2, lhood_2, smthness_2, ncc_3, lhood_3, smthness_3, ncc_4, lhood_4, smthness_4, tmp, tmp1); break;
+						default: Arrays.fill(tmp, 0); Arrays.fill(tmp1, 0); break;
+					}
+				}
+				else {
+					Arrays.fill(tmp, 0); Arrays.fill(tmp1, 0);
+				}
 
                 // store the critpoint scores
                 endpoint_score[locationIdx] = tmp[0];
