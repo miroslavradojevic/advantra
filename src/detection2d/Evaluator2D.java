@@ -1,6 +1,7 @@
 package detection2d;
 
 import aux.ReadSWC;
+import ij.IJ;
 import ij.ImagePlus;
 import ij.Macro;
 import ij.Prefs;
@@ -231,13 +232,13 @@ public class Evaluator2D implements PlugIn {
 
 		String eval = 		    "\""+det_file_name + "\", "
 							  + "\""+gndtth_tag    + "\", "
-							  + tp_JUN + ", " + fp_JUN + ", " + fn_JUN + ", " + p_JUN + ", " + r_JUN + ", "
+							  + tp_JUN + ", " + fp_JUN + ", " + fn_JUN + ", " + IJ.d2s(p_JUN, 2) + ", " + IJ.d2s(r_JUN,2) + ", "
 							  + tp_BIF + ", " + fp_BIF + ", " + fn_BIF + ", " + p_BIF + ", " + r_BIF + ", "
 							  + tp_CRS + ", " + fp_CRS + ", " + fn_CRS + ", " + p_CRS + ", " + r_CRS + ", "
 							  + tp_END + ", " + fp_END + ", " + fn_END + ", " + p_END + ", " + r_END;
 
 
-		System.out.println(legend);
+		//System.out.println(legend);
 		System.out.println(eval);
 
 		logWriter.println(eval);
