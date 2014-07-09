@@ -36,7 +36,7 @@ public class Evaluator2D implements PlugIn {
 
 	public void run(String s) { // regular PlugIn run() method
 
-		String			det_file_path;     		// either .tif or .det
+        String			det_file_path;     		// either .tif or .det
 		String			det_file_name;          //
 
 		// load the image with detections through the menu
@@ -90,7 +90,7 @@ public class Evaluator2D implements PlugIn {
 		ArrayList<float[]> gndtth_ends = new ArrayList<float[]>();
 		ArrayList<float[]> gndtth_crss = new ArrayList<float[]>();
 
-		ReadSWC reader = new ReadSWC(gndtth_path);
+        ReadSWC reader = new ReadSWC(gndtth_path);
 
 		for (int b=0; b<reader.nodes.size(); b++) {
 
