@@ -692,10 +692,10 @@ public class Fuzzy2D {
 		Plot p = new Plot("", "", "");
 		p.setLimits(x_min, x_max, 0 ,1);
 		p.addPoints(x1, agg1, Plot.LINE);
-		float[][] pks_abscissa = new float[][]{ {defuzz_to_plot, defuzz_to_plot}, {0, 1} }; // 0 -> abscissa, 1 -> limits
+		p.draw();
 		p.setColor(Color.RED);
-		p.setLineWidth(2);
-		p.addPoints(pks_abscissa[0], pks_abscissa[1], Plot.LINE);
+		p.setLineWidth(4);
+		p.addPoints(new float[]{defuzz_to_plot, defuzz_to_plot}, new float[]{0, 1}, Plot.LINE);
 		p.draw();
 		fls_steps.addSlice(title, p.getProcessor());
 	}
@@ -706,10 +706,9 @@ public class Fuzzy2D {
 		p.setLimits(x_min, x_max, 0 , 1);
 		p.addPoints(x2, agg2, Plot.LINE);
 		p.draw();
-		float[][] pks_abscissa = new float[][]{ {defuzz_to_plot, defuzz_to_plot}, {0, 1} }; // 0 -> abscissa, 1 -> limits
 		p.setColor(Color.RED);
-		p.setLineWidth(2);
-		p.addPoints(pks_abscissa[0], pks_abscissa[1], Plot.LINE);
+		p.setLineWidth(4);
+		p.addPoints(new float[]{defuzz_to_plot, defuzz_to_plot}, new float[]{0, 1}, Plot.LINE);
 		p.draw();
 		fls_steps.addSlice(title, p.getProcessor());
 	}
@@ -729,10 +728,15 @@ public class Fuzzy2D {
 		p.setLimits(ncc_start, ncc_end, 0, 1);
 		p.setColor(Color.RED);
 		p.addPoints(xx, yy_high, Plot.LINE);
-		//p.draw();
+		p.draw();
 		p.setColor(Color.BLUE);
 		p.addPoints(xx, yy_low, Plot.LINE);
-		String tit_ncc = "NCC(LOW=" + IJ.d2s(h_ncc_low(ncc_i),1) + ",HIGH=" + IJ.d2s(h_ncc_high(ncc_i),1) + ")";
+		p.draw();
+		p.setColor(Color.DARK_GRAY);
+		p.setLineWidth(4);
+		p.addPoints(new float[]{ncc_i, ncc_i}, new float[]{0, 1}, Plot.LINE);
+		p.draw();
+		String tit_ncc = "NCC="+IJ.d2s(ncc_i,2)+" (LOW=" + IJ.d2s(h_ncc_low(ncc_i),1) + ",HIGH=" + IJ.d2s(h_ncc_high(ncc_i),1) + ")";
 		fls_steps.addSlice(tit_ncc, p.getProcessor());
 
 		// input 2: likelihood
@@ -743,10 +747,15 @@ public class Fuzzy2D {
 		p.setLimits(likelihood_start, likelihood_end, 0, 1);
 		p.setColor(Color.RED);
 		p.addPoints(xx, yy_high, Plot.LINE);
-//		p.draw();
+		p.draw();
 		p.setColor(Color.BLUE);
 		p.addPoints(xx, yy_low, Plot.LINE);
-		String tit_lhood = "LHOOD(LOW=" + IJ.d2s(h_likelihood_low(likelihood_i),1) + ",HIGH=" + IJ.d2s(h_likelihood_high(likelihood_i),1) + ")";
+		p.draw();
+		p.setColor(Color.DARK_GRAY);
+		p.setLineWidth(4);
+		p.addPoints(new float[]{likelihood_i, likelihood_i}, new float[]{0, 1}, Plot.LINE);
+		p.draw();
+		String tit_lhood = "LHOOD="+IJ.d2s(likelihood_i,2)+" (LOW=" + IJ.d2s(h_likelihood_low(likelihood_i),1) + ",HIGH=" + IJ.d2s(h_likelihood_high(likelihood_i),1) + ")";
 		fls_steps.addSlice(tit_lhood, p.getProcessor());
 
 		// input 3: smoothness
@@ -757,10 +766,15 @@ public class Fuzzy2D {
 		p.setLimits(smoothness_start, smoothness_end, 0, 1);
 		p.setColor(Color.RED);
 		p.addPoints(xx, yy_high, Plot.LINE);
-//		p.draw();
+		p.draw();
 		p.setColor(Color.BLUE);
 		p.addPoints(xx, yy_low, Plot.LINE);
-		String tit_sthness = "SMTH(LOW=" + IJ.d2s(h_smoothness_low(smoothness_i),1) + ",HIGH=" + IJ.d2s(h_smoothness_high(smoothness_i),1) + ")";
+		p.draw();
+		p.setColor(Color.DARK_GRAY);
+		p.setLineWidth(4);
+		p.addPoints(new float[]{smoothness_i, smoothness_i}, new float[]{0, 1}, Plot.LINE);
+		p.draw();
+		String tit_sthness = "SMTH="+IJ.d2s(smoothness_i,2)+" (LOW=" + IJ.d2s(h_smoothness_low(smoothness_i),1) + ",HIGH=" + IJ.d2s(h_smoothness_high(smoothness_i),1) + ")";
 		fls_steps.addSlice(tit_sthness, p.getProcessor());
 
 	}

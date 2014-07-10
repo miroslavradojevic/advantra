@@ -250,7 +250,7 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
             if (first3) {
                 pfl_im3.show();
                 pfl_iw3 = pfl_im3.getWindow();
-                pfl_iw3.setLocation(upper_left_x+plot_w, upper_left_y);
+                pfl_iw3.setLocation(upper_left_x+plot_w+20, upper_left_y);
                 first3 = false;
             }
             pfl_im3.setStack("fitting_scores", pfl_is3);
@@ -267,7 +267,7 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
             if (first2) {
                 pfl_im2.show();
                 pfl_iw2 = pfl_im2.getWindow();
-                pfl_iw2.setLocation(upper_left_x, upper_left_y+plot_h+10);
+                pfl_iw2.setLocation(upper_left_x, upper_left_y+plot_h+50);
                 first2 = false;
             }
             pfl_im2.setStack("what happened in fuzzy", pfl_is2);

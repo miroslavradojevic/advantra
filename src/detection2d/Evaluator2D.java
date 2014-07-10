@@ -24,6 +24,19 @@ public class Evaluator2D implements PlugIn {
 	int tp_BIF, fp_BIF, fn_BIF;
 	float p_BIF, r_BIF;
 
+	// convention - overlay colors
+	Color bif_color = Color.RED;
+	int   bif_type = 3;
+
+	Color end_color = Color.YELLOW;
+	int 	end_type = 1;
+
+	Color crs_color = Color.GREEN;
+	int 	crs_type = 4;
+
+	Color ignore_color = new Color(0, 0, 0, 0.5f); // it's not used, doesn't matter, Annotationer needs it only
+	int ignore_type = 7;
+
 	int tp_END, fp_END, fn_END;
 	float p_END, r_END;
 
@@ -99,14 +112,14 @@ public class Evaluator2D implements PlugIn {
 			float by = reader.nodes.get(b)[reader.YCOORD];
 			float br = reader.nodes.get(b)[reader.RADIUS];
 
-			if (typ==1) {
+			if (typ==end_type) {
 				gndtth_ends.add(new float[]{bx, by, br});
 			}
-			else if (typ==3) {
+			else if (typ==bif_type) {
 				gndtth_bifs.add(new float[]{bx, by, br});
 				gndtth_juns.add(new float[]{bx, by, br});
 			}
-			else if (typ==4) {
+			else if (typ==crs_type) {
 				gndtth_crss.add(new float[]{bx, by, br});
 				gndtth_juns.add(new float[]{bx, by, br});
 			}
@@ -123,7 +136,7 @@ public class Evaluator2D implements PlugIn {
 		);
 
 
-		/* read the detections */
+		/* read the detections (use gndtth ignore regions to exclude those that we don't wish to evaluate) */
 
 		ArrayList<float[]> det_bifs = new ArrayList<float[]>();
 		ArrayList<float[]> det_juns = new ArrayList<float[]>();
@@ -137,60 +150,97 @@ public class Evaluator2D implements PlugIn {
 		if (detection_file_ext.equals("tif")) {
 
 			ImagePlus ip_load = new ImagePlus(det_file_path);
-			if(ip_load==null) {
+			if (ip_load == null) {
 				System.out.println("loaded image was NULL");
 				return;
 			}
 
 			Overlay ov_det = ip_load.getOverlay();
 
-			for (int i = 0; i <ov_det.size(); i++) {
+			if (ov_det != null) {
 
-				if (ov_det.get(i).getTypeAsString().equals("Oval"))  {
+				for (int i = 0; i < ov_det.size(); i++) { // loop detections
 
-					float x = (float) ov_det.get(i).getFloatBounds().getX();
-					float y = (float) ov_det.get(i).getFloatBounds().getY();
-					float w = (float) ov_det.get(i).getFloatBounds().getWidth();
-					float h = (float) ov_det.get(i).getFloatBounds().getHeight();
-					float r = (float) (Math.max(w, h)/2);
+					if (ov_det.get(i).getTypeAsString().equals("Oval")) {
 
-					float xc = x+r/1-.0f;
-					float yc = y+r/1-.0f;
+						float x = (float) ov_det.get(i).getFloatBounds().getX();
+						float y = (float) ov_det.get(i).getFloatBounds().getY();
+						float w = (float) ov_det.get(i).getFloatBounds().getWidth();
+						float h = (float) ov_det.get(i).getFloatBounds().getHeight();
+						float r = (float) (Math.max(w, h) / 2);
 
-					Color obj_color = ov_det.get(i).getFillColor();
+						float xc = x + r / 1 - .0f;
+						float yc = y + r / 1 - .0f;
 
-					if (obj_color==null) {
-						System.out.println("found null color in overlay");
-						continue;
-					}
+						// before adding it - check if it is not in some of the ignore regions of the ground truth
+						boolean add_it = true;
+						for (int j = 0; j < reader.nodes.size(); j++) {
 
-					if (obj_color.equals(Color.RED)) {
-						det_bifs.add(new float[]{xc, yc, r});
-						det_juns.add(new float[]{xc, yc, r});
-					}
-					else if (obj_color.equals(Color.YELLOW)) {
-						det_ends.add(new float[]{xc, yc, r});
-					}
-					else if (obj_color.equals(Color.GREEN)) {
-						det_crss.add(new float[]{xc, yc, r});
-						det_juns.add(new float[]{xc, yc, r});
+							int typ = Math.round(reader.nodes.get(j)[reader.TYPE]);
+
+							if (typ == ignore_type) {
+
+								float bx = reader.nodes.get(j)[reader.XCOORD];
+								float by = reader.nodes.get(j)[reader.YCOORD];
+								float br = reader.nodes.get(j)[reader.RADIUS];
+
+								boolean overlap = Math.pow(x - bx, 2) + Math.pow(y - by, 2) <= Math.pow(r + br, 2);
+
+								if (overlap) {
+									add_it = false;
+								}
+
+							}
+
+						}
+
+						if (!add_it) {
+							System.out.println("skip: region belonged to the ignore area");
+							continue; // it overlapped with ignore region
+						}
+
+						Color obj_color = ov_det.get(i).getFillColor();
+
+						if (obj_color == null) {
+							System.out.println("found null color in overlay");
+							continue;
+						}
+
+						if (obj_color.equals(bif_color)) {
+							det_bifs.add(new float[]{xc, yc, r});
+							det_juns.add(new float[]{xc, yc, r});
+						} else if (obj_color.equals(end_color)) {
+							det_ends.add(new float[]{xc, yc, r});
+						} else if (obj_color.equals(crs_color)) {
+							det_crss.add(new float[]{xc, yc, r});
+							det_juns.add(new float[]{xc, yc, r});
+						}
+
 					}
 
 				}
 
+				System.out.println("tif loaded -> " + ov_det.size() + " elements: " +
+										   det_juns.size() + " JUNS, " +
+										   det_bifs.size() + " BIFS, " +
+										   det_crss.size() + " CRSS, " +
+										   det_ends.size() + " ENDS."
+				);
+
+			}
+			else {
+				System.out.println("there was no overlay");
 			}
 
-			System.out.println("tif loaded -> " + ov_det.size() + " elements: " +
-									   det_juns.size() + " JUNS, " +
-									   det_bifs.size() + " BIFS, " +
-									   det_crss.size() + " CRSS, " +
-									   det_ends.size() + " ENDS."
-			);
+
 
 		}
 		else if (detection_file_ext.equals("det")) {
 
 
+			/*
+			haven't implemanted this one yet...
+			 */
 
 
 

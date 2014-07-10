@@ -1,6 +1,7 @@
 package detection2d;
 
 import aux.ClusterDirections;
+import aux.Entropy_Threshold;
 import aux.ReadSWC;
 import aux.Stat;
 import conn.Find_Connected_Regions;
@@ -27,11 +28,11 @@ public class Detector2D {
 
 	String 		image_dir;
 	String		image_name;
-	float[][] 	inimg_xy;               	// store input image as an array
+	float[][] 	inimg_xy;               			// store input image as an array
 
 	// parameters
 	float       	s;
-	float 			sigma_ratio; 			// sigma = sigma_ratio * D
+	float 			sigma_ratio; 					// sigma = sigma_ratio * D
 	static float[]  D;
 	float       	ncc_high;
 	float       	ncc_low;
@@ -39,18 +40,18 @@ public class Detector2D {
     float 			likelihood_high;
 	float 			likelihood_low;
 
-    float           smoothness_high;            // smoothness_high is actually lower than smoothness_low
-    float           smoothness_low;             // they are automatically calculated fro mthe distribution of smoothness values
+    float           smoothness_high;            	// smoothness_high is actually lower than smoothness_low
+    float           smoothness_low;             	// they are automatically calculated fro mthe distribution of smoothness values
 
     float			output_sigma = 0.45f;
 
-	float 			output_membership_th;       // based on k and output_sigma
+	float 			output_membership_th;       	// based on k and output_sigma
 
 	int         	M = 1;
 	float       	minCos = -.5f;
-	float			k = 0.4f;                   	// hardcoded, defines the stricktness of the threshold for out membership function, k higher => means more strictness
+	float			k = 0.1f;                   	// hardcoded, defines the strictness of the threshold for out membership function, k higher => means more strictness
 
-	private boolean 	save_midresults = false;
+	private boolean save_midresults = false;
 	String          midresults_dir = "";
     public boolean  auto_smoothness = false;
 
@@ -60,6 +61,8 @@ public class Detector2D {
 	String		    output_dir_name; 		    	// parameter coded output folder name
 
     Fuzzy2D         sample_fls = null; 				// will be used for user interaction (to simulate detection for features extracted at single locations)
+
+	Entropy_Threshold et = new Entropy_Threshold(); // will be used to threshold the scores after regularisation
 
 	int         CPU_NR;
 
@@ -79,7 +82,7 @@ public class Detector2D {
 	ArrayList[][] cumm_directions_jun = null;
 
 	float[] kernel = new float[9];     				// for score regularisation
-	public int Nreg = 1;
+	public int Nreg = 2;
 	public float ang_deg = 20f;  					// ms parameter
 
 	ArrayList<CritpointRegion> detected_regions; 	// list with the detections
@@ -98,10 +101,10 @@ public class Detector2D {
     )
 	{
 
-		image_dir = ip_load.getOriginalFileInfo().directory; //  + File.separator  + image_name
+		image_dir = ip_load.getOriginalFileInfo().directory; 			//  + File.separator  + image_name
 		image_name = ip_load.getShortTitle();
 
-		inimg_xy = new float[ip_load.getWidth()][ip_load.getHeight()]; // x~column, y~row
+		inimg_xy = new float[ip_load.getWidth()][ip_load.getHeight()]; 	// x~column, y~row
 		if (ip_load.getType()== ImagePlus.GRAY8) {
 			byte[] read = (byte[]) ip_load.getProcessor().getPixels();
 			for (int idx=0; idx<read.length; idx++) {
@@ -134,12 +137,13 @@ public class Detector2D {
         smoothness_low = _smoothness_low;
 
 		String		Dlist = ""; // for the out directory
-		for (int i=0; i<_D.length; i++) Dlist += IJ.d2s(_D[i], 1) + ((i == _D.length - 1) ? "" : ":");
+		for (int i=0; i<_D.length; i++) Dlist += IJ.d2s(_D[i], 1) + ((i == _D.length - 1) ? "" : ","); // take care that it is a valid folder name signal ',._' are valid
 
 		output_membership_th = (float) Math.exp(-(0.5f*0.5f)/(2*output_sigma*output_sigma)); // 0.5 is middle of the output range
 		output_membership_th = (float) (1 - Math.pow(output_membership_th,k) * (1-output_membership_th)); // h1 = 1 - h^k * (1-h)
 
 		output_dir_name = image_dir+String.format(
+
 														 "DET.D.nncH.nccL.lhoodH.lhoodL.sthH.sthL_"+
 														 "%s_%.2f_%.2f_%.2f_%.2f_%.2f_%.2f",
 														 Dlist,
@@ -156,8 +160,8 @@ public class Detector2D {
 		CPU_NR = Runtime.getRuntime().availableProcessors() + 1;
 
 		// allocate outputs
-		map_region_end = new ByteProcessor(ip_load.getWidth(), ip_load.getHeight());
-		map_region_jun = new ByteProcessor(ip_load.getWidth(), ip_load.getHeight());
+//		map_region_end = new ByteProcessor(ip_load.getWidth(), ip_load.getHeight());
+//		map_region_jun = new ByteProcessor(ip_load.getWidth(), ip_load.getHeight());
 
 		map_scores_end = new FloatProcessor(ip_load.getWidth(), ip_load.getHeight());
 		map_scores_jun = new FloatProcessor(ip_load.getWidth(), ip_load.getHeight());
@@ -444,9 +448,9 @@ public class Detector2D {
 				}
 
 				// regularization
-				float max_before_reg = getMaximum(map_scores_end);
+//				float max_before_reg = getMaximum(map_scores_end);
 				for (int i = 0; i < Nreg; i++) map_scores_end.convolve(kernel, 3, 3); // regularization
-				float max_after_reg = getMaximum(map_scores_end);
+//				float max_after_reg = getMaximum(map_scores_end);
 
 				if (save_midresults) {
 					ip_exporter.setProcessor(map_scores_end);
@@ -454,7 +458,10 @@ public class Detector2D {
 				}
 
 				// map_scores_end -> map_region_end
-				threshold(map_scores_end, output_membership_th*(max_after_reg/max_before_reg), map_region_end); // apply threshold: input, threshold_value, output
+//				threshold(map_scores_end, output_membership_th*(max_after_reg/max_before_reg), map_region_end); // apply threshold: input, threshold_value, output
+
+				// use maximum entropy to threshold
+				map_region_end = et.runMaxEntropyThreshold(map_scores_end);
 
 				if (save_midresults) {
 					ip_exporter.setProcessor(map_region_end);
@@ -481,9 +488,9 @@ public class Detector2D {
 				}
 
 				// regularization
-				float max_before_reg = getMaximum(map_scores_jun);
+//				float max_before_reg = getMaximum(map_scores_jun);
 				for (int i = 0; i < Nreg; i++) map_scores_jun.convolve(kernel, 3, 3); // regularization
-				float max_after_reg = getMaximum(map_scores_jun);
+//				float max_after_reg = getMaximum(map_scores_jun);
 
 				if (save_midresults) {
 					ip_exporter.setProcessor(map_scores_jun);
@@ -491,7 +498,10 @@ public class Detector2D {
 				}
 
 				// map_scores_jun -> map_region_jun
-				threshold(map_scores_jun, output_membership_th*(max_after_reg/max_before_reg), map_region_jun); // apply threshld: input, threshold_value, output
+				//threshold(map_scores_jun, output_membership_th*(max_after_reg/max_before_reg), map_region_jun); // apply threshld: input, threshold_value, output
+
+				// use maximum entropy to threshold
+				map_region_jun = et.runMaxEntropyThreshold(map_scores_jun);
 
 				if (save_midresults) {
 					ip_exporter.setProcessor(map_region_jun);
