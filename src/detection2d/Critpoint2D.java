@@ -80,7 +80,8 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
         float _s;
 		float _sigma_ratio;
         String _Dlist="";
-        float _ncc_high, _ncc_low, _likelihood_high, _likelihood_low, _smoothness_low, _smoothness_high;//, _output_sigma;
+        float _ncc_high, _ncc_low, _likelihood_high, _likelihood_low, _smoothness_low, _smoothness_high;
+        float _detection_sensitivity; // ranges from 0 (max) - 1 (max. entropy) will be used at thresholding
 
         // check if the parameters were submitted through the macro before rising up the Generic Dialog
         // enables calling plugin from the macro without opening the graphical window
@@ -101,13 +102,14 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
             _likelihood_high        = (float)   Prefs.get("critpoint.detection2d.likelihood_high", 	0.90f);
             _likelihood_low			= (float) 	Prefs.get("critpoint.detection2d.likelihood_low", 	0.30f);
             _smoothness_high        = (float)   Prefs.get("critpoint.detection2d.smoothness_high", 	10f);
-            _smoothness_low         = (float)   Prefs.get("critpoint.detection2d.smoothness_low", 	20f);
+            _smoothness_low         = (float)   Prefs.get("critpoint.detection2d.smoothness_low", 	30f);
+            _detection_sensitivity  = (float)   Prefs.get("critpoint.detection2d.detection_sensitivity", 1f); // start with the  lowest sensitivity
 
             GenericDialog gd = new GenericDialog("DETECTOR2D");
 
-            gd.addCheckbox("JUNCTIONS", 		_show_junctions);
-            gd.addCheckbox("ENDPOINTS", 		_show_endpoints);
-            gd.addCheckbox("INTERACTIVE",       _enable_interactive);
+            gd.addCheckbox("JUNCTIONS", 		    _show_junctions);
+            gd.addCheckbox("ENDPOINTS", 		    _show_endpoints);
+            gd.addCheckbox("INTERACTIVE",           _enable_interactive);
             gd.addCheckbox("AUTO_SMOOTHNESS",       _auto_smoothness);
             gd.addCheckbox("SAVE_MIDRESULTS",       _save_midresults);
 
