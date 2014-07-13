@@ -63,7 +63,7 @@
     <!--target="1.x" -->
     <target name="compile" description="Compile module">
 
-        <javac target="1.7" destdir="${build}" srcdir="${src}" debug="true" debuglevel="lines,vars,source">
+        <javac target="1.6" destdir="${build}" srcdir="${src}" debug="true" debuglevel="lines,vars,source">
             <classpath refid="classpath"/>
             <src refid="sourcepath"/>
         </javac>

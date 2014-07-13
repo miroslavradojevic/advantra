@@ -1,11 +1,9 @@
 package detection2d;
 
 import aux.ReadSWC;
-import ij.IJ;
-import ij.ImagePlus;
-import ij.Macro;
-import ij.Prefs;
+import ij.*;
 import ij.gui.GenericDialog;
+import ij.gui.OvalRoi;
 import ij.gui.Overlay;
 import ij.io.OpenDialog;
 import ij.plugin.PlugIn;
@@ -47,10 +45,15 @@ public class Evaluator2D implements PlugIn {
 	int tp_JUN, fp_JUN, fn_JUN;
 	float p_JUN, r_JUN;
 
+	Overlay			eval_overlay_jun = new Overlay();
+	Overlay			eval_overlay_end = new Overlay();
+
 	public void run(String s) { // regular PlugIn run() method
 
         String			det_file_path;     		// either .tif or .det
 		String			det_file_name;          //
+
+		boolean			show = false;
 
 		// load the image with detections through the menu
 		String in_folder = Prefs.get("id.folder", System.getProperty("user.home"));
@@ -72,16 +75,17 @@ public class Evaluator2D implements PlugIn {
 			GenericDialog gd = new GenericDialog("GROUND TRUTH?");
 			gd.addStringField("gndtth_path (.swc)", 	new File(output_dir_name).getParent(), 150);
 			gd.addStringField("gndtth_tag", 	"ground_truth_tag", 50);
+			gd.addCheckbox("show",  false);
 			gd.showDialog();
 			if (gd.wasCanceled()) return;
 			gndtth_path	= gd.getNextString();
 			gndtth_tag	= gd.getNextString();
+			show = gd.getNextBoolean();
 
 		}
 		else {
 			gndtth_path = Macro.getValue(Macro.getOptions(), "gndtth_path", "ground_truth_path");
 			gndtth_tag 	= Macro.getValue(Macro.getOptions(), "gndtth_tag", 	"ground_truth_tag");
-
 		}
 
 		/* read ground truth */
@@ -124,15 +128,14 @@ public class Evaluator2D implements PlugIn {
 				gndtth_juns.add(new float[]{bx, by, br});
 			}
 
-
 		}
 
 		System.out.println(
-								  "gndtth loaded -> " + reader.nodes.size() + " elements: " +
+								  "gndtth loaded -> " + (gndtth_juns.size() + gndtth_ends.size()) + " elements: " +
 										  gndtth_juns.size() + " JUNS, " +
+										  gndtth_ends.size() + " ENDS, " +
 										  gndtth_bifs.size() + " BIFS, " +
-										  gndtth_crss.size() + " CRSS, " +
-										  gndtth_ends.size() + " ENDS."
+										  gndtth_crss.size() + " CRSS. "
 		);
 
 
@@ -157,6 +160,8 @@ public class Evaluator2D implements PlugIn {
 
 			Overlay ov_det = ip_load.getOverlay();
 
+			int nr_elements = 0;
+
 			if (ov_det != null) {
 
 				for (int i = 0; i < ov_det.size(); i++) { // loop detections
@@ -169,8 +174,19 @@ public class Evaluator2D implements PlugIn {
 						float h = (float) ov_det.get(i).getFloatBounds().getHeight();
 						float r = (float) (Math.max(w, h) / 2);
 
+						// FIX: can happen that the read values w, h (and hence r) are negative due to the bad readout
+						if (w<0 || h<0) {
+
+							w = 2;
+							h = 2;
+							r = 1;
+
+						}
+
 						float xc = x + r / 1 - .0f;
 						float yc = y + r / 1 - .0f;
+
+//						System.out.println("read xc yc r w h : " + xc + " | " + yc + " , " +  r + " , " + w + " , " + h) ;
 
 						// before adding it - check if it is not in some of the ignore regions of the ground truth
 						boolean add_it = true;
@@ -206,6 +222,8 @@ public class Evaluator2D implements PlugIn {
 							continue;
 						}
 
+						nr_elements++;
+
 						if (obj_color.equals(bif_color)) {
 							det_bifs.add(new float[]{xc, yc, r});
 							det_juns.add(new float[]{xc, yc, r});
@@ -220,11 +238,11 @@ public class Evaluator2D implements PlugIn {
 
 				}
 
-				System.out.println("tif loaded -> " + ov_det.size() + " elements: " +
+				System.out.println("tif detection loaded -> " + nr_elements + " elements: " +
 										   det_juns.size() + " JUNS, " +
+										   det_ends.size() + " ENDS, " +
 										   det_bifs.size() + " BIFS, " +
-										   det_crss.size() + " CRSS, " +
-										   det_ends.size() + " ENDS."
+										   det_crss.size() + " CRSS. "
 				);
 
 			}
@@ -294,6 +312,21 @@ public class Evaluator2D implements PlugIn {
 		logWriter.println(eval);
 		logWriter.close();
 
+		if (show) { // show from GenericDialog
+
+			ImagePlus eval_image_jun = new ImagePlus(det_file_path);
+			eval_image_jun.setTitle("JUNCTION DET. EVALUATION");
+			eval_image_jun.setOverlay(eval_overlay_jun);
+			eval_image_jun.show();
+
+			ImagePlus eval_image_end = new ImagePlus(det_file_path);
+			eval_image_end.setTitle("ENDPOINT DET. EVALUATION");
+			eval_image_end.setOverlay(eval_overlay_end);
+			eval_image_end.show();
+
+
+		}
+
 	}
 
 	public void doBifEvaluation(ArrayList<float[]> _det_bif, ArrayList<float[]> _gndtth_bifs)
@@ -341,8 +374,11 @@ public class Evaluator2D implements PlugIn {
 
 		tp_JUN = 0; fp_JUN = 0; fn_JUN = 0;
 		boolean[] annots = new boolean[_gndtth_juns.size()];  // necessary for fn calculation
+
 		// loop all detected JUN regions
 		for (int a=0; a<_det_jun.size(); a++) {
+
+//			System.out.println("checking " + a);
 
 			boolean found = false;
 
@@ -356,18 +392,47 @@ public class Evaluator2D implements PlugIn {
 				float by = _gndtth_juns.get(b)[1];
 				float br = _gndtth_juns.get(b)[2];
 
-				if (circlesOverlap(ax, ay, ar, bx, by, br)) {// two roi circles overlap
+				if (circlesOverlap(ax, ay, ar, bx, by, br, 1f)) {// two roi circles overlap, margin=1 due to the rounding
 					found = true;
 					tp_JUN++;
+
+					// add tproi jun
+					OvalRoi tproi = new OvalRoi(ax-ar+.5f, ay-ar+.5f, 2*ar, 2*ar);
+					tproi.setFillColor(Color.RED);
+					eval_overlay_jun.add(tproi);
+
 					annots[b] = true;
 				}
 			}
 
-			if (!found) fp_JUN++;  // detected but was not in the list of annotated ones
+			if (!found) {   // detected but was not in the list of annotated ones
+				fp_JUN++;
+
+				// add fproi jun
+				OvalRoi fproi = new OvalRoi(ax-ar+.5f, ay-ar+.5f, 2*ar, 2*ar);
+				fproi.setStrokeColor(Color.CYAN);
+				eval_overlay_jun.add(fproi);
+			}
 
 		}
 
-		for (int a=0; a<annots.length; a++) if (!annots[a]) fn_JUN++;
+		for (int a=0; a<annots.length; a++)
+			if (!annots[a]) {
+
+				// this is actually only for visualization, otherwise bx,by,br are not necessary for the fn_JUN number itself
+				float bx = _gndtth_juns.get(a)[0];
+				float by = _gndtth_juns.get(a)[1];
+				float br = _gndtth_juns.get(a)[2];
+
+				fn_JUN++;
+
+				// add fnroi jun
+				OvalRoi fnroi = new OvalRoi(bx-br+.5f, by-br+.5f, 2*br, 2*br);
+				fnroi.setFillColor(Color.GREEN);
+				eval_overlay_jun.add(fnroi);
+
+			}
+
 
 		p_JUN = (tp_JUN+fp_JUN>0)? tp_JUN/(float)(tp_JUN+fp_JUN) : 0 ;
 		r_JUN = (tp_JUN+fn_JUN>0)? tp_JUN/(float)(tp_JUN+fn_JUN) : 0 ;
@@ -397,15 +462,43 @@ public class Evaluator2D implements PlugIn {
 				if (circlesOverlap(ax, ay, ar, bx, by, br)) {// two roi circles overlap
 					found = true;
 					tp_END++;
+
+					// add tproi end
+					OvalRoi tproi = new OvalRoi(ax-ar+.5f, ay-ar+.5f, 2*ar, 2*ar);
+					tproi.setFillColor(Color.RED);
+					eval_overlay_end.add(tproi);
+
 					annots[b] = true;
 				}
 			}
 
-			if (!found) fp_END++;  // detected but was not in the list of annotated ones
+			if (!found) {
+				fp_END++;  // detected but was not in the list of annotated ones
+
+				// add fproi end
+				OvalRoi fproi = new OvalRoi(ax-ar+.5f, ay-ar+.5f, 2*ar, 2*ar);
+				fproi.setStrokeColor(Color.CYAN);
+				eval_overlay_end.add(fproi);
+
+			}
 
 		}
 
-		for (int a=0; a<annots.length; a++) if (!annots[a]) fn_END++;
+		for (int a=0; a<annots.length; a++)
+			if (!annots[a]){
+
+			// this is actually only for visualization, otherwise bx,by,br are not necessary for the fn_END number itself
+			float bx = _gndtth_ends.get(a)[0];
+			float by = _gndtth_ends.get(a)[1];
+			float br = _gndtth_ends.get(a)[2];
+
+			fn_END++;
+
+			// add fnroi end
+			OvalRoi fnroi = new OvalRoi(bx-br+.5f, by-br+.5f, 2*br, 2*br);
+			fnroi.setFillColor(Color.GREEN);
+			eval_overlay_end.add(fnroi);
+		}
 
 		p_END = (tp_END+fp_END>0)? tp_END/(float)(tp_END+fp_END) : 0 ;
 		r_END = (tp_END+fn_END>0)? tp_END/(float)(tp_END+fn_END) : 0 ;
@@ -455,6 +548,11 @@ public class Evaluator2D implements PlugIn {
 		return Math.pow(x1-x2,2)+Math.pow(y1-y2,2) <= Math.pow(r1+r2,2);
 	}
 
+	private boolean circlesOverlap(float x1, float y1, float r1, float x2, float y2, float r2, float margin)
+	{
+		return Math.pow(x1-x2,2)+Math.pow(y1-y2,2) <= Math.pow(r1+r2+margin,2);
+	}
+
 	private String getFileExtension(String file_path)
 	{
 		String extension = "";
@@ -466,6 +564,5 @@ public class Evaluator2D implements PlugIn {
 
 		return extension;
 	}
-
 
 }

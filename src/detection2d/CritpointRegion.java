@@ -31,6 +31,11 @@ public class CritpointRegion {
 
 	}
 
+	public enum RegionType {
+		END, BIF, CROSS, BIF_CROSS, BDY; // BIF_CROSS represents both, need it for some function calls clearness, appears as a pseudo-category here
+	}
+
+	/* intended these for evaluation but won't use them */
 	public boolean isOverlapping(float[] _other_centroid, float _other_radius) {
 
 		float dist = (float) Math.sqrt(Math.pow(_other_centroid[0]-this.centroid[0],2) + Math.pow(_other_centroid[1]-this.centroid[1],2));
@@ -46,11 +51,6 @@ public class CritpointRegion {
 		else return false;
 
 	}
-
-	public enum RegionType {
-		END, BIF, CROSS, BIF_CROSS; // BIF_CROSS represents both, need it for some function calls clearness, appears as a pseudo-category here
-	}
-
 
 }
 

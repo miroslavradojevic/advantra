@@ -48,6 +48,41 @@ public class Entropy_Threshold implements PlugInFilter {
 
 	}
 
+	public ByteProcessor runMaxEntropyThreshold(ImageProcessor _in_float_processor, float _detection_sensitivity) {
+
+		ByteProcessor bp = _in_float_processor.convertToByteProcessor();
+		// repeat what the plugin does
+		int[] hist = bp.getHistogram();
+		int thresholdMaxEntropy = entropySplit(hist);
+//		int thresoldMax = (int) bp.getMax();
+
+		int thresholdMax1 = 0;
+		byte[] vals = (byte[]) bp.getPixels();
+		for (int i = 0; i < vals.length; i++) {
+
+			int v = vals[i]&0xff;
+
+			if (v > thresholdMax1) {
+				thresholdMax1 = v;
+			}
+
+		}
+
+//		System.out.println("ME:" 	+ thresholdMaxEntropy);
+//		System.out.println("MX:" 	+ thresoldMax);
+//		System.out.println("MX1:" 	+ thresholdMax1);
+
+		// choose threshold depending on the sensitivity
+		int threshold = (int) (_detection_sensitivity * thresholdMaxEntropy + (1 - _detection_sensitivity) * thresholdMax1);
+
+//		System.out.println("TH: " + threshold);
+
+		bp.threshold(threshold);
+
+		return bp;
+
+	}
+
 	/**
 	 * Calculate maximum entropy split of a histogram.
 	 *

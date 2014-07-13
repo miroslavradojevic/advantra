@@ -13,14 +13,14 @@ public class ClusterDirections {
 	// cluster directions using mean-shift
 	public static ArrayList<float[]> run(ArrayList<float[]> vxy, float alfaDeg) {
 
-		int max_iter = 50;
-		float epsilon = 0.0001f;
-		int min_cluster_cnt = 3; // to avoid taking into account outliers
+		int max_iter = 20;
+		float epsilon = 0.001f;
+		int min_cluster_cnt = 1; // to avoid taking into account outliers
 		float alfaRad = Deg2Rad(alfaDeg);
 
 		float[][] vxy_conv = meanShift(vxy, max_iter, epsilon, alfaRad); 				    // mean-shift, vxy are normalized
 		int[] out_lab = clustering(vxy_conv, alfaRad); 									    // cluster convergences
-		ArrayList<float[]> clustered_vxy_cnt = extracting(out_lab, vxy, min_cluster_cnt);   // extract clusters
+		ArrayList<float[]> clustered_vxy_cnt = extracting(out_lab, vxy, min_cluster_cnt);   // extract clusters (sorted by size)
 
 		return clustered_vxy_cnt;
 

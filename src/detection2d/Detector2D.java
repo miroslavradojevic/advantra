@@ -43,6 +43,8 @@ public class Detector2D {
     float           smoothness_high;            	// smoothness_high is actually lower than smoothness_low
     float           smoothness_low;             	// they are automatically calculated fro mthe distribution of smoothness values
 
+	float			detection_sensitivity;
+
     float			output_sigma = 0.45f;
 
 	float 			output_membership_th;       	// based on k and output_sigma
@@ -97,7 +99,8 @@ public class Detector2D {
 							 float 		_likelihood_high,
 							 float 		_likelihood_low,
                              float      _smoothness_high,
-                             float      _smoothness_low
+                             float      _smoothness_low,
+							 float 		_detection_sensitivity
     )
 	{
 
@@ -136,6 +139,8 @@ public class Detector2D {
         smoothness_high = _smoothness_high;
         smoothness_low = _smoothness_low;
 
+		detection_sensitivity = _detection_sensitivity;
+
 		String		Dlist = ""; // for the out directory
 		for (int i=0; i<_D.length; i++) Dlist += IJ.d2s(_D[i], 1) + ((i == _D.length - 1) ? "" : ","); // take care that it is a valid folder name signal ',._' are valid
 
@@ -144,15 +149,16 @@ public class Detector2D {
 
 		output_dir_name = image_dir+String.format(
 
-														 "DET.D.nncH.nccL.lhoodH.lhoodL.sthH.sthL_"+
-														 "%s_%.2f_%.2f_%.2f_%.2f_%.2f_%.2f",
+														 "DET.D.nncH.nccL.lhoodH.lhoodL.sthH.sthL.dsens_"+
+														 "%s_%.2f_%.2f_%.2f_%.2f_%.2f_%.2f_%.2f",
 														 Dlist,
 														 ncc_high,
 														 ncc_low,
 														 likelihood_high,
 														 likelihood_low,
 														 smoothness_high,
-														 smoothness_low
+														 smoothness_low,
+														 detection_sensitivity
 														 );
 
 		midresults_dir = image_dir+image_name + "_midresults" + File.separator;
@@ -461,7 +467,7 @@ public class Detector2D {
 //				threshold(map_scores_end, output_membership_th*(max_after_reg/max_before_reg), map_region_end); // apply threshold: input, threshold_value, output
 
 				// use maximum entropy to threshold
-				map_region_end = et.runMaxEntropyThreshold(map_scores_end);
+				map_region_end = et.runMaxEntropyThreshold(map_scores_end, detection_sensitivity);
 
 				if (save_midresults) {
 					ip_exporter.setProcessor(map_region_end);
@@ -501,7 +507,7 @@ public class Detector2D {
 				//threshold(map_scores_jun, output_membership_th*(max_after_reg/max_before_reg), map_region_jun); // apply threshld: input, threshold_value, output
 
 				// use maximum entropy to threshold
-				map_region_jun = et.runMaxEntropyThreshold(map_scores_jun);
+				map_region_jun = et.runMaxEntropyThreshold(map_scores_jun, detection_sensitivity);
 
 				if (save_midresults) {
 					ip_exporter.setProcessor(map_region_jun);
@@ -520,12 +526,18 @@ public class Detector2D {
 
         } // loop D[]
 
+
+		t2 = System.currentTimeMillis();
+		System.out.println("\nfinished. " + ((t2 - t1) / 1000f) + "sec.");
+		t1 = System.currentTimeMillis();
+
 		if (do_endpoints) {
 			if (save_midresults) {
 				ip_exporter.setProcessor(cumm_regions_end);
 				IJ.saveAs(ip_exporter, "Tiff", midresults_dir+"cumm_regions_end.tif");
 			}
 
+			System.out.print("EndpointDirections... ");
 			appendDetectedRegions(
 										 cumm_regions_end,
 										 cumm_directions_end,
@@ -540,6 +552,7 @@ public class Detector2D {
 				IJ.saveAs(ip_exporter, "Tiff", midresults_dir+"cumm_regions_jun.tif");
 			}
 
+			System.out.print("JunctionDirections... ");
 			appendDetectedRegions(
 										 cumm_regions_jun,
 										 cumm_directions_jun,
@@ -549,7 +562,7 @@ public class Detector2D {
 		}
 
 		t2 = System.currentTimeMillis();
-		System.out.println("done. " + ((t2 - t1) / 1000f) + "sec.");
+		System.out.println("\ndone. " + ((t2 - t1) / 1000f) + "sec.");
 
 	} // run()
 
@@ -635,7 +648,7 @@ public class Detector2D {
 
 							// check if it exists and if it exists check whether the branch is on
 							int curr_peak_i = _peaks_i[icoord][peak_idx];
-							boolean curr_peak_on = _branch_score[icoord][peak_idx]>output_membership_th;
+							boolean curr_peak_on = true;//_branch_score[icoord][peak_idx]>output_membership_th;
 
 							if (curr_peak_i!=-1 && curr_peak_i!=-2 && curr_peak_on) { // indexes of the spatial locations corresponding to peaks
 
@@ -736,7 +749,7 @@ public class Detector2D {
                 }
 
                 //add region
-                OvalRoi ovroi = new OvalRoi(cx-cr+.5, cy-cr+.5, 2*cr, 2*cr);
+                OvalRoi ovroi = new OvalRoi(cx-cr+.0, cy-cr+.0, 2*cr, 2*cr);
                 ovroi.setStrokeWidth(1);
 			    ovroi.setStrokeColor(region_color);
 			    ovroi.setFillColor(region_color);
@@ -748,7 +761,7 @@ public class Detector2D {
                 for (int j = 0; j < detected_regions.get(i).outward_directions.length; j++) {
                     float dx = detected_regions.get(i).outward_directions[j][0];
                     float dy = detected_regions.get(i).outward_directions[j][1];
-                    Line l = new Line(cx+.5f, cy+.5f, cx+scale_direction*cr*dx+.5f, cy+scale_direction*cr*dy+.5f);
+                    Line l = new Line(cx+.0f, cy+.0f, cx+scale_direction*cr*dx+.0f, cy+scale_direction*cr*dy+.0f);
                     l.setStrokeWidth(2);
                     l.setStrokeColor(region_color);
                     l.setFillColor(region_color);
@@ -773,6 +786,7 @@ public class Detector2D {
 																  )
 	{
 
+//		System.out.println("\n***\ndetecting " + _choose_type);
 		// take detections (binary image), find connected regions
 		ip_exporter.setProcessor(_region_map);
 		Find_Connected_Regions conn_reg = new Find_Connected_Regions(ip_exporter, true);
@@ -807,8 +821,9 @@ public class Detector2D {
 
 				C /= regs.get(i).size();    // score (calculate it here regardless of the type, says how much average fuzzy score was confident on the output)
 
-				Cr = (float) (1f * Math.sqrt(regs.get(i).size()/3.14f)); 		    // radius is wrt to the area
-
+				Cr = (float) Math.ceil(  (1f * Math.sqrt(regs.get(i).size()/3.14f))  ); // radius is wrt to the area: constrain it to be not less than 1
+			    // (Cr will be used to export OvalRois that will be read later on due to evaluation and it's nice if they're >1,
+			    // case with 1.00 radius will still give negative readouts, but that case I'll handle manually in Evaluator2D)
 				// second part (type, outward_directions) depends on which type of critical point we deal with
 				Ctype = null;   			// values to add for this region
 
@@ -843,12 +858,14 @@ public class Detector2D {
 
 				}
 
+//			System.out.print("\nregion " + i + " : " + vxy.size());
+
             // vxy list is formed.. to make sense - take those that had more than certain amount of directions
             // to be sure that the mean shift makes sense and the region itself is salient to be added at all
             // (has enought directions to make the decision)
-            if (_choose_type == CritpointRegion.RegionType.END && vxy.size()>2) {
-
-                ArrayList<float[]> direction_clusters_vxy_count = ClusterDirections.run(vxy, alfa_deg);
+            if (_choose_type == CritpointRegion.RegionType.END && vxy.size()>0) {
+//				System.out.println(" added as END");
+				ArrayList<float[]> direction_clusters_vxy_count = ClusterDirections.run(vxy, alfa_deg);
                 //System.out.println(direction_clusters_vxy_count.size() + " directions clustered out of " + vxy.size() + " directions at category " + i + " (" + _choose_type + ") with" + regs.get(i).size() + " locations in region");
                 Ctype = CritpointRegion.RegionType.END; // this is known
 
@@ -859,19 +876,37 @@ public class Detector2D {
                     Cdirections[k][1] = direction_clusters_vxy_count.get(k)[1];
                 }
 
-                region_list.add(new CritpointRegion(Ctype, Cx, Cy, Cr, C, Cdirections, 1)); // take one from the top only, no need to differentiate
+                region_list.add(new CritpointRegion(Ctype, Cx, Cy, Cr, C, Cdirections, 1)); // take one from the top only, no need to discriminate further
 
             }
-            else if (_choose_type == CritpointRegion.RegionType.BIF_CROSS && vxy.size()>4) {
-
-                ArrayList<float[]> direction_clusters_vxy_count = ClusterDirections.run(vxy, alfa_deg);
+            else if (_choose_type == CritpointRegion.RegionType.BIF_CROSS && vxy.size()>2) {
+//				System.out.println(" added as BIF_CROSS");
+				ArrayList<float[]> direction_clusters_vxy_count = ClusterDirections.run(vxy, alfa_deg);
                 //System.out.println(direction_clusters_vxy_count.size() + " directions clustered out of " + vxy.size() + " directions at category " + i + " (" + _choose_type + ") with" + regs.get(i).size() + " locations in region");
 
-                // decide whether it is bif (3- clusters) or CROSS (4 clusters) // &&  direction_clusters_vxy_count.get(3)[2]/direction_clusters_vxy_count.get(2)[2]>0.8
-                if (direction_clusters_vxy_count.size()==4 ) // if the last one is balanced towards smallest remaining
-                    Ctype = CritpointRegion.RegionType.CROSS;
-                else
-                    Ctype = CritpointRegion.RegionType.BIF;
+
+				//direction_clusters_vxy_count.get( RANKING )[X_Y_COUNT]
+
+                // decide whether it is bif (3- clusters) or CROSS (4 clusters)
+
+				if (direction_clusters_vxy_count.size()==4) { // if the last one is balanced towards smallest remaining
+
+					boolean is_cross = direction_clusters_vxy_count.get(3)[2] / direction_clusters_vxy_count.get(2)[2] >= 0.8;
+
+					if (is_cross) {
+						Ctype = CritpointRegion.RegionType.CROSS; // (add all 4)
+					} else {
+						Ctype = CritpointRegion.RegionType.BIF;   // (add all 3)
+					}
+
+				}
+				else if (direction_clusters_vxy_count.size()==3) {
+					Ctype = CritpointRegion.RegionType.BIF;
+				}
+				else {
+					// region was classified as junction (bif. or crs.) but the delineation directions were not 3 at least after mean-shifting
+					Ctype = CritpointRegion.RegionType.BDY;   // it's not END, it's not BIF, or CROSS
+				}
 
                 Cdirections = new float[direction_clusters_vxy_count.size()][2];  // will take 2 columns (3rd will be used to determine if it is crossing)
                 for (int k=0; k<direction_clusters_vxy_count.size(); k++) {
@@ -886,11 +921,12 @@ public class Detector2D {
                     case CROSS:
                         region_list.add(new CritpointRegion(Ctype, Cx, Cy, Cr, C, Cdirections, 4));
                         break;
+					case BDY:
+						// don't add it
+						break;
                     default:
                         break;
                 }
-
-
 
             }
             else {

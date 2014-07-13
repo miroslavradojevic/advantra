@@ -96,14 +96,14 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
             _save_midresults        =           Prefs.get("critpoint.detection2d.save_midresults", false);
             _s						= (float)	Prefs.get("critpoint.detection2d.s", 1.2f);
             _Dlist 					= 			Prefs.get("critpoint.detection2d.d", "6");
-			_sigma_ratio			= (float) 	Prefs.get("critpoint.detection2d.sigma_ratio", 		0.25f);
+			_sigma_ratio			= (float) 	Prefs.get("critpoint.detection2d.sigma_ratio", 		1f/6f);
             _ncc_high               = (float)   Prefs.get("critpoint.detection2d.ncc_high", 		0.90f);
-            _ncc_low				= (float) 	Prefs.get("critpoint.detection2d.ncc_low",	 		0.60f);
+            _ncc_low				= (float) 	Prefs.get("critpoint.detection2d.ncc_low",	 		0.50f);
             _likelihood_high        = (float)   Prefs.get("critpoint.detection2d.likelihood_high", 	0.90f);
             _likelihood_low			= (float) 	Prefs.get("critpoint.detection2d.likelihood_low", 	0.30f);
-            _smoothness_high        = (float)   Prefs.get("critpoint.detection2d.smoothness_high", 	10f);
-            _smoothness_low         = (float)   Prefs.get("critpoint.detection2d.smoothness_low", 	30f);
-            _detection_sensitivity  = (float)   Prefs.get("critpoint.detection2d.detection_sensitivity", 1f); // start with the  lowest sensitivity
+            _smoothness_high        = (float)   Prefs.get("critpoint.detection2d.smoothness_high", 	20f);
+            _smoothness_low         = (float)   Prefs.get("critpoint.detection2d.smoothness_low", 	0f);
+            _detection_sensitivity  = (float)   Prefs.get("critpoint.detection2d.detection_sensitivity", 1.0f); // start with the highest sensitivity
 
             GenericDialog gd = new GenericDialog("DETECTOR2D");
 
@@ -122,6 +122,7 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
             gd.addNumericField("LIKELIHOOD_LOW",    _likelihood_low, 	2,  10, "");
             gd.addNumericField("SMOOTHNESS_HIGH", 	_smoothness_high, 	2,  10, "");
             gd.addNumericField("SMOOTHNESS_LOW",    _smoothness_low, 	2,  10, "");
+			gd.addNumericField("DETECTION SENSITIVITY", _detection_sensitivity, 2, 10, "");
 
             gd.showDialog();
             if (gd.wasCanceled()) return;
@@ -141,6 +142,7 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
             _likelihood_low = (float) gd.getNextNumber();   		Prefs.set("critpoint.detection2d.likelihood_low", 	_likelihood_low);
             _smoothness_high= (float) gd.getNextNumber();   		Prefs.set("critpoint.detection2d.smoothness_high", 	_smoothness_high);
             _smoothness_low = (float) gd.getNextNumber();   		Prefs.set("critpoint.detection2d.smoothness_low", 	_smoothness_low);
+			_detection_sensitivity = (float) gd.getNextNumber();	Prefs.set("critpoint.detection2d.detection_sensitivity", _detection_sensitivity);
 
         }
         else { // continue with macro arguments without rising graphic window
@@ -160,6 +162,7 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
             _likelihood_low     = Float.valueOf(Macro.getValue(Macro.getOptions(), "LIKELIHOOD_LOW", String.valueOf(0.0)));
             _smoothness_high    = Float.valueOf(Macro.getValue(Macro.getOptions(), "SMOOTHNESS_HIGH", String.valueOf(10)));
             _smoothness_low     = Float.valueOf(Macro.getValue(Macro.getOptions(), "SMOOTHNESS_LOW", String.valueOf(20)));
+			_detection_sensitivity = Float.valueOf(Macro.getValue(Macro.getOptions(), "DETECTION_SENSITIVITY", String.valueOf(1f)));
 
         }
 
@@ -179,7 +182,8 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
 										_likelihood_high,
 										_likelihood_low,
                                         _smoothness_high,
-                                        _smoothness_low
+                                        _smoothness_low ,
+									  	_detection_sensitivity
 		);
 
 		// they are initialized by default already , this just overwrites the
@@ -276,8 +280,6 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
 //            ImageWindow iw = pfl_im2.getWindow();
             pfl_im2.updateAndDraw();
         }
-
-
 
 		/*
         pfl_is1 = PeakAnalyzer2D.plotDelineationProfiles(clickX, clickY);
