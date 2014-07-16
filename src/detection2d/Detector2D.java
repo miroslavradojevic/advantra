@@ -794,18 +794,29 @@ public class Detector2D {
 		ArrayList<ArrayList<int[]>> regs = conn_reg.getConnectedRegions();
 
 		ArrayList<float[]> vxy = new ArrayList<float[]>();
+
+        int Dmax = (int) Math.round(Stat.get_max(D));
+        int Amax = (int) (2*Math.pow(Dmax, 2)); // 2 is heuristic
+        int nr_regs = 0;
+
 		// regs
 		for (int i=0; i<regs.size(); i++) {
 
+            if (regs.get(i).size() > Amax) {
+                //System.out.println("skipping conn. region with " + regs.get(i).size() + " elements (Dmax=" + Dmax + ", Amax=" + Amax + ")");
+                continue; // go to the next region
+            }
 
-				float Cx=0, Cy=0; 	// centroid
-				float C=0;        	// score
-				float Cr; 			// radius
+            nr_regs++;
 
-				CritpointRegion.RegionType Ctype;   	// type
-				float[][] Cdirections;           		// directions
+			float Cx=0, Cy=0; 	// centroid
+			float C=0;        	// score
+			float Cr; 			// radius
 
-				for (int aa=0; aa<regs.get(i).size(); aa++) {  // loop elements of the region
+			CritpointRegion.RegionType Ctype;   	// type
+			float[][] Cdirections;           		// directions
+
+            for (int aa=0; aa<regs.get(i).size(); aa++) {  // loop elements of the region
 
 					int xcoord = regs.get(i).get(aa)[1];
 					int ycoord = regs.get(i).get(aa)[0];
@@ -962,6 +973,8 @@ public class Detector2D {
 
 
 		}
+
+        System.out.print("[" + nr_regs + "/" + regs.size() + " conn. regions taken]");
 
 	}
 
