@@ -9,6 +9,7 @@ import ij.io.OpenDialog;
 import ij.plugin.PlugIn;
 import ij.process.ByteProcessor;
 import ij.process.ImageProcessor;
+import imagescience.image.*;
 
 import java.awt.*;
 import java.awt.event.MouseEvent;
@@ -16,6 +17,7 @@ import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.io.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 /**
  * Created by miroslav on 1/6/14.
@@ -76,12 +78,13 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
         /*
         	load the detection parameters
          */
-        boolean _show_junctions, _show_endpoints, _enable_interactive, _save_midresults, _auto_smoothness;
+        boolean _show_junctions, _show_endpoints, _enable_interactive, _save_midresults;//, _auto_smoothness;
         float _s;
 		float _sigma_ratio;
-        String _Dlist="";
+        String _Dlist       = "";
+        String _dsens_list  = "";
         float _ncc_high, _ncc_low, _likelihood_high, _likelihood_low, _smoothness_low, _smoothness_high;
-        float _detection_sensitivity; // ranges from 0 (max) - 1 (max. entropy) will be used at thresholding
+//        float _detection_sensitivity; // ranges from 0 (max) - 1 (max. entropy) will be used at thresholding
 
         // check if the parameters were submitted through the macro before rising up the Generic Dialog
         // enables calling plugin from the macro without opening the graphical window
@@ -92,7 +95,7 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
             _show_junctions 		= 			Prefs.get("critpoint.detection2d.show_junctions", true);
             _show_endpoints 		= 			Prefs.get("critpoint.detection2d.show_endpoints", true);
             _enable_interactive     = 			Prefs.get("critpoint.detection2d.enable_interactive", true);
-            _auto_smoothness        =           Prefs.get("critpoint.detection2d.auto_smoothness", false);
+//            _auto_smoothness        =           Prefs.get("critpoint.detection2d.auto_smoothness", false);
             _save_midresults        =           Prefs.get("critpoint.detection2d.save_midresults", false);
             _s						= (float)	Prefs.get("critpoint.detection2d.s", 1.2f);
             _Dlist 					= 			Prefs.get("critpoint.detection2d.d", "6");
@@ -103,17 +106,17 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
             _likelihood_low			= (float) 	Prefs.get("critpoint.detection2d.likelihood_low", 	0.30f);
             _smoothness_high        = (float)   Prefs.get("critpoint.detection2d.smoothness_high", 	20f);
             _smoothness_low         = (float)   Prefs.get("critpoint.detection2d.smoothness_low", 	0f);
-            _detection_sensitivity  = (float)   Prefs.get("critpoint.detection2d.detection_sensitivity", 1.0f); // start with the highest sensitivity
+            _dsens_list             =           Prefs.get("critpoint.detection2d.detection_sensitivity", "1.0"); // start with the highest sensitivity
 
             GenericDialog gd = new GenericDialog("DETECTOR2D");
 
             gd.addCheckbox("JUNCTIONS", 		    _show_junctions);
             gd.addCheckbox("ENDPOINTS", 		    _show_endpoints);
             gd.addCheckbox("INTERACTIVE",           _enable_interactive);
-            gd.addCheckbox("AUTO_SMOOTHNESS",       _auto_smoothness);
+//            gd.addCheckbox("AUTO_SMOOTHNESS",       _auto_smoothness);
             gd.addCheckbox("SAVE_MIDRESULTS",       _save_midresults);
 
-            gd.addStringField("Dlist", 				_Dlist);
+            gd.addStringField("Dlist", 				_Dlist, 30);
 			gd.addNumericField("sigma_ratio",       _sigma_ratio, 	    2,  10, "");
 			gd.addNumericField("s", 				_s,					1,	10,	"");
 			gd.addNumericField("NCC_HIGH", 	        _ncc_high, 			2,  10, "");
@@ -122,7 +125,7 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
             gd.addNumericField("LIKELIHOOD_LOW",    _likelihood_low, 	2,  10, "");
             gd.addNumericField("SMOOTHNESS_HIGH", 	_smoothness_high, 	2,  10, "");
             gd.addNumericField("SMOOTHNESS_LOW",    _smoothness_low, 	2,  10, "");
-			gd.addNumericField("DETECTION SENSITIVITY", _detection_sensitivity, 2, 10, "");
+			gd.addStringField("dsens_list", _dsens_list, 30);//addNumericField("DETECTION SENSITIVITY", _detection_sensitivity, 2, 10, "");
 
             gd.showDialog();
             if (gd.wasCanceled()) return;
@@ -130,7 +133,7 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
             _show_junctions = gd.getNextBoolean();      	    	Prefs.set("critpoint.detection2d.show_junctions", 		_show_junctions);
             _show_endpoints = gd.getNextBoolean();      	    	Prefs.set("critpoint.detection2d.show_endpoints", 		_show_endpoints);
             _enable_interactive = gd.getNextBoolean();				Prefs.set("critpoint.detection2d.enable_interactive", 	_enable_interactive);
-			_auto_smoothness =  gd.getNextBoolean();				Prefs.set("critpoint.detection2d.auto_smoothness", 		_auto_smoothness);
+//			_auto_smoothness =  gd.getNextBoolean();				Prefs.set("critpoint.detection2d.auto_smoothness", 		_auto_smoothness);
 			_save_midresults = gd.getNextBoolean();					Prefs.set("critpoint.detection2d.save_midresults", 		_save_midresults);
 
 			_Dlist       	= gd.getNextString(); 				    Prefs.set("critpoint.detection2d.d", _Dlist);
@@ -142,7 +145,7 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
             _likelihood_low = (float) gd.getNextNumber();   		Prefs.set("critpoint.detection2d.likelihood_low", 	_likelihood_low);
             _smoothness_high= (float) gd.getNextNumber();   		Prefs.set("critpoint.detection2d.smoothness_high", 	_smoothness_high);
             _smoothness_low = (float) gd.getNextNumber();   		Prefs.set("critpoint.detection2d.smoothness_low", 	_smoothness_low);
-			_detection_sensitivity = (float) gd.getNextNumber();	Prefs.set("critpoint.detection2d.detection_sensitivity", _detection_sensitivity);
+            _dsens_list     = gd.getNextString();	                Prefs.set("critpoint.detection2d.detection_sensitivity", _dsens_list);
 
         }
         else { // continue with macro arguments without rising graphic window
@@ -150,7 +153,7 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
             _show_junctions = Boolean.valueOf(Macro.getValue(Macro.getOptions(), "junctions", String.valueOf(false)));
             _show_endpoints = Boolean.valueOf(Macro.getValue(Macro.getOptions(), "endpoints", String.valueOf(false)));
             _enable_interactive = Boolean.valueOf(Macro.getValue(Macro.getOptions(), "interactive", String.valueOf(false)));
-            _auto_smoothness = Boolean.valueOf(Macro.getValue(Macro.getOptions(), "auto_smoothness", String.valueOf(false)));
+//            _auto_smoothness = Boolean.valueOf(Macro.getValue(Macro.getOptions(), "auto_smoothness", String.valueOf(false)));
             _save_midresults = Boolean.valueOf(Macro.getValue(Macro.getOptions(), "save_midresults", String.valueOf(false)));
 			_Dlist = Macro.getValue(Macro.getOptions(), "Dlist", String.valueOf(4));
 			_sigma_ratio = Float.valueOf(Macro.getValue(Macro.getOptions(), "sigma_ratio", String.valueOf(0.25)));
@@ -162,13 +165,20 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
             _likelihood_low     = Float.valueOf(Macro.getValue(Macro.getOptions(), "LIKELIHOOD_LOW", String.valueOf(0.0)));
             _smoothness_high    = Float.valueOf(Macro.getValue(Macro.getOptions(), "SMOOTHNESS_HIGH", String.valueOf(10)));
             _smoothness_low     = Float.valueOf(Macro.getValue(Macro.getOptions(), "SMOOTHNESS_LOW", String.valueOf(20)));
-			_detection_sensitivity = Float.valueOf(Macro.getValue(Macro.getOptions(), "DETECTION_SENSITIVITY", String.valueOf(1f)));
+			_dsens_list         = Macro.getValue(Macro.getOptions(), "DSENS_LIST", String.valueOf(1.0));// only one value by default
+			//Float.valueOf(Macro.getValue(Macro.getOptions(), "DETECTION_SENSITIVITY", String.valueOf(1f)));
 
         }
 
-        String[] dd = _Dlist.split(",");
+        String[] dd = _Dlist.split(","); if (dd.length==0) return;
         float[] _D = new float[dd.length];
 		for (int i=0; i<dd.length; i++) _D[i] = Float.valueOf(dd[i]);
+
+        dd = _dsens_list.split(",");  if (dd.length==0) return;
+        float[] _dsens = new float[dd.length];
+        for (int i = 0; i < dd.length; i++) _dsens[i] = Float.valueOf(dd[i]);
+
+//        System.out.println("DSENS: "+ Arrays.toString(_dsens));
 
 		// detection
 		System.out.print("Detector2D... ");
@@ -183,41 +193,53 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
 										_likelihood_low,
                                         _smoothness_high,
                                         _smoothness_low ,
-									  	_detection_sensitivity
+									  	_dsens
 		);
 
 		// they are initialized by default already , this just overwrites the
 		det2d.saveMidresults(_save_midresults); 	 // t
-        det2d.auto_smoothness = _auto_smoothness;    // f
+//        det2d.auto_smoothness = _auto_smoothness;    // f
 		det2d.do_endpoints = _show_endpoints;        // t
 		det2d.do_junctions = _show_junctions;        // t
 
-		String save_path = "";
-		if (true) {
-			det2d.run();
-			Overlay ov_critpoints = det2d.getDetectionOverlay();
-			if (ov_critpoints.size()>0) ip_load.setOverlay(ov_critpoints);
-			else System.out.print("Empty overlay with detections.");
-
-			// save as tif with detection overlay (this will be input for evaluation, comparison with gndtth swc file)
-			save_path = det2d.output_dir_name + File.separator + det2d.image_name+".tif";
-			IJ.saveAs(ip_load, "Tiff", save_path);
-			//System.out.println("exported: " + save_path);
-
-			// save swc with dets
-			save_path = det2d.output_dir_name + File.separator + det2d.image_name+".det";
-			det2d.saveDetection(save_path);
-			//System.out.println("exported: " + save_path);
-		}
-		System.out.println("DONE.");
+        det2d.run();
+        Overlay[] detection_overlays = det2d.saveDetection();  // export .zip and .det with detections
 
         if (_enable_interactive) {
+
+            // allocate image stack
+            ImageStack is_out = new ImageStack(ip_load.getWidth(), ip_load.getHeight());
+
+            for (int i = 0; i < detection_overlays.length; i++) {
+
+                if (detection_overlays[i].size()>0) {
+                    is_out.addSlice("DET2D,dsens="+IJ.d2s(_dsens[i],2)+".tif", ip);
+                    ImagePlus ip_at_dsens = ip_load.duplicate();
+                    ip_at_dsens.setTitle();
+                    ip_at_dsens.setOverlay(detection_overlays[i]);
+                    ip_at_dsens.show();
+                }
+                else System.out.print("Empty overlay with detections.");
+
+            }
+
+//			Overlay ov_critpoints = det2d.getDetectionOverlay();
+//			else System.out.print("Empty overlay with detections.");
+			// save as tif with detection overlay (this will be input for evaluation, comparison with gndtth swc file)
+//			save_path = det2d.output_dir_name + File.separator + det2d.image_name+".tif";
+//			IJ.saveAs(ip_load, "Tiff", save_path);
+			// save swc with dets
+//			save_path = det2d.output_dir_name + File.separator + det2d.image_name+".det";
+			//System.out.println("exported: " + save_path);
+
 			ip_load.show();
 			cnv = ip_load.getCanvas();
 			cnv.addMouseListener(this);
 			cnv.addMouseMotionListener(this);
 			IJ.setTool("hand");
 		}
+
+        System.out.println("DONE.");
 
 	}
 
