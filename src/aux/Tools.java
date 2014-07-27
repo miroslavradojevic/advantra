@@ -1379,4 +1379,34 @@ public class Tools {
 
 	}
 
+	public static String getFileExtension(String file_path)
+	{
+		String extension = "";
+
+		int i = file_path.lastIndexOf('.');
+		if (i >= 0) {
+			extension = file_path.substring(i+1);
+		}
+
+		return extension;
+	}
+
+	public static String getFileName(String file_path)
+	{
+		String name = "";
+
+		int i = file_path.lastIndexOf('.');
+		int j = file_path.lastIndexOf(File.separator);
+
+		if (i > 0) {
+			if (j>=0) {
+				name = file_path.substring(j+1, i);
+			}
+			else {
+				name = file_path.substring(0, i);
+			}
+		}
+
+		return name;
+	}
 }

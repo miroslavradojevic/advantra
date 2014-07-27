@@ -491,7 +491,7 @@ public class Detector2D {
 					IJ.saveAs(ip_exporter, "Tiff", midresults_dir+"map_scores_end_reg_"+D[didx]+".tif");
 				}
 
-                for (int i = 0; i < dsens.length; i++) {  // for all thresholds
+                for (int i = 0; i < dsens.length; i++) {  // for all dsens thresholds
 
                     map_region_end.add(i, et.runMaxEntropyThreshold(map_scores_end, dsens[i])); // map_scores_end -> map_region_end, use maximum entropy to threshold ~1
 
@@ -564,16 +564,14 @@ public class Detector2D {
 
             for (int i = 0; i <cumm_regions_end.size(); i++) {
 
-                System.out.println("dsens " + dsens[i]);
+//                System.out.println("dsens " + dsens[i]);
 
                 if (save_midresults) {
                     ip_exporter.setProcessor(cumm_regions_end.get(i));
-                    IJ.saveAs(ip_exporter, "Tiff", midresults_dir + "cumm_regions_end_dsens=" + IJ.d2s(dsens[i],2) + ".tif");
+                    IJ.saveAs(ip_exporter, "Tiff", midresults_dir + "cumm_regions_end,dsens=" + IJ.d2s(dsens[i],2) + ".tif");
                 }
-//                System.out.println("cumm_regions_end = " + cumm_regions_end.size());
-//                System.out.println("cumm_directions_end = " + cumm_directions_end.size());
-//                System.out.println("detected_regions = " + detected_regions.size());
-                appendDetectedRegions(
+
+				appendDetectedRegions(
                         cumm_regions_end.get(i),
                         cumm_directions_end.get(i),
                         map_scores_end, CritpointRegion.RegionType.END, ang_deg,
@@ -591,7 +589,7 @@ public class Detector2D {
 
                 if (save_midresults) {
                     ip_exporter.setProcessor(cumm_regions_jun.get(i));
-                    IJ.saveAs(ip_exporter, "Tiff", midresults_dir+"cumm_regions_jun_dsens="+IJ.d2s(dsens[i],2)+".tif");
+                    IJ.saveAs(ip_exporter, "Tiff", midresults_dir+"cumm_regions_jun,dsens="+IJ.d2s(dsens[i],2)+".tif");
                 }
 
                 appendDetectedRegions(
@@ -721,14 +719,11 @@ public class Detector2D {
 
 	public Overlay[] saveDetection() // String path
 	{
-
-        // saves detections in predefined output folders
-        // image.det textual file
-        // image.zip overlay roi file
+		// saves detections in predefined output folders
+        // image.det textual file with the description of critpoint regions
         // return Overlay array that was extracted and saved for each dsens[i] threshold
 
-        Overlay[] ovs = new Overlay[dsens.length];
-//        for (int i = 0; i <dsens.length; i++) ovs[i] = new Overlay();
+        Overlay[] ovs = new Overlay[dsens.length]; // alloc output
 
         for (int i = 0; i < dsens.length; i++) { // loop list of scores with different thresholds
 
@@ -745,7 +740,7 @@ public class Detector2D {
 
             try {
                 logWriter = new PrintWriter(new BufferedWriter(new FileWriter(det_path, true)));
-                logWriter.println("# MY DETECTIONS: X, Y, RADIUS, SCORE, TYPE, DIRECTIONS ");
+                logWriter.println("# DETECTOR2D...\n# X, Y, RADIUS, SCORE, TYPE, DIRECTIONS(vx,vy, vx,vy...) ");
             } catch (IOException e) {}
 
             //// initialize Overlay component
@@ -756,7 +751,7 @@ public class Detector2D {
 
                 if (detected_regions.get(i).get(ii)!=null) { // just in case if the CritpointRegion was null
 
-                    // write one component of the Overlay
+					// write one component of the Overlay
                     float cx = detected_regions.get(i).get(ii).centroid[0];
                     float cy = detected_regions.get(i).get(ii).centroid[1];
                     float cr = detected_regions.get(i).get(ii).radius;
@@ -782,62 +777,69 @@ public class Detector2D {
                             break;
                     }
 
-                    //add region as OvalRoi
-                    OvalRoi ovroi = new OvalRoi(cx-cr+.0, cy-cr+.0, 2*cr, 2*cr);
+					if (ctype==null) continue; // skip adding the overlay and line in .det
+
+					// write line to .det for each region
+					String curr_detection = "";
+
+					//add region as OvalRoi to output array of Overlays[]
+                    OvalRoi ovroi = new OvalRoi(cx-cr, cy-cr, 2*cr, 2*cr);
                     ovroi.setStrokeWidth(1);
                     ovroi.setStrokeColor(region_color);
                     ovroi.setFillColor(region_color);
+					ovs[i].add(ovroi);
 
-                    ovs[i].add(ovroi);
+					// add line to .det  (what's loaded so far)
+					curr_detection +=
+							IJ.d2s(cx,2)+", "+IJ.d2s(cy,2)+", "+
+									IJ.d2s(cr,2)+", "+
+									IJ.d2s(sc,2)+", "+detected_regions.get(i).get(ii).type+", ";
 
-                    // add directions
-                    float scale_direction = 1.3f; // just for vizuallization
-                    for (int j = 0; j < detected_regions.get(i).get(ii).outward_directions.length; j++) {
-                        float dx = detected_regions.get(i).get(ii).outward_directions[j][0];
+                    // add directions os Line  Overlay component
+                    float scale_direction = 1.3f; // just for visualization
+					int nr_directions = detected_regions.get(i).get(ii).outward_directions.length;
+                    for (int j = 0; j < nr_directions; j++) {
+
+						float dx = detected_regions.get(i).get(ii).outward_directions[j][0];
                         float dy = detected_regions.get(i).get(ii).outward_directions[j][1];
-                        Line l = new Line(cx+.0f, cy+.0f, cx+scale_direction*cr*dx+.0f, cy+scale_direction*cr*dy+.0f);
+
+						curr_detection += IJ.d2s(dx,2)+", "+IJ.d2s(dy,2);
+						if (j<nr_directions-1) curr_detection += ", ";
+
+						Line l = new Line(cx, cy, cx+scale_direction*cr*dx, cy+scale_direction*cr*dy);
                         l.setStrokeWidth(2);
                         l.setStrokeColor(region_color);
                         l.setFillColor(region_color);
                         ovs[i].add(l);
+
                     }
 
+//                    float[][] directs = detected_regions.get(i).get(ii).outward_directions;
+//                    for (int k = 0; k < nr_directions; k++) {
+//                        curr_detection += IJ.d2s(directs[k][0],2)+", "+IJ.d2s(directs[k][1],2);
+//                        if (k<nr_directions-1) curr_detection += ", ";
+//                    }
 
-
-                    // write line to .det for each region
-                    String curr_detection = "";
-
-                    curr_detection += IJ.d2s(detected_regions.get(i).get(ii).centroid[0],2)+", ";
-                    curr_detection += IJ.d2s(detected_regions.get(i).get(ii).centroid[1],2)+", ";
-                    curr_detection += IJ.d2s(detected_regions.get(i).get(ii).radius,2)+", ";
-                    curr_detection += IJ.d2s(detected_regions.get(i).get(ii).score,2)+", ";
-                    curr_detection += detected_regions.get(i).get(ii).type+", ";
-
-                    int nr_directions = detected_regions.get(i).get(ii).outward_directions.length;
-                    float[][] directs = detected_regions.get(i).get(ii).outward_directions;
-                    for (int iii = 0; iii < nr_directions; iii++) {
-                        curr_detection += IJ.d2s(directs[iii][0],2)+", "+IJ.d2s(directs[iii][1],2);
-                        if (i<nr_directions-1) curr_detection += ", ";
-                    }
-
-                    logWriter.println(curr_detection);
+					logWriter.println(curr_detection);
 
                 }
+//				else {
+//					System.out.println(i+ " , " + ii + " was null / " + detected_regions.get(i).size());
+//				}
 
 
             }
 
             logWriter.close();
-            System.out.println("exp: " + det_path);
-
+            System.out.println("exported .DET: " + det_path);
             // save overlay ovs[i] as zip file
-            RoiManager rm = new RoiManager();
-            for (int k = 0; k < ovs[i].size(); k++) rm.addRoi(ovs[i].get(k));
-            rm.runCommand("Save", zip_path);
-            rm.close();
-//            IJ.run("Close All", "");
-
-            System.out.println("exp: " + zip_path);
+//			System.out.println("HERE IT HAPPENS!!");
+//			RoiManager rm = new RoiManager(true); // hide window
+            //for (int k = 0; k < ovs[i].size(); k++) rm.addRoi(ovs[i].get(k));
+            //rm.runCommand("Save", zip_path);
+            //rm.close();
+//			System.out.println("SUCCESS!");
+            //System.out.println("exp .ZIP: " + zip_path);
 
         }
 

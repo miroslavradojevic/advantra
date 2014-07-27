@@ -1,6 +1,8 @@
 package detection2d;
 
+import aux.ReadDET;
 import aux.ReadSWC;
+import aux.Tools;
 import ij.*;
 import ij.gui.GenericDialog;
 import ij.gui.OvalRoi;
@@ -45,13 +47,12 @@ public class Evaluator2D implements PlugIn {
 	int tp_JUN, fp_JUN, fn_JUN;
 	float p_JUN, r_JUN;
 
-	Overlay			eval_overlay_jun = new Overlay();
+	Overlay			eval_overlay_jun = new Overlay();  // visualize the detections
 	Overlay			eval_overlay_end = new Overlay();
 
 	public void run(String s) { // regular PlugIn run() method
 
         String			det_file_path;     		// either .tif or .det
-		String			det_file_name;          //
 
 		boolean			show = false;
 
@@ -73,8 +74,8 @@ public class Evaluator2D implements PlugIn {
 		if (Macro.getOptions()==null) {
 
 			GenericDialog gd = new GenericDialog("GROUND TRUTH?");
-			gd.addStringField("gndtth_path (.swc)", 	new File(output_dir_name).getParent(), 150);
-			gd.addStringField("gndtth_tag", 	"ground_truth_tag", 50);
+			gd.addStringField("gndtth_path (.swc)", 	new File(output_dir_name).getParent(), 60);
+			gd.addStringField("gndtth_tag", 	"LABEL", 50);
 			gd.addCheckbox("show",  false);
 			gd.showDialog();
 			if (gd.wasCanceled()) return;
@@ -97,15 +98,17 @@ public class Evaluator2D implements PlugIn {
 			return;
 		}
 
-		if (!getFileExtension(gndtth_path).equals("swc")) {
+		if (!Tools.getFileExtension(gndtth_path).equals("swc")) {
 			System.out.println("file needs to be .swc");
 			return;
 		}
 
+		// structure to be filled up reading from the ground truth swc: list of <x,y,r>
 		ArrayList<float[]> gndtth_juns = new ArrayList<float[]>();
 		ArrayList<float[]> gndtth_bifs = new ArrayList<float[]>();
 		ArrayList<float[]> gndtth_ends = new ArrayList<float[]>();
 		ArrayList<float[]> gndtth_crss = new ArrayList<float[]>();
+		ArrayList<float[]> gndtth_ignr = new ArrayList<float[]>();
 
         ReadSWC reader = new ReadSWC(gndtth_path);
 
@@ -127,6 +130,9 @@ public class Evaluator2D implements PlugIn {
 				gndtth_crss.add(new float[]{bx, by, br});
 				gndtth_juns.add(new float[]{bx, by, br});
 			}
+			else if (typ==ignore_type) {
+				gndtth_ignr.add(new float[]{bx, by, br});
+			}
 
 		}
 
@@ -135,139 +141,70 @@ public class Evaluator2D implements PlugIn {
 										  gndtth_juns.size() + " JUNS, " +
 										  gndtth_ends.size() + " ENDS, " +
 										  gndtth_bifs.size() + " BIFS, " +
-										  gndtth_crss.size() + " CRSS. "
+										  gndtth_crss.size() + " CRSS, " +
+										  gndtth_ignr.size() + " IGNR."
 		);
 
-
 		/* read the detections (use gndtth ignore regions to exclude those that we don't wish to evaluate) */
-
+		// lists to be filled up by reading from the .det csv file <x,y,r>
 		ArrayList<float[]> det_bifs = new ArrayList<float[]>();
 		ArrayList<float[]> det_juns = new ArrayList<float[]>();
 		ArrayList<float[]> det_ends = new ArrayList<float[]>();
 		ArrayList<float[]> det_crss = new ArrayList<float[]>();
 
-		det_file_name = new File(det_file_path).getName();
-		String detection_file_ext = getFileExtension(det_file_path);
-
 		// append to the list in different scenarios
-		if (detection_file_ext.equals("tif")) {
+		if (Tools.getFileExtension(det_file_path).equals("det")) {
 
-			ImagePlus ip_load = new ImagePlus(det_file_path);
-			if (ip_load == null) {
-				System.out.println("loaded image was NULL");
-				return;
-			}
+			// read csv file (.det) at specified location
+			ReadDET det_reader = new ReadDET(det_file_path);
 
-			Overlay ov_det = ip_load.getOverlay();
+			for (int i = 0; i < det_reader.x.size(); i++) { // loop read detections
 
-			int nr_elements = 0;
+				float reg_x = det_reader.x.get(i);
+				float reg_y = det_reader.y.get(i);
+				float reg_r = det_reader.r.get(i);
 
-			if (ov_det != null) {
+				// before adding it - check if it is not in some of the ignore regions of the ground truth
+				boolean add_it = true;
 
-				for (int i = 0; i < ov_det.size(); i++) { // loop detections
+				for (int j = 0; j < gndtth_ignr.size(); j++) {
 
-					if (ov_det.get(i).getTypeAsString().equals("Oval")) {
+					float ignr_x = gndtth_ignr.get(j)[0];
+					float ignr_y = gndtth_ignr.get(j)[1];
+					float ignr_r = gndtth_ignr.get(j)[2];
 
-						float x = (float) ov_det.get(i).getFloatBounds().getX();
-						float y = (float) ov_det.get(i).getFloatBounds().getY();
-						float w = (float) ov_det.get(i).getFloatBounds().getWidth();
-						float h = (float) ov_det.get(i).getFloatBounds().getHeight();
-						float r = (float) (Math.max(w, h) / 2);
-
-						// FIX: can happen that the read values w, h (and hence r) are negative due to the bad readout
-						if (w<0 || h<0) {
-
-							w = 2;
-							h = 2;
-							r = 1;
-
-						}
-
-						float xc = x + r / 1 - .0f;
-						float yc = y + r / 1 - .0f;
-
-//						System.out.println("read xc yc r w h : " + xc + " | " + yc + " , " +  r + " , " + w + " , " + h) ;
-
-						// before adding it - check if it is not in some of the ignore regions of the ground truth
-						boolean add_it = true;
-						for (int j = 0; j < reader.nodes.size(); j++) {
-
-							int typ = Math.round(reader.nodes.get(j)[reader.TYPE]);
-
-							if (typ == ignore_type) {
-
-								float bx = reader.nodes.get(j)[reader.XCOORD];
-								float by = reader.nodes.get(j)[reader.YCOORD];
-								float br = reader.nodes.get(j)[reader.RADIUS];
-
-								boolean overlap = Math.pow(x - bx, 2) + Math.pow(y - by, 2) <= Math.pow(r + br, 2);
-
-								if (overlap) {
-									add_it = false;
-								}
-
-							}
-
-						}
-
-						if (!add_it) {
-							System.out.println("skip: region belonged to the ignore area");
-							continue; // it overlapped with ignore region
-						}
-
-						Color obj_color = ov_det.get(i).getFillColor();
-
-						if (obj_color == null) {
-							System.out.println("found null color in overlay");
-							continue;
-						}
-
-						nr_elements++;
-
-						if (obj_color.equals(bif_color)) {
-							det_bifs.add(new float[]{xc, yc, r});
-							det_juns.add(new float[]{xc, yc, r});
-						} else if (obj_color.equals(end_color)) {
-							det_ends.add(new float[]{xc, yc, r});
-						} else if (obj_color.equals(crs_color)) {
-							det_crss.add(new float[]{xc, yc, r});
-							det_juns.add(new float[]{xc, yc, r});
-						}
-
-					}
-
+					if (Math.pow(reg_x - ignr_x, 2) + Math.pow(reg_y - ignr_y, 2) <= Math.pow(reg_r + ignr_r, 2))
+						add_it = false;
 				}
 
-				System.out.println("tif detection loaded -> " + nr_elements + " elements: " +
-										   det_juns.size() + " JUNS, " +
-										   det_ends.size() + " ENDS, " +
-										   det_bifs.size() + " BIFS, " +
-										   det_crss.size() + " CRSS. "
-				);
+				if (!add_it || reg_r<=0) continue; // it overlapped with ignore region
+
+				String region_type = det_reader.t.get(i);
+
+				if (region_type.equals("BIF")) {
+					det_bifs.add(new float[]{reg_x, reg_y, reg_r});
+					det_juns.add(new float[]{reg_x, reg_y, reg_r});
+				} else if (region_type.equals("END")) {
+					det_ends.add(new float[]{reg_x, reg_y, reg_r});
+				} else if (region_type.equals("CROSS")) {
+					det_crss.add(new float[]{reg_x, reg_y, reg_r});
+					det_juns.add(new float[]{reg_x, reg_y, reg_r});
+				}
 
 			}
-			else {
-				System.out.println("there was no overlay");
-			}
 
-
-
-		}
-		else if (detection_file_ext.equals("det")) {
-
-
-			/*
-			haven't implemanted this one yet...
-			 */
-
-
+			System.out.println("tif detection loaded -> " +
+									   det_juns.size() + " JUNS, " +
+									   det_ends.size() + " ENDS, " +
+									   det_bifs.size() + " BIFS, " +
+									   det_crss.size() + " CRSS. "
+			);
 
 		}
 		else {
-			System.out.println("Detection file type not recognized.");
+			System.out.println("Detection file extension not recognized.");
 			return;
 		}
-
 
 		/* evaluation */
 
@@ -279,11 +216,13 @@ public class Evaluator2D implements PlugIn {
 		/* store output */
 
 		PrintWriter 	logWriter = null;
-		String legend = "NAME, ANNOT_TAG, " +
-								"TP_JUN, FP_JUN, FN_JUN, P_JUN, R_JUN, " +
-								"TP_BIF, FP_BIF, FN_BIF, P_BIF, R_BIF, " +
-								"TP_CRS, FP_CRS, FN_CRS, P_CRS, R_CRS, " +
-								"TP_END, FP_END, FN_END, P_END, R_END";
+		String legend = String.format("%10s,%10s,%6s,%6s,%6s,%6s,%6s,%6s,%6s,%6s,%6s,%6s,%6s,%6s,%6s,%6s,%6s,%6s,%6s,%6s,%6s,%6s",
+											 "NAME", "ANNOT_TAG",
+											 "TP_JUN", "FP_JUN", "FN_JUN", "P_JUN", "R_JUN",
+											 "TP_BIF", "FP_BIF", "FN_BIF", "P_BIF", "R_BIF",
+											 "TP_CRS", "FP_CRS", "FN_CRS", "P_CRS", "R_CRS",
+											 "TP_END", "FP_END", "FN_END", "P_END", "R_END"
+											 );
 
 		File f = new File(output_log_name);
 		if (!f.exists()) {
@@ -298,32 +237,35 @@ public class Evaluator2D implements PlugIn {
 			logWriter = new PrintWriter(new BufferedWriter(new FileWriter(output_log_name, true)));
 		} catch (IOException e) {}
 
-		String eval = 		    "\""+det_file_name + "\", "
-							  + "\""+gndtth_tag    + "\", "
-							  + tp_JUN + ", " + fp_JUN + ", " + fn_JUN + ", " + IJ.d2s(p_JUN, 2) + ", " + IJ.d2s(r_JUN, 2) + ", "
-							  + tp_BIF + ", " + fp_BIF + ", " + fn_BIF + ", " + IJ.d2s(p_BIF, 2) + ", " + IJ.d2s(r_BIF, 2) + ", "
-							  + tp_CRS + ", " + fp_CRS + ", " + fn_CRS + ", " + IJ.d2s(p_CRS, 2) + ", " + IJ.d2s(r_CRS, 2) + ", "
-							  + tp_END + ", " + fp_END + ", " + fn_END + ", " + IJ.d2s(p_END, 2) + ", " + IJ.d2s(r_END, 2);
+		String eval = String.format("%10s,%10s,%6d,%6d,%6d,%6.2f,%6.2f,%6d,%6d,%6d,%6.2f,%6.2f,%6d,%6d,%6d,%6.2f,%6.2f,%6d,%6d,%6d,%6.2f,%6.2f",
+										   Tools.getFileName(det_file_path),
+										   gndtth_tag,
+										   tp_JUN, fp_JUN, fn_JUN, p_JUN, r_JUN,
+										   tp_BIF, fp_BIF, fn_BIF, p_BIF, r_BIF,
+										   tp_CRS, fp_CRS, fn_CRS, p_CRS, r_CRS,
+										   tp_END, fp_END, fn_END, p_END, r_END
+										   );
 
-
-		//System.out.println(legend);
-		System.out.println(eval);
 
 		logWriter.println(eval);
 		logWriter.close();
 
-		if (show) { // show from GenericDialog
+		System.out.println(legend);
+		System.out.println(eval);
 
-			ImagePlus eval_image_jun = new ImagePlus(det_file_path);
-			eval_image_jun.setTitle("JUNCTION DET. EVALUATION");
+		if (show) { // show from GenericDialog, this is disabled in headless (because it makes sense only with graphic user interface)
+
+			IJ.open();
+			ImagePlus eval_image_jun = IJ.getImage();
+			ImagePlus eval_image_end = eval_image_jun.duplicate();
+
+			eval_image_jun.setTitle("*JUN* EVALUATION");
 			eval_image_jun.setOverlay(eval_overlay_jun);
 			eval_image_jun.show();
 
-			ImagePlus eval_image_end = new ImagePlus(det_file_path);
-			eval_image_end.setTitle("ENDPOINT DET. EVALUATION");
+			eval_image_end.setTitle("*END* EVALUATION");
 			eval_image_end.setOverlay(eval_overlay_end);
 			eval_image_end.show();
-
 
 		}
 
@@ -377,8 +319,6 @@ public class Evaluator2D implements PlugIn {
 
 		// loop all detected JUN regions
 		for (int a=0; a<_det_jun.size(); a++) {
-
-//			System.out.println("checking " + a);
 
 			boolean found = false;
 
@@ -553,16 +493,16 @@ public class Evaluator2D implements PlugIn {
 		return Math.pow(x1-x2,2)+Math.pow(y1-y2,2) <= Math.pow(r1+r2+margin,2);
 	}
 
-	private String getFileExtension(String file_path)
-	{
-		String extension = "";
-
-		int i = file_path.lastIndexOf('.');
-		if (i >= 0) {
-			extension = file_path.substring(i+1);
-		}
-
-		return extension;
-	}
+//	private String getFileExtension(String file_path)
+//	{
+//		String extension = "";
+//
+//		int i = file_path.lastIndexOf('.');
+//		if (i >= 0) {
+//			extension = file_path.substring(i+1);
+//		}
+//
+//		return extension;
+//	}
 
 }

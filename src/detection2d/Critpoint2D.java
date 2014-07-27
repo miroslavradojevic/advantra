@@ -167,8 +167,7 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
             _smoothness_low     = Float.valueOf(Macro.getValue(Macro.getOptions(), "SMOOTHNESS_LOW", String.valueOf(20)));
 			_dsens_list         = Macro.getValue(Macro.getOptions(), "DSENS_LIST", String.valueOf(1.0));// only one value by default
 			//Float.valueOf(Macro.getValue(Macro.getOptions(), "DETECTION_SENSITIVITY", String.valueOf(1f)));
-
-        }
+		}
 
         String[] dd = _Dlist.split(","); if (dd.length==0) return;
         float[] _D = new float[dd.length];
@@ -177,8 +176,6 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
         dd = _dsens_list.split(",");  if (dd.length==0) return;
         float[] _dsens = new float[dd.length];
         for (int i = 0; i < dd.length; i++) _dsens[i] = Float.valueOf(dd[i]);
-
-//        System.out.println("DSENS: "+ Arrays.toString(_dsens));
 
 		// detection
 		System.out.print("Detector2D... ");
@@ -208,29 +205,32 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
         if (_enable_interactive) {
 
             // allocate image stack
-            ImageStack is_out = new ImageStack(ip_load.getWidth(), ip_load.getHeight());
+            ImageStack out_stack = new ImageStack(ip_load.getWidth(), ip_load.getHeight());
+			// allocate joint Overlay for the stack
+			Overlay    out_ovl = new Overlay();
 
-            for (int i = 0; i < detection_overlays.length; i++) {
+            for (int i = 0; i < detection_overlays.length; i++) {  // loops dsens.length times
 
                 if (detection_overlays[i].size()>0) {
-                    is_out.addSlice("DET2D,dsens="+IJ.d2s(_dsens[i],2)+".tif", ip);
-                    ImagePlus ip_at_dsens = ip_load.duplicate();
-                    ip_at_dsens.setTitle();
-                    ip_at_dsens.setOverlay(detection_overlays[i]);
-                    ip_at_dsens.show();
+
+					out_stack.addSlice("DET2D,dsens="+IJ.d2s(_dsens[i],2)+".tif", ip_load.getProcessor().duplicate());
+
+					for (int j = 0; j < detection_overlays[i].size(); j++) {
+
+						Roi get_roi = detection_overlays[i].get(j);
+						get_roi.setPosition(out_stack.getSize());
+						out_ovl.add(get_roi);
+
+					}
+
                 }
                 else System.out.print("Empty overlay with detections.");
 
             }
 
-//			Overlay ov_critpoints = det2d.getDetectionOverlay();
-//			else System.out.print("Empty overlay with detections.");
-			// save as tif with detection overlay (this will be input for evaluation, comparison with gndtth swc file)
-//			save_path = det2d.output_dir_name + File.separator + det2d.image_name+".tif";
-//			IJ.saveAs(ip_load, "Tiff", save_path);
-			// save swc with dets
-//			save_path = det2d.output_dir_name + File.separator + det2d.image_name+".det";
-			//System.out.println("exported: " + save_path);
+			ImagePlus out_imp = new ImagePlus("Critpoint2D", out_stack);
+			out_imp.setOverlay(out_ovl);
+			out_imp.show();
 
 			ip_load.show();
 			cnv = ip_load.getCanvas();

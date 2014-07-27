@@ -11,12 +11,9 @@ import java.util.ArrayList;
  */
 public class ReadSWC {
 
-	// path to swc file
-    private String  swcFilePath = "";
-    // counter
-	private int     fileLength  = 0;
 	// list with nodes
 	public ArrayList<float[]> nodes = new ArrayList<float[]>(); // 1x7 rows (swc format)
+
 	public float minR = Float.POSITIVE_INFINITY, maxR = Float.NEGATIVE_INFINITY;
 	public float minX = Float.POSITIVE_INFINITY, maxX = Float.NEGATIVE_INFINITY;
 	public float minY = Float.POSITIVE_INFINITY, maxY = Float.NEGATIVE_INFINITY;
@@ -31,17 +28,16 @@ public class ReadSWC {
 	public static int RADIUS 	= 5;
 	public static int MOTHER 	= 6;
 
-    public ReadSWC(String swcFilePath) {
+    public ReadSWC(String _swcFilePath) {
 
-        swcFilePath = new File(swcFilePath).getAbsolutePath();
+        String swcFilePath = new File(_swcFilePath).getAbsolutePath();// path to swc file
 
         if (!(new File(swcFilePath).exists())) {
             System.err.println(swcFilePath+" does not exist! class not initialized...");
             return;
         }
 
-        this.swcFilePath = swcFilePath;
-        this.fileLength = 0;
+//        int fileLength = 0; // counter
 
         try { // scan the file
 
@@ -52,7 +48,7 @@ public class ReadSWC {
 			while ( (read_line = br.readLine()) != null ) {
                 if(!read_line.trim().startsWith("#")) { // # are comments
 
-                    fileLength++;
+//                    fileLength++;
 
 					// split values
 					String[] 	readLn = 	read_line.trim().split("\\s+");
