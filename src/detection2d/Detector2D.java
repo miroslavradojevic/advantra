@@ -399,9 +399,6 @@ public class Detector2D {
                 float sensitivity = 0.5f;
                 smoothness_high = Delineator2D.getSmoothnessPercentile(percentile);
                 smoothness_low = sensitivity * smoothness_high;
-//                System.out.print("new smoothness_high: " + smoothness_high);
-//                System.out.print("new smoothness_low:  " + smoothness_low);
-//                System.out.println("new fls...");
                 sample_fls = new Fuzzy2D(// redefine flas used later for simulating, for visualizations (should be the same as the one in FuzzyDetector2D.run())
                         ncc_high, // ncc
                         ncc_low,
@@ -545,6 +542,9 @@ public class Detector2D {
                     // append all-scale direction map
                     appendDirections(cumm_directions_jun.get(i), map_region_jun.get(i),
                             Profiler2D.xy2i, PeakExtractor2D.i2xy, PeakExtractor2D.peaks_i, FuzzyDetector2D.branch_score, output_membership_th);
+					/*
+                    cumm_directions_jun is ArrayList<ArrayList[][]> type initialized as list of 2d lists with [i][j]=null
+					*/
 
                 }
 
@@ -959,7 +959,7 @@ public class Detector2D {
 					Cy += regs.get(i).get(aa)[0];
 					C += _score_map.getf(xcoord, ycoord); //_critpoint_det[xcoord][ycoord];
 
-				}
+			}
 
 				Cx /= regs.get(i).size();
 				Cy /= regs.get(i).size();   // centroid
@@ -971,6 +971,8 @@ public class Detector2D {
 			    // case with 1.00 radius will still give negative readouts, but that case I'll handle manually in Evaluator2D)
 				// second part (type, outward_directions) depends on which type of critical point we deal with
 				Ctype = null;   			// values to add for this region
+
+			//
 
 				vxy.clear();  // vxy list of local directions taken from the region, clear before starting for each region
 
@@ -1005,10 +1007,33 @@ public class Detector2D {
 
 //			System.out.print("\nregion " + i + " : " + vxy.size());
 
+
+
             // vxy list is formed.. to make sense - take those that had more than certain amount of directions
             // to be sure that the mean shift makes sense and the region itself is salient to be added at all
             // (has enought directions to make the decision)
             if (_choose_type == CritpointRegion.RegionType.END && vxy.size()>0) {
+
+
+				/*
+
+				// in case we want to extract the directions - and mean-shift them and hence discriminate JUN ->BIF/CRS
+			if (_extract_directions) {
+				//
+
+
+			}
+			else {
+				// otherwise there are only BIF&END, no m-s, no discrimination
+
+			}
+
+
+				*/
+
+
+
+
 //				System.out.println(" added as END");
 				ArrayList<float[]> direction_clusters_vxy_count = ClusterDirections.run(vxy, alfa_deg);
                 //System.out.println(direction_clusters_vxy_count.size() + " directions clustered out of " + vxy.size() + " directions at category " + i + " (" + _choose_type + ") with" + regs.get(i).size() + " locations in region");
@@ -1028,7 +1053,6 @@ public class Detector2D {
 //				System.out.println(" added as BIF_CROSS");
 				ArrayList<float[]> direction_clusters_vxy_count = ClusterDirections.run(vxy, alfa_deg);
                 //System.out.println(direction_clusters_vxy_count.size() + " directions clustered out of " + vxy.size() + " directions at category " + i + " (" + _choose_type + ") with" + regs.get(i).size() + " locations in region");
-
 
 				//direction_clusters_vxy_count.get( RANKING )[X_Y_COUNT]
 
