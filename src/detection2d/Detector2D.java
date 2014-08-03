@@ -86,7 +86,7 @@ public class Detector2D {
 	ArrayList<ByteProcessor> map_region_jun = null;     // pixel at (x,y) assigned to one region
 
     ArrayList<ByteProcessor> cumm_regions_end = null;   // after accumulating booleans throughout several scales
-    ArrayList<ByteProcessor> cumm_regions_jun = null;   //
+    ArrayList<ByteProcessor> cumm_regions_jun = null;   // still binary maps
 
 	ArrayList<ArrayList[][]> cumm_directions_end = null;       // after accumulating the directions throughout several scales
 	ArrayList<ArrayList[][]> cumm_directions_jun = null;
