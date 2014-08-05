@@ -25,7 +25,7 @@ public class Viewer2D implements PlugIn {
 		boolean show_dirs = false;
 
 		GenericDialog gd = new GenericDialog("Select Detection");
-		gd.addStringField("detection.zip path", det_path, 50);
+		gd.addStringField("detection (name.det) path", det_path, 50);
 		gd.addCheckbox("include_directions", true);
 		gd.showDialog();
 
@@ -86,7 +86,7 @@ public class Viewer2D implements PlugIn {
 			regroi.setFillColor(clr);
 			ov_read.add(regroi);
 
-			if (show_dirs && body_added) { // add directions
+			if (show_dirs && body_added) { // add directions if they are !NaN
 
 				float scale_direction = 1.3f; // just for visualization
 				int nr_directions = det_reader.v.get(i).length;
@@ -95,11 +95,13 @@ public class Viewer2D implements PlugIn {
 					dx = det_reader.v.get(i)[j][0];
 					dy = det_reader.v.get(i)[j][1];
 
-					Line l = new Line(x, y, x+scale_direction*r*dx, y+scale_direction*r*dy);
-					l.setStrokeWidth(r/2f);
-					l.setStrokeColor(clr);
-					l.setFillColor(clr);
-					ov_read.add(l);
+                    if (!Float.isNaN(dx) && !Float.isNaN(dy)) {
+                        Line l = new Line(x, y, x+scale_direction*r*dx, y+scale_direction*r*dy);
+                        l.setStrokeWidth(r/2f);
+                        l.setStrokeColor(clr);
+                        l.setFillColor(clr);
+                        ov_read.add(l);
+                    }
 
 				}
 

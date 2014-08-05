@@ -9,7 +9,6 @@ import ij.io.OpenDialog;
 import ij.plugin.PlugIn;
 import ij.process.ByteProcessor;
 import ij.process.ImageProcessor;
-import imagescience.image.*;
 
 import java.awt.*;
 import java.awt.event.MouseEvent;
@@ -78,7 +77,7 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
         /*
         	load the detection parameters
          */
-        boolean _show_junctions, _show_endpoints, _enable_interactive, _save_midresults;//, _auto_smoothness;
+        boolean _show_junctions, _show_endpoints, _enable_interactive, _save_midresults, _calculate_directions;
         float _s;
 		float _sigma_ratio;
         String _Dlist       = "";
@@ -95,7 +94,7 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
             _show_junctions 		= 			Prefs.get("critpoint.detection2d.show_junctions", true);
             _show_endpoints 		= 			Prefs.get("critpoint.detection2d.show_endpoints", true);
             _enable_interactive     = 			Prefs.get("critpoint.detection2d.enable_interactive", true);
-//            _auto_smoothness        =           Prefs.get("critpoint.detection2d.auto_smoothness", false);
+            _calculate_directions   =           Prefs.get("critpoint.detection2d.calculate_directions", false);
             _save_midresults        =           Prefs.get("critpoint.detection2d.save_midresults", false);
             _s						= (float)	Prefs.get("critpoint.detection2d.s", 1.2f);
             _Dlist 					= 			Prefs.get("critpoint.detection2d.d", "6");
@@ -113,7 +112,7 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
             gd.addCheckbox("JUNCTIONS", 		    _show_junctions);
             gd.addCheckbox("ENDPOINTS", 		    _show_endpoints);
             gd.addCheckbox("INTERACTIVE",           _enable_interactive);
-//            gd.addCheckbox("AUTO_SMOOTHNESS",       _auto_smoothness);
+            gd.addCheckbox("CALCULATE_DIRECTIONS",  _calculate_directions);
             gd.addCheckbox("SAVE_MIDRESULTS",       _save_midresults);
 
             gd.addStringField("Dlist", 				_Dlist, 30);
@@ -133,7 +132,7 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
             _show_junctions = gd.getNextBoolean();      	    	Prefs.set("critpoint.detection2d.show_junctions", 		_show_junctions);
             _show_endpoints = gd.getNextBoolean();      	    	Prefs.set("critpoint.detection2d.show_endpoints", 		_show_endpoints);
             _enable_interactive = gd.getNextBoolean();				Prefs.set("critpoint.detection2d.enable_interactive", 	_enable_interactive);
-//			_auto_smoothness =  gd.getNextBoolean();				Prefs.set("critpoint.detection2d.auto_smoothness", 		_auto_smoothness);
+            _calculate_directions =  gd.getNextBoolean();			Prefs.set("critpoint.detection2d.calculate_directions", _calculate_directions);
 			_save_midresults = gd.getNextBoolean();					Prefs.set("critpoint.detection2d.save_midresults", 		_save_midresults);
 
 			_Dlist       	= gd.getNextString(); 				    Prefs.set("critpoint.detection2d.d", _Dlist);
@@ -150,24 +149,32 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
         }
         else { // continue with macro arguments without rising graphic window
 
-            _show_junctions = Boolean.valueOf(Macro.getValue(Macro.getOptions(), "junctions", String.valueOf(false)));
-            _show_endpoints = Boolean.valueOf(Macro.getValue(Macro.getOptions(), "endpoints", String.valueOf(false)));
-            _enable_interactive = Boolean.valueOf(Macro.getValue(Macro.getOptions(), "interactive", String.valueOf(false)));
-//            _auto_smoothness = Boolean.valueOf(Macro.getValue(Macro.getOptions(), "auto_smoothness", String.valueOf(false)));
-            _save_midresults = Boolean.valueOf(Macro.getValue(Macro.getOptions(), "save_midresults", String.valueOf(false)));
-			_Dlist = Macro.getValue(Macro.getOptions(), "Dlist", String.valueOf(4));
-			_sigma_ratio = Float.valueOf(Macro.getValue(Macro.getOptions(), "sigma_ratio", String.valueOf(0.25)));
-			_s = Float.valueOf(Macro.getValue(Macro.getOptions(), "s", String.valueOf(1.1)));
+            System.out.println(Macro.getOptions());
 
-			_ncc_high           = Float.valueOf(Macro.getValue(Macro.getOptions(), "NCC_HIGH", String.valueOf(0.95)));
-            _ncc_low            = Float.valueOf(Macro.getValue(Macro.getOptions(), "NCC_LOW", String.valueOf(0.2)));
-            _likelihood_high    = Float.valueOf(Macro.getValue(Macro.getOptions(), "LIKELIHOOD_HIGH", String.valueOf(0.5)));
-            _likelihood_low     = Float.valueOf(Macro.getValue(Macro.getOptions(), "LIKELIHOOD_LOW", String.valueOf(0.0)));
-            _smoothness_high    = Float.valueOf(Macro.getValue(Macro.getOptions(), "SMOOTHNESS_HIGH", String.valueOf(10)));
-            _smoothness_low     = Float.valueOf(Macro.getValue(Macro.getOptions(), "SMOOTHNESS_LOW", String.valueOf(20)));
-			_dsens_list         = Macro.getValue(Macro.getOptions(), "DSENS_LIST", String.valueOf(1.0));// only one value by default
-			//Float.valueOf(Macro.getValue(Macro.getOptions(), "DETECTION_SENSITIVITY", String.valueOf(1f)));
-		}
+            _show_junctions = Boolean.valueOf(Macro.getValue(Macro.getOptions(),        "junctions", String.valueOf(false)));
+            _show_endpoints = Boolean.valueOf(Macro.getValue(Macro.getOptions(),        "endpoints", String.valueOf(false)));
+            _enable_interactive = Boolean.valueOf(Macro.getValue(Macro.getOptions(),    "interactive", String.valueOf(false)));
+            _calculate_directions = Boolean.valueOf(Macro.getValue(Macro.getOptions(),  "calculate_directions", String.valueOf(false)));
+            _save_midresults = Boolean.valueOf(Macro.getValue(Macro.getOptions(),       "save_midresults", String.valueOf(false)));
+			_Dlist = Macro.getValue(Macro.getOptions(),                                 "dlist", String.valueOf(6));
+			_sigma_ratio = Float.valueOf(Macro.getValue(Macro.getOptions(),             "sigma_ratio", String.valueOf(0.25)));
+			_s = Float.valueOf(Macro.getValue(Macro.getOptions(),                       "s", String.valueOf(1.1)));
+
+			_ncc_high           = Float.valueOf(Macro.getValue(Macro.getOptions(),      "ncc_high", String.valueOf(0.95)));
+            _ncc_low            = Float.valueOf(Macro.getValue(Macro.getOptions(),      "ncc_low", String.valueOf(0.2)));
+            _likelihood_high    = Float.valueOf(Macro.getValue(Macro.getOptions(),      "likelihood_high", String.valueOf(0.5)));
+            _likelihood_low     = Float.valueOf(Macro.getValue(Macro.getOptions(),      "likelihood_low", String.valueOf(0.0)));
+            _smoothness_high    = Float.valueOf(Macro.getValue(Macro.getOptions(),      "smoothness_high", String.valueOf(10)));
+            _smoothness_low     = Float.valueOf(Macro.getValue(Macro.getOptions(),      "smoothness_low", String.valueOf(20)));
+			_dsens_list         = Macro.getValue(Macro.getOptions(),                    "dsens_list", String.valueOf(1.0)); // only one value by default
+
+        }
+
+//        System.out.println("----------");
+//        System.out.println("loaded:");
+//        System.out.println(_dsens_list);
+//        System.out.println(_Dlist);
+//        System.out.println("----------");
 
         String[] dd = _Dlist.split(","); if (dd.length==0) return;
         float[] _D = new float[dd.length];
@@ -178,7 +185,7 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
         for (int i = 0; i < dd.length; i++) _dsens[i] = Float.valueOf(dd[i]);
 
 		// detection
-		System.out.print("Detector2D... ");
+		System.out.print("\nDetector2D... ");
 		det2d = new Detector2D(
 										ip_load,
 										_s,
@@ -193,9 +200,9 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
 									  	_dsens
 		);
 
-		// they are initialized by default already , this just overwrites the
+		// they are initialized by default already , this just overwrites
 		det2d.saveMidresults(_save_midresults); 	 // t
-//        det2d.auto_smoothness = _auto_smoothness;    // f
+        det2d.do_directions = _calculate_directions;    // f
 		det2d.do_endpoints = _show_endpoints;        // t
 		det2d.do_junctions = _show_junctions;        // t
 

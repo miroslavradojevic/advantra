@@ -96,13 +96,12 @@ public class GeneratorSwcDemo implements PlugIn {
 		// output folder name
 		boolean ends_with_sep =  out_dir.substring(out_dir.length()-1, out_dir.length()).equals(File.separator);
 		out_dir  += ((!ends_with_sep)? File.separator : "")+
-						   "swcgen.SNR_"+
+						   "SWCGEN.SNR_"+
 						   String.format("%.1f", SNR)+
 						   File.separator;
 		if ( !(new File(out_dir).exists()) ) {
 			Tools.createDir(out_dir); // create directory if it does not exist, otherwise just append in
 		}
-
 
         // swc radius correction (swc has irregular radiuses and also generating tiny radiuses does not make sense)
         ReadSWC readerSwc = new ReadSWC(swc_path); // pulled out so that expected diameter can be known in advance
@@ -112,15 +111,18 @@ public class GeneratorSwcDemo implements PlugIn {
         float diam_est = 2 * Stat.average(all_radiuses);
 
 		// new names for outputs
-        String out_name = String.format("%s.D_%.1f", name, diam_est);
-        File gnd_tth_end = new File(out_dir+out_name+".end");
-        File gnd_tth_bif = new File(out_dir+out_name+".bif");
-        File gnd_tth_non = new File(out_dir+out_name+".non");
+        String out_name = String.format("%s", name);//, diam_est);
+//        File gnd_tth_end = new File(out_dir+out_name+".end");
+        File rec_swc = new File(out_dir+out_name+"_rec"+".swc");
+//        File gnd_tth_non = new File(out_dir+out_name+".non");
         File image_path  = new File(out_dir+out_name+".tif");
-        File gnd_tth_swc = new File(out_dir+out_name+".swc");
+        File gnd_tth_swc = new File(out_dir+out_name+"_gndtth"+".swc");
 
         GeneratorSwc neuronGenerator = new GeneratorSwc();
-        neuronGenerator.swc2image(readerSwc, is2D, K, SNR, gnd_tth_swc, gnd_tth_bif, gnd_tth_end, gnd_tth_non, image_path);
+        neuronGenerator.swc2image(readerSwc, is2D, K, SNR, rec_swc, gnd_tth_swc, image_path);
+
+        System.out.println("DONE");
+
 
     }
 

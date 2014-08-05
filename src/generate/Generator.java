@@ -1,14 +1,14 @@
 package generate;
 
 import aux.Tools;
+import detection2d.CritpointRegion;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.OvalRoi;
 import ij.gui.Overlay;
 import ij.gui.PointRoi;
-import ij.io.FileSaver;
+import ij.plugin.filter.GaussianBlur;
 import ij.process.FloatProcessor;
-import imagescience.random.PoissonGenerator;
 
 import java.awt.*;
 import java.io.*;
@@ -57,17 +57,17 @@ public class Generator {
 
 	public Generator(int _nrPts1){nrPts1 = _nrPts1;}
 
-	public ImagePlus runDisProportional(float snr, float diam1, float diam2, float diam3, float sc,
-										File out_bif, File out_end, File out_non, File out_log, File out_img)
+	public void runDisProportional(float snr, float diam1, float diam2, float diam3,
+										File out_swc, File out_img)
 	{
 
         int nrPts2 = nrPts1*nrPts1;
 
         float diam_max = Math.max(diam1, Math.max(diam2, diam3));
 
-        sc = (sc<=3)? 3 : sc ;
+        float sc = 8;
 
-        float	branch_length = sc * diam_max;  // s*Dmax = branch_length
+        float	branch_length = sc * diam_max;
         float   branch_separation = branch_length;
         float	margin 	= branch_separation;    // pix
         float   separation_scale = sc/3;     // hardcoded
@@ -76,44 +76,28 @@ public class Generator {
         int W = Math.round(2 * margin + (2*nrPts1) * branch_separation + (nrPts1+1) * branch_separation);
         int H = W;
 
-//        // export out_log
-//        try {
-//            PrintWriter writer = new PrintWriter(out_log.getAbsolutePath());
-//            // first line of csv has header
-//            writer.print(String.format("SNR,\t p1,\t p2,\t p3,\t d1,\t d2,\t d3,\t s\n"));
-//            float pp1, pp2, pp3, pp;
-//            pp = diam1 + diam2 + diam3;
-//            pp1 = diam1 / pp;
-//            pp2 = diam2 / pp;
-//            pp3 = diam3 / pp;
-//            writer.print(String.format("%4.2f,\t %4.2f,\t %4.2f,\t %4.2f,\t %4.2f,\t %4.2f,\t %4.2f,\t %4.2f\n", snr, pp1, pp2, pp3, diam1, diam2, diam3, sc));
-//            writer.close();
-//        }
-//        catch (FileNotFoundException ex) {}
-
         // export out_bif, out_end, out_non
-        PrintWriter writer_bif = null;
-        PrintWriter writer_end = null;
-        PrintWriter writer_non = null;
+        PrintWriter writer_swc = null;
+//        PrintWriter writer_end = null;
+//        PrintWriter writer_non = null;
 
-		// initialize file outputs
+        // initialize file outputs
 		try {
-			writer_bif = new PrintWriter(new BufferedWriter(new FileWriter(out_bif, true)));
+			writer_swc = new PrintWriter(new BufferedWriter(new FileWriter(out_swc, true)));
 			//writer_bif.println("#"); // dateFormat.format(date)
-            writer_end = new PrintWriter(new BufferedWriter(new FileWriter(out_end, true)));
+//            writer_end = new PrintWriter(new BufferedWriter(new FileWriter(out_end, true)));
             //writer_end.println("#"); // dateFormat.format(date)
-			writer_non = new PrintWriter(new BufferedWriter(new FileWriter(out_non, true)));
+//			writer_non = new PrintWriter(new BufferedWriter(new FileWriter(out_non, true)));
 			//writer_non.println("#"); // dateFormat.format(date)
         } catch (IOException e) {}
 
-		//GaussianBlur gauss 		= new GaussianBlur();
 		PoissonGenerator poiss 	= new PoissonGenerator();  // noise
 
 		float fg = foregroundLevel(bg, snr); // quadratic equation solving required snr
 
 		Overlay ov = new Overlay(); // output image will have an overlay with gnd tth critpoints
 
-		FloatProcessor outIp = new FloatProcessor(W, H);
+		FloatProcessor outIp = new FloatProcessor(W, H); // allocate output
 
 		// initialize
 		for (int j=0; j<W*H; j++) outIp.setf(j, 0);
@@ -130,34 +114,51 @@ public class Generator {
 			}
 		}
 
-//        IJ.log("" + diam_max);
-
         // at this point ground truth is exported (bif and end points)
         // diam_max will define the ground truth swc point radius and the diameter of the overlay that's drawn on
         // less than 3 does not make sense for an oval roi -> it is limited to be at least 4 to be visible
-        diam_max = (diam_max<4)? 4 : diam_max;
+//        diam_max = (diam_max<4)? 4 : diam_max;
 
 		for (int pIdx=0; pIdx<nrPts2; pIdx++) {  // loop all bifurcations
 
 			// record ground truth in swc format
             int swc_idx = pIdx + 1;
-            writer_bif.println(String.format("%d %1d %4.2f %4.2f %4.2f %4.2f %d", swc_idx, 5, points[pIdx][0][0], points[pIdx][0][1], 0f, diam_max, -1));
 
-            writer_end.println(String.format("%d %1d %4.2f %4.2f %4.2f %4.2f %d", 3*swc_idx-2, 6, points[pIdx][1][0], points[pIdx][1][1], 0f, diam_max, -1));
-            writer_end.println(String.format("%d %1d %4.2f %4.2f %4.2f %4.2f %d", 3*swc_idx-1, 6, points[pIdx][2][0], points[pIdx][2][1], 0f, diam_max, -1));
-            writer_end.println(String.format("%d %1d %4.2f %4.2f %4.2f %4.2f %d", 3*swc_idx-0, 6, points[pIdx][3][0], points[pIdx][3][1], 0f, diam_max, -1));
+            writer_swc.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1",
+                    swc_idx,
+                    CritpointRegion.annotationId(CritpointRegion.AnnotationType.BIF),
+                    points[pIdx][0][0], points[pIdx][0][1], 0f, diam_max));
+
+            writer_swc.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1",
+                    3*swc_idx-2,
+                    CritpointRegion.annotationId(CritpointRegion.AnnotationType.END),
+                    points[pIdx][1][0], points[pIdx][1][1], 0f, diam_max));
+
+            writer_swc.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1",
+                    3*swc_idx-1,
+                    CritpointRegion.annotationId(CritpointRegion.AnnotationType.END),
+                    points[pIdx][2][0], points[pIdx][2][1], 0f, diam_max));
+
+            writer_swc.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1",
+                    3*swc_idx-0,
+                    CritpointRegion.annotationId(CritpointRegion.AnnotationType.END),
+                    points[pIdx][3][0], points[pIdx][3][1], 0f, diam_max));
+
+//            writer_bif.println(String.format("%d %1d %4.2f %4.2f %4.2f %4.2f %d", swc_idx, 5, points[pIdx][0][0], points[pIdx][0][1], 0f, diam_max, -1));
+//            writer_end.println(String.format("%d %1d %4.2f %4.2f %4.2f %4.2f %d", 3*swc_idx-2, 6, points[pIdx][1][0], points[pIdx][1][1], 0f, diam_max, -1));
+//            writer_end.println(String.format("%d %1d %4.2f %4.2f %4.2f %4.2f %d", 3*swc_idx-1, 6, points[pIdx][2][0], points[pIdx][2][1], 0f, diam_max, -1));
+//            writer_end.println(String.format("%d %1d %4.2f %4.2f %4.2f %4.2f %d", 3*swc_idx-0, 6, points[pIdx][3][0], points[pIdx][3][1], 0f, diam_max, -1));
 
             // add overlay
             OvalRoi pt = new OvalRoi(points[pIdx][0][0]+.5f-diam_max/2f, points[pIdx][0][1]+.5f-diam_max/2f, diam_max, diam_max);
-//            pt.setStrokeWidth(diam_max/5f);
-            pt.setStrokeColor(Color.RED);
-            pt.setFillColor(Color.RED);
+            pt.setStrokeColor(CritpointRegion.annotationColor(CritpointRegion.AnnotationType.BIF));
+            pt.setFillColor(CritpointRegion.annotationColor(CritpointRegion.AnnotationType.BIF));
 			ov.add(pt);
 
             for (int cnt_rest=1; cnt_rest<points[pIdx].length; cnt_rest++) {
                 pt = new OvalRoi(points[pIdx][cnt_rest][0]+.5f-diam_max/2f, points[pIdx][cnt_rest][1]+.5f-diam_max/2f, diam_max, diam_max);
-                pt.setStrokeColor(Color.YELLOW);
-                pt.setFillColor(Color.YELLOW);
+                pt.setStrokeColor(CritpointRegion.annotationColor(CritpointRegion.AnnotationType.END));
+                pt.setFillColor(CritpointRegion.annotationColor(CritpointRegion.AnnotationType.END));
                 ov.add(pt);
             }
 
@@ -172,13 +173,10 @@ public class Generator {
 
 		}
 
-		writer_bif.close();
-		writer_end.close();
-		IJ.log("exported: " + out_bif.getAbsolutePath());
-		IJ.log("exported: " + out_end.getAbsolutePath());
-
 		// PSF emulate (Gaussian blur on outSlice) - SKIPPED, OBJECTS ARE bigger than just spots
-		//gauss.blurGaussian(outIp, 0.5, 0.5, 0.005);
+        GaussianBlur gauss 		= new GaussianBlur();
+//        gauss.blurGaussian(outIp, .5, .5, 0.005); //  	blurGaussian(ImageProcessor ip, double sigmaX, double sigmaY, double accuracy)
+        gauss.blurFloat(outIp, 1.0, 1.0, .005);// blurFloat(FloatProcessor ip, double sigmaX, double sigmaY, double accuracy)
 
 		int count_non = 0;
 		for (int j=0; j<W*H; j++) {
@@ -193,7 +191,10 @@ public class Generator {
 			// negatives are defined here, take the points that are far enough from critpoints and
 			// take them with some probability
 
-			if (Math.random()<=.03) {
+            /*
+            add NONE points (cancelled for now)
+             */
+			if (Math.random()<=.03 && false) {
 
 				int loc_x = j - W * (j / W);
 				int loc_y = j / W;
@@ -220,7 +221,10 @@ public class Generator {
 				if (min_d2>=Math.pow(2*diam_max, 2)){
 					// far enough to add it as non point
 					count_non++;
-					writer_non.println(String.format("%d %1d %4.2f %4.2f %4.2f %4.2f %d", count_non, 7, (float)loc_x, (float)loc_y, 0f, 1f, -1));
+					writer_swc.println(String.format("%d %1d %4.2f %4.2f %4.2f %4.2f %d",
+                            count_non,
+                            CritpointRegion.annotationId(CritpointRegion.AnnotationType.NONE),
+                            (float)loc_x, (float)loc_y, 0f, 1f, -1));
 					PointRoi pt = new PointRoi(loc_x+.5f, loc_y+.5f);
 					pt.setFillColor(Color.DARK_GRAY);
                     pt.setStrokeColor(Color.DARK_GRAY);
@@ -234,10 +238,10 @@ public class Generator {
 
 		}
 
-		writer_non.close();
-		IJ.log("exported: " + out_non.getAbsolutePath());
+		writer_swc.close();
+		IJ.log("exported: " + out_swc.getAbsolutePath());
 
-		ImagePlus outImp = new ImagePlus("SNR_"+IJ.d2s(snr,1)+",d1_"+IJ.d2s(diam1,1)+",d2_"+IJ.d2s(diam2,1)+",d3_"+IJ.d2s(diam3,1)+",s_"+IJ.d2s(sc,1), outIp);
+		ImagePlus outImp = new ImagePlus("", outIp);
 		outImp.setOverlay(ov);
 
         // save it
@@ -247,7 +251,7 @@ public class Generator {
         IJ.log("exported: "+out_img.getAbsolutePath());
         IJ.log(nrPts2 + " bifs " + 4*nrPts2 + " ends " + count_non + " nons");
 
-        return outImp;
+//        return outImp;
 
 	}
 

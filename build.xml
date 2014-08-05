@@ -35,7 +35,6 @@
 
         <copy file="./critpoint_.jar"  toDir="${env.HOME}/ImageJ/plugins/" />
         <copy file="./critpoint_.jar"  toDir="${env.HOME}/Fiji.app/plugins/" />
-        <copy file="./critpoint_.jar"  toDir="${env.HOME}/critpoint_tests/fiji/plugins/" />
 
     </target>
 
@@ -48,7 +47,7 @@
     <path id="classpath">
         <!-- external modules -->
         <pathelement location="${env.HOME}/jarlib/ij.jar"/>
-        <pathelement location="${env.HOME}/jarlib/imagescience.jar"/>
+        <!--<pathelement location="${env.HOME}/jarlib/imagescience.jar"/>-->
     </path>
 
     <path id="sourcepath">

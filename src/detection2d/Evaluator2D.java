@@ -158,6 +158,11 @@ public class Evaluator2D implements PlugIn {
 			// read csv file (.det) at specified location
 			ReadDET det_reader = new ReadDET(det_file_path);
 
+            // print loaded values
+            //System.out.println("****************************");
+            //det_reader.print();
+            //System.out.println("****************************");
+
 			for (int i = 0; i < det_reader.x.size(); i++) { // loop read detections
 
 				float reg_x = det_reader.x.get(i);

@@ -1,12 +1,11 @@
 package generate;
 
 import aux.ReadSWC;
+import detection2d.CritpointRegion;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
-import ij.io.FileSaver;
 import ij.process.ByteProcessor;
-import imagescience.random.PoissonGenerator;
 
 import java.io.*;
 
@@ -21,15 +20,13 @@ public class GeneratorSwc {
 
     private static int bg = 20; // background level  (used when defining snr)
 	private static int MARGIN_MIN = 50; // pixels
-	public static float R_MIN = 1.0f;
+	public static float R_MIN = 3.0f;
 
     /*
     	generate ImageStack from swc & export corresponding swc
      */
-    public static ImagePlus swc2image(ReadSWC readerSWC, boolean is2D, float k, float snr, File out_rec, File out_bif, File out_end, File out_non, File out_img)
+    public static ImagePlus swc2image(ReadSWC readerSWC, boolean is2D, float k, float snr, File out_rec, File gndtth_swc, File out_img)
 	{
-
-//		IJ.log("radius range: "+readerSWC.minR+" - "+readerSWC.maxR);
 
 		float margin = MARGIN_MIN + ((readerSWC.maxR<1f)? 1f : readerSWC.maxR);
 		// offsets when filling the values up
@@ -37,44 +34,40 @@ public class GeneratorSwc {
 		float dY = -readerSWC.minY + margin;
 		float dZ = -readerSWC.minZ + margin;
 
-//		IJ.log("margin: "+margin);
-//		IJ.log("X : "+readerSWC.minX+" , "+readerSWC.maxX);
-//		IJ.log("Y : "+readerSWC.minY+" , "+readerSWC.maxY);
-//		IJ.log("Z : "+readerSWC.minZ+" , "+readerSWC.maxZ);
+//        System.out.println("margin: " + margin);
+//        System.out.println("X : " + readerSWC.minX + " , " + readerSWC.maxX);
+//        System.out.println("Y : " + readerSWC.minY + " , " + readerSWC.maxY);
+//        System.out.println("Z : " + readerSWC.minZ + " , " + readerSWC.maxZ);
 
 		// dimensions
 		int W = (int)Math.ceil(readerSWC.maxX + dX + margin);
 		int H = (int)Math.ceil(readerSWC.maxY + dY + margin);
 		int L = (int)Math.ceil(readerSWC.maxZ + dZ + margin);
-//		IJ.log("allocated image: "+W+" x "+H+" x "+L);
 
 		// allocate 8 bit image
 		byte[] outIm;
 		if (is2D) outIm = new byte[W * H * 1]; // allocate 2d image
 		else outIm = new byte[W * H * L]; // allocate 3d image
 
+
 		float fg = foregroundLevel(bg, snr); // this is where snr calculations are embedded
 
         // initialize writers for reconstruction, bifurcations, and endpoints and non points
-        PrintWriter logRecWriter=null, logBifWriter=null, logEndWriter=null, logNonWriter=null;
-//        // empty the files
-//        try {
-//            logRecWriter = new PrintWriter(outRec); logRecWriter.print(""); logRecWriter.close();
-//            logBifWriter = new PrintWriter(outBif); logBifWriter.print(""); logBifWriter.close();
-//            logEndWriter = new PrintWriter(outEnd); logEndWriter.print(""); logEndWriter.close();
-//        } catch (FileNotFoundException ex) {}
+        PrintWriter logRecWriter=null, logGndTthWriter=null;
 
         // initialize output files
         try {
-            logRecWriter = new PrintWriter(new BufferedWriter(new FileWriter(out_rec, true))); //logRecWriter.println("# reconstruction\n# source swc file "+ inSwc);
-            logBifWriter = new PrintWriter(new BufferedWriter(new FileWriter(out_bif, true))); //logBifWriter.println("# bifurcations\n# source swc file "+ inSwc);
-            logEndWriter = new PrintWriter(new BufferedWriter(new FileWriter(out_end, true))); //logEndWriter.println("# endpoints\n# source swc file "+ inSwc);
-            logNonWriter = new PrintWriter(new BufferedWriter(new FileWriter(out_non, true)));
+            logRecWriter        = new PrintWriter(new BufferedWriter(new FileWriter(out_rec, true)));
+            logGndTthWriter     = new PrintWriter(new BufferedWriter(new FileWriter(gndtth_swc, true)));
+//            logEndWriter = new PrintWriter(new BufferedWriter(new FileWriter(out_end, true))); //logEndWriter.println("# endpoints\n# source swc file "+ inSwc);
+//            logNonWriter = new PrintWriter(new BufferedWriter(new FileWriter(out_non, true)));
         } catch (IOException e) {}
 
 
-        logNonWriter.println("#");
-        logNonWriter.close();  System.out.println("exported: " + out_non.getAbsolutePath());
+        System.out.print("\ngenerating... ");
+
+//        logNonWriter.println("#");
+//        logNonWriter.close();  System.out.println("exported: " + out_non.getAbsolutePath());
 
 		// fill up the values and output swc files
 		for (int ii=0; ii<readerSWC.nodes.size(); ii++) {  // loop through the list to draw cones and export bifs and ends
@@ -111,37 +104,63 @@ public class GeneratorSwc {
 				}
 			}
 
-            float r_to_plot = 2 * (R_MIN+currR-readerSWC.minR);
-
-			if (isEnd) {
-				if(is2D) {
-					assert logEndWriter != null;
-					logEndWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1", currId, 6, currX, currY, 0f,     r_to_plot));
-				}
-				else {
-					assert logEndWriter != null;
-					logEndWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1", currId, 6, currX, currY, currZ,  r_to_plot));
-				}
-			}
-
-			if (isBif) {
-				if (is2D) {
-					assert logBifWriter != null;
-					logBifWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1", currId, 5, currX, currY, 0f,     r_to_plot));
-				}
-				else {
-					assert logBifWriter != null;
-					logBifWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1", currId,	5, currX, currY, currZ, r_to_plot));
-				}
-			}
+            float r_recon = R_MIN+currR-readerSWC.minR;
+            float r_to_plot = 1.5f * r_recon;//(R_MIN+currR-readerSWC.minR);
 
 			if (is2D) {
+
+                // rec
 				assert logRecWriter != null;
-				logRecWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f %-4d", currId, Math.round(readerSWC.nodes.get(ii)[readerSWC.TYPE]), currX, currY, 0f, R_MIN+currR-readerSWC.minR, currMotherId));
-			}
-			else {
+				logRecWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f %-4d",
+                        currId,
+                        Math.round(readerSWC.nodes.get(ii)[readerSWC.TYPE]), // propagate id
+                        currX, currY, 0f, r_recon, currMotherId));
+
+                // gndtth in case it is critical point
+
+                if (isEnd) {
+                    assert logGndTthWriter != null;
+                    logGndTthWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1",
+                            currId,
+                            CritpointRegion.annotationId(CritpointRegion.AnnotationType.END),
+                            currX, currY, 0f, r_to_plot));
+                }
+                else if (isBif) {
+                    assert logGndTthWriter != null;
+                    logGndTthWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1",
+                            currId,
+                            CritpointRegion.annotationId(CritpointRegion.AnnotationType.BIF),
+                            currX, currY, 0f, r_to_plot));
+                }
+
+            }
+			else { // 3d
+
+                // rec
 				assert logRecWriter != null;
-				logRecWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f %-4d", currId, Math.round(readerSWC.nodes.get(ii)[readerSWC.TYPE]), currX, currY, currZ, R_MIN+currR-readerSWC.minR, currMotherId));
+				logRecWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f %-4d",
+                        currId,
+                        Math.round(readerSWC.nodes.get(ii)[readerSWC.TYPE]), // propagate id
+                        currX, currY, currZ, r_recon, currMotherId));
+
+                // gndtth in case it is critical point
+
+                if (isEnd) {
+                    assert logGndTthWriter != null;
+                    logGndTthWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1",
+                            currId,
+                            CritpointRegion.annotationId(CritpointRegion.AnnotationType.END),
+                            currX, currY, currZ, r_to_plot));
+                }
+                else if (isBif) {
+                    assert logGndTthWriter != null;
+                    logGndTthWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1",
+                            currId,
+                            CritpointRegion.annotationId(CritpointRegion.AnnotationType.BIF),
+                            currX, currY, currZ, r_to_plot));
+                }
+
+
 			}
 
 			// fill the cones' values to array if it is not the root node
@@ -177,18 +196,19 @@ public class GeneratorSwc {
 
 		}
 
+        System.out.println("done.");
+
 		/*
 			add poisson noise
 		*/
 
-//		System.out.print("adding poisson noise... ");
+		System.out.print("\nadding poisson noise...");
 
 		PoissonGenerator poiss 	= new PoissonGenerator();
 
 		int total_size = (is2D)? W*H : W*H*L;
-		for (int j=0; j<total_size; j++) {
-
-			// add background to be able to emulate poisson noise everywhere
+        for (int j=0; j<total_size; j++) {
+            // add background to be able to emulate poisson noise everywhere
 			int currVal = (int)(outIm[j] & 0xff);
 			currVal += bg;
 			// poisson
@@ -196,11 +216,10 @@ public class GeneratorSwc {
 
 		}
 
-//		System.out.println("done");
+        System.out.println(" done.");
 
-		logRecWriter.close();  System.out.println("exported: " + out_rec.getAbsolutePath());
-		logBifWriter.close();  System.out.println("exported: " + out_bif.getAbsolutePath());
-		logEndWriter.close();  System.out.println("exported: " + out_end.getAbsolutePath());
+		logRecWriter.close();       System.out.println("exported: " + out_rec.getAbsolutePath());
+		logGndTthWriter.close();    System.out.println("exported: " + gndtth_swc.getAbsolutePath());
 
 		ImageStack  isOut       = toImageStack(outIm, W, H);
         ImagePlus imOut = new ImagePlus("", isOut);
@@ -625,5 +644,7 @@ public class GeneratorSwc {
         return isOut;
 
     }
+
+
 
 }

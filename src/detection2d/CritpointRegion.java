@@ -1,5 +1,7 @@
 package detection2d;
 
+import java.awt.*;
+
 /**
  * Created by miroslav on 6/8/14.
  */
@@ -34,6 +36,53 @@ public class CritpointRegion {
 	public enum RegionType {
 		END, BIF, CROSS, BIF_CROSS, BDY; // BIF_CROSS represents both, need it for some function calls clearness, appears as a pseudo-category here
 	}
+
+    public enum AnnotationType{
+        END, BIF, CROSS, NONE, IGNORE;
+    }
+
+    public static int annotationId(AnnotationType t) {
+
+        // categories of annotations (indexes are used to differentiate in .swc and colours in overlays)
+        if (t.equals(AnnotationType.BIF)) {
+            return 3;
+        }
+        else if (t.equals(AnnotationType.END)) {
+            return 1;
+        }
+        else if (t.equals(AnnotationType.CROSS)) {
+            return 4;
+        }
+        else if (t.equals(AnnotationType.NONE)) {
+            return 0;
+        }
+        else if (t.equals(AnnotationType.IGNORE)) {
+            return 7;
+        }
+        else return -99; // dummy fake
+
+    }
+
+    public static Color annotationColor (AnnotationType t) {
+
+        if (t.equals(AnnotationType.BIF)) {
+            return Color.RED;
+        }
+        else if (t.equals(AnnotationType.END)) {
+            return Color.YELLOW;
+        }
+        else if (t.equals(AnnotationType.CROSS)) {
+            return Color.GREEN;
+        }
+        else if (t.equals(AnnotationType.NONE)) {
+            return Color.BLUE;
+        }
+        else if (t.equals(AnnotationType.IGNORE)) {
+            return new Color(1, 1, 1, 0.5f);
+        }
+        else return Color.BLACK; // dummy fake
+
+    }
 
 	/* intended these for evaluation but won't use them */
 	public boolean isOverlapping(float[] _other_centroid, float _other_radius) {

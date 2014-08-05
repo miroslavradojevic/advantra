@@ -2,6 +2,7 @@ package aux;
 
 import java.io.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 /**
  * Created by miroslav on 26-7-14.
@@ -114,9 +115,22 @@ public class ReadDET {
 		System.out.println(x.size() + " detections found : ");
 
 		for (int i = 0; i < x.size(); i++) {
-			System.out.println(">> " + (i+1) + "  " + t.get(i) + " :\t " + x.get(i) + " , " + y.get(i) + " (" + r.get(i) + ")");
+			System.out.println(
+                    ">> " + (i+1) + "  " + t.get(i) + " :\t " + x.get(i) + " , " + y.get(i) + " (" + r.get(i) + ") -> " + printDirections(v.get(i)) );
 		}
 
 	}
+    
+    private String printDirections(float[][] array_to_plot) {
+        
+        String out = "";
+
+        for (int i = 0; i < array_to_plot.length; i++) {
+            out += Arrays.toString(array_to_plot[i]);
+        }
+
+        return out;
+
+    }
 
 }
