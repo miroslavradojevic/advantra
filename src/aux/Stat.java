@@ -173,6 +173,18 @@ public class Stat {
 		}
 	}
 
+    public static final void probability_distribution(float[] in) {
+
+        float sum = 0;
+        for (int i = 0; i < in.length; i++) {
+            sum += in[i];
+        }
+        for (int i = 0; i < in.length; i++) {
+            in[i] /= sum;
+        }
+
+    }
+
 	public static final float[] get_min_max(float[] in) {
 		float[] out_min_max = new float[2];//min->0, max->1
 		out_min_max[0] = in[0];

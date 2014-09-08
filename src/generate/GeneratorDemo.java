@@ -27,7 +27,7 @@ public class GeneratorDemo implements PlugIn {
 
 	float p1, p2, p3, SNR;
 	int N;
-    static int nrP1 = 8;   // number of points that are stored along one dimension
+    static int nrP1 = 7;   // number of points that are stored along one dimension
 	static String outDir=System.getProperty("user.home");
 
 	public void run(String s) {
@@ -57,7 +57,7 @@ public class GeneratorDemo implements PlugIn {
             outDir  = gd.getNextString();
         }
         else {
-            SNR     = Float.valueOf(Macro.getValue(Macro.getOptions(), "SNR", String.valueOf(3)));
+            SNR     = Float.valueOf(Macro.getValue(Macro.getOptions(), "snr", String.valueOf(3)));
             p1 	    = Float.valueOf(Macro.getValue(Macro.getOptions(), "p1", String.valueOf(1)));
             p2 	    = Float.valueOf(Macro.getValue(Macro.getOptions(), "p2", String.valueOf(1)));
             p3 	    = Float.valueOf(Macro.getValue(Macro.getOptions(), "p3", String.valueOf(1)));
@@ -89,6 +89,9 @@ public class GeneratorDemo implements PlugIn {
         String name_pattern = "SYNGEN.Dmax.SNR.p1.p2.p3_" + String.format("%.1f_%.1f_%.2f_%.2f_%.2f", d_max, SNR, p1, p2, p3);
 
         if (!outDir.endsWith(File.separator)) outDir  += File.separator;// + name_pattern + File.separator;
+        if (!new File(outDir).exists()) Tools.createDir(outDir);
+
+        outDir += name_pattern + File.separator;
         if (!new File(outDir).exists()) Tools.createDir(outDir);
 
         Generator imageGenerator = new Generator(nrP1);

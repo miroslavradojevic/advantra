@@ -405,6 +405,14 @@ public class Fuzzy2D {
         output_3_END_NON_JUN[1] = (float) Math.exp(-Math.pow(defuzz - output2_nonpoint, 2) / (2 * Math.pow(output_sigma, 2)));
         output_3_END_NON_JUN[2] = (float) Math.exp(-Math.pow(defuzz - output2_bifpoint, 2) / (2 * Math.pow(output_sigma, 2)));
 
+
+        // additional tweak - don't allow it to be higher than agg2 value at the defuzz point
+        float limit = get_agg2(defuzz);
+
+        output_3_END_NON_JUN[0] = Math.min(limit, output_3_END_NON_JUN[0]);
+        output_3_END_NON_JUN[1] = Math.min(limit, output_3_END_NON_JUN[1]);
+        output_3_END_NON_JUN[2] = Math.min(limit, output_3_END_NON_JUN[2]);
+
 		String title =  "END=" + IJ.d2s(output_3_END_NON_JUN[0],2) +
                         "NON=" + IJ.d2s(output_3_END_NON_JUN[1],2) +
                         "JUN=" + IJ.d2s(output_3_END_NON_JUN[2],2);
@@ -458,7 +466,19 @@ public class Fuzzy2D {
 		output_endpoint_nonpoint_bifpoint[1] = (float) Math.exp(-Math.pow(defuzz - output2_nonpoint, 2) / (2 * Math.pow(output_sigma, 2)));
 		output_endpoint_nonpoint_bifpoint[2] = (float) Math.exp(-Math.pow(defuzz - output2_bifpoint, 2) / (2 * Math.pow(output_sigma, 2)));
 
-		String title = 			"END=" + IJ.d2s(output_endpoint_nonpoint_bifpoint[0],2) +
+
+
+        // additional tweak - don't allow it to be higher than agg2 value at the defuzz point
+        float limit = get_agg2(defuzz);
+
+        output_endpoint_nonpoint_bifpoint[0] = Math.min(limit, output_endpoint_nonpoint_bifpoint[0]);
+        output_endpoint_nonpoint_bifpoint[1] = Math.min(limit, output_endpoint_nonpoint_bifpoint[1]);
+        output_endpoint_nonpoint_bifpoint[2] = Math.min(limit, output_endpoint_nonpoint_bifpoint[2]);
+
+
+
+
+        String title = 			"END=" + IJ.d2s(output_endpoint_nonpoint_bifpoint[0],2) +
 							   	"NON=" + IJ.d2s(output_endpoint_nonpoint_bifpoint[1],2) +
 							   	"JUN=" + IJ.d2s(output_endpoint_nonpoint_bifpoint[2],2);
 
@@ -525,7 +545,18 @@ public class Fuzzy2D {
 		output_endpoint_nonpoint_bifpoint[1] = (float) Math.exp(-Math.pow(defuzz - output2_nonpoint, 2) / (2 * Math.pow(output_sigma, 2)));
 		output_endpoint_nonpoint_bifpoint[2] = (float) Math.exp(-Math.pow(defuzz - output2_bifpoint, 2) / (2 * Math.pow(output_sigma, 2)));
 
-		String title =  "END=" + IJ.d2s(output_endpoint_nonpoint_bifpoint[0],2) +
+
+        // additional tweak - don't allow it to be higher than agg2 value at the defuzz point
+        float limit = get_agg2(defuzz);
+
+        output_endpoint_nonpoint_bifpoint[0] = Math.min(limit, output_endpoint_nonpoint_bifpoint[0]);
+        output_endpoint_nonpoint_bifpoint[1] = Math.min(limit, output_endpoint_nonpoint_bifpoint[1]);
+        output_endpoint_nonpoint_bifpoint[2] = Math.min(limit, output_endpoint_nonpoint_bifpoint[2]);
+
+
+
+
+        String title =  "END=" + IJ.d2s(output_endpoint_nonpoint_bifpoint[0],2) +
                         "NON=" + IJ.d2s(output_endpoint_nonpoint_bifpoint[1],2) +
                         "JUN=" + IJ.d2s(output_endpoint_nonpoint_bifpoint[2],2);
         if (verbose) appendAgg2(defuzz, title);
@@ -599,7 +630,14 @@ public class Fuzzy2D {
         mu = min(b1_is_on,  	b2_is_on, 	b3_is_on,  	b4_is_off);      cur = fi_bifpoint(mu);  accumulate(cur, agg2); // 1110 (bif)
         mu = min(b1_is_on,  	b2_is_on, 	b3_is_on,  	b4_is_on);       cur = fi_bifpoint(mu);  accumulate(cur, agg2); // 1111 (bif)
 
-        mu = max(b1_is_none,    b2_is_none, b3_is_none, b4_is_none);     cur = fi_nonpoint(mu);  accumulate(cur, agg2);
+//        mu = max(b1_is_none,    b2_is_none, b3_is_none, b4_is_none);     cur = fi_nonpoint(mu);  accumulate(cur, agg2);
+        // don't allow 2 none, similarly as 1 none is not allowed when there are three
+        mu = min(b1_is_none,    b2_is_none                        );     cur = fi_nonpoint(mu);  accumulate(cur, agg2);
+        mu = min(b1_is_none,    b3_is_none                        );     cur = fi_nonpoint(mu);  accumulate(cur, agg2);
+        mu = min(b1_is_none,    b4_is_none                        );     cur = fi_nonpoint(mu);  accumulate(cur, agg2);
+        mu = min(b2_is_none,    b3_is_none                        );     cur = fi_nonpoint(mu);  accumulate(cur, agg2);
+        mu = min(b2_is_none,    b4_is_none                        );     cur = fi_nonpoint(mu);  accumulate(cur, agg2);
+        mu = min(b3_is_none,    b4_is_none                        );     cur = fi_nonpoint(mu);  accumulate(cur, agg2);
 
 //        mu = min(b1_is_none,	b2_is_on, 	b3_is_on, 	b4_is_on);		 cur = fi_bifpoint(mu);  accumulate(cur, agg2); // x111 (bif)
 //        mu = min(b1_is_on,		b2_is_none, b3_is_on, 	b4_is_on);		 cur = fi_bifpoint(mu);  accumulate(cur, agg2); // 1x11 (bif)
@@ -616,6 +654,14 @@ public class Fuzzy2D {
         output_endpoint_nonpoint_bifpoint[0] = (float) Math.exp(-Math.pow(defuzz - output2_endpoint, 2) / (2 * Math.pow(output_sigma, 2)));
 		output_endpoint_nonpoint_bifpoint[1] = (float) Math.exp(-Math.pow(defuzz - output2_nonpoint, 2) / (2 * Math.pow(output_sigma, 2)));
 		output_endpoint_nonpoint_bifpoint[2] = (float) Math.exp(-Math.pow(defuzz - output2_bifpoint, 2) / (2 * Math.pow(output_sigma, 2)));
+
+        // additional tweak - don't allow it to be higher than agg2 value at the defuzz point
+        float limit = get_agg2(defuzz);
+
+        output_endpoint_nonpoint_bifpoint[0] = Math.min(limit, output_endpoint_nonpoint_bifpoint[0]);
+        output_endpoint_nonpoint_bifpoint[1] = Math.min(limit, output_endpoint_nonpoint_bifpoint[1]);
+        output_endpoint_nonpoint_bifpoint[2] = Math.min(limit, output_endpoint_nonpoint_bifpoint[2]);
+
 
 		String title =  "END=" + IJ.d2s(output_endpoint_nonpoint_bifpoint[0],2) +
                         "NON=" + IJ.d2s(output_endpoint_nonpoint_bifpoint[1],2) +
@@ -651,6 +697,24 @@ public class Fuzzy2D {
 		else return Stat.average(x2);
 
 	}
+
+    private float get_agg2(float atX)
+    {
+        float step = (output2_range_ended-output2_range_start) / (N2-1);
+
+        float out = Float.NaN;
+
+        for (int i = 0; i < N2; i++) {
+            float diff = Math.abs(atX-x2[i]);
+            if (diff <= step/2f) {
+                out = agg2[i];
+                break;
+            }
+        }
+
+        return out;
+
+    }
 
     private static final float min(float in1, float in2)
     {
@@ -774,7 +838,7 @@ public class Fuzzy2D {
 		p.setLineWidth(4);
 		p.addPoints(new float[]{smoothness_i, smoothness_i}, new float[]{0, 1}, Plot.LINE);
 		p.draw();
-		String tit_sthness = "SMTH="+IJ.d2s(smoothness_i,2)+" (LOW=" + IJ.d2s(h_smoothness_low(smoothness_i),1) + ",HIGH=" + IJ.d2s(h_smoothness_high(smoothness_i),1) + ")";
+		String tit_sthness = "SMTH="+IJ.d2s(smoothness_i,2)+",SMTH_LOW/HIGH"+smoothness_low+""+smoothness_high+", (LOW=" + IJ.d2s(h_smoothness_low(smoothness_i),1) + ",HIGH=" + IJ.d2s(h_smoothness_high(smoothness_i),1) + ")";
 		fls_steps.addSlice(tit_sthness, p.getProcessor());
 
 	}

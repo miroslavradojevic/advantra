@@ -184,7 +184,7 @@ public class Detector2D {
 
 		midresults_dir = image_dir+image_name + "_midresults" + File.separator;
 
-		CPU_NR = Runtime.getRuntime().availableProcessors() + 1;
+		CPU_NR = Runtime.getRuntime().availableProcessors() + 1; //5;
 
         map_scores_end = new FloatProcessor(ip_load.getWidth(), ip_load.getHeight());
         map_scores_jun = new FloatProcessor(ip_load.getWidth(), ip_load.getHeight());
@@ -883,6 +883,7 @@ public class Detector2D {
         for (int i=0; i<regs.size(); i++) {
 
             if (regs.get(i).size() > Amax) continue; // go to the next region
+            if (regs.get(i).size() < 4) continue; // go to the next region
 
 //            nr_regs++;
 
@@ -959,6 +960,7 @@ public class Detector2D {
 		for (int i=0; i<regs.size(); i++) {
 
             if (regs.get(i).size() > Amax) continue; // go to the next region
+            if (regs.get(i).size() < 4) continue; // go to the next region
 
             nr_regs++;
 
@@ -1304,8 +1306,8 @@ public class Detector2D {
         // emulate what the Fuzzy2D instance was giving for this input, use sample_fls initiated in the same way
         sample_fls.clearLog(); // to be empty for the next call
         sample_fls.verbose = true; // enable capturing the results of different stages of fuzzy logic detection
-        float[] dummy = new float[3];
-        float[] dummy1 = new float[4];
+        float[] dummy = new float[3];           // end, none, jun score
+        float[] dummy1 = new float[4];          //
         sample_fls.critpointScore(
                 ncc_1, likelihood_1, smoothness_1,
                 ncc_2, likelihood_2, smoothness_2,

@@ -24,7 +24,7 @@ import java.util.ArrayList;
  */
 public class Sphere2D {
 
-    private static float    arcRes 	        = 0.7f;
+    private static float    arcRes 	        = 1.0f;
     public static float 	arcNbhood       = 2*arcRes;
     private static float    samplingStep    = 0.9f;
 
@@ -48,6 +48,10 @@ public class Sphere2D {
     public static ArrayList<Float>          theta = new ArrayList<Float>(); 	        // list of elements (theta) covering the circle
     public static ArrayList<int[]> 		    masks = new ArrayList<int[]>(); 	    // list of list indexes of the neighbours for each list element
     private static ArrayList<float[][]> 	offstXY = new ArrayList<float[][]>(); 	// list of filter offsets for each direction
+
+    // variables for bayesian tracking
+    public static ArrayList<float[]>        locsXY  = new ArrayList<float[]>();      // list of follow up location offsets (for prediction transistion)
+    public static ArrayList<float[]>        vxy = new ArrayList<float[]>();          // unit vector directions corresponding to thetas
 
     private static float[] weights;
     public static float[][] diffs;
@@ -168,6 +172,50 @@ public class Sphere2D {
         }
 
         /*
+            prediction locations locXY, and the directions vxy (for prior)
+         */
+        locsXY.clear();
+        vxy.clear();
+        for (int ii = 0; ii < theta.size(); ii++) {
+
+            float curr_theta = theta.get(ii);
+
+            int i = 0;
+            int k = - (int) Math.round(limR * (1/2f));// here it scales the step
+
+            float px = i * samplingStep;
+            float py = k * samplingStep;
+
+            float[][] locPerDirection = new float[1][2];
+
+            locPerDirection[0][0] = px;
+            locPerDirection[0][1] = py;
+
+            transY(radius, locPerDirection);
+            rotZ(curr_theta, locPerDirection);
+            locsXY.add(locPerDirection[0]);
+
+            float vx = 0;
+            float vy = 0;
+
+            float[][] vecPerDirection = new float[1][2];
+
+            vecPerDirection[0][0] = vx;
+            vecPerDirection[0][1] = vy;
+
+            transY(1, vecPerDirection);
+            rotZ(curr_theta, vecPerDirection);
+            // normalize vxy (just in case)
+            double vnorm = Math.sqrt( vecPerDirection[0][0]*vecPerDirection[0][0] + vecPerDirection[0][1]*vecPerDirection[0][1] );
+            vecPerDirection[0][0] /= vnorm;
+            vecPerDirection[0][1] /= vnorm;
+
+            vxy.add(vecPerDirection[0]);
+
+        }
+
+
+        /*
 				normalize weights
 	    */
         for (int iii=0; iii<weights.length; iii++) {
@@ -194,6 +242,29 @@ public class Sphere2D {
                     diffs[j][i] = radius * dtheta;
                 }
             }
+        }
+
+    }
+
+    public void getPriors(float[] _vxy, float _deg_std, float[] _store_priors)
+    {
+
+        // normalize the input direction
+        double _vnorm = Math.sqrt( _vxy[0]*_vxy[0] + _vxy[1]*_vxy[1] );
+        _vxy[0] /= _vnorm;
+        _vxy[1] /= _vnorm;
+
+        // take the reference direction and assign the probability to each of the transition points
+        for (int i = 0; i < vxy.size(); i++) {
+
+            float dot_prod = _vxy[0]*vxy.get(i)[0] + _vxy[1]*vxy.get(i)[1];
+            dot_prod = (dot_prod>1)? 1 : dot_prod;
+            double ang_rad = Math.acos(dot_prod);
+            double ang_deg = ang_rad*(180f/Math.PI);
+
+            // form gaussian weighted prior
+            _store_priors[i] = (float) ((float) (1 / (_deg_std*Math.sqrt(2*Math.PI)) ) * Math.exp( -((ang_deg-0)*(ang_deg-0)) / (2*_deg_std*_deg_std) ));
+
         }
 
     }

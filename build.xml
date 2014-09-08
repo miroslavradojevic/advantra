@@ -47,7 +47,8 @@
     <path id="classpath">
         <!-- external modules -->
         <pathelement location="${env.HOME}/jarlib/ij.jar"/>
-        <!--<pathelement location="${env.HOME}/jarlib/imagescience.jar"/>-->
+        <pathelement location="${env.HOME}/jarlib/imagescience.jar"/>
+        <pathelement location="${env.HOME}/jarlib/flanagan.jar"/>
     </path>
 
     <path id="sourcepath">
