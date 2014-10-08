@@ -18,6 +18,12 @@ Delineator2D.smoothness                 float[Nlocs][4]         smoothness[loc] 
 Ncc2D.scores                           float[Nlocs][4]         average[loc] can be null
 
 #.det output
-main detection output file - keeps CritpointRegions and stores the directions. .det is used by Evaluator2D and Viewer2D
+main detection output file - keeps CritpointRegions and stores the directions.
+file extension is .det
+.det is used by Evaluator2D and Viewer2D
+.det can be output of Detector2D (method detection) or ReadSWC.exportDetCritpoint() (if extracted from reference swc neuron reconstruction)
+// stores the detections in predefined output folders
+// image_name.det textual file with the description of critpoint regions
+//      format: x, y, radius, score, type{BIF,END,CROSS}, dir{vx,vy; vx,vy; ...}
 
 

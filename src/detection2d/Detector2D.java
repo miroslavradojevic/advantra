@@ -1,9 +1,6 @@
 package detection2d;
 
-import aux.ClusterDirections;
-import aux.Entropy_Threshold;
-import aux.ReadSWC;
-import aux.Stat;
+import aux.*;
 import conn.Find_Connected_Regions;
 import ij.IJ;
 import ij.ImagePlus;
@@ -746,11 +743,12 @@ public class Detector2D {
 
 	}
 
-	public Overlay[] saveDetection() // String path
+	public Overlay[] saveDetection() // will save the detection: ArrayList<CritpointRegion> -> file.det
 	{
 		// saves detections in predefined output folders
         // 2 outputs:
         // 1. image_name.det textual file with the description of critpoint regions
+        //      format: x, y, radius, score, type{BIF,END,CROSS}, dir{vx,vy; vx,vy; ...}
         // 2. return Overlay array that was extracted and saved for each dsens[i] threshold
 
         Overlay[] ovs = new Overlay[dsens.length]; // alloc output
@@ -818,7 +816,7 @@ public class Detector2D {
                     ovroi.setFillColor(region_color);
 					ovs[i].add(ovroi);
 
-					// add line to .det  (what's loaded so far)
+					// add line to .det  (what's loaded so far) // HERE IS HOW IT IS WRITTTEN!!!
 					curr_detection +=
 							IJ.d2s(cx,2)+", "+IJ.d2s(cy,2)+", "+
 									IJ.d2s(cr,2)+", "+
@@ -861,6 +859,17 @@ public class Detector2D {
         return ovs;
 
 	}
+
+    public static ReadDET loadDetection(String det_file_path)
+    {
+        //
+        ReadDET read_det = new ReadDET(det_file_path);
+
+//        ArrayList<CritpointRegion> regs = new ArrayList<CritpointRegion>();
+
+        return read_det;
+
+    }
 
     private void appendDetectedRegions( // appends to the list of CritpointRegion, without directions
             ByteProcessor               _region_map,

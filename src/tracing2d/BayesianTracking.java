@@ -29,35 +29,26 @@ public class BayesianTracking implements PlugIn, MouseListener {
     ImagePlus       curr_img;
     ImageCanvas     curr_can;
 
-//    float[][] 	    inimg_xy;               			// store input image as an array
+//    float[][] 	    inimg_xy;       			            // store input image as an array
     float[][]       likelihood_xy;
-
-
-
-    String          midresults_dir = "";
-    String 		    image_dir;
-    String		    image_name;
 
     Sphere2D        sph2d;
     Overlay         curr_ov;
     int             count_click;
-    int           curr_center_x;
-    int           curr_center_y;
-
-    int             CPU_NR;
+    int             curr_center_x;
+    int             curr_center_y;
 
     // parameters
     float           D                   = 5f;
     float           prior_sigma_deg     = 35f;
     int             Nt = 100;
-    boolean         save_midresults     = true;
     int             MAX_ITER = 500;
     boolean         ADD_PARTICLES = false;
     int             MARGIN = 20;
 
     // bayesian tracking iteration components
-    ArrayList<float[][]>  Xt_xy = new ArrayList<float[][]>(); // this one is recursively updated, starts with 1 but keeps N elements distribution
-    ArrayList<float[]>    wt_xy    = new ArrayList<float[]>(); // weights of the states that describe tube configuration
+    ArrayList<float[][]>  Xt_xy = new ArrayList<float[][]>();   // this one is recursively updated, starts with 1 but keeps N elements distribution
+    ArrayList<float[]>    wt_xy    = new ArrayList<float[]>();  // weights of the states that describe tube configuration
     ArrayList<float[]>  est_xy = new ArrayList<float[]>();
 
     private static void init(int _start_x, int _start_y,
@@ -422,11 +413,9 @@ public class BayesianTracking implements PlugIn, MouseListener {
         curr_img = IJ.getImage();
 
         String scales_list = "3,5,7,9";
-
         String[] scales1 = scales_list.split(","); if (scales1.length==0) return;
         float[] scales = new float[scales1.length];
         for (int i=0; i<scales1.length; i++) scales[i] = Float.valueOf(scales1[i]);
-
         ImagePlus imout = Calc.neuriteness(curr_img, scales);
 //        imout.show();
 
@@ -802,22 +791,10 @@ public class BayesianTracking implements PlugIn, MouseListener {
 
         curr_img.draw();
 
-
     }
 
-    public void mousePressed(MouseEvent e) {
-
-    }
-
-    public void mouseReleased(MouseEvent e) {
-
-    }
-
-    public void mouseEntered(MouseEvent e) {
-
-    }
-
-    public void mouseExited(MouseEvent e) {
-
-    }
+    public void mousePressed(MouseEvent e) {}
+    public void mouseReleased(MouseEvent e) {}
+    public void mouseEntered(MouseEvent e) {}
+    public void mouseExited(MouseEvent e) {}
 }

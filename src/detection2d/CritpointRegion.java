@@ -13,7 +13,6 @@ public class CritpointRegion {
 	public RegionType type;
 	public float[][] outward_directions;
 
-
 	public CritpointRegion(RegionType _type, float _centroidX, float _centroidY, float _radius, float _score, float[][] _outward_directions, int nr_directions) {
 
 		this.type = _type;
