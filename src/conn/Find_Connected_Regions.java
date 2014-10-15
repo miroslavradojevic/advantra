@@ -212,7 +212,7 @@ public class Find_Connected_Regions  { //implements PlugIn
 
     public void run(String ignored) {
 
-        boolean diagonal = false;//"Allow_diagonal connections?"
+        boolean diagonal = true;//"Allow_diagonal connections?"
         boolean display = false;//"Display_image_for_each region?"
         boolean showResults = false;//"Display_results table?"
         boolean mustHaveSameValue = true;//"Regions_must have the same value?"

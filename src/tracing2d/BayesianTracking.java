@@ -16,6 +16,7 @@ import ij.util.Tools;
 import java.awt.*;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.awt.geom.Arc2D;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -42,7 +43,7 @@ public class BayesianTracking implements PlugIn, MouseListener {
     float           D                   = 5f;
     float           prior_sigma_deg     = 35f;
     int             Nt = 100;
-    int             MAX_ITER = 500;
+    int             MAX_ITER = 200;
     boolean         ADD_PARTICLES = false;
     int             MARGIN = 20;
 
@@ -190,8 +191,6 @@ public class BayesianTracking implements PlugIn, MouseListener {
 
         }
 
-
-
         // initialize output for this iteration
         Overlay ov = new Overlay();
 
@@ -256,6 +255,8 @@ public class BayesianTracking implements PlugIn, MouseListener {
             }
         }
 
+
+
         // mul. priors (depending on the direction)
         float[] priors_per_sphere = new float[_sph2d.N];
 
@@ -310,7 +311,6 @@ public class BayesianTracking implements PlugIn, MouseListener {
         }
 
         // likelihoods - vesselness interpolated at each location
-
         for (int i = 0; i < transition_xy.length; i++) {
             ptes[i] *= Interpolator.interpolateAt(transition_xy[i][0], transition_xy[i][1], _likelihood_xy);
         }
@@ -324,6 +324,8 @@ public class BayesianTracking implements PlugIn, MouseListener {
             // reduce, take best Nt
             int[] sort_idx = descending(ptes);      // ptes will be sorted as a side effect
 
+
+
             float[][]   selection_xy    = new float[Nt][2];
             float[]     selection_w     = new float[Nt];
 
@@ -332,6 +334,7 @@ public class BayesianTracking implements PlugIn, MouseListener {
                 selection_xy[i][1] = transition_xy[sort_idx[i]][1];
                 selection_w[i] = ptes[i];           // because they are already sorted
             }
+
 
             _Xt_xy.add(selection_xy);
             Stat.probability_distribution(selection_w);
@@ -342,6 +345,7 @@ public class BayesianTracking implements PlugIn, MouseListener {
                 selection_e[0] += selection_w[i] * selection_xy[i][0];
                 selection_e[1] += selection_w[i] * selection_xy[i][1];
             }
+
 
             _est_xy.add(selection_e);
 
@@ -356,6 +360,7 @@ public class BayesianTracking implements PlugIn, MouseListener {
                 selection_e[0] += ptes[i] * transition_xy[i][0];
                 selection_e[1] += ptes[i] * transition_xy[i][1];
             }
+
 
             _est_xy.add(selection_e);
 
@@ -404,7 +409,6 @@ public class BayesianTracking implements PlugIn, MouseListener {
         return idx;
 
     }
-
 
     public void run(String s) {
         System.out.println("started...");
@@ -618,6 +622,14 @@ public class BayesianTracking implements PlugIn, MouseListener {
 
             float[] vxy = new float[]{offscreenX-curr_center_x, offscreenY-curr_center_y};
 
+            /*
+                here is where the trace is triggered
+                location 2d: curr_center_x, curr_center_y
+                direction2d: vxy
+             */
+
+
+
             init(curr_center_x, curr_center_y, Xt_xy, wt_xy, est_xy);
 
             int iter = 1;
@@ -640,9 +652,15 @@ public class BayesianTracking implements PlugIn, MouseListener {
 
                 }
 
-                // check if it is in/out by some margin
+                // check if it is in/out by some margin or NaN
                 float last_x = est_xy.get(est_xy.size()-1)[0];
                 float last_y = est_xy.get(est_xy.size()-1)[1];
+
+                if (Float.isNaN(last_x) || Float.isNaN(last_y)) {
+                    System.out.println("stop, coords were: " + last_x + " , " + last_y);
+                    break;
+                }
+
 
                 float x1 = last_x - 0;
                 float x2 = curr_img.getWidth() - last_x;
@@ -659,7 +677,7 @@ public class BayesianTracking implements PlugIn, MouseListener {
                     for (int i = 0; i < track_iter.size(); i++) curr_ov.add(track_iter.get(i));
                 }
 
-                System.out.println("iter " + iter + " ->   " + est_xy.get(est_xy.size()-1)[0] + " , " + est_xy.get(est_xy.size()-1)[1]);
+                System.out.println("iter " + iter + " ->   " + last_x + " , " + last_y);
 
                 iter++;
 
@@ -784,6 +802,7 @@ public class BayesianTracking implements PlugIn, MouseListener {
         }
         else if (count_click==3) {
 
+            System.out.println("resetting tracing...");
             count_click=0;
             curr_ov.clear();
 

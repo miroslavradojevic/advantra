@@ -14,18 +14,15 @@ import java.util.ArrayList;
  * take image and set of parameters ot initialize
  *
  */
-public class Tracker {
-
-
+public class BayesianTracer2D {
 
     float           D;//                   = 5f;
     float           prior_sigma_deg;//     = 35f;
     int             Nt;// = 100;
-//    boolean         save_midresults     = true;
-    int             MAX_ITER = 500;
-//    boolean         ADD_PARTICLES = false;
+    int             MAX_ITER = 200;
     int             MARGIN = 20;
 
+    int             W, H;
     float[][]       likelihood_xy;
     Sphere2D        sph2d;
 
@@ -35,8 +32,7 @@ public class Tracker {
     ArrayList<float[]>      est_xy      = new ArrayList<float[]>();
     Overlay                 trace       = new Overlay();
 
-
-    public Tracker(
+    public BayesianTracer2D(
             String      _scales_list,               //  comma separated values
             ImagePlus   _inimg,                     //
             float       _D,                         //
@@ -57,6 +53,9 @@ public class Tracker {
             likelihood_xy[idx%imout.getWidth()][idx/imout.getWidth()] = read[idx];
         }
 
+        W = _inimg.getWidth();
+        H = _inimg.getHeight();
+
         D = _D;
         prior_sigma_deg = _prior_sigma_deg;
         Nt = _Nt;
@@ -74,8 +73,16 @@ public class Tracker {
 //    }
 
 
-    public int track(float _x, float _y, float _vx, float _vy) { // return the outcome label
+    public int run(
+            float _x,
+            float _y,
+            float _vx,
+            float _vy
+    )
+    { // return the outcome label
 
+
+        // init
         float[][] start_xy = new float[1][2];
         start_xy[0][0] = _x;
         start_xy[0][1] = _y;
@@ -98,38 +105,44 @@ public class Tracker {
         /*
             recursive tracking
          */
+
         int iter = 1;
         while (iter<=MAX_ITER) {
 
-//            Overlay track_iter = new Overlay();
+            Overlay track_iter = new Overlay();
 
             if (iter==1) {
 
-                trace = bayesian_iteration(Nt, sph2d, prior_sigma_deg, likelihood_xy,
+                track_iter = bayesian_iteration(Nt, sph2d, prior_sigma_deg, likelihood_xy,
                         Xt_xy, wt_xy, est_xy,
                         new float[] {_vx, _vy}); // priors with manually set direction (used at the start)
 
             }
             else {
 
-                trace = bayesian_iteration(Nt, sph2d, prior_sigma_deg, likelihood_xy,
+                track_iter = bayesian_iteration(Nt, sph2d, prior_sigma_deg, likelihood_xy,
                         Xt_xy, wt_xy, est_xy
                 ); // priors with manually set direction (used at the start)
 
             }
 
-            // check if it is in/out by some margin
+            // check if it is in/out by some margin or NaN
             float last_x = est_xy.get(est_xy.size()-1)[0];
             float last_y = est_xy.get(est_xy.size()-1)[1];
 
+            if (Float.isNaN(last_x) || Float.isNaN(last_y)) {
+                System.out.println("stop, coords were: " + last_x + " , " + last_y);
+                break;
+            }
+
             float x1 = last_x - 0;
-            float x2 = likelihood_xy.length - last_x;
+            float x2 = W - last_x;
 
             float y1 = last_y - 0;
-            float y2 = likelihood_xy[0].length - last_y;
+            float y2 = H - last_y;
 
             if (x1<MARGIN || x2<MARGIN || y1<MARGIN || y2<MARGIN) {
-//                System.out.println("stop, reached the margin.");
+                System.out.println("stop, reached the margin.");
                 break;
             }
 
@@ -137,11 +150,11 @@ public class Tracker {
 //                for (int i = 0; i < track_iter.size(); i++) curr_ov.add(track_iter.get(i));
 //            }
 
-//            System.out.println("iter " + iter + " ->   " + est_xy.get(est_xy.size()-1)[0] + " , " + est_xy.get(est_xy.size()-1)[1]);
+//            System.out.println("iter " + iter + " ->   " + last_x + " , " + last_y);
 
             iter++;
 
-        } // while()
+        }
 
         return iter;
 
@@ -261,8 +274,6 @@ public class Tracker {
 
         }
 
-
-
         // initialize output for this iteration
         Overlay ov = new Overlay();
 
@@ -327,6 +338,8 @@ public class Tracker {
             }
         }
 
+
+
         // mul. priors (depending on the direction)
         float[] priors_per_sphere = new float[_sph2d.N];
 
@@ -381,7 +394,6 @@ public class Tracker {
         }
 
         // likelihoods - vesselness interpolated at each location
-
         for (int i = 0; i < transition_xy.length; i++) {
             ptes[i] *= Interpolator.interpolateAt(transition_xy[i][0], transition_xy[i][1], _likelihood_xy);
         }
@@ -395,6 +407,8 @@ public class Tracker {
             // reduce, take best Nt
             int[] sort_idx = descending(ptes);      // ptes will be sorted as a side effect
 
+
+
             float[][]   selection_xy    = new float[Nt][2];
             float[]     selection_w     = new float[Nt];
 
@@ -403,6 +417,7 @@ public class Tracker {
                 selection_xy[i][1] = transition_xy[sort_idx[i]][1];
                 selection_w[i] = ptes[i];           // because they are already sorted
             }
+
 
             _Xt_xy.add(selection_xy);
             Stat.probability_distribution(selection_w);
@@ -413,6 +428,7 @@ public class Tracker {
                 selection_e[0] += selection_w[i] * selection_xy[i][0];
                 selection_e[1] += selection_w[i] * selection_xy[i][1];
             }
+
 
             _est_xy.add(selection_e);
 
@@ -427,6 +443,7 @@ public class Tracker {
                 selection_e[0] += ptes[i] * transition_xy[i][0];
                 selection_e[1] += ptes[i] * transition_xy[i][1];
             }
+
 
             _est_xy.add(selection_e);
 
@@ -475,6 +492,5 @@ public class Tracker {
         return idx;
 
     }
-
 
 }

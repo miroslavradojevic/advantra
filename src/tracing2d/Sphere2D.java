@@ -124,6 +124,8 @@ public class Sphere2D {
 
             float dot_prod = _vxy[0]*vxy.get(i)[0] + _vxy[1]*vxy.get(i)[1];
             dot_prod = (dot_prod>1)? 1 : dot_prod;
+            dot_prod = (dot_prod<-1)? -1 : dot_prod; // to avoid illegal NaN output
+
             double ang_rad = Math.acos(dot_prod);
             double ang_deg = ang_rad*(180f/Math.PI);
 
