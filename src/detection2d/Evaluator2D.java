@@ -50,11 +50,15 @@ public class Evaluator2D implements PlugIn {
 	Overlay			eval_overlay_jun = new Overlay();  // visualize the detections
 	Overlay			eval_overlay_end = new Overlay();
 
+    float margin = 1f;
+
 	public void run(String s) { // regular PlugIn run() method
 
         String			det_file_path;     		// either .tif or .det
 
 		boolean			show = false;
+
+
 
 		// load the image with detections through the menu
 		String in_folder = Prefs.get("id.folder", System.getProperty("user.home"));
@@ -74,19 +78,22 @@ public class Evaluator2D implements PlugIn {
 		if (Macro.getOptions()==null) {
 
 			GenericDialog gd = new GenericDialog("GROUND TRUTH?");
-			gd.addStringField("gndtth_path (.swc)", 	new File(output_dir_name).getParent(), 60);
+			gd.addStringField("gndtth_path (.swc)", 	new File(output_dir_name).getParent(), 70);
 			gd.addStringField("gndtth_tag", 	"LABEL", 50);
+            gd.addNumericField("margin", 1f, 0, 10, "pix");
 			gd.addCheckbox("show",  false);
 			gd.showDialog();
 			if (gd.wasCanceled()) return;
 			gndtth_path	= gd.getNextString();
 			gndtth_tag	= gd.getNextString();
+            margin = (float) gd.getNextNumber();
 			show = gd.getNextBoolean();
 
 		}
 		else {
 			gndtth_path = Macro.getValue(Macro.getOptions(), "gndtth_path", "ground_truth_path");
 			gndtth_tag 	= Macro.getValue(Macro.getOptions(), "gndtth_tag", 	"ground_truth_tag");
+            margin = Float.valueOf(Macro.getValue(Macro.getOptions(), "margin", 	Float.toString(margin)));
 		}
 
 		/* read ground truth */
@@ -298,7 +305,7 @@ public class Evaluator2D implements PlugIn {
 					float by = _gndtth_bifs.get(b)[1];
 					float br = _gndtth_bifs.get(b)[2];
 
-					if (circlesOverlap(ax, ay, ar, bx, by, br)) {// two roi circles overlap
+					if (circlesOverlap(ax, ay, ar, bx, by, br, margin)) {// two roi circles overlap
 						found = true;
 						tp_BIF++;
 						annots[b] = true;
@@ -337,7 +344,7 @@ public class Evaluator2D implements PlugIn {
 				float by = _gndtth_juns.get(b)[1];
 				float br = _gndtth_juns.get(b)[2];
 
-				if (circlesOverlap(ax, ay, ar, bx, by, br, 1f)) {// two roi circles overlap, margin=1 due to the rounding
+				if (circlesOverlap(ax, ay, ar, bx, by, br, margin)) {// two roi circles overlap, margin=1 due to the rounding
 					found = true;
 					tp_JUN++;
 
@@ -404,7 +411,7 @@ public class Evaluator2D implements PlugIn {
 				float by = _gndtth_ends.get(b)[1];
 				float br = _gndtth_ends.get(b)[2];
 
-				if (circlesOverlap(ax, ay, ar, bx, by, br)) {// two roi circles overlap
+				if (circlesOverlap(ax, ay, ar, bx, by, br, margin)) {// two roi circles overlap
 					found = true;
 					tp_END++;
 
@@ -470,7 +477,7 @@ public class Evaluator2D implements PlugIn {
 				float by = _gndtth_crss.get(b)[1];
 				float br = _gndtth_crss.get(b)[2];
 
-				if (circlesOverlap(ax, ay, ar, bx, by, br)) {// two roi circles overlap
+				if (circlesOverlap(ax, ay, ar, bx, by, br, margin)) {// two roi circles overlap
 					found = true;
 					tp_CRS++;
 					annots[b] = true;

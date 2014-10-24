@@ -534,7 +534,7 @@ public class FeatureExtractor2D extends Thread {
 							stdev2[locationIdx][b][l] = Stat.std(cross_profile);
 
 							// calculate normalized cross_profile[]
-							Stat.normalize(cross_profile); // stays in cross_profile variable
+							Stat.min_max_normalize(cross_profile); // stays in cross_profile variable
 
 							// calculate the fit
 							fit_idx_score = fitter.fit(cross_profile, "NCC"); // returns [0] - profile index, [1] - fit score

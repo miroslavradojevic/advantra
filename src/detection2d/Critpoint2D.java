@@ -149,7 +149,7 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
         }
         else { // continue with macro arguments without rising graphic window
 
-            System.out.println(Macro.getOptions());
+//            System.out.println(Macro.getOptions());
 
             _show_junctions = Boolean.valueOf(Macro.getValue(Macro.getOptions(),        "junctions", String.valueOf(false)));
             _show_endpoints = Boolean.valueOf(Macro.getValue(Macro.getOptions(),        "endpoints", String.valueOf(false)));

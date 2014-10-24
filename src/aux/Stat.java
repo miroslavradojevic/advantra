@@ -158,7 +158,7 @@ public class Stat {
 		return curr_min;
 	}
 
-	public static final void normalize(float in[]) {
+	public static final void min_max_normalize(float in[]) {
 		float curr_min = in[0];
 		float curr_max = in[0];
 		for (int i=1; i<in.length; i++) {
@@ -181,6 +181,24 @@ public class Stat {
         }
         for (int i = 0; i < in.length; i++) {
             in[i] /= sum;
+        }
+
+    }
+
+    public static final void normalize(float in[]) { // will normalize with respect to the max.
+
+        float curr_max = in[0];
+
+        for (int i = 1; i < in.length; i++) {
+            if(in[i]>curr_max) curr_max = in[i];
+        }
+
+        if (curr_max<=Float.MIN_VALUE) {
+            Arrays.fill(in, 0);
+        }
+
+        for (int i=0; i<in.length; i++) {
+            in[i] = in[i]/curr_max;
         }
 
     }

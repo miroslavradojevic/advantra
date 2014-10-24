@@ -195,7 +195,7 @@ public class BayesianTracking implements PlugIn, MouseListener {
         Overlay ov = new Overlay();
 
         float[] radiuses = ptes.clone();
-        Stat.normalize(radiuses);
+        Stat.min_max_normalize(radiuses);
         for (int i = 0; i < transition_xy.length; i++) {
             OvalRoi pt = new OvalRoi(transition_xy[i][0]+.5f-0.5f*radiuses[i], transition_xy[i][1]+.5-0.5f*radiuses[i], radiuses[i], radiuses[i]);
             pt.setStrokeColor(new Color(1f,1f,1f,radiuses[i]));
@@ -370,7 +370,7 @@ public class BayesianTracking implements PlugIn, MouseListener {
         Overlay ov = new Overlay();
 
         float[] radiuses = ptes.clone();
-        Stat.normalize(radiuses);
+        Stat.min_max_normalize(radiuses);
         for (int i = 0; i < transition_xy.length; i++) {
             OvalRoi pt = new OvalRoi(transition_xy[i][0]+.5f-0.5f*radiuses[i], transition_xy[i][1]+.5-0.5f*radiuses[i], radiuses[i], radiuses[i]);
             pt.setStrokeColor(new Color(1f,1f,1f,radiuses[i]));

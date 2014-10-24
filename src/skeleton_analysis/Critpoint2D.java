@@ -56,7 +56,6 @@ public class Critpoint2D implements PlugIn {
         image_name = ip_load.getShortTitle();
         image_dir = ip_load.getOriginalFileInfo().directory;
 
-
         /*
         	load the detection parameters
          */
@@ -90,7 +89,6 @@ public class Critpoint2D implements PlugIn {
         }
         else {
 
-//            System.out.println(Macro.getOptions());
             _show_det = Boolean.valueOf(Macro.getValue(Macro.getOptions(),          "show_det", String.valueOf(_show_det)));
             _sigma_smooth = Integer.valueOf(Macro.getValue(Macro.getOptions(),      "sigma_smooth", String.valueOf(_sigma_smooth)));
             _threshold = Integer.valueOf(Macro.getValue(Macro.getOptions(),         "threshold", String.valueOf(_threshold)));
@@ -116,8 +114,13 @@ public class Critpoint2D implements PlugIn {
                 Boolean.toString(_pruneEnds)
         );
 
-        if (_sigma_smooth>0)
+        if (_sigma_smooth>0) {
+//            System.out.println("filtering with " + Integer.toString(_sigma_smooth));
             IJ.run(ip_load, "Gaussian Blur...", "sigma="+Integer.toString(_sigma_smooth));
+            origIP = ip_load.duplicate(); // if it was smoothed then change the original
+
+        }
+
 //        else{
 ////            System.out.println("skipping the blurring...");
 //        }
@@ -128,10 +131,10 @@ public class Critpoint2D implements PlugIn {
         Prefs.blackBackground = true;
 
         IJ.run(ip_load, "Convert to Mask", ""); // mask
-        if (_show_det) ip_load.duplicate().show();
+//        if (_show_det) ip_load.duplicate().show();
 
         IJ.run(ip_load, "Skeletonize (2D/3D)", ""); // threshold
-        if (_show_det) ip_load.duplicate().show();
+//        if (_show_det) ip_load.duplicate().show();
 
         // analyse skeleton
         AnalyzeSkeleton_ skel = new AnalyzeSkeleton_(); // Initialize AnalyzeSkeleton_
@@ -248,6 +251,7 @@ public class Critpoint2D implements PlugIn {
         Overlay ov = saveDetection(); // export centroids and radiuses to .det
 
         if (_show_det) {
+            origIP.setTitle("DET");
             origIP.setOverlay(ov);
             origIP.show();
 //            ip_load.setOverlay(dbgov);

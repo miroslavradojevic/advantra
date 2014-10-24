@@ -5,6 +5,7 @@ import aux.Stat;
 import ij.ImagePlus;
 import ij.gui.OvalRoi;
 import ij.gui.Overlay;
+import ij.gui.PointRoi;
 
 import java.awt.*;
 import java.util.ArrayList;
@@ -15,29 +16,32 @@ import java.util.ArrayList;
  *
  */
 public class BayesianTracer2D {
-
-    float           D;//                   = 5f;
-    float           prior_sigma_deg;//     = 35f;
-    int             Nt;// = 100;
-    int             MAX_ITER = 200;
-    int             MARGIN = 20;
+    // will trace in 2d from the seed point defined as (x, y, vx, vy)
+    float           D;                      //      = 5f;
+    float           prior_sigma_deg;        //      = 35f;
+    int             Nt;                     //      = 100;
+    int             MAX_ITER;               //      = 100;
+    int             MIN_LEN;                //      = 5;
+    int             MARGIN          = 20;
 
     int             W, H;
     float[][]       likelihood_xy;
     Sphere2D        sph2d;
 
-    // track components
+    // output trace
     ArrayList<float[][]>    Xt_xy       = new ArrayList<float[][]>();   // this one is recursively updated, starts with 1 but keeps N elements distribution
     ArrayList<float[]>      wt_xy       = new ArrayList<float[]>();     // weights of the states that describe tube configuration
     ArrayList<float[]>      est_xy      = new ArrayList<float[]>();
-    Overlay                 trace       = new Overlay();
 
     public BayesianTracer2D(
             String      _scales_list,               //  comma separated values
             ImagePlus   _inimg,                     //
             float       _D,                         //
             float       _prior_sigma_deg,           //
-            int         _Nt                         //
+            int         _Nt,                        //
+            int         _MAX_ITER,
+            int         _MIN_LEN,
+            boolean     _use_original
     )
     {
 
@@ -45,43 +49,45 @@ public class BayesianTracer2D {
         String[] scales1 = _scales_list.split(","); if (scales1.length==0) return;
         float[] scales = new float[scales1.length];
         for (int i=0; i<scales1.length; i++) scales[i] = Float.valueOf(scales1[i]);
-        ImagePlus imout = Calc.neuriteness(_inimg, scales);
-//        imout.show();
-        likelihood_xy = new float[imout.getWidth()][imout.getHeight()]; 	// x~column, y~row
-        float[] read = (float[]) imout.getProcessor().getPixels();
-        for (int idx=0; idx<read.length; idx++) {
-            likelihood_xy[idx%imout.getWidth()][idx/imout.getWidth()] = read[idx];
-        }
 
         W = _inimg.getWidth();
         H = _inimg.getHeight();
 
+        // likelihood load
+        likelihood_xy = new float[W][H]; 	// x~column, y~row
+        if(_use_original) {
+            byte[] read = (byte[]) _inimg.getProcessor().getPixels(); // use 8bit original
+            for (int idx=0; idx<read.length; idx++) {
+                likelihood_xy[idx%W][idx/W] = read[idx] & 0xff;
+            }
+        }
+        else {
+            float[] read = (float[]) Calc.neuriteness(_inimg, scales).getProcessor().getPixels(); // calculate neuriteness
+            for (int idx=0; idx<read.length; idx++) {
+                likelihood_xy[idx%W][idx/W] = read[idx];
+            }
+        }
+
         D = _D;
         prior_sigma_deg = _prior_sigma_deg;
         Nt = _Nt;
+        MAX_ITER = _MAX_ITER;
+        MIN_LEN = _MIN_LEN;
 
         sph2d = new Sphere2D(D, 1.0f); // second argument is scale - here fixed to 1f, this is geometrical component for tracking
 
     }
 
-//    public int[] tracktest(int a){
-//        int[] out = new int[5];
-//        for (int i = 0; i < out.length; i++) {
-//            out[i] = a+i;
-//        }
-//        return out;
-//    }
-
-
-    public int run(
+    public int run(  // return the outcome label
             float _x,
             float _y,
             float _vx,
-            float _vy
+            float _vy,
+
+            int _init_label,
+            int[][] _region_map // this one is used to check when to end the trace
     )
-    { // return the outcome label
-
-
+    {
         // init
         float[][] start_xy = new float[1][2];
         start_xy[0][0] = _x;
@@ -100,29 +106,31 @@ public class BayesianTracer2D {
         est_xy.clear();
         est_xy.add(start_est);
 
-        trace.clear();
-
         /*
             recursive tracking
          */
+
+        int out_label = Integer.MAX_VALUE;
 
         int iter = 1;
         while (iter<=MAX_ITER) {
 
             Overlay track_iter = new Overlay();
 
+            // append Xt_xy, wt_xy, est_xy
+
             if (iter==1) {
 
-                track_iter = bayesian_iteration(Nt, sph2d, prior_sigma_deg, likelihood_xy,
-                        Xt_xy, wt_xy, est_xy,
-                        new float[] {_vx, _vy}); // priors with manually set direction (used at the start)
+                bayesian_iteration(Nt, sph2d, prior_sigma_deg, likelihood_xy,
+                        Xt_xy, wt_xy, est_xy,               // outputs
+                        new float[] {_vx, _vy});            // priors with manually set direction (used at the start)
 
             }
             else {
 
-                track_iter = bayesian_iteration(Nt, sph2d, prior_sigma_deg, likelihood_xy,
-                        Xt_xy, wt_xy, est_xy
-                ); // priors with manually set direction (used at the start)
+                bayesian_iteration(Nt, sph2d, prior_sigma_deg, likelihood_xy,
+                        Xt_xy, wt_xy, est_xy                // outputs
+                );                                          // priors with manually set direction (used at the start)
 
             }
 
@@ -131,8 +139,8 @@ public class BayesianTracer2D {
             float last_y = est_xy.get(est_xy.size()-1)[1];
 
             if (Float.isNaN(last_x) || Float.isNaN(last_y)) {
-                System.out.println("stop, coords were: " + last_x + " , " + last_y);
-                break;
+                System.out.print("STOP, coords were: " + last_x + " , " + last_y);
+                break; // out_label stays Integer.MAX_VALUE
             }
 
             float x1 = last_x - 0;
@@ -142,25 +150,29 @@ public class BayesianTracer2D {
             float y2 = H - last_y;
 
             if (x1<MARGIN || x2<MARGIN || y1<MARGIN || y2<MARGIN) {
-                System.out.println("stop, reached the margin.");
-                break;
+                System.out.print("STOP, reached the image margin.");
+                break; // out_label stays Integer.MAX_VALUE
             }
 
-//            if (ADD_PARTICLES) {
-//                for (int i = 0; i < track_iter.size(); i++) curr_ov.add(track_iter.get(i));
-//            }
-
-//            System.out.println("iter " + iter + " ->   " + last_x + " , " + last_y);
+            if (
+                    iter>MIN_LEN &&
+                    _region_map[Math.round(last_x)][Math.round(last_y)]!=0 &&
+                    _region_map[Math.round(last_x)][Math.round(last_y)]!=_init_label
+            ){
+                System.out.print("STOP, reached another CP region.");
+                out_label = _region_map[Math.round(last_x)][Math.round(last_y)];
+                break;
+            }
 
             iter++;
 
         }
 
-        return iter;
+        return out_label;
 
     }
 
-    private static Overlay bayesian_iteration(
+    private static void bayesian_iteration(
 
             int                     Nt,
             Sphere2D                _sph2d,
@@ -274,27 +286,9 @@ public class BayesianTracer2D {
 
         }
 
-        // initialize output for this iteration
-        Overlay ov = new Overlay();
-
-        float[] radiuses = ptes.clone();
-        Stat.normalize(radiuses);
-        for (int i = 0; i < transition_xy.length; i++) {
-            OvalRoi pt = new OvalRoi(transition_xy[i][0]+.5f-0.5f*radiuses[i], transition_xy[i][1]+.5-0.5f*radiuses[i], radiuses[i], radiuses[i]);
-            pt.setStrokeColor(new Color(1f,1f,1f,radiuses[i]));
-            pt.setFillColor(new Color(1f,1f,1f, radiuses[i]));
-            ov.add(pt);
-        }
-
-        OvalRoi centroid = new OvalRoi(selection_e[0]-.5+.5f, selection_e[1]-.5+.5f,1,1);
-        centroid.setFillColor(Color.YELLOW);
-        ov.add(centroid);
-
-        return ov;
-
     }
 
-    private static Overlay bayesian_iteration(
+    private static void bayesian_iteration(
 
             int                     Nt,
             Sphere2D                _sph2d,
@@ -337,8 +331,6 @@ public class BayesianTracer2D {
                 count++;
             }
         }
-
-
 
         // mul. priors (depending on the direction)
         float[] priors_per_sphere = new float[_sph2d.N];
@@ -449,27 +441,10 @@ public class BayesianTracer2D {
 
         }
 
-        // initialize output for this iteration
-        Overlay ov = new Overlay();
-
-        float[] radiuses = ptes.clone();
-        Stat.normalize(radiuses);
-        for (int i = 0; i < transition_xy.length; i++) {
-            OvalRoi pt = new OvalRoi(transition_xy[i][0]+.5f-0.5f*radiuses[i], transition_xy[i][1]+.5-0.5f*radiuses[i], radiuses[i], radiuses[i]);
-            pt.setStrokeColor(new Color(1f,1f,1f,radiuses[i]));
-            pt.setFillColor(new Color(1f,1f,1f, radiuses[i]));
-            ov.add(pt);
-        }
-
-        //OvalRoi centroid = new OvalRoi(selection_e[0]-.5+.5f, selection_e[1]-.5+.5f,1,1);
-        //centroid.setFillColor(Color.YELLOW);
-        //ov.add(centroid);
-
-        return ov;
-
     }
 
-    public static int[] descending(float[] a) {
+    public static int[] descending(float[] a)
+    {
 
         // prepare array with indexes first
         int[] idx = new int[a.length];
