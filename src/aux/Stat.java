@@ -179,8 +179,16 @@ public class Stat {
         for (int i = 0; i < in.length; i++) {
             sum += in[i];
         }
-        for (int i = 0; i < in.length; i++) {
-            in[i] /= sum;
+
+        if (sum==0) {
+            for (int i = 0; i < in.length; i++) {
+                in[i] = 1f / in.length; // they are all equal weight input has all zeros
+            }
+        }
+        else {
+            for (int i = 0; i < in.length; i++) {
+                in[i] /= sum;
+            }
         }
 
     }

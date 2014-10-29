@@ -9,6 +9,7 @@ import ij.gui.PointRoi;
 
 import java.awt.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 /**
  * Created by miroslav on 6-10-14.
@@ -139,7 +140,7 @@ public class BayesianTracer2D {
             float last_y = est_xy.get(est_xy.size()-1)[1];
 
             if (Float.isNaN(last_x) || Float.isNaN(last_y)) {
-                System.out.print("STOP, coords were: " + last_x + " , " + last_y);
+                System.out.print("STOP, coords were: " + last_x + " , " + last_y + " at # estimates " + est_xy.size() + "    ");
                 break; // out_label stays Integer.MAX_VALUE
             }
 
@@ -150,7 +151,7 @@ public class BayesianTracer2D {
             float y2 = H - last_y;
 
             if (x1<MARGIN || x2<MARGIN || y1<MARGIN || y2<MARGIN) {
-                System.out.print("STOP, reached the image margin.");
+                //System.out.print("STOP, reached the image margin.");
                 break; // out_label stays Integer.MAX_VALUE
             }
 
@@ -159,7 +160,7 @@ public class BayesianTracer2D {
                     _region_map[Math.round(last_x)][Math.round(last_y)]!=0 &&
                     _region_map[Math.round(last_x)][Math.round(last_y)]!=_init_label
             ){
-                System.out.print("STOP, reached another CP region.");
+                //System.out.print("STOP, reached another CP region.");
                 out_label = _region_map[Math.round(last_x)][Math.round(last_y)];
                 break;
             }
@@ -234,11 +235,25 @@ public class BayesianTracer2D {
             }
         }
 
-        // likelihoods - vesselness interpolated at each location
+//          REPLACED!!!
+//        for (int i = 0; i < transition_xy.length; i++) {
+//            ptes[i] *= Interpolator.interpolateAt(transition_xy[i][0], transition_xy[i][1], _likelihood_xy); // apply the likelihoods
+//        }
 
-        for (int i = 0; i < transition_xy.length; i++) {
-            ptes[i] *= Interpolator.interpolateAt(transition_xy[i][0], transition_xy[i][1], _likelihood_xy);
-        }
+
+        // fix: can happen that all the likelihoods are zero - that would cancel all the info in priors (all the posteriors reduced to zero)
+        // if it is >0 and still equal - priors are propagated
+        // if all are zero => skip the multiplication stage
+        float check_sum = 0;
+        boolean apply_likelihoods;
+        for (int i = 0; i < transition_xy.length; i++)
+            check_sum += Interpolator.interpolateAt(transition_xy[i][0], transition_xy[i][1], _likelihood_xy);
+
+        if (check_sum<=Float.MIN_VALUE) apply_likelihoods = false;
+        else apply_likelihoods = true;
+
+        if (apply_likelihoods) for (int i = 0; i < transition_xy.length; i++)
+            ptes[i] *= Interpolator.interpolateAt(transition_xy[i][0], transition_xy[i][1], _likelihood_xy); // likelihoods: vesselness, or the original values or anything else, interpolated at each location
 
         Stat.probability_distribution(ptes);
 
@@ -268,6 +283,9 @@ public class BayesianTracer2D {
                 selection_e[1] += selection_w[i] * selection_xy[i][1];
             }
 
+            if (Float.isNaN(selection_e[0]) || Float.isNaN(selection_e[1])) {
+                System.out.println("first est_xy! adding NaN, >Nt");
+            }
             _est_xy.add(selection_e);
 
         }
@@ -281,10 +299,18 @@ public class BayesianTracer2D {
                 selection_e[0] += ptes[i] * transition_xy[i][0];
                 selection_e[1] += ptes[i] * transition_xy[i][1];
             }
-
+//            if (Float.isNaN(selection_e[0]) || Float.isNaN(selection_e[1])) {
+//                boolean test = true;
+//                for (int i = 0; i < ptes.length; i++) {
+//                    test = test & !Float.isNaN(ptes[i]);
+//                }
+//                System.out.println("first est_xy! adding NaN, <=Nt (keep all) ptes ok? " + test + "   " + transition_xy.length + "  " + ptes.length + "   " + Arrays.toString(ptes));
+//            }
             _est_xy.add(selection_e);
 
         }
+
+
 
     }
 
@@ -385,10 +411,19 @@ public class BayesianTracer2D {
             }
         }
 
-        // likelihoods - vesselness interpolated at each location
-        for (int i = 0; i < transition_xy.length; i++) {
-            ptes[i] *= Interpolator.interpolateAt(transition_xy[i][0], transition_xy[i][1], _likelihood_xy);
-        }
+        // fix: can happen that all the likelihoods are zero - that would cancel all the info in priors (all the posteriors reduced to zero)
+        // if it is >0 and still equal - priors are propagated
+        // if all are zero => skip the multiplication stage
+        float check_sum = 0;
+        boolean apply_likelihoods;
+        for (int i = 0; i < transition_xy.length; i++)
+            check_sum += Interpolator.interpolateAt(transition_xy[i][0], transition_xy[i][1], _likelihood_xy);
+
+        if (check_sum<=Float.MIN_VALUE) apply_likelihoods = false;
+        else apply_likelihoods = true;
+
+        if (apply_likelihoods) for (int i = 0; i < transition_xy.length; i++)
+            ptes[i] *= Interpolator.interpolateAt(transition_xy[i][0], transition_xy[i][1], _likelihood_xy); // likelihoods: vesselness, or the original values or anything else, interpolated at each location
 
         Stat.probability_distribution(ptes);
 
@@ -421,6 +456,9 @@ public class BayesianTracer2D {
                 selection_e[1] += selection_w[i] * selection_xy[i][1];
             }
 
+//            if (Float.isNaN(selection_e[0]) || Float.isNaN(selection_e[1])) {
+//                System.out.println("adding NaN " + _est_xy.size());
+//            }
 
             _est_xy.add(selection_e);
 
@@ -436,6 +474,9 @@ public class BayesianTracer2D {
                 selection_e[1] += ptes[i] * transition_xy[i][1];
             }
 
+//            if (Float.isNaN(selection_e[0]) || Float.isNaN(selection_e[1])) {
+//                System.out.println("adding NaN " + _est_xy.size());
+//            }
 
             _est_xy.add(selection_e);
 
