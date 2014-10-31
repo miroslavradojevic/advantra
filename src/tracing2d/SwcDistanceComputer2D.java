@@ -58,7 +58,7 @@ public class SwcDistanceComputer2D extends Thread  {
             for (int locB = 0; locB < nodes_B.size(); locB++) {
 
                 // since it is 2d it takes into account x and y only
-                float dx = nodes_A.get(locA)[ReadSWC.XCOORD]-nodes_B.get(locA)[ReadSWC.XCOORD];
+                float dx = nodes_A.get(locA)[ReadSWC.XCOORD]-nodes_B.get(locB)[ReadSWC.XCOORD];
                 float dy = nodes_A.get(locA)[ReadSWC.YCOORD]-nodes_B.get(locB)[ReadSWC.YCOORD];
                 dist[locA][locB] = (float) Math.sqrt( Math.pow(dx,2) + Math.pow(dy,2) ); // calculate it
 

@@ -116,7 +116,7 @@ public class BayesianTracer2D {
         int iter = 1;
         while (iter<=MAX_ITER) {
 
-            Overlay track_iter = new Overlay();
+//            Overlay track_iter = new Overlay();
 
             // append Xt_xy, wt_xy, est_xy
 
@@ -135,7 +135,7 @@ public class BayesianTracer2D {
 
             }
 
-            // check if it is in/out by some margin or NaN
+            // check if the estimate is in/out by some margin or NaN
             float last_x = est_xy.get(est_xy.size()-1)[0];
             float last_y = est_xy.get(est_xy.size()-1)[1];
 
@@ -144,17 +144,24 @@ public class BayesianTracer2D {
                 break; // out_label stays Integer.MAX_VALUE
             }
 
-            float x1 = last_x - 0;
-            float x2 = W - last_x;
+            // check if one of the states is in/out by some margin (inefficient to make a loop here)
+            boolean is_out = false;
 
-            float y1 = last_y - 0;
-            float y2 = H - last_y;
+            for (int i = 0; i < Xt_xy.get(Xt_xy.size()-1).length; i++) { // loop all the states
 
-            if (x1<MARGIN || x2<MARGIN || y1<MARGIN || y2<MARGIN) {
-                //System.out.print("STOP, reached the image margin.");
-                break; // out_label stays Integer.MAX_VALUE
+                float last_xx = Xt_xy.get(Xt_xy.size()-1)[i][0];
+                float last_yy = Xt_xy.get(Xt_xy.size()-1)[i][1];
+
+                if ((last_xx - 0)<MARGIN || (W - last_xx)<MARGIN || (last_yy - 0)<MARGIN || (H - last_yy)<MARGIN) {
+                    is_out = true;
+                    break; // break looping the states, if one is out - that is enough
+                }
+
             }
 
+            if (is_out) break; // break tracing, out_label stays Integer.MAX_VALUE
+
+            // stopping
             if (
                     iter>MIN_LEN &&
                     _region_map[Math.round(last_x)][Math.round(last_y)]!=0 &&

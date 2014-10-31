@@ -87,63 +87,74 @@ public class Evaluator2D implements PlugIn {
         ReadSWC rswc_A = new ReadSWC(rec_swc_path);
         ReadSWC rswc_B = new ReadSWC(gndtth_path);
 
-        // threaded implementation of neuron distance
-        SwcDistanceComputer2D.load(rswc_A.nodes, rswc_B.nodes, dst);
-        int total = rswc_A.nodes.size();
+        // it can happen that they are empty - then it is not necessary to go further
+        if (rswc_A.nodes.size()>0 && rswc_B.nodes.size()>0) {
 
-        int CPU_NR = Runtime.getRuntime().availableProcessors() + 1;
 
-        SwcDistanceComputer2D jobs[] = new SwcDistanceComputer2D[CPU_NR];
+            // threaded implementation of neuron distance
+            SwcDistanceComputer2D.load(rswc_A.nodes, rswc_B.nodes, dst);
+            int total = rswc_A.nodes.size();
 
-        for (int i = 0; i < jobs.length; i++) {
-            jobs[i] = new SwcDistanceComputer2D(i*total/CPU_NR,  (i+1)*total/CPU_NR);
-            jobs[i].start();
-        }
+            int CPU_NR = Runtime.getRuntime().availableProcessors() + 1;
 
-        for (int i = 0; i < jobs.length; i++) {
-            try {
-                jobs[i].join();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
+            SwcDistanceComputer2D jobs[] = new SwcDistanceComputer2D[CPU_NR];
+
+            for (int i = 0; i < jobs.length; i++) {
+                jobs[i] = new SwcDistanceComputer2D(i * total / CPU_NR, (i + 1) * total / CPU_NR);
+                jobs[i].start();
             }
-        }
 
-        SwcDistanceComputer2D.remainder();
+            for (int i = 0; i < jobs.length; i++) {
+                try {
+                    jobs[i].join();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            SwcDistanceComputer2D.remainder();
 
         /* store output */
 
-        PrintWriter logWriter = null;
-        String legend = String.format("%10s,%10s,%6s,%6s,%6s",
-                "NAME", "ANNOT_TAG",
-                "SD", "SSD", "percSSD"
-        );
+            PrintWriter logWriter = null;
+            String legend = String.format("%10s,%10s,%6s,%6s,%6s",
+                    "NAME", "ANNOT_TAG",
+                    "SD", "SSD", "percSSD"
+            );
 
-        File f = new File(output_log_name);
-        if (!f.exists()) {
+            File f = new File(output_log_name);
+            if (!f.exists()) {
+                try {
+                    logWriter = new PrintWriter(output_log_name);
+                    logWriter.println(legend);
+                    logWriter.close();
+                } catch (FileNotFoundException ex) {
+                }
+            }
+            // if it exists already in the folder, just prepare to append on the existing file
             try {
-                logWriter = new PrintWriter(output_log_name);
-                logWriter.println(legend);
-                logWriter.close();
-            } catch (FileNotFoundException ex) {}
+                logWriter = new PrintWriter(new BufferedWriter(new FileWriter(output_log_name, true)));
+            } catch (IOException e) {
+            }
+
+            String eval = String.format("%10s,%10s,%6.2f,%6.2f,%6.2f",
+                    Tools.getFileName(rec_swc_path), gndtth_tag,
+                    SwcDistanceComputer2D.SD(),
+                    SwcDistanceComputer2D.SSD(dst),
+                    SwcDistanceComputer2D.percSSD(dst)
+            );
+
+
+            logWriter.println(eval);
+            logWriter.close();
+
+            System.out.println(legend);
+            System.out.println(eval);
         }
-        // if it exists already in the folder, just prepare to append on the existing file
-        try {
-            logWriter = new PrintWriter(new BufferedWriter(new FileWriter(output_log_name, true)));
-        } catch (IOException e) {}
-
-        String eval = String.format("%10s,%10s,%6.2f,%6.2f,%6.2f",
-                Tools.getFileName(rec_swc_path), gndtth_tag,
-                SwcDistanceComputer2D.SD(),
-                SwcDistanceComputer2D.SSD(dst),
-                SwcDistanceComputer2D.percSSD(dst)
-        );
-
-
-        logWriter.println(eval);
-        logWriter.close();
-
-        System.out.println(legend);
-        System.out.println(eval);
+        else {
+            if (rswc_A.nodes.size()<=0) System.out.println("Empty Swc:\t" + rec_swc_path);
+            if (rswc_B.nodes.size()<=0) System.out.println("Empty Swc:\t" + gndtth_path);
+        }
 
     }
 }

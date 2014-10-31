@@ -888,6 +888,7 @@ public class TreeReconstructor2D implements PlugIn {
                     if (
                             label_beg.get(i)==frontier_label &&
                             label_end.get(i)!=Integer.MAX_VALUE &&
+                            label_end.get(i)>0 &&        // if it goes to another soma, also with negative label, don't consider it it will be considered from that soma region when that trace starts from there
                             label_end.get(i) != label_beg.get(i) &&
                             !tracer2d_addedswc.get(i))
                     { // begin is in the frontier list
@@ -904,7 +905,7 @@ public class TreeReconstructor2D implements PlugIn {
                         }
 
                         tracer2d_addedswc.set(i, true);
-
+//                        System.out.println("DBG: cpregion_xy < " + (label_end.get(i)-1) + " > ");
                         logWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f %-4d", swc_id, 2, cpregion_xy.get(label_end.get(i)-1)[0],cpregion_xy.get(label_end.get(i)-1)[1], 0f,1f, mother_idx));
 
                         int endlab = label_end.get(i);
