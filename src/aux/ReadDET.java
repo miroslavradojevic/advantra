@@ -18,7 +18,7 @@ public class ReadDET {
 	public ArrayList<Float> 		y = new ArrayList<Float>(); // y
 	public ArrayList<Float> 		r = new ArrayList<Float>(); // radius
 	public ArrayList<Float> 		s = new ArrayList<Float>(); // score
-	public ArrayList<String> 		t = new ArrayList<String>(); // type
+	public ArrayList<String> 		t = new ArrayList<String>(); // type (BIF, END, JUN, CRSS)
 	public ArrayList<float[][]> 	v = new ArrayList<float[][]>(); // outwards direcitons
 
 	// indexes
@@ -120,7 +120,54 @@ public class ReadDET {
 		}
 
 	}
-    
+
+    public void exportSwc(
+            String _export_path
+    )
+    {
+
+        PrintWriter logWriter = null;
+
+        try {
+            logWriter = new PrintWriter(_export_path); logWriter.print("" +
+                    "# ADVANTRA: exportSwc()    \n" +
+                    "# format: " +          _export_path  + "\n" +
+                    "# critpoint type: " +  _export_path  +   "\n" +
+                    "# author: miroslavr\n");
+            logWriter.close();
+        } catch (FileNotFoundException ex) {}
+
+        try {
+            logWriter = new PrintWriter(new BufferedWriter(new FileWriter(_export_path, true)));
+        } catch (IOException e) {}
+
+        int cnt = 1;
+
+        for (int i = 0; i < x.size(); i++) {
+
+            System.out.println(t.get(i));
+
+            if (t.get(i).equals("BIF")) {
+                logWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f %-4d",
+                        cnt++, 2, x.get(i), y.get(i), 0f, r.get(i), -1));
+            }
+            else if (t.get(i).equals("CROSS")) {
+                logWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f %-4d",
+                        cnt++, 4, x.get(i), y.get(i), 0f, r.get(i), -1));
+            }
+            else if (t.get(i).equals("END")) {
+                logWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f %-4d",
+                        cnt++, 6, x.get(i), y.get(i), 0f, r.get(i), -1));
+            }
+
+        }
+
+        logWriter.close();
+
+        System.out.println(_export_path + " exported.");
+
+    }
+
     private String printDirections(float[][] array_to_plot) {
         
         String out = "";

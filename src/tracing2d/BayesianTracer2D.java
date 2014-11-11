@@ -2,6 +2,8 @@ package tracing2d;
 
 import aux.Interpolator;
 import aux.Stat;
+import detection2d.SemiCircle;
+import detection2d.Masker2D;
 import ij.ImagePlus;
 import ij.gui.OvalRoi;
 import ij.gui.Overlay;
@@ -54,19 +56,49 @@ public class BayesianTracer2D {
         W = _inimg.getWidth();
         H = _inimg.getHeight();
 
-        // likelihood load
+        // likelihood load - at first the original values
         likelihood_xy = new float[W][H]; 	// x~column, y~row
-        if(_use_original) {
-            byte[] read = (byte[]) _inimg.getProcessor().getPixels(); // use 8bit original
-            for (int idx=0; idx<read.length; idx++) {
-                likelihood_xy[idx%W][idx/W] = read[idx] & 0xff;
+        byte[] read_orig = (byte[]) _inimg.getProcessor().getPixels(); // use 8bit original
+        for (int idx=0; idx<read_orig.length; idx++) {
+            likelihood_xy[idx%W][idx/W] = read_orig[idx] & 0xff;
+        }
+
+        System.out.print("extracting mask...");
+        // use Masker2D (this should be there from critpoint detection normally)
+        System.out.print("Masker2D...");
+        float new_masker_radius = _D;   	    // important that it is outer radius of the sphere
+        float new_masker_percentile = 60;       // used to have these two as argument but not necessary
+        Masker2D.loadTemplate(
+                likelihood_xy,
+                (int) Math.ceil(new_masker_radius),
+                new_masker_radius,
+                new_masker_percentile); //image, margin, check, percentile
+        int totalLocs = W * H;
+        int CPU_NR = Runtime.getRuntime().availableProcessors() + 1;
+        Masker2D ms_jobs[] = new Masker2D[CPU_NR];
+        for (int i = 0; i < ms_jobs.length; i++) {
+            ms_jobs[i] = new Masker2D(i*totalLocs/CPU_NR,  (i+1)*totalLocs/CPU_NR);
+            ms_jobs[i].start();
+        }
+        for (int i = 0; i < ms_jobs.length; i++) {
+            try {
+                ms_jobs[i].join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }
         }
-        else {
+        Masker2D.defineThreshold();
+        Masker2D.formRemainingOutputs();
+        System.out.println("done. " + Masker2D.mask_xy.length + " x " + Masker2D.mask_xy[0].length);
+//        new ImagePlus("mask", Masker2D.getMask()).show();
+
+        if(!_use_original) {
+            System.out.print("nness...");
             float[] read = (float[]) Calc.neuriteness(_inimg, scales).getProcessor().getPixels(); // calculate neuriteness
             for (int idx=0; idx<read.length; idx++) {
                 likelihood_xy[idx%W][idx/W] = read[idx];
             }
+            System.out.println("done.");
         }
 
         D = _D;
@@ -144,6 +176,12 @@ public class BayesianTracer2D {
                 break; // out_label stays Integer.MAX_VALUE
             }
 
+
+            // if we entered background according to the masker - cancel the trace
+            if (!Masker2D.mask_xy[Math.round(last_x)][Math.round(last_y)]) {
+                System.out.println("Yes");
+                break; // break tracing, out_label stays Integer.MAX_VALUE
+            }
             // check if one of the states is in/out by some margin (inefficient to make a loop here)
             boolean is_out = false;
 
@@ -357,7 +395,7 @@ public class BayesianTracer2D {
 
         float[] ptes = new float[N * _sph2d.N];
 
-        count = 0;
+        count = 0; // TODO: two for loops in a row doing somethig that can be in one for loop!!!
         for (int i = 0; i < N; i++) {
             for (int j = 0; j < _sph2d.N; j++) {
                 ptes[count] = start_w[i];
@@ -370,7 +408,7 @@ public class BayesianTracer2D {
 
         float[] _vxy = new float[2];
 
-        count=0;
+        count=0; // TODO: third for loop - same thing!!!
         for (int i = 0; i < N; i++) {
 
             // direction for this point
@@ -426,10 +464,10 @@ public class BayesianTracer2D {
         for (int i = 0; i < transition_xy.length; i++)
             check_sum += Interpolator.interpolateAt(transition_xy[i][0], transition_xy[i][1], _likelihood_xy);
 
-        if (check_sum<=Float.MIN_VALUE) apply_likelihoods = false;
+        if (check_sum<=Float.MIN_VALUE) apply_likelihoods = false; // TODO boolean tag unnecessary
         else apply_likelihoods = true;
 
-        if (apply_likelihoods) for (int i = 0; i < transition_xy.length; i++)
+        if (apply_likelihoods) for (int i = 0; i < transition_xy.length; i++) // TODO maybe in one for loop check+posterior!!! at least no 2x interpolation
             ptes[i] *= Interpolator.interpolateAt(transition_xy[i][0], transition_xy[i][1], _likelihood_xy); // likelihoods: vesselness, or the original values or anything else, interpolated at each location
 
         Stat.probability_distribution(ptes);
@@ -515,5 +553,164 @@ public class BayesianTracer2D {
         return idx;
 
     }
+
+
+    /*
+        //
+        // another mode where 4 up to 4 directions are tracked - EXPERIMEntal
+        //
+     */
+
+    public static void run(
+            float       at_x,
+            float       at_y,
+            float[][]               likelihood_xy,
+            SemiCircle  circ,
+            float       sigma_deg,
+            int         Ni,     // number of the iterations
+            int         Ns,     // number of the states
+            float[][][] xt,     // Ni x Ns X 4 (x,y,vx,vy)
+            float[][]   wt      // Ni x Ns
+    )
+    {
+
+//        System.out.println("running with " + circ.NN + " points per semi circle");
+        // number of locations and allocated to cover the pi region
+        // allocate the states for iter=0
+        for (int i = 0; i < Ns; i++) {
+
+            float ang = (float) ((i*2*Math.PI)/Ns);
+
+            xt[0][i][0] = at_x; // x
+            xt[0][i][1] = at_y; // y
+            xt[0][i][2] = (float) Math.cos(ang); // vx
+            xt[0][i][3] = (float) Math.sin(ang); // vy
+
+            wt[0][i] = 1/(float)Ns;
+
+        }
+
+        int iter = 1;
+
+        while (iter<Ni) {
+
+            //
+            System.out.println("iter " + iter);
+
+            bayesian_iteration(likelihood_xy, iter, circ, sigma_deg, xt, wt);
+
+            iter++;
+
+        }
+
+
+
+    }
+
+    // this one is used for MHT to delineate the surrounding there are multiple hypotheses diverging
+    private static void bayesian_iteration(
+
+            float[][]               _likelihood_xy,
+
+            int                     _iter,  // will mark the array index where the value will be filled in
+
+            SemiCircle              _scirc,
+            float                   _prior_sigma_deg,
+
+            float[][][]             _xt,
+            float[][]               _wt
+
+    )
+    {
+
+        // take states at _iter-1
+        float[][] prev_x = _xt[_iter-1];
+        float[]   prev_w = _wt[_iter-1];
+
+        int Ns = prev_x.length;
+
+        // TODO allocation in the loop!!!
+        float[][]   transition_xy       = new float[prev_x.length * _scirc.NN][4]; // all the predictions are stored here
+        float[]     ptes                = new float[prev_x.length * _scirc.NN];
+        float[]     lhoods              = new float[prev_x.length * _scirc.NN];
+
+        int count = 0;
+        double sum_lhoods = 0;
+        for (int i = 0; i < prev_x.length; i++) {
+
+            float x  = prev_x[i][0];
+            float y  = prev_x[i][1];
+            float vx = prev_x[i][2];
+            float vy = prev_x[i][3];
+
+            // prior is calculated here, possible to change it so that it is averaged(vx,vy)
+            _scirc.set(x, y, vx, vy, _prior_sigma_deg);
+
+            for (int j = 0; j < _scirc.NN; j++) {
+
+                transition_xy[count][0] = _scirc.p[j][0]; //start_xy[i][0] + _sph2d.locsXY.get(j)[0];
+                transition_xy[count][1] = _scirc.p[j][1]; //start_xy[i][1] + _sph2d.locsXY.get(j)[1];
+
+                lhoods[count] = Interpolator.interpolateAt(transition_xy[count][0], transition_xy[count][1], _likelihood_xy);
+
+                sum_lhoods += lhoods[count];
+
+                ptes[count] = prev_w[i] * _scirc.w[j]; // w stores priors, possible to immediately multiply posterior here unless it is all zeros
+
+                count++;
+            }
+        }
+
+        // just in case check
+        if (sum_lhoods>Float.MIN_VALUE) {
+            for (int i = 0; i < ptes.length; i++) {
+                ptes[i] = ptes[i] * lhoods[i];
+            }
+        }
+
+        Stat.probability_distribution(ptes); // normalize
+
+        // now limit the number of estimates to best Ns
+//        if (transition_xy.length>Ns) {
+
+            // reduce, take best Nt
+            int[] sort_idx = descending(ptes);      // ptes will be sorted as a side effect
+
+//            float[][]   selection_xy    = new float[Ns][4];
+//            float[]     selection_w     = new float[Ns];
+
+            for (int i = 0; i < Ns; i++) {
+
+                _xt[_iter][i][0] = transition_xy[sort_idx[i]][0];
+                _xt[_iter][i][1] = transition_xy[sort_idx[i]][1];
+                _wt[_iter][i]    = ptes[i]; // because they are already sorted
+//                selection_xy[i][0] = transition_xy[sort_idx[i]][0];
+//                selection_xy[i][1] = transition_xy[sort_idx[i]][1];
+//                selection_w[i] = ptes[i];           //
+
+            }
+
+
+//            _Xt_xy.add(selection_xy);
+            Stat.probability_distribution(_wt[_iter]);
+//            _wt_xy.add(selection_w);
+
+        // final estimate will be...
+//        float[]     selection_e     = new float[4];
+//        for (int i = 0; i < Ns; i++) {
+//            selection_e[0] += selection_w[i] * selection_xy[i][0];
+//            selection_e[1] += selection_w[i] * selection_xy[i][1];
+//        }
+
+//            _est_xy.add(selection_e);
+//        }
+
+
+
+
+
+    }
+
+
 
 }

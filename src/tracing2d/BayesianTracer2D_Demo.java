@@ -48,16 +48,19 @@ public class BayesianTracer2D_Demo implements PlugIn, MouseListener {
         int offscreenY = curr_can.offScreenY(y);
         count_click++;
 
-        // add center marker
-        float r = 2.0f;
-        OvalRoi central = new OvalRoi(offscreenX-r+.5, offscreenY-r+.5f, 2*r, 2*r);
-        central.setStrokeColor(Color.WHITE);
-        central.setFillColor(Color.WHITE);
-        curr_ov.add(central);
+
 
         if (count_click==1) {
             curr_center_x = offscreenX; // only one starting state (expect more in sequential tracing)
             curr_center_y = offscreenY;
+
+            // add center marker
+            float r = 1.0f;
+            OvalRoi central = new OvalRoi(offscreenX-r+.5, offscreenY-r+.5f, 2*r, 2*r);
+            central.setStrokeColor(Color.RED);
+            central.setFillColor(Color.RED);
+            curr_ov.add(central);
+
         }
         else if (count_click==2) { /// bayesian tracking iteration
 
@@ -76,15 +79,39 @@ public class BayesianTracer2D_Demo implements PlugIn, MouseListener {
 
             );
 
+            boolean draw_states = true;
+
             /*
                 draw direction line
              */
             Line ln = new Line(offscreenX+.5f, offscreenY+.5f, curr_center_x+.5f, curr_center_y+.5f);
-            ln.setStrokeColor(Color.YELLOW);
-            ln.setFillColor(Color.YELLOW);
-            ln.setStrokeWidth(1.5f);
+            ln.setStrokeColor(Color.RED);
+            ln.setFillColor(Color.RED);
+            if (draw_states) ln.setStrokeWidth(0.3f);
+            else ln.setStrokeWidth(1f);
             curr_ov.add(ln);
 
+            float ll = (float) Math.sqrt(Math.pow(curr_center_y-offscreenY,2)+Math.pow(curr_center_x-offscreenX,2));
+            float dx = -curr_center_x+offscreenX;
+            dx /=ll;
+            float dy = -curr_center_y+offscreenY;
+            dy/=ll;
+
+            float LL = 0.85f;
+            float KK = 0.05f;
+            ln = new Line(curr_center_x+.5f+ LL * ll * dx - dy * KK * ll, curr_center_y+.5f+ LL * ll * dy + dx * KK * ll,  offscreenX+.5f , offscreenY+.5f );
+            ln.setStrokeColor(Color.RED);
+            ln.setFillColor(Color.RED);
+            if (draw_states) ln.setStrokeWidth(0.3f);
+            else ln.setStrokeWidth(1f);
+            curr_ov.add(ln);
+
+            ln = new Line(curr_center_x+.5f+ LL * ll * dx + dy * KK * ll, curr_center_y+.5f+ LL * ll * dy - dx * KK * ll,  offscreenX+.5f , offscreenY+.5f );
+            ln.setStrokeColor(Color.RED);
+            ln.setFillColor(Color.RED);
+            if (draw_states) ln.setStrokeWidth(0.3f);
+            else ln.setStrokeWidth(1f);
+            curr_ov.add(ln);
 
 
             /*
@@ -146,15 +173,18 @@ public class BayesianTracer2D_Demo implements PlugIn, MouseListener {
 
             Overlay ovl = new Overlay();
 
-            Overlay trace_Xt_xy = getTrace_Xt_xy();
-            for (int i = 0; i < trace_Xt_xy.size(); i++) curr_ov.add(trace_Xt_xy.get(i));
+
+            if (draw_states) {
+                Overlay trace_Xt_xy = getTrace_Xt_xy();
+                for (int i = 0; i < trace_Xt_xy.size(); i++) curr_ov.add(trace_Xt_xy.get(i));
+            }
 
             Overlay trace_est_xy = getTrace_est_xy();
             for (int i = 0; i < trace_est_xy.size(); i++) curr_ov.add(trace_est_xy.get(i));
 
-            //setOverlay(ovl);
-//            orig.show();
-//curr_can.setOverlay(ovl);
+//          setOverlay(ovl);
+//          orig.show();
+//          curr_can.setOverlay(ovl);
 
 
 //            float[] est_x = new float[est_xy.size()];
@@ -322,7 +352,7 @@ public class BayesianTracer2D_Demo implements PlugIn, MouseListener {
                 }
 
                 PolygonRoi trc = new PolygonRoi(trc_x, trc_y, PolygonRoi.FREELINE);
-                trc.setStrokeWidth(1f);
+                trc.setStrokeWidth(0.4f);
                 trc.setStrokeColor(Color.YELLOW);
                 trc.setFillColor(Color.YELLOW);
                 ov.add(trc);

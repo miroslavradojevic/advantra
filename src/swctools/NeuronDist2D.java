@@ -1,9 +1,8 @@
-package tracing2d;
+package swctools;
 
 
 import aux.ReadSWC;
 import aux.Tools;
-import detection2d.Masker2D;
 import ij.Macro;
 import ij.Prefs;
 import ij.gui.GenericDialog;
@@ -49,7 +48,7 @@ public class NeuronDist2D implements PlugIn {
             if (gd.wasCanceled()) return;
 
             _swc_path_A       	= gd.getNextString(); 				Prefs.set("critpoint.tracing2d.swc_path_a",     _swc_path_A);
-            _swc_path_B       	= gd.getNextString(); 				Prefs.set("critpoint.tracing2d.test",           _swc_path_B);
+            _swc_path_B       	= gd.getNextString(); 				Prefs.set("critpoint.tracing2d.swc_path_b",     _swc_path_B);
             _dst                = (float) gd.getNextNumber();       Prefs.set("critpoint.tracing2d.dst",            _dst);
 
         }
@@ -96,10 +95,9 @@ public class NeuronDist2D implements PlugIn {
             }
         }
 
-        SwcDistanceComputer2D.remainder();
+//        SwcDistanceComputer2D.remainder(); // expelled!!
 
         // done calculating, results are stored in static class, can be extracted from there
-
 
         //  output the result - printout
         System.out.println("Ddiv(A,B)=\t"+  SwcDistanceComputer2D.dAB());

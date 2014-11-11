@@ -48,13 +48,16 @@ public class ReadSWC {
             BufferedReader br 			= new BufferedReader(new InputStreamReader(new DataInputStream(fstream)));
             String read_line;
 
-			while ( (read_line = br.readLine()) != null ) {
+			while ( (read_line = br.readLine()) != null ) { // it will break on the empty line !!!
+
+//              System.out.println("happened that it was empty ["+read_line+"]");//+br.readLine());//+"----->"+br.readLine()+"----"+(read_line = br.readLine()) != null);
+                if (read_line.isEmpty()) continue;
+
                 if(!read_line.trim().startsWith("#")) { // # are comments
 
 //                    fileLength++;
-
-					// split values
-					String[] 	readLn = 	read_line.trim().split("\\s+");
+                    // split values
+					String[] 	readLn = 	read_line.trim().replaceAll("," , ".").split("\\s+");
 
 					float[] 	valsLn = 	new float[7]; // x, y, z, mother_index
 
@@ -84,6 +87,7 @@ public class ReadSWC {
 					maxZ = (valsLn[ZCOORD]>maxZ)? valsLn[ZCOORD] : maxZ;
 
                 }
+
             }
 
 			br.close();
@@ -107,293 +111,106 @@ public class ReadSWC {
 
 	}
 
-	public void exportBifurcations(String swcBifExportPath){
-
-		PrintWriter logWriter = null;
-
-		try {
-			logWriter = new PrintWriter(swcBifExportPath); logWriter.print(""); logWriter.close();
-		} catch (FileNotFoundException ex) {}
-
-		try {
-			logWriter = new PrintWriter(new BufferedWriter(new FileWriter(swcBifExportPath, true)));
-			//logWriter.println("# source "+ inSwc);
-		} catch (IOException e) {}
-
-		// will take loaded swc file and create a new one that extracts the bifurcation points
-		int currId, currMotherId, laterMotherId, count;
-		boolean isBif;
-
-		// extraction
-		for (int ii=0; ii<nodes.size(); ii++) {
-
-			currId = Math.round(nodes.get(ii)[ID]);
-			currMotherId = Math.round(nodes.get(ii)[MOTHER]);
-			count = 0;
-			isBif = false;
-
-			// it is root, assign it as endpoint by default no need to loop
-			if (currMotherId==-1) {
-				for (int jj=ii+1; jj<nodes.size(); jj++) {
-
-					laterMotherId = Math.round(nodes.get(jj)[MOTHER]);
-					if (laterMotherId==currId) {
-						count++;
-						if (count==2) {
-							isBif = true;
-							break;
-						}
-					}
-
-				}
-			}
-
-			if (isBif) {
-				// add ii node to the output swc
-				logWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1",
-													   currId,
-													   5,  // type = 5
-													   nodes.get(ii)[XCOORD],
-													   nodes.get(ii)[YCOORD],
-													   nodes.get(ii)[ZCOORD],
-													   2*nodes.get(ii)[RADIUS]));
-
-			}
-
-		}
-
-		logWriter.close();
-
-		System.out.println(swcBifExportPath + " exported.");
-
-	}
-
-	public void exportEndpoints(String swcEndExportPath){
-
-		PrintWriter logWriter = null;
-
-		try {
-			logWriter = new PrintWriter(swcEndExportPath);	logWriter.print(""); logWriter.close();
-		} catch (FileNotFoundException ex) {}
-
-		try {
-			logWriter = new PrintWriter(new BufferedWriter(new FileWriter(swcEndExportPath, true)));
-			//logWriter.println("# source "+ inSwc);
-		} catch (IOException e) {}
-
-
-		// will take current swc file and create a new one that marks the bifurcation points
-		int currId, currMotherId, laterMotherId;
-		boolean isEnd;
-
-		// extraction
-		for (int ii=0; ii<nodes.size(); ii++) {
-
-			currId = Math.round(nodes.get(ii)[ID]);
-			currMotherId = Math.round(nodes.get(ii)[MOTHER]);
-			isEnd = true;
-
-			if (currMotherId!=-1) {
-				for (int jj=ii+1; jj<nodes.size(); jj++) {
-
-					laterMotherId = Math.round(nodes.get(jj)[MOTHER]);
-					if (laterMotherId==currId) {
-						isEnd = false;
-						break;
-					}
-
-				}
-			}
-
-			if (isEnd) {
-				// add ii node to the output swc
-				logWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1",
-													   currId,
-													   6,  // type = 6
-													   nodes.get(ii)[XCOORD],
-													   nodes.get(ii)[YCOORD],
-													   nodes.get(ii)[ZCOORD],
-													   nodes.get(ii)[RADIUS]));
-
-			}
-
-		}
-
-		logWriter.close();
-
-		System.out.println(swcEndExportPath + " exported.");
-
-	}
-
     /*
-    export annotated critical points (junctions and end-points) in swc format
+        export SWC critical points (junctions and end-points) in DET (2D) format (same as Critpoint2D export)
+        or SWC with the critical points only,
+        scores will be set to 1
      */
-    public void exportSwcCritpoint(String swcCritpointExportPath){
+    public void exportCritpoint(
+            String                  _exportPath,
+            ExportCritpointFormat   _export_format,
+            ExportCritpointType     _export_type
+    )
+    {
 
-        float SCALE = 2;
+        float SCALE = 2; // defines how much it will scale current radius read from swc at that node
 
         PrintWriter logWriter = null;
 
         try {
-            logWriter = new PrintWriter(swcCritpointExportPath); logWriter.print(""); logWriter.close();
+            logWriter = new PrintWriter(_exportPath); logWriter.print("" +
+                    "# ADVANTRA: exportCritpoint()    \n" +
+                    "# format: " +          _export_format  + "\n" +
+                    "# critpoint type: " +  _export_type  +   "\n" +
+                    "# author: miroslavr\n");
+            logWriter.close();
         } catch (FileNotFoundException ex) {}
 
         try {
-            logWriter = new PrintWriter(new BufferedWriter(new FileWriter(swcCritpointExportPath, true)));
+            logWriter = new PrintWriter(new BufferedWriter(new FileWriter(_exportPath, true)));
         } catch (IOException e) {}
 
-
         // will take loaded swc file and create a new one that extracts the critical points
-        int currId, currMotherId, laterMotherId, count;
-        boolean isBif, isEnd;
+        int         currId, count;
+        boolean     isBif,  isEnd;
 
-        // extraction
+        // extraction, loop the nodes of swc reconstruction
         for (int ii=0; ii<nodes.size(); ii++) {
 
             currId = Math.round(nodes.get(ii)[ID]);
-            currMotherId = Math.round(nodes.get(ii)[MOTHER]);
 
-            if (currMotherId==-1) continue; // root point is not either of those (can be endpoint potentially though)
-
-            /* loop twice throught the rest of the structure
-            1st time to find if its end, then
-            loop the second time to search for bif in case it was not found to be end
-             */
-
+            if (Math.round(nodes.get(ii)[MOTHER])==-1) continue; // root point is not either of those (can be endpoint potentially though)
 
             /*
-            END
+                check if it is END (algorithm: no one referred to it)
              */
 
             isEnd = true;
-            for (int jj=ii+1; jj<nodes.size(); jj++) {
-                laterMotherId = Math.round(nodes.get(jj)[MOTHER]);
-                if (laterMotherId==currId) {
+            for (int jj=ii+1; jj<nodes.size(); jj++) { // loop onwards the rest of the nodes
+                if (currId==Math.round(nodes.get(jj)[MOTHER])) {
                     isEnd = false;
-                    break;
+                    break; // stop looping further
                 }
             }
 
             if (isEnd) {
-                // add ii node to the output swc
-                logWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1",
-                        currId,
-                        6,  // type = 6 (yellow in vaa3d)
-                        nodes.get(ii)[XCOORD],
-                        nodes.get(ii)[YCOORD],
-                        nodes.get(ii)[ZCOORD],
-                        SCALE*nodes.get(ii)[RADIUS]));
-
-            }
-
-            if (isEnd) continue;
-
-            /*
-            BIF
-             */
-
-            count = 0;
-            isBif = false;
-            for (int jj=ii+1; jj<nodes.size(); jj++) {
-                laterMotherId = Math.round(nodes.get(jj)[MOTHER]);
-                if (laterMotherId==currId) {
-                    count++;
-                    if (count==2) {
-                        isBif = true;
+                // double check the first part of the list to see if there was some that was earlier and that referred to this one
+                // the one that was endpoint will need to check all of the remaining nodes
+                for (int jjj = 0; jjj < ii; jjj++) {
+                    if (currId==Math.round(nodes.get(jjj)[MOTHER])) {
+                        isEnd = false;
                         break;
                     }
                 }
             }
 
-            if (isBif) {
-                // add ii node to the output swc
-                logWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1",
-                        currId,
-                        2,  // type = 2 (red in vaa3d)
-                        nodes.get(ii)[XCOORD],
-                        nodes.get(ii)[YCOORD],
-                        nodes.get(ii)[ZCOORD],
-                        SCALE*nodes.get(ii)[RADIUS]));
+            if (isEnd && (_export_type==ExportCritpointType.ALL || _export_type==ExportCritpointType.END)) { // only in case it was end
 
-            }
-        }
-
-        logWriter.close();
-
-        System.out.println(swcCritpointExportPath + " exported.");
-
-    }
-
-    /*
-    export annotated critical points (junctions and end-points) in det format (Critpoint2D export), it is 2d format!!!
-     */
-    public void exportDetCritpoint(String detCritpointExportPath) {
-
-        float SCALE = 2;
-
-        PrintWriter logWriter = null;
-
-        try {
-            logWriter = new PrintWriter(detCritpointExportPath); logWriter.print(""); logWriter.close();
-        } catch (FileNotFoundException ex) {}
-
-        try {
-            logWriter = new PrintWriter(new BufferedWriter(new FileWriter(detCritpointExportPath, true)));
-        } catch (IOException e) {}
-
-        // will take loaded swc file and create a new one that extracts the critical points
-        int currId, currMotherId, laterMotherId, count;
-        boolean isBif, isEnd;
-
-        // extraction
-        for (int ii=0; ii<nodes.size(); ii++) {
-
-            currId = Math.round(nodes.get(ii)[ID]);
-            currMotherId = Math.round(nodes.get(ii)[MOTHER]);
-
-            if (currMotherId==-1) continue; // root point is not either of those (can be endpoint potentially though)
-
-            /* loop twice throught the rest of the structure
-            1st time to find if its end, then
-            loop the second time to search for bif in case it was not found to be end
-             */
-
-
-            /*
-            END
-             */
-
-            isEnd = true;
-            for (int jj=ii+1; jj<nodes.size(); jj++) {
-                laterMotherId = Math.round(nodes.get(jj)[MOTHER]);
-                if (laterMotherId==currId) {
-                    isEnd = false;
-                    break;
-                }
-            }
-
-            if (isEnd) {
                 // add ii node to the output det (check output format description in Detector2D.saveDetection())
-                logWriter.println(
+                switch (_export_format) {
+                    case DET_2D:
+                        logWriter.println(
                                 IJ.d2s(nodes.get(ii)[XCOORD], 2)+", "+IJ.d2s(nodes.get(ii)[YCOORD],2)+", "+
-                                IJ.d2s(SCALE*nodes.get(ii)[RADIUS],2)+", "+
-                                IJ.d2s(1.0,2)+", "+ CritpointRegion.RegionType.END+", "+
-                                IJ.d2s(Float.NaN)+", "+IJ.d2s(Float.NaN)
-                );
+                                        IJ.d2s(SCALE*nodes.get(ii)[RADIUS],2)+", "+
+                                        IJ.d2s(1.0,2)+", "+ CritpointRegion.RegionType.END+", "+
+                                        IJ.d2s(Float.NaN)+", "+IJ.d2s(Float.NaN)
+                        );
+                        break;
+                    case SWC:
+                        logWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1",  // -1 will be the mother index !!!!
+                                currId,
+                                6,  // type = 6 (yellow in vaa3d)
+                                nodes.get(ii)[XCOORD],
+                                nodes.get(ii)[YCOORD],
+                                nodes.get(ii)[ZCOORD],
+                                SCALE*nodes.get(ii)[RADIUS]));
+                        break;
+                    default:
+                        break;
+                }
 
             }
 
-            if (isEnd) continue;
+            if (isEnd) continue; // no need to check if it is junction then otherwise continue
 
             /*
-            BIF
+                check if it is BIF (JUN) (there were 2+ that referred to it)
              */
 
             count = 0;
             isBif = false;
-            for (int jj=ii+1; jj<nodes.size(); jj++) {
-                laterMotherId = Math.round(nodes.get(jj)[MOTHER]);
-                if (laterMotherId==currId) {
+            for (int jj=ii+1; jj<nodes.size(); jj++) { // check the second half of the node list
+                if (currId==Math.round(nodes.get(jj)[MOTHER])) {
                     count++;
                     if (count==2) {
                         isBif = true;
@@ -402,25 +219,101 @@ public class ReadSWC {
                 }
             }
 
-            if (isBif) {
-                // add ii node to the output det
-                logWriter.println(
-                        IJ.d2s(nodes.get(ii)[XCOORD], 2)+", "+IJ.d2s(nodes.get(ii)[YCOORD],2)+", "+
-                        IJ.d2s(SCALE*nodes.get(ii)[RADIUS],2)+", "+
-                        IJ.d2s(1.0,2)+", "+ CritpointRegion.RegionType.BIF+", "+
-                        IJ.d2s(Float.NaN)+", "+IJ.d2s(Float.NaN)+", "+
-                        IJ.d2s(Float.NaN)+", "+IJ.d2s(Float.NaN)+", "+
-                        IJ.d2s(Float.NaN)+", "+IJ.d2s(Float.NaN)
-                );
+            // consider the first half of the node list as well - can happen that there is a continuation with a lower index referring to this one
+            if (!isBif) {
+                // here is a computational issue: the one that is not the junction will surely be checked all along and tak a lot of time to confirm that it was not a junction
+                for (int jjj = 0; jjj < ii; jjj++) {
+                    if (currId==Math.round(nodes.get(jjj)[MOTHER])) {
+                        count++;
+                        if (count==2) {
+                            isBif = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (isBif && (_export_type==ExportCritpointType.ALL || _export_type==ExportCritpointType.JUN)) {
+
+                // add ii node to the output det (check output format description in Detector2D.saveDetection())
+                switch (_export_format) {
+                    case DET_2D:
+                        logWriter.println( // add ii node to the output det - since swc does not contain directional info - it will be added as NaN
+                                IJ.d2s(nodes.get(ii)[XCOORD], 2)+", "+IJ.d2s(nodes.get(ii)[YCOORD],2)+", "+
+                                        IJ.d2s(SCALE*nodes.get(ii)[RADIUS],2)+", "+
+                                        IJ.d2s(1.0,2)+", "+ CritpointRegion.RegionType.BIF+", "+
+                                        IJ.d2s(Float.NaN)+", "+IJ.d2s(Float.NaN)+", "+
+                                        IJ.d2s(Float.NaN)+", "+IJ.d2s(Float.NaN)+", "+
+                                        IJ.d2s(Float.NaN)+", "+IJ.d2s(Float.NaN)
+                        );
+                        break;
+                    case SWC:
+                        logWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1", // add ii node to the output swc
+                                currId,
+                                2,  // type = 2 (red in vaa3d)
+                                nodes.get(ii)[XCOORD],
+                                nodes.get(ii)[YCOORD],
+                                nodes.get(ii)[ZCOORD],
+                                SCALE*nodes.get(ii)[RADIUS]));
+                        break;
+                    default:
+                        break;
+                }
 
             }
         }
 
         logWriter.close();
 
-        System.out.println(detCritpointExportPath + " exported.");
+        System.out.println(_exportPath + " exported in "+_export_format+" format.");
 
     }
 
+    /*
+        include shift into any of the components
+     */
+    public void modifySwc(
+            String _exportPath,
+            float dx,
+            float dy,
+            float dz,
+            float dr
+    )
+    {
+
+        PrintWriter logWriter = null;
+
+        try {
+            logWriter = new PrintWriter(_exportPath); logWriter.print("# ADVANTRA: modifySwc()\n# author: miroslavr\n"); logWriter.close();
+        } catch (FileNotFoundException ex) {}
+
+        try {
+            logWriter = new PrintWriter(new BufferedWriter(new FileWriter(_exportPath, true)));
+        } catch (IOException e) {}
+
+        // extraction, loop the nodes of swc reconstruction
+        for (int ii=0; ii<nodes.size(); ii++) {
+            logWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f %-4d",  // -1 will be the mother index !!!!
+                            Math.round(nodes.get(ii)[ID]),
+                            Math.round(nodes.get(ii)[TYPE]),
+                            nodes.get(ii)[XCOORD]   + dx,
+                            nodes.get(ii)[YCOORD]   + dy,
+                            nodes.get(ii)[ZCOORD]   + dz,
+                            nodes.get(ii)[RADIUS]   + dr,
+                            Math.round(nodes.get(ii)[MOTHER])
+                    )
+                    );
+
+        }
+
+        logWriter.close();
+
+        System.out.println(_exportPath + " exported.");
+
+    }
+
+    public enum ExportCritpointFormat {SWC, DET_2D}
+
+    public enum ExportCritpointType {ALL, JUN, END}
 
 }

@@ -5,6 +5,7 @@ import aux.ReadDET;
 import aux.Stat;
 import com.sun.org.apache.bcel.internal.generic.FLOAD;
 import conn.Find_Connected_Regions;
+import detection2d.Masker2D;
 import ij.*;
 import ij.gui.*;
 import ij.io.OpenDialog;
@@ -42,10 +43,10 @@ public class TreeReconstructor2D implements PlugIn {
     // list will have the length equivalent to the # of traces
     int region_label = 0;   // keeps most up to date CP region label - used for logging regions both CP and soma
 
-    ArrayList<float[]>      seed_xy  = new ArrayList<float[]>();            //
-    ArrayList<float[]>      seed_vxy = new ArrayList<float[]>();            //
+    ArrayList<float[]>      seed_xy  = new ArrayList<float[]>();            // 2d location
+    ArrayList<float[]>      seed_vxy = new ArrayList<float[]>();            // 2d direction
 
-    ArrayList<float[]>      cpregion_xy = new ArrayList<float[]>();        // as many as there are critical points
+    ArrayList<float[]>      cpregion_xy = new ArrayList<float[]>();        // as many as there are critical points (x,y,r) format
 
     ArrayList<Integer>      label_beg = new ArrayList<Integer>();
     ArrayList<Integer>      label_end = new ArrayList<Integer>();
@@ -251,12 +252,13 @@ public class TreeReconstructor2D implements PlugIn {
             }
 
             // region map : loop throughout the sphere to get the locations that are within
-            for (int xreg = xc-rc; xreg <=xc+rc; xreg++) {
-                for (int yreg = yc-rc; yreg <=yc+rc; yreg++) {
+            int mg = 2; // pix
+            for (int xreg = xc-rc-mg; xreg <=xc+rc+mg; xreg++) {
+                for (int yreg = yc-rc-mg; yreg <=yc+rc+mg; yreg++) {
 
                     if (xreg>=0 && xreg<W && yreg>=0 && yreg < H) { // the point is within the dims
 
-                        if ((xreg-xc)*(xreg-xc)+(yreg-yc)*(yreg-yc) <= rc*rc)  {
+                        if ((xreg-xc)*(xreg-xc)+(yreg-yc)*(yreg-yc) <= (rc+mg)*(rc+mg))  {
                             region_map[xreg][yreg] = region_label;
                         }
 
@@ -266,7 +268,7 @@ public class TreeReconstructor2D implements PlugIn {
             }
 
 
-            float[] cxy = new float[]{rdet.x.get(i), rdet.y.get(i)};
+            float[] cxy = new float[]{rdet.x.get(i), rdet.y.get(i), rdet.r.get(i)}; // added r here as well
 
             cpregion_xy.add(cxy);
 
@@ -276,8 +278,20 @@ public class TreeReconstructor2D implements PlugIn {
 
         ////////////////////////////////////////////////////////////////
 
+
+
+
+
+
+        ////////////////////////////////////////////////////////////////
+
         // load soma regions: binary .tif file where somas are marked in white
         ImageProcessor somap = new ImagePlus(_soma_path).getProcessor();
+
+        if (somap==null) {
+            System.out.println(_soma_path + " was null!");
+            return;
+        }
 
         if ((somap.getWidth()!=W) || (somap.getHeight()!=H))
         {
@@ -372,6 +386,7 @@ public class TreeReconstructor2D implements PlugIn {
 
                                                 label_beg.get(seed_idx),
                                                 region_map     // to stop the trace
+                    // add here the mask bg-fg
 
             );
             label_end.set(seed_idx, out_label);
@@ -486,7 +501,7 @@ public class TreeReconstructor2D implements PlugIn {
                         System.arraycopy(tracer2d_est_xy.get(i), 0, broken_tarce, 0, length_to_keep); // src, src_pos, dest, dest_pos, len
 
 
-                        float[] cxy = new float[]{tracer2d_est_xy.get(i)[break_idx][0], tracer2d_est_xy.get(i)[break_idx][1]}; // last one before it is replaced
+                        float[] cxy = new float[]{tracer2d_est_xy.get(i)[break_idx][0], tracer2d_est_xy.get(i)[break_idx][1], 2f}; // last one before it is replaced, added r as well, fixed to 2
 
                         // add new valid CP label for the end point
                         tracer2d_est_xy.set(i, broken_tarce);
@@ -548,25 +563,47 @@ public class TreeReconstructor2D implements PlugIn {
         generate_swc();
         ///////////////////////////////////////////////////////////////////
 
-        if (_show_it) {
+        if (_show_it) { // define what will be shown here!!
 
             // show stack with intensities along
-            ImagePlus orig = curr_img.duplicate();
-            orig.setTitle("TreeReconstructor2D");
+
+            ImagePlus recon = curr_img.duplicate();
+            recon.setTitle("TreeReconstructor2D");
 
             Overlay ovl = new Overlay();
 
-            Overlay trace_Xt_xy = getTrace_Xt_xy();
-            for (int i = 0; i < trace_Xt_xy.size(); i++) ovl.add(trace_Xt_xy.get(i));
+            //Overlay trace_Xt_xy = getTrace_Xt_xy();
+            //for (int i = 0; i < trace_Xt_xy.size(); i++) ovl.add(trace_Xt_xy.get(i));
 
             Overlay trace_est_xy = getTrace_est_xy();
             for (int i = 0; i < trace_est_xy.size(); i++) ovl.add(trace_est_xy.get(i));
 
-            Overlay trace_seeds = getSeeds();
-            for (int i = 0; i < trace_seeds.size(); i++) ovl.add(trace_seeds.get(i));
+            //Overlay trace_seeds = getSeeds();
+            //for (int i = 0; i < trace_seeds.size(); i++) ovl.add(trace_seeds.get(i));
 
-            orig.setOverlay(ovl);
-            orig.show();
+            Overlay trace_critpoints = getCriticalPointRegions();
+            for (int i = 0; i < trace_critpoints.size(); i++) ovl.add(trace_critpoints.get(i));
+
+            Overlay trace_soma = getSoma();
+            for (int i = 0; i < trace_soma.size(); i++) ovl.add(trace_soma.get(i));
+
+            recon.setOverlay(ovl);
+            recon.show();
+
+            ImagePlus crit = curr_img.duplicate();
+            crit.setTitle("LoadedCritpoints");
+
+            ovl = new Overlay();
+
+            trace_critpoints = getCriticalPointRegions();
+            for (int i = 0; i < trace_critpoints.size(); i++) ovl.add(trace_critpoints.get(i));
+
+            trace_soma = getSoma();
+            for (int i = 0; i < trace_soma.size(); i++) ovl.add(trace_soma.get(i));
+
+            crit.setOverlay(ovl);
+            crit.show();
+
             IJ.setTool("hand");
 
         }
@@ -707,8 +744,6 @@ public class TreeReconstructor2D implements PlugIn {
 
             if (tracer2d_est_xy.get(i)!=null) { // if it is null then -> nothing
 
-
-
             float[] trc_x = new float[tracer2d_est_xy.get(i).length];
             float[] trc_y = new float[tracer2d_est_xy.get(i).length];
 
@@ -722,7 +757,7 @@ public class TreeReconstructor2D implements PlugIn {
             if (label_end.get(i)!=Integer.MAX_VALUE){
                 // paint it yellow if ok
                 PolygonRoi trc = new PolygonRoi(trc_x, trc_y, PolygonRoi.FREELINE);
-                trc.setStrokeWidth(1f);
+                trc.setStrokeWidth(3f);
                 trc.setStrokeColor(Color.YELLOW);
                 trc.setFillColor(Color.YELLOW);
                 ov.add(trc);
@@ -772,6 +807,79 @@ public class TreeReconstructor2D implements PlugIn {
         return ov;
     }
 
+    private Overlay getSoma(){
+
+        Overlay ov = new Overlay();
+
+        for (int i = 0; i < soma_xyr.size(); i++) {
+
+            OvalRoi reg = new OvalRoi(
+                    soma_xyr.get(i)[0]-soma_xyr.get(i)[2],
+                    soma_xyr.get(i)[1]-soma_xyr.get(i)[2],
+                    2 * soma_xyr.get(i)[2],
+                    2 * soma_xyr.get(i)[2]
+            );
+
+            reg.setFillColor(Color.RED);
+            reg.setStrokeColor(Color.RED);
+//            reg.setStrokeWidth(sc);
+
+            ov.add(reg);
+
+
+        }
+
+        return ov;
+
+    }
+
+    private Overlay getCriticalPointRegions() {
+
+        Overlay ov = new Overlay();
+
+        for (int i = 0; i < cpregion_xy.size(); i++) {
+
+            float sc = cpregion_xy.get(i)[2]*1.5f;
+
+            // draw all the components of the CP region
+            OvalRoi reg = new OvalRoi(
+                    cpregion_xy.get(i)[0]-sc   +.5f,
+                    cpregion_xy.get(i)[1]-sc   +.5f,
+                    2 * sc,
+                    2 * sc
+                    );
+
+            reg.setFillColor(Color.RED);
+            reg.setStrokeColor(Color.RED);
+//            reg.setStrokeWidth(sc);
+
+            ov.add(reg);
+
+        }
+
+        for (int i = 0; i < seed_xy.size(); i++) {
+
+            float sc = cpregion_xy.get(label_beg.get(i)-1)[2] *1.5f;
+
+            Line seed_arrow = new Line(
+                    seed_xy.get(i)[0],
+                    seed_xy.get(i)[1],
+                    seed_xy.get(i)[0] + 1*sc * seed_vxy.get(i)[0],
+                    seed_xy.get(i)[1] + 1*sc * seed_vxy.get(i)[1]
+            );
+
+
+            seed_arrow.setFillColor(Color.RED);
+            seed_arrow.setStrokeColor(Color.RED);
+            seed_arrow.setStrokeWidth(0.5f*sc);
+            ov.add(seed_arrow);
+
+        }
+
+        return ov;
+
+    }
+
     private void generate_swc()
     {
 
@@ -806,7 +914,7 @@ public class TreeReconstructor2D implements PlugIn {
 
         try {
             logWriter = new PrintWriter(new BufferedWriter(new FileWriter(det_path, true)));
-            logWriter.println("# REC2D...\n");
+            logWriter.println("#NeuronReconstructor2D\n#ADVATNTRA project\n#author: miroslavR");
         } catch (IOException e) {}
 
 
@@ -905,7 +1013,6 @@ public class TreeReconstructor2D implements PlugIn {
                         }
 
                         tracer2d_addedswc.set(i, true);
-//                        System.out.println("DBG: cpregion_xy < " + (label_end.get(i)-1) + " > ");
                         logWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f %-4d", swc_id, 2, cpregion_xy.get(label_end.get(i)-1)[0],cpregion_xy.get(label_end.get(i)-1)[1], 0f,1f, mother_idx));
 
                         int endlab = label_end.get(i);

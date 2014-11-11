@@ -2,13 +2,12 @@ package tracing2d;
 
 import aux.ReadSWC;
 import aux.Tools;
-import ij.IJ;
-import ij.ImagePlus;
 import ij.Macro;
 import ij.Prefs;
 import ij.gui.GenericDialog;
 import ij.io.OpenDialog;
 import ij.plugin.PlugIn;
+import swctools.SwcDistanceComputer2D;
 
 import java.io.*;
 
@@ -18,7 +17,7 @@ import java.io.*;
 public class Evaluator2D implements PlugIn {
 
 
-    // comapres two swc reconstructions essentially, the other one is supposed to be ground truth
+    // compares two swc reconstructions essentially, the other one is, say, ground truth in evaluations
     // based on measuringthe distance between two swc-s with the difference that this one is intended for the evaluation of the reconstruction
     // appends the result into eval.csv file
 
@@ -112,7 +111,7 @@ public class Evaluator2D implements PlugIn {
                 }
             }
 
-            SwcDistanceComputer2D.remainder();
+//            SwcDistanceComputer2D.remainder(); // expelling this one out
 
         /* store output */
 
