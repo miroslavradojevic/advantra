@@ -43,7 +43,7 @@ public class SemiCircle {
             float alfa = (float) (-Math.PI/2 + Math.PI * ((float)i/(NN-1)));
 
             v[i][0] = (float) (vx * Math.cos(alfa) - vy * Math.sin(alfa)); // vx
-            v[i][1] = (float) (vx * Math.sin(alfa) + vy * Math.cos(alfa)); // vx
+            v[i][1] = (float) (vx * Math.sin(alfa) + vy * Math.cos(alfa)); // vy
 
             p[i][0] = px + radius * v[i][0]; // x
             p[i][1] = py + radius * v[i][1]; // y

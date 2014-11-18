@@ -564,7 +564,7 @@ public class BayesianTracer2D {
     public static void run(
             float       at_x,
             float       at_y,
-            float[][]               likelihood_xy,
+            float[][]   likelihood_xy,
             SemiCircle  circ,
             float       sigma_deg,
             int         Ni,     // number of the iterations
@@ -594,8 +594,7 @@ public class BayesianTracer2D {
 
         while (iter<Ni) {
 
-            //
-            System.out.println("iter " + iter);
+//            System.out.println("iter " + iter);
 
             bayesian_iteration(likelihood_xy, iter, circ, sigma_deg, xt, wt);
 
@@ -614,7 +613,7 @@ public class BayesianTracer2D {
 
             int                     _iter,  // will mark the array index where the value will be filled in
 
-            SemiCircle              _scirc,
+            SemiCircle              _scirc, // step is contained here
             float                   _prior_sigma_deg,
 
             float[][][]             _xt,
@@ -622,6 +621,12 @@ public class BayesianTracer2D {
 
     )
     {
+
+        // templates  - this can be given as an argument
+        float[] t = new float[]{0, .5f, 0};
+        float ta = .5f/3;
+        float[] m = new float[3];
+        float ma = Float.NaN;
 
         // take states at _iter-1
         float[][] prev_x = _xt[_iter-1];
@@ -648,10 +653,48 @@ public class BayesianTracer2D {
 
             for (int j = 0; j < _scirc.NN; j++) {
 
-                transition_xy[count][0] = _scirc.p[j][0]; //start_xy[i][0] + _sph2d.locsXY.get(j)[0];
-                transition_xy[count][1] = _scirc.p[j][1]; //start_xy[i][1] + _sph2d.locsXY.get(j)[1];
+                transition_xy[count][0] = _scirc.p[j][0]; // start_xy[i][0] + _sph2d.locsXY.get(j)[0];
+                transition_xy[count][1] = _scirc.p[j][1]; // start_xy[i][1] + _sph2d.locsXY.get(j)[1];
+                transition_xy[count][2] = _scirc.v[j][0]; // vx
+                transition_xy[count][3] = _scirc.v[j][1]; // vy
 
-                lhoods[count] = Interpolator.interpolateAt(transition_xy[count][0], transition_xy[count][1], _likelihood_xy);
+                // immediately calculate the likelihood - correlation score
+
+                // check if it is within the image before interpolating
+
+                if (
+                                transition_xy[count][0]<0                           ||
+                                transition_xy[count][0]>_likelihood_xy.length-1     ||
+                                transition_xy[count][1]<0                           ||
+                                transition_xy[count][1]>_likelihood_xy[0].length-1
+                ){
+                    lhoods[count] = 0;
+                }
+                else {
+
+
+                    boolean use_pix = false;
+                    if (use_pix) {
+                        lhoods[count] = Interpolator.interpolateAt(transition_xy[count][0], transition_xy[count][1], _likelihood_xy);
+                    }
+                    else {
+
+                        // todo additional check there are some that would go out!!!
+
+                    // calculate correlation as measurement
+                    m[0] = Interpolator.interpolateAt(transition_xy[count][0]+transition_xy[count][3], transition_xy[count][1]-transition_xy[count][2], _likelihood_xy);
+                    m[1] = Interpolator.interpolateAt(transition_xy[count][0], transition_xy[count][1], _likelihood_xy);
+                    m[2] = Interpolator.interpolateAt(transition_xy[count][0]-transition_xy[count][3], transition_xy[count][1]+transition_xy[count][2], _likelihood_xy);
+                    ma = (m[0] + m[1] + m[2]) / 3f;
+
+                    lhoods[count] = (float) (((m[0]-ma)*(t[0]-ta) + (m[1]-ma)*(t[1]-ta) + (m[2]-ma)*(t[2]-ta)) /
+                                                Math.sqrt(
+                                                        (Math.pow(m[0]-ma,2)+Math.pow(m[1]-ma,2)+Math.pow(m[2]-ma,2)) *
+                                                        (Math.pow(t[0]-ta,2)+Math.pow(t[1]-ta,2)+Math.pow(t[2]-ta,2))
+                                                )+1);
+                    }
+
+                }
 
                 sum_lhoods += lhoods[count];
 
@@ -683,6 +726,8 @@ public class BayesianTracer2D {
 
                 _xt[_iter][i][0] = transition_xy[sort_idx[i]][0];
                 _xt[_iter][i][1] = transition_xy[sort_idx[i]][1];
+                _xt[_iter][i][2] = transition_xy[sort_idx[i]][2];
+                _xt[_iter][i][3] = transition_xy[sort_idx[i]][3];
                 _wt[_iter][i]    = ptes[i]; // because they are already sorted
 //                selection_xy[i][0] = transition_xy[sort_idx[i]][0];
 //                selection_xy[i][1] = transition_xy[sort_idx[i]][1];

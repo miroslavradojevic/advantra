@@ -170,7 +170,10 @@ public class Stat {
 		}
 		for (int i=0; i<in.length; i++) {
 			in[i] = (in[i]-curr_min)/(curr_max-curr_min);
-		}
+            in[i] = (in[i]>1)? 1 : (in[i]<0)? 0 : in[i];
+        }
+
+
 	}
 
     public static final void probability_distribution(float[] in) {
