@@ -294,12 +294,13 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
     {
 
         int startII = xcc.length-1; // start iteration index fmm will start backwards from the last iteration
+        // xcc contains the
 
         // fast marching method algorithm
         for (int i = 0; i < xcc[startII].length; i++) { // check 4 of neighbours at iteration=Ni (last one)
 
             if (!Float.isNaN(xcc[startII][i][0])) { // if there is a centroid at this iteration
-// todo
+// todo...
                 float curr_x = xcc[0][i][0];
                 float curr_y = xcc[0][i][1];
 
