@@ -970,13 +970,7 @@ public class TreeReconstructor2D implements PlugIn {
                     regLab2swcId[label_beg.get(i)-1] = swc_id;
                     frontier.add(label_beg.get(i));
 
-
-
-
                     swc_id++;
-
-
-
 
                 }
             }
