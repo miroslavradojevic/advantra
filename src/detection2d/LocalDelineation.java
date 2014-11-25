@@ -37,7 +37,7 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 
     // params
     // bayesian filtering
-    float radius = 1.5f;
+    float radius = 1.2f;
     int Ni = 10;
     int Ns = 50;
     float sigma_deg = 40;
@@ -173,40 +173,32 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
             extracting(cllab, xc[i], 1, xcc[i]);
         }
 
-        // fmm - will need 4 times
-        // frozen node will have score, tag and the pointer calculated
+        // fmm - will need to march 4 times
 //        for (int i = 0; i < Ni; i++) for (int j = 0; j < 4; j++) tag[i][j] = (byte) ( 0); // initialize tags
 //        for (int i = 0; i < Ni; i++) for (int j = 0; j < 4; j++) par[i][j] = (byte) (-2); // initialize pointers
 //        for (int i = 0; i < Ni; i++) for (int j = 0; j < 4; j++) cst[i][j] = Float.POSITIVE_INFINITY; // initialize scores to the highest
 //        heap_scrs.clear();
 //        heap_vals.clear();
-
-        fmm(
-                likelihood_xy,
-                new float[]{clickX, clickY},
-                xcc,                                                // Ni*4*2
-                tag,                                                //
-                par,
-                cst,
-                heap_vals,
-                heap_scrs
-        );
         delin.clear();
-        delin.add(
-                extract_streamline(
-                        2,
-                        2,
-                        tag,    // input
-                        par,    // input
-                        cst,    // input
-                        xcc     // side output, extracted path will be excluded
-                )
-        );
+
+        for (int i = 0; i < 4; i++) {
+
+            fmm(likelihood_xy, new float[]{clickX, clickY}, xcc, tag, par, cst, heap_vals, heap_scrs);
+
+            ArrayList<float[]> strm = extract_streamline(3, tag, par, cst, xcc); // xcc will be modified
+
+            if (strm==null) {
+                break;
+            }
+            else {
+                delin.add(strm);
+            }
+
+        }
 
         long t2 = System.currentTimeMillis();
 
         System.out.println("     "+ ((t2-t1)/1000f) + "sec.");
-
 
 //        vizTag.setProcessor(getTag());
 //        vizTag.updateAndDraw();
@@ -219,8 +211,6 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 //            }
 //            System.out.println();
 //        }
-
-
         Overlay ov_xt   = viz_xt(xt, wt);
         Overlay ov_xc   = viz_xc(xc);
         Overlay ov_xcc  = viz_xcc(xcc);
@@ -228,13 +218,11 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 
         ov.clear();
 //        for (int i = 0; i <ov_xt.size(); i++) ov.add(ov_xt.get(i));
-//        for (int i = 0; i <ov_xc.size(); i++) ov.add(ov_xc.get(i));
+        for (int i = 0; i <ov_xc.size(); i++) ov.add(ov_xc.get(i));
         for (int i = 0; i <ov_xcc.size(); i++) ov.add(ov_xcc.get(i));
         for (int i = 0; i <ov_delin.size(); i++) ov.add(ov_delin.get(i));
 
         cnv.setOverlay(ov);
-
-        System.out.println("size="+ov.size());
 
     }
 
@@ -334,17 +322,34 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
         Overlay ov = new Overlay();
 
         for (int i = 0; i < delin.size(); i++) {
+
+            // add the polygonroi that corresponds to the extracted streamline
+            float[] plgx = new float[delin.get(i).size()];
+            float[] plgy = new float[delin.get(i).size()];
+
             for (int j = 0; j < delin.get(i).size(); j++) {
 
 //                OvalRoi or = new OvalRoi(delin.get(i).get(j)[0]-1f+.5f, delin.get(i).get(j)[1]-1f+.5f, 2f, 2f);
 //                or.setFillColor(Color.RED);
 //                or.setStrokeColor(Color.RED);
 
-                PointRoi pt = new PointRoi(delin.get(i).get(j)[0]+.5f, delin.get(i).get(j)[1]+.5f);
-                pt.setFillColor(Color.RED);
-                pt.setStrokeColor(Color.RED);
-                ov.add(pt);
+//                PointRoi pt = new PointRoi(delin.get(i).get(j)[0]+.5f, delin.get(i).get(j)[1]+.5f);
+//                pt.setFillColor(Color.RED);
+//                pt.setStrokeColor(Color.RED);
+
+                plgx[j] = delin.get(i).get(j)[0]+.5f;
+                plgy[j] = delin.get(i).get(j)[1]+.5f;
+
             }
+
+            PolygonRoi plg = new PolygonRoi(plgx, plgy, Roi.FREELINE);
+            if (i==0)       plg.setStrokeColor(Color.RED);
+            else if (i==1)  plg.setStrokeColor(Color.ORANGE);
+            else if (i==2)  plg.setStrokeColor(Color.BLUE);
+            else if (i==3)  plg.setStrokeColor(Color.YELLOW);
+            plg.setStrokeWidth(.25f);
+            ov.add(plg);
+
         }
 
         return ov;
@@ -405,19 +410,19 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
                 float curr_x = xcc[0][i][0];
                 float curr_y = xcc[0][i][1];
 
-                float eD = 1;//(float) (Math.pow(curr_x-start_xy[0],2)+Math.pow(curr_y-start_xy[1],2));
+//                float eD = 1;//(float) (Math.pow(curr_x-start_xy[0],2)+Math.pow(curr_y-start_xy[1],2));
 
                 float Icurr = Interpolator.interpolateAt(curr_x, curr_y, inimg_xy);
 //                float Iprev = Interpolator.interpolateAt(start_xy[0], start_xy[1], inimg_xy);
 
-                float eI = (float) Math.exp(10*Math.pow(1-Icurr/1f,2));
+                float eI = (float) Math.exp(5*Math.pow(1-Icurr/1f,2));
 //                float eIprev = (float) Math.exp(10*Math.pow(1-Iprev/1f,2));
 
-                float e = eD * eI; // ( (eIcurr+eIcurr)/2 );
+                float e = eI; // ( (eIcurr+eIcurr)/2 );
 
-                tag[0][i] = (byte) 1;       // tag it as narrow band
-                par[0][i] = (byte) par_idx;    // parent is root xy
-                cst[0][i] = e;
+                tag[0][i] = (byte) 1;           // tag it as narrow band
+                par[0][i] = (byte) par_idx;     // parent is root xy
+                cst[0][i] = e;                  // cost should accumulate the previous cost which is 0
 
                 if (heap_vals.size()==0) { // just insert into the heap
                     heap_vals.add(new int[]{1, ni_idx, pos_idx, par_idx}); // rank, Ni idx, N curr idx, N parent idx
@@ -460,7 +465,6 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
             }
 
             // read heap_vals and heap_scrs first...
-
             int at_i = heap_vals.get(get_lowest_score)[1];  // iteration index
             int at_p = heap_vals.get(get_lowest_score)[2];  // curr idx within iteration
             int at_pp = heap_vals.get(get_lowest_score)[3]; // parent idx
@@ -472,7 +476,7 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 
             // freeze it using the taken list values
             tag[at_i][at_p] = (byte) 2; // tag it as freezed
-            par[at_i][at_p] = (byte) (at_pp);
+            par[at_i][at_p] = (byte) at_pp;
             cst[at_i][at_p] = score;
 
             // loop neighbours (at_i+1,:) of the taken one: (at_i,at_p) (the following iteration) if there is such
@@ -482,7 +486,7 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 
                     if (!Float.isNaN(xcc[at_i+1][i][0])) { // there was a cluster at the neighbour position
 
-                        if (tag[at_i+1][i]!=2){ // it is not frozen
+                        if (tag[at_i+1][i]!=(byte)2){ // it is not frozen
 
                             float x1 = xcc[at_i+1][i][0]; // neighbour of the element taken from the heap
                             float y1 = xcc[at_i+1][i][1];
@@ -492,19 +496,19 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 
                             // see what is xp, yp
                             float xp= Float.NaN, yp=Float.NaN;
-                            if (par[at_i][at_p]==-1) {      // if it was root point
+                            if (par[at_i][at_p]==(byte)-1) {      // if it was root point
                                 xp = start_xy[0];
                                 yp = start_xy[1];
                             }
                             else if (                       // if it was legal
-                                    par[at_i][at_p]==0 ||
-                                    par[at_i][at_p]==1 ||
-                                    par[at_i][at_p]==2 ||
-                                    par[at_i][at_p]==3
+                                    par[at_i][at_p]==(byte)0 ||
+                                    par[at_i][at_p]==(byte)1 ||
+                                    par[at_i][at_p]==(byte)2 ||
+                                    par[at_i][at_p]==(byte)3
                                     )
                             {
-                                xp = xcc[at_i-1][par[at_i][at_p]][0];
-                                yp = xcc[at_i-1][par[at_i][at_p]][1];
+                                xp = xcc[at_i-1][par[at_i][at_p]&0xff][0];
+                                yp = xcc[at_i-1][par[at_i][at_p]&0xff][1];
                             }
                             else { // it was not a legal parent index
                                 System.out.println("wrong parent index when calculating the score");
@@ -513,23 +517,31 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 
                             float v1x = x1-x0;
                             float v1y = y1-y0;
+                            float v1 = (float) Math.sqrt(v1x*v1x+v1y*v1y);
+                            v1x = v1x/v1;
+                            v1y = v1y/v1;
+
                             float v2x = x0-xp;
                             float v2y = y0-yp;
-
-                            float cosang = (float) ((v1x*v2x+v1y*v2y) / (Math.sqrt(v1x*v1x+v1y*v1y)*Math.sqrt(v2x*v2x+v2y*v2y)));
+                            float v2 = (float) Math.sqrt(v2x*v2x+v2y*v2y);
+                            v2x = v2x/v2;
+                            v2y = v2y/v2;
+                            //
+                            float cosang = v1x*v2x+v1y*v2y;// / (*Math.sqrt(v2x*v2x+v2y*v2y)));
                             float eD = 2 - cosang; //(float) (Math.pow(curr_x-prev_x,2)+Math.pow(curr_y-prev_y,2)); // directional cost of the neighbour
+                            float eD1 = v1;
 
                             float Icurr = Interpolator.interpolateAt(x1, y1, inimg_xy);
 //                            float Iprev = Interpolator.interpolateAt(prev_x, prev_y, inimg_xy);
 
-                            float eI = (float) Math.exp(5*Math.pow(1-Icurr/1f,2));
+                            float eI = 1;// (float) Math.exp(5*Math.pow(1-Icurr/1f,2)); // todo use intensity closeness can be a measure
 //                            float eIprev = (float) Math.exp(10*Math.pow(1-Iprev/1f,2));
 
-                            float e = eD * eI;// + ( (eIcurr+eIcurr)/2f );
+                            float e = eD * eI * eD1 + cst[at_i][at_p];// new cost is cummulative + ( (eIcurr+eIcurr)/2f );
 
-                            if (tag[at_i+1][i]!=1) {// neighbour (at_i+1, i) is NOT in narrow band
+                            if (tag[at_i+1][i]!=(byte)1) {// neighbour (at_i+1, i) is NOT in narrow band
 
-                                tag[at_i+1][i] = 1; // tag it as narrow band
+                                tag[at_i+1][i] = (byte) 1; // tag it as narrow band
                                 par[at_i+1][i] = (byte) at_p;
                                 cst[at_i+1][i] = e;
 
@@ -541,13 +553,15 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
                                 // append it to the heap
                                 heap_scrs.add(e);
                                 heap_vals.add(new int[]{new_rank, at_i+1, i, at_p});
-//                                System.out.println("neighbour was not in narrow band, added rank " + new_rank);
 
                             }
                             else {
+
+//                                System.out.println("shoud be 1 " + (tag[at_i+1][i]&0xff));
                                 // neighbour IS in narrow band already - means that it is already added to the heap
                                 // find the corresponding heap location and update it
 
+                                // [look for at_i+1, i]
                                 boolean found = false;
                                 int idx_found = -1;
                                 for (int j = 0; j < heap_vals.size(); j++) {
@@ -564,8 +578,9 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 
                                 if (e<found_score) {
 
-                                    // update parent
-                                    heap_vals.get(idx_found)[3] = at_p;
+                                    /*
+                                        heap updates
+                                     */
 
                                     // update rankings
                                     float old_val = found_score;
@@ -574,16 +589,23 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
                                     int new_rank = 1;
                                     for (int j = 0; j < heap_scrs.size(); j++) {
 
-                                        if (heap_scrs.get(j)<old_val && heap_scrs.get(j) >= new_val)
+                                        if (heap_scrs.get(j) >= new_val && heap_scrs.get(j)<old_val)
                                             heap_vals.get(j)[0]++;
 
                                         if (heap_scrs.get(j)<new_val) new_rank++;
 
                                     }
                                     heap_vals.get(idx_found)[0] = new_rank;
-
+                                    heap_vals.get(idx_found)[3] = at_p;
                                     // replace the score with the cheaper one once the rankings are corrected
                                     heap_scrs.set(idx_found, new_val);
+
+                                    /*
+                                        table updates
+                                     */
+                                    // update parent table - means updating the score and the parent, labels do not need correction - value stays the same
+                                    par[at_i+1][i] = (byte) at_p;
+                                    cst[at_i+1][i] = e;
 
 //                                    System.out.println("neighbour WAS in narrow band and replaced : "+new_val);
 //                                    System.out.print("ranks:: ");
@@ -593,24 +615,17 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 //                                    System.out.println("-----");
 
                                 }
-                                else{
-//                                    System.out.println("neighbour WAS in narrow band and NOT replaced");
-                                }// nothing the cheaper one is already there
 
                             }
 
                         }
-                        else{
-                            // it is frozen - do nothing, that would make closed loop
-                        }
-
 
                     }
 
                 }
 
             }
-            else {}// reacherd the end, no neighbours
+//            else {}// reacherd the end, no neighbours
 
         }
 
@@ -623,8 +638,8 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 
     // tag,par,scr -> xcc
     private static ArrayList<float[]> extract_streamline(
-            int margin_end,
-            int margin_begin,
+            int margin_end,                                 // will limit the point up to where we search when tracing back
+//            int margin_begin,                               // will limit the
             byte[][] tag, // input
             byte[][] par, // input
             float[][] cst, // input
@@ -640,20 +655,17 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 
         for (int i = tag.length-1; i > tag.length-1-margin_end; i--) {
 
-            // searching the centroids at concentric circle - the one with min cost
-            min_cost = Float.POSITIVE_INFINITY;
+            min_cost = Float.POSITIVE_INFINITY; // searching the centroids at concentric circle - the one with min cost
 
             for (int j = 0; j < tag[i].length; j++) {
-                if (tag[i][j]==2) { // if it was frozen
+                if (tag[i][j]==(byte)2) { // if it was frozen
                     if (cst[i][j]<min_cost) { min_cost = cst[i][j]; found_i = i; found_j = j; }
                 }
             }
 
             if (!Float.isInfinite(min_cost)) {
-
                 found = true;
                 break; // found get out as soon as it is found at one iteration
-
             }
 
         }
@@ -662,13 +674,17 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 
             ArrayList<float[]> out = new ArrayList<float[]>();
 
-
-
             for (int loop_streamiline = found_i; loop_streamiline >=0 ; loop_streamiline--) {
 
                 out.add(xcc[loop_streamiline][found_j].clone()); // start from found_i,j
 
-                found_j = par[found_i][found_j]; // recursively go backwards
+                // cancel the one that was added - set it as NaN for future fast marching iteration
+                //if (loop_streamiline>=margin_begin) {
+                    xcc[loop_streamiline][found_j][0] = Float.NaN;
+                    xcc[loop_streamiline][found_j][1] = Float.NaN;
+                //}
+
+                found_j = par[loop_streamiline][found_j]&0xff; // recursively go backwards
 
             }
 
@@ -895,17 +911,14 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 
     }
 
-    private static void take_streamline(
-            byte[][]  tag_map,
-            float[][] cst_map,
-            byte[][]  par_map,
-            float[][][] xcc,
-            ArrayList<float[]> out_stream // output
-    )
-    {
-        //
-
-
-    }
+//    private static void take_streamline(
+//            byte[][]  tag_map,
+//            float[][] cst_map,
+//            byte[][]  par_map,
+//            float[][][] xcc,
+//            ArrayList<float[]> out_stream // output
+//    )
+//    {
+//    }
 
 }
