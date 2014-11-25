@@ -592,14 +592,9 @@ public class BayesianTracer2D {
 
         int iter = 1;
 
-        while (iter<Ni) {
-
-//            System.out.println("iter " + iter);
-
+        while (iter<=Ni) {
             bayesian_iteration(likelihood_xy, iter, circ, sigma_deg, xt, wt);
-
             iter++;
-
         }
 
 

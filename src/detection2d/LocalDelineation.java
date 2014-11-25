@@ -9,12 +9,15 @@ import ij.Prefs;
 import ij.gui.*;
 import ij.io.OpenDialog;
 import ij.plugin.PlugIn;
+import ij.process.ByteProcessor;
+import ij.process.FloatProcessor;
 import tracing2d.BayesianTracer2D;
 
 import java.awt.*;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
+import java.awt.geom.Arc2D;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -46,8 +49,8 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 
 
     // output
-    float[][][] xt = new float[Ni][Ns][4];    // bayesian filtering states (x,y, vx, vy)
-    float[][]   wt = new float[Ni][Ns];       // bayesian filtering states
+    float[][][] xt = new float[Ni+1][Ns][4];    // bayesian filtering states (x,y, vx, vy)
+    float[][]   wt = new float[Ni+1][Ns];       // bayesian filtering states
 
     float[][][] xc = new float[Ni][Ns][2];    // mean-shift convergence of the bayesian filtered states (x, y)
     float[]     xn = new float[2];            // new one for the mean-shift
@@ -60,8 +63,18 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
     byte[][]     par = new byte[Ni][4];       // fmm pointers (-2, -1, 0, 1, 2, 3)
     float[][]    cst = new float[Ni][4];      // fmm scores
 
+    ArrayList<ArrayList<float[]>> delin = new ArrayList<ArrayList<float[]>>();
+
+    // aux
     ArrayList<int[]>    heap_vals = new ArrayList<int[]>();      // rank, Ni idx, N curr idx, N prev idx
     ArrayList<Float>    heap_scrs = new ArrayList<Float>();          // scores
+
+    // interface - visualisations
+    ImagePlus vizTag = new ImagePlus("TAG", new ByteProcessor(4,Ni,new byte[4*Ni]));
+    ImagePlus vizPar = new ImagePlus("PARENT_IDX", new ByteProcessor(4,Ni,new byte[4*Ni]));
+    ImagePlus vizScr = new ImagePlus("SCORE", new FloatProcessor(4,Ni,new float[4*Ni]));
+
+    Overlay ov = new Overlay();
 
     public void run(String s) {
 
@@ -116,10 +129,23 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
         cnv.addMouseMotionListener(this);
         IJ.setTool("hand");
 
+//        vizTag.show();
+//        vizTag.getCanvas().zoom100Percent();
+//        vizTag.getCanvas().zoomIn(0,0);
+//        vizTag.getCanvas().zoomIn(0,0);
+//        vizTag.getCanvas().zoomIn(0,0);
+//        vizTag.getCanvas().zoomIn(0,0);
+//        vizTag.getCanvas().zoomIn(0,0);
+//        vizTag.getCanvas().zoomIn(0,0);
+//        vizTag.getCanvas().zoomIn(0,0);
+//        vizTag.getCanvas().zoomIn(0,0);
+//        vizTag.getCanvas().zoomIn(0,0);
+
 
     }
 
-    public void mouseClicked(MouseEvent e) {
+    public void mouseClicked(MouseEvent e)
+    {
         int clickX = cnv.offScreenX(e.getX());
         int clickY = cnv.offScreenY(e.getY());
 
@@ -134,13 +160,13 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
         // mean-shift for estimation (local maxima detection)
         for (int i = 0; i < xc.length; i++) { // initialize xc with corresponding elements from xt
             for (int s = 0; s < xc[0].length; s++) {
-                xc[i][s][0] = xt[i][s][0];
-                xc[i][s][1] = xt[i][s][1];
+                xc[i][s][0] = xt[i+1][s][0];
+                xc[i][s][1] = xt[i+1][s][1];
             }
         }
 
         for (int i = 0; i < Ni; i++) {
-            meanshift_xy_convg(xt[i], wt[i], xc[i], xn, max_iter, epsilon, r2); // xc will hold the converged values
+            meanshift_xy_convg(xt[i+1], wt[i+1], xc[i], xn, max_iter, epsilon, r2); // xc will hold the converged values
             // clustering xc->xcc
             dists2(xc[i], dsts); // Ns*Ns distances at each iteration
             clustering(dsts, r2, cllab);
@@ -149,46 +175,75 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 
         // fmm - will need 4 times
         // frozen node will have score, tag and the pointer calculated
-        for (int i = 0; i < Ni; i++) for (int j = 0; j < 4; j++) tag[i][j] = (byte) ( 0); // initialize tags
-        for (int i = 0; i < Ni; i++) for (int j = 0; j < 4; j++) par[i][j] = (byte) (-2); // initialize pointers
-        for (int i = 0; i < Ni; i++) for (int j = 0; j < 4; j++) cst[i][j] = Float.POSITIVE_INFINITY; // initialize scores to the highest
-        heap_scrs.clear();
-        heap_vals.clear();
+//        for (int i = 0; i < Ni; i++) for (int j = 0; j < 4; j++) tag[i][j] = (byte) ( 0); // initialize tags
+//        for (int i = 0; i < Ni; i++) for (int j = 0; j < 4; j++) par[i][j] = (byte) (-2); // initialize pointers
+//        for (int i = 0; i < Ni; i++) for (int j = 0; j < 4; j++) cst[i][j] = Float.POSITIVE_INFINITY; // initialize scores to the highest
+//        heap_scrs.clear();
+//        heap_vals.clear();
 
         fmm(
                 likelihood_xy,
                 new float[]{clickX, clickY},
-                xcc,  // Ni*4*2
-                tag,
+                xcc,                                                // Ni*4*2
+                tag,                                                //
                 par,
                 cst,
                 heap_vals,
                 heap_scrs
+        );
+        delin.clear();
+        delin.add(
+                extract_streamline(
+                        2,
+                        2,
+                        tag,    // input
+                        par,    // input
+                        cst,    // input
+                        xcc     // side output, extracted path will be excluded
+                )
         );
 
         long t2 = System.currentTimeMillis();
 
         System.out.println("     "+ ((t2-t1)/1000f) + "sec.");
 
-//        System.out.println("TAG:");
-        for (int i = 0; i < tag.length; i++) {
-            for (int j = 0; j < tag[i].length; j++) {
-                System.out.print(tag[i][j]+"\t"+par[i][j]+"\t"+cst[i][j]+" | ");
-            }
-            System.out.println();
-        }
 
-        Overlay ov = new Overlay();
+//        vizTag.setProcessor(getTag());
+//        vizTag.updateAndDraw();
+//        IJ.run(vizTag, "Enhance Contrast", "saturated=0.35");
+//        new ImagePlus("", getTag()).show();
+////        System.out.println("TAG:");
+//        for (int i = 0; i < tag.length; i++) {
+//            for (int j = 0; j < tag[i].length; j++) {
+//                System.out.print(tag[i][j]+"\t"+par[i][j]+"\t"+cst[i][j]+" | ");
+//            }
+//            System.out.println();
+//        }
+
+
         Overlay ov_xt   = viz_xt(xt, wt);
         Overlay ov_xc   = viz_xc(xc);
         Overlay ov_xcc  = viz_xcc(xcc);
+        Overlay ov_delin = viz_delin(delin);
 
-        for (int i = 0; i <ov_xt.size(); i++) ov.add(ov_xt.get(i));
-        for (int i = 0; i <ov_xc.size(); i++) ov.add(ov_xc.get(i));
+        ov.clear();
+//        for (int i = 0; i <ov_xt.size(); i++) ov.add(ov_xt.get(i));
+//        for (int i = 0; i <ov_xc.size(); i++) ov.add(ov_xc.get(i));
         for (int i = 0; i <ov_xcc.size(); i++) ov.add(ov_xcc.get(i));
+        for (int i = 0; i <ov_delin.size(); i++) ov.add(ov_delin.get(i));
 
         cnv.setOverlay(ov);
 
+        System.out.println("size="+ov.size());
+
+    }
+
+    private ByteProcessor getTag()
+    {
+        byte[] out = new byte[4*Ni];
+        int cnt = 0;
+        for (int i = 0; i <Ni; i++) for (int j = 0; j < 4; j++) out[cnt++] = tag[i][j];
+        return new ByteProcessor(4, Ni, out);
     }
 
     public static Overlay viz_xt(float[][][] xt, float[][] wt)
@@ -207,7 +262,11 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
                 p.setFillColor(new Color(1f,1f,1f,wt[i][j]));
 //                Line l = new Line(xt[i][j][0]+.5, xt[i][j][1]+.5, xt[i][j][0]+xt[i][j][2]+.5, xt[i][j][1]+xt[i][j][3]+.5);
 
+                PointRoi pt = new PointRoi(xt[i][j][0]+.5, xt[i][j][1]+.5);
+                pt.setStrokeColor(new Color(1f,1f,1f,wt[i][j]));
+                pt.setFillColor(new Color(1f,1f,1f,wt[i][j]));
                 ov.add(p);
+                ov.add(pt);
 //                ov.add(l);
 
             }
@@ -270,6 +329,28 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
         return ov;
     }
 
+    public static Overlay viz_delin(ArrayList<ArrayList<float[]>> delin)
+    {
+        Overlay ov = new Overlay();
+
+        for (int i = 0; i < delin.size(); i++) {
+            for (int j = 0; j < delin.get(i).size(); j++) {
+
+//                OvalRoi or = new OvalRoi(delin.get(i).get(j)[0]-1f+.5f, delin.get(i).get(j)[1]-1f+.5f, 2f, 2f);
+//                or.setFillColor(Color.RED);
+//                or.setStrokeColor(Color.RED);
+
+                PointRoi pt = new PointRoi(delin.get(i).get(j)[0]+.5f, delin.get(i).get(j)[1]+.5f);
+                pt.setFillColor(Color.RED);
+                pt.setStrokeColor(Color.RED);
+                ov.add(pt);
+            }
+        }
+
+        return ov;
+
+    }
+
     public void mousePressed(MouseEvent e) {}
     public void mouseReleased(MouseEvent e) {}
     public void mouseEntered(MouseEvent e) {}
@@ -281,71 +362,83 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
         mouseClicked(e);
     }
 
+    // fast marching method algorithm: xcc -> par,tag,scr
     private static void fmm(
-                            float[][] inimg_xy,     // input data
-                            float[] start_xy,       //
-                            float[][][] xcc,        // Ni*4*2
-                            byte[][] tag,           //
-                            byte[][] par,
-                            float[][] cst,
-                            ArrayList<int[]> heap_vals,
-                            ArrayList<Float> heap_scrs
+                            float[][] inimg_xy,         // input data
+                            float[] start_xy,           // input data
+                            float[][][] xcc,            // input to fast march through Ni*4*2
+                            byte[][] tag,               // output Ni*4 byte (0,1,2)
+                            byte[][] par,               // output Ni*4 byte (-2,-1,0,1,2,3)
+                            float[][] cst,              // output Ni*4 float - cost
+                            ArrayList<int[]> heap_vals, // auxilliary heap
+                            ArrayList<Float> heap_scrs  // auxilliary heap
     )
     {
 
-        int startII = xcc.length-1; // start iteration index fmm will start backwards from the last iteration
-        // xcc contains the
+        // reset the matrices with outputs
+        for (int i = 0; i < tag.length; i++)
+            for (int j = 0; j < tag[i].length; j++) {
+                tag[i][j] = (byte) 0;  // 0 (none), 1 (narrow band), 2 (frozen)
+                par[i][j] = (byte) -2; // -2 (none), -1 (root xy), 0,1,2,3 (index of the element in previous iteration)
+                cst[i][j] = (byte) Float.POSITIVE_INFINITY;
+            }
+        // heap architecture: heap_vals:<rank, Ni idx, N curr idx, N parent idx> heap_scrs:<score>
+        heap_vals.clear();
+        heap_scrs.clear();
 
-        // fast marching method algorithm
-        for (int i = 0; i < xcc[startII].length; i++) { // check 4 of neighbours at iteration=Ni (last one)
+        // xcc contains the centroids Ni*4*2d centroids (set to NaN,NaN when there is no centroid)
+        // centroids are iterating outwards with the nighest index being the most distant from the center
+        // fmm finds the optimal path through the set of centroids
+        // each next iteration is considered when searching for the neighbours
+        // initialization part of the algorithm
+        int startII = 0; // start iteration index fmm will start backwards from the first iteration
+
+        // tag, par, and cst will be filled up while marching till the end
+        for (int i = 0; i < xcc[startII].length; i++) { // check 4 of neighbours at iteration=0 (the first one)
+
+            int par_idx     = -1;
+            int ni_idx      = startII;
+            int pos_idx     = i;
 
             if (!Float.isNaN(xcc[startII][i][0])) { // if there is a centroid at this iteration
-// todo...
+
                 float curr_x = xcc[0][i][0];
                 float curr_y = xcc[0][i][1];
 
-                float eD = 0;//(float) (Math.pow(curr_x-start_xy[0],2)+Math.pow(curr_y-start_xy[1],2));
+                float eD = 1;//(float) (Math.pow(curr_x-start_xy[0],2)+Math.pow(curr_y-start_xy[1],2));
 
                 float Icurr = Interpolator.interpolateAt(curr_x, curr_y, inimg_xy);
-                float Iprev = Interpolator.interpolateAt(start_xy[0], start_xy[1], inimg_xy);
+//                float Iprev = Interpolator.interpolateAt(start_xy[0], start_xy[1], inimg_xy);
 
-                float eIcurr = (float) Math.exp(10*Math.pow(1-Icurr/1f,2));
-                float eIprev = (float) Math.exp(10*Math.pow(1-Iprev/1f,2));
+                float eI = (float) Math.exp(10*Math.pow(1-Icurr/1f,2));
+//                float eIprev = (float) Math.exp(10*Math.pow(1-Iprev/1f,2));
 
-                float e = eD * ( (eIcurr+eIprev)/2 );
+                float e = eD * eI; // ( (eIcurr+eIcurr)/2 );
 
-                tag[0][i] = (byte) 1; // tag it as narrow band
-                par[0][i] = (byte) (-1);
+                tag[0][i] = (byte) 1;       // tag it as narrow band
+                par[0][i] = (byte) par_idx;    // parent is root xy
                 cst[0][i] = e;
 
-                if (heap_vals.size()==0) {
-                    // just insert into the heap
-                    heap_vals.add(new int[]{1, 0, i, -1}); // rank, Ni idx, N curr idx, N parent idx
+                if (heap_vals.size()==0) { // just insert into the heap
+                    heap_vals.add(new int[]{1, ni_idx, pos_idx, par_idx}); // rank, Ni idx, N curr idx, N parent idx
                     heap_scrs.add(e);
                 }
-                else{
-
-                    // append it and update the rank depending on where the cost was
+                else{ // append it and update the rank depending on where the cost was
                     int cnt = 0;
-                    for (int j = 0; j < heap_scrs.size(); j++) if (heap_scrs.get(j) > e) {cnt++; heap_vals.get(j)[0]++;}
+                    for (int j = 0; j < heap_scrs.size(); j++) if (heap_scrs.get(j) > e) {cnt++; heap_vals.get(j)[0]++;} // count them & decrease ranking
 
                     int new_rank = heap_scrs.size() - cnt + 1; // ranking starts from 1
 
                     // add the new one
                     heap_scrs.add(e);
-                    heap_vals.add(new int[]{new_rank, 0, i, -1});
-
+                    heap_vals.add(new int[]{new_rank, ni_idx, pos_idx, par_idx});
                 }
 
             }
 
-        }
+        } // end initialization
 
-//        System.out.println("looping FMM...");
-
-        boolean do_it = true;
-
-        while (heap_vals.size()>0 && do_it) {
+        while (heap_vals.size()>0) {
 
 //            System.out.println("while again");
 //            for (int i = 0; i <heap_vals.size(); i++) {
@@ -353,65 +446,86 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 //            }
 //            System.out.println("-----");
 
-            // get the top score
+            // get the top score (this can be optimized so that there is no loop)
             int get_lowest_score = -1;
-            for (int i = 0; i < heap_vals.size(); i++)
+            for (int i = 0; i < heap_vals.size(); i++) // loop through vals list
                 if (heap_vals.get(i)[0] == 1)
                    get_lowest_score = i;
                 else
-                   heap_vals.get(i)[0]--;
+                   heap_vals.get(i)[0]--; // decrease ranking
 
             if (get_lowest_score==-1) {
                 System.out.println("wrong !!!! cannot find rank 1");
-//                for (int i = 0; i <heap_vals.size(); i++) {
-//                    System.out.println(heap_vals.get(i)[0]);
-//                }
                 System.exit(0);
             }
 
-            int at_i = heap_vals.get(get_lowest_score)[1]; // iteration index
-            int at_p = heap_vals.get(get_lowest_score)[2]; // curr idx within iteration
-            int at_pp = heap_vals.get(get_lowest_score)[3]; // parent idx
+            // read heap_vals and heap_scrs first...
 
-            // freeze it
-            tag[at_i][at_p] = (byte) 2; // tag it as freezed
-            par[at_i][at_p] = (byte) (at_pp);
-            cst[at_i][at_p] = heap_scrs.get(get_lowest_score);
+            int at_i = heap_vals.get(get_lowest_score)[1];  // iteration index
+            int at_p = heap_vals.get(get_lowest_score)[2];  // curr idx within iteration
+            int at_pp = heap_vals.get(get_lowest_score)[3]; // parent idx
+            float score = heap_scrs.get(get_lowest_score);  // score
 
             // remove from heap list
             heap_scrs.remove(get_lowest_score);
             heap_vals.remove(get_lowest_score);
 
-            // loop neighbours of at_i, at_p (some from the following iteration) if there is such
-            if (at_i<xcc.length-1) { // if it is within the boundaries
+            // freeze it using the taken list values
+            tag[at_i][at_p] = (byte) 2; // tag it as freezed
+            par[at_i][at_p] = (byte) (at_pp);
+            cst[at_i][at_p] = score;
 
-//                int at_i_nbr = (at_i)? : ;
+            // loop neighbours (at_i+1,:) of the taken one: (at_i,at_p) (the following iteration) if there is such
+            if (at_i+1<xcc.length) { // if the neighbours exist
 
                 for (int i = 0; i < xcc[at_i+1].length; i++){ // looping the neighbours
 
-                    if (!Float.isNaN(xcc[at_i+1][i][0])) { // there was a cluster
-
-//                        System.out.println("" + (at_i+1) + " :: " + i);
+                    if (!Float.isNaN(xcc[at_i+1][i][0])) { // there was a cluster at the neighbour position
 
                         if (tag[at_i+1][i]!=2){ // it is not frozen
 
-                            // compute dist
+                            float x1 = xcc[at_i+1][i][0]; // neighbour of the element taken from the heap
+                            float y1 = xcc[at_i+1][i][1];
 
-                            float curr_x = xcc[at_i+1][i][0];
-                            float curr_y = xcc[at_i+1][i][1];
+                            float x0 = xcc[at_i][at_p][0]; // just taken from the heap
+                            float y0 = xcc[at_i][at_p][1];
 
-                            float prev_x = xcc[at_i][at_p][0];
-                            float prev_y = xcc[at_i][at_p][1];
+                            // see what is xp, yp
+                            float xp= Float.NaN, yp=Float.NaN;
+                            if (par[at_i][at_p]==-1) {      // if it was root point
+                                xp = start_xy[0];
+                                yp = start_xy[1];
+                            }
+                            else if (                       // if it was legal
+                                    par[at_i][at_p]==0 ||
+                                    par[at_i][at_p]==1 ||
+                                    par[at_i][at_p]==2 ||
+                                    par[at_i][at_p]==3
+                                    )
+                            {
+                                xp = xcc[at_i-1][par[at_i][at_p]][0];
+                                yp = xcc[at_i-1][par[at_i][at_p]][1];
+                            }
+                            else { // it was not a legal parent index
+                                System.out.println("wrong parent index when calculating the score");
+                                System.exit(0);
+                            }
 
-                            float eD = (float) (Math.pow(curr_x-prev_x,2)+Math.pow(curr_y-prev_y,2));
+                            float v1x = x1-x0;
+                            float v1y = y1-y0;
+                            float v2x = x0-xp;
+                            float v2y = y0-yp;
 
-                            float Icurr = Interpolator.interpolateAt(curr_x, curr_y, inimg_xy);
-                            float Iprev = Interpolator.interpolateAt(prev_x, prev_y, inimg_xy);
+                            float cosang = (float) ((v1x*v2x+v1y*v2y) / (Math.sqrt(v1x*v1x+v1y*v1y)*Math.sqrt(v2x*v2x+v2y*v2y)));
+                            float eD = 2 - cosang; //(float) (Math.pow(curr_x-prev_x,2)+Math.pow(curr_y-prev_y,2)); // directional cost of the neighbour
 
-                            float eIcurr = (float) Math.exp(10*Math.pow(1-Icurr/1f,2));
-                            float eIprev = (float) Math.exp(10*Math.pow(1-Iprev/1f,2));
+                            float Icurr = Interpolator.interpolateAt(x1, y1, inimg_xy);
+//                            float Iprev = Interpolator.interpolateAt(prev_x, prev_y, inimg_xy);
 
-                            float e = eD * ( (eIcurr+eIprev)/2 );
+                            float eI = (float) Math.exp(5*Math.pow(1-Icurr/1f,2));
+//                            float eIprev = (float) Math.exp(10*Math.pow(1-Iprev/1f,2));
+
+                            float e = eD * eI;// + ( (eIcurr+eIcurr)/2f );
 
                             if (tag[at_i+1][i]!=1) {// neighbour (at_i+1, i) is NOT in narrow band
 
@@ -419,28 +533,25 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
                                 par[at_i+1][i] = (byte) at_p;
                                 cst[at_i+1][i] = e;
 
-                                // append it to the heap
-                                // append it and update the rank depending on where the cost was
+                                // calculate the rank depending on where the cost was
                                 int cnt = 0;
                                 for (int j = 0; j < heap_scrs.size(); j++) if (heap_scrs.get(j) > e) {cnt++; heap_vals.get(j)[0]++;}
-
                                 int new_rank = heap_scrs.size() - cnt + 1; // ranking starts from 1
 
-                                // add the new one
+                                // append it to the heap
                                 heap_scrs.add(e);
                                 heap_vals.add(new int[]{new_rank, at_i+1, i, at_p});
-
 //                                System.out.println("neighbour was not in narrow band, added rank " + new_rank);
 
                             }
                             else {
-                                // neighbour IS in narrow band already - means that it is already added to the heap - so update -
+                                // neighbour IS in narrow band already - means that it is already added to the heap
                                 // find the corresponding heap location and update it
 
                                 boolean found = false;
                                 int idx_found = -1;
                                 for (int j = 0; j < heap_vals.size(); j++) {
-                                    if (heap_vals.get(j)[1]==at_i+1 && heap_vals.get(j)[2]==i) {
+                                    if (heap_vals.get(j)[1]==at_i+1 && heap_vals.get(j)[2]==i) { // element in the heap equals (at_i+1,i)
                                         found = true;
                                         idx_found = j;
                                         break;
@@ -481,7 +592,6 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 //                                    }
 //                                    System.out.println("-----");
 
-
                                 }
                                 else{
 //                                    System.out.println("neighbour WAS in narrow band and NOT replaced");
@@ -504,13 +614,72 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 
         }
 
-
 //        System.out.println("HEAP:");
 //        for (int i = 0; i < heap_scrs.size(); i++) {
 //            System.out.println(heap_scrs.get(i) + " | " + Arrays.toString(heap_vals.get(i))+ "      " + Arrays.toString(tag[0]));
 //        }
 
-//        System.out.println("TAG");
+    }
+
+    // tag,par,scr -> xcc
+    private static ArrayList<float[]> extract_streamline(
+            int margin_end,
+            int margin_begin,
+            byte[][] tag, // input
+            byte[][] par, // input
+            float[][] cst, // input
+            float[][][] xcc // side output, extracted path will be excluded
+    )
+    {
+
+        // use tag and cst to find initial thread point - most distant frozen that had the least cost
+        boolean found = false;
+        int found_i = -1;
+        int found_j = -1;
+        float min_cost;
+
+        for (int i = tag.length-1; i > tag.length-1-margin_end; i--) {
+
+            // searching the centroids at concentric circle - the one with min cost
+            min_cost = Float.POSITIVE_INFINITY;
+
+            for (int j = 0; j < tag[i].length; j++) {
+                if (tag[i][j]==2) { // if it was frozen
+                    if (cst[i][j]<min_cost) { min_cost = cst[i][j]; found_i = i; found_j = j; }
+                }
+            }
+
+            if (!Float.isInfinite(min_cost)) {
+
+                found = true;
+                break; // found get out as soon as it is found at one iteration
+
+            }
+
+        }
+
+        if (found) { // found_i, found_j
+
+            ArrayList<float[]> out = new ArrayList<float[]>();
+
+
+
+            for (int loop_streamiline = found_i; loop_streamiline >=0 ; loop_streamiline--) {
+
+                out.add(xcc[loop_streamiline][found_j].clone()); // start from found_i,j
+
+                found_j = par[found_i][found_j]; // recursively go backwards
+
+            }
+
+            return out;
+
+        }
+        else {
+
+            return null;
+
+        }
 
     }
 
@@ -545,7 +714,6 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 
                 iter++;
 
-//
             }
             while (iter < max_iter && d > epsilon*epsilon); //
 
