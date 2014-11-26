@@ -380,6 +380,12 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
     )
     {
 
+        // some paramters used for calculating the costs
+        float LAMBDA = 1;
+        float I = 0.5f;
+        float ALFA = (float) (Math.PI/2);
+        float P = 10; // multiple of D should be parametrized
+
         // reset the matrices with outputs
         for (int i = 0; i < tag.length; i++)
             for (int j = 0; j < tag[i].length; j++) {
@@ -410,23 +416,22 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
                 float curr_x = xcc[0][i][0];
                 float curr_y = xcc[0][i][1];
 
-//                float eD = 1;//(float) (Math.pow(curr_x-start_xy[0],2)+Math.pow(curr_y-start_xy[1],2));
+                float I1 = Interpolator.interpolateAt(curr_x, curr_y, inimg_xy);
+                float I0 = Interpolator.interpolateAt(start_xy[0], start_xy[1], inimg_xy);
 
-                float Icurr = Interpolator.interpolateAt(curr_x, curr_y, inimg_xy);
-//                float Iprev = Interpolator.interpolateAt(start_xy[0], start_xy[1], inimg_xy);
+                float CI = (float) Math.exp(LAMBDA * Math.pow( (I1-I0)/I,2));
+                float CP = (float) Math.exp(LAMBDA * ((Math.pow(curr_x-start_xy[0],2)+Math.pow(curr_y-start_xy[1],2))/Math.pow(P,2)));
+                float CALPHA = 1;
 
-                float eI = (float) Math.exp(5*Math.pow(1-Icurr/1f,2));
-//                float eIprev = (float) Math.exp(10*Math.pow(1-Iprev/1f,2));
-
-                float e = eI; // ( (eIcurr+eIcurr)/2 );
+                float C = CI * CP * CALPHA; // ( (eIcurr+eIcurr)/2 );
 
                 tag[0][i] = (byte) 1;           // tag it as narrow band
                 par[0][i] = (byte) par_idx;     // parent is root xy
-                cst[0][i] = e;                  // cost should accumulate the previous cost which is 0
+                cst[0][i] = C;                  // cost should accumulate the previous cost which is 0
 
                 if (heap_vals.size()==0) { // just insert into the heap
                     heap_vals.add(new int[]{1, ni_idx, pos_idx, par_idx}); // rank, Ni idx, N curr idx, N parent idx
-                    heap_scrs.add(e);
+                    heap_scrs.add(C);
                 }
                 else{ // append it and update the rank depending on where the cost was
                     int cnt = 0;
@@ -435,7 +440,7 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
                     int new_rank = heap_scrs.size() - cnt + 1; // ranking starts from 1
 
                     // add the new one
-                    heap_scrs.add(e);
+                    heap_scrs.add(C);
                     heap_vals.add(new int[]{new_rank, ni_idx, pos_idx, par_idx});
                 }
 
@@ -445,11 +450,7 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 
         while (heap_vals.size()>0) {
 
-//            System.out.println("while again");
-//            for (int i = 0; i <heap_vals.size(); i++) {
-//                System.out.print(heap_vals.get(i)[0] + " , ");
-//            }
-//            System.out.println("-----");
+//            for (int i = 0; i <heap_vals.size(); i++) System.out.print(heap_vals.get(i)[0] + " , ");
 
             // get the top score (this can be optimized so that there is no loop)
             int get_lowest_score = -1;
@@ -479,7 +480,7 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
             par[at_i][at_p] = (byte) at_pp;
             cst[at_i][at_p] = score;
 
-            // loop neighbours (at_i+1,:) of the taken one: (at_i,at_p) (the following iteration) if there is such
+            // loop neighbours vn (at_i+1,:) of the taken one v: (at_i,at_p) (the following iteration) if there is such possibility
             if (at_i+1<xcc.length) { // if the neighbours exist
 
                 for (int i = 0; i < xcc[at_i+1].length; i++){ // looping the neighbours
@@ -526,7 +527,9 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
                             float v2 = (float) Math.sqrt(v2x*v2x+v2y*v2y);
                             v2x = v2x/v2;
                             v2y = v2y/v2;
-                            //
+
+
+
                             float cosang = v1x*v2x+v1y*v2y;// / (*Math.sqrt(v2x*v2x+v2y*v2y)));
                             float eD = 2 - cosang; //(float) (Math.pow(curr_x-prev_x,2)+Math.pow(curr_y-prev_y,2)); // directional cost of the neighbour
                             float eD1 = v1;
