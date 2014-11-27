@@ -35,34 +35,42 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
     // classes used for processing
     SemiCircle scirc;
 
-    // params
+    /*
+        params
+    */
     // bayesian filtering
     float radius = 1.5f;
-    int Ni = 10;
-    int Ns = 80;
-    float sigma_deg = 80;
+    int Ni = 15;
+    int Ns = 50;
+    float sigma_deg = 90;
+
     // mean shift convergence
-    float r = 1.0f*radius; // neighbourhood
+    float r = .5f*radius;   // neighbourhood
+    float r2 = r*r;
     int max_iter = 25;
     float epsilon = 0.001f;
     // centroid extraction
-    float r2 = r*r;
-    int Nc = 8; // number of centroids to extract (NaN if they don't exist), 4 was not enough since the centroids are missed sometimes and fmm is disconnected
+    int Nc = 10;            // number of centroids to extract (NaN if they don't exist), 4 was not enough since the centroids are missed sometimes and fmm is disconnected
+    // foreground extraction
+    int percentile = 90;    // how many to keep as the foreground/background, neighbourhood will be defined with radius and
+    int nbhood = (int) Math.ceil(Ni * radius);
+    int CPU_NR = Runtime.getRuntime().availableProcessors() + 1;
 
     // output
     float[][][] xt = new float[Ni+1][Ns][4];    // bayesian filtering states (x,y, vx, vy)
     float[][]   wt = new float[Ni+1][Ns];       // bayesian filtering states
+    byte[][]    pt = new byte[Ni+1][Ns];          // bayesian filtering parent pointer - distribution index of the parent state in previous iteration
 
-    float[][][] xc = new float[Ni][Ns][2];    // mean-shift convergence of the bayesian filtered states (x, y)
 
+//    float[][][] xc = new float[Ni][Ns][2];    // mean-shift convergence of the bayesian filtered states (x, y)
 
-    float[][][] xcc = new float[Ni][Nc][2];    // after clustering the converged values - take up to Nc clusters
-    float[][]   dsts = new float[Ns][Ns];       // inter distances - used as a clustering criteria
-    int[]       cllab = new int[Ns];                // clustering labels at each iteration
+//    float[][][] xcc = new float[Ni][Nc][2];    // after clustering the converged values - take up to Nc clusters
+//    float[][]   dsts = new float[Ns][Ns];       // inter distances - used as a clustering criteria
+//    int[]       cllab = new int[Ns];                // clustering labels at each iteration
 
-    byte[][]     tag = new byte[Ni][Nc];       // fmm tags (0, 1, 2)
-    byte[][]     par = new byte[Ni][Nc];       // fmm pointers (-2, -1, 0, 1, 2, 3)
-    float[][]    cst = new float[Ni][Nc];      // fmm scores
+//    byte[][]     tag = new byte[Ni][Nc];       // fmm tags (0, 1, 2)
+//    byte[][]     par = new byte[Ni][Nc];       // fmm pointers (-2, -1, 0, 1, 2, 3)
+//    float[][]    cst = new float[Ni][Nc];      // fmm scores
 
     ArrayList<ArrayList<float[]>> delin = new ArrayList<ArrayList<float[]>>(); // will store the spatial delineation
 
@@ -80,6 +88,15 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 
     public void run(String s) {
 
+        // parent map is in bytes - can cover only 256 values (0-255) - that is the limit in number of the states
+        if (Ns >= 255) { IJ.log("Parent map supports up to 255 states. Current # " + Ns + ". Exiting..."); return; }
+
+//        for (int i = 0; i < 256; i++) System.out.println(i + " -- " + (byte) i + " -- " + ((byte) i & 0xff));
+
+        // experimental
+//        boolean stopit = true;
+//        if (stopit) return;
+
         // load the image through the menu
         String in_folder = Prefs.get("id.folder", System.getProperty("user.home"));
         OpenDialog.setDefaultDirectory(in_folder);
@@ -90,7 +107,7 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
         Prefs.set("id.folder", in_folder);
 
         ImagePlus img = new ImagePlus(image_path);
-        if(img==null) return;
+        if(img==null) { IJ.log("Input image was null."); return; }
 
         // set image as float[][]
         likelihood_xy = new float[img.getWidth()][img.getHeight()]; 	// x~column, y~row
@@ -124,6 +141,33 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 
         scirc = new SemiCircle(radius);
 
+        /*
+            extract the foreground -> Masker2D.xy2i, Masker2D.i2xy
+         */
+        System.out.print("extracting foreground...");
+        Masker2D.loadTemplate(
+                likelihood_xy, nbhood, nbhood, percentile); //image, margin, check, percentile
+        int totalLocs = likelihood_xy.length * likelihood_xy[0].length;
+        Masker2D ms_jobs[] = new Masker2D[CPU_NR];
+        for (int i = 0; i < ms_jobs.length; i++) {
+            ms_jobs[i] = new Masker2D(i*totalLocs/CPU_NR,  (i+1)*totalLocs/CPU_NR);
+            ms_jobs[i].start();
+        }
+        for (int i = 0; i < ms_jobs.length; i++) {
+            try {
+                ms_jobs[i].join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        Masker2D.defineThreshold();
+        Masker2D.formRemainingOutputs();
+        System.out.println(" done.");
+
+        ImagePlus mask = new ImagePlus("mask", Masker2D.getMask());
+        mask.show();
+//      IJ.saveAs(mask, "Tiff", midresults_dir+"mask_"+D[didx]+".tif");
+
         // show it and get the canvas
         img.show();
         cnv = img.getCanvas();
@@ -134,108 +178,16 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 //        vizTag.show();
 //        vizTag.getCanvas().zoom100Percent();
 //        vizTag.getCanvas().zoomIn(0,0);
-//        vizTag.getCanvas().zoomIn(0,0);
-//        vizTag.getCanvas().zoomIn(0,0);
-//        vizTag.getCanvas().zoomIn(0,0);
-//        vizTag.getCanvas().zoomIn(0,0);
-//        vizTag.getCanvas().zoomIn(0,0);
-//        vizTag.getCanvas().zoomIn(0,0);
-//        vizTag.getCanvas().zoomIn(0,0);
-//        vizTag.getCanvas().zoomIn(0,0);
-
 
     }
 
-    public void mouseClicked(MouseEvent e)
-    {
-        int clickX = cnv.offScreenX(e.getX());
-        int clickY = cnv.offScreenY(e.getY());
-
-        System.out.print("(x,y) -> "+clickX+" , " +clickY+" -> ");
-
-        long t1 = System.currentTimeMillis();
-
-        // bayesian filtering
-        BayesianTracer2D.run(clickX, clickY,
-                likelihood_xy, scirc, sigma_deg, Ni, Ns, xt, wt);
-
-        // mean-shift for estimation (local maxima detection)
-        for (int i = 0; i < xc.length; i++) { // initialize xc with corresponding elements from xt
-            for (int s = 0; s < xc[0].length; s++) {
-                xc[i][s][0] = xt[i+1][s][0];
-                xc[i][s][1] = xt[i+1][s][1];
-            }
-        }
-
-        for (int i = 0; i < Ni; i++) { // do convergence at each iteration
-            meanshift_xy_convg(xt[i+1], wt[i+1], xc[i], xn, max_iter, epsilon, r2); // xc will hold the converged values
-            // clustering xc->xcc
-            dists2(xc[i], dsts); // Ns*Ns distances at each iteration
-            clustering(dsts, r2, cllab);
-            extracting(cllab, xc[i], 1, Nc, xcc[i]);
-        }
-
-        // fmm - will need to march 4 times
-//        for (int i = 0; i < Ni; i++) for (int j = 0; j < 4; j++) tag[i][j] = (byte) ( 0); // initialize tags
-//        for (int i = 0; i < Ni; i++) for (int j = 0; j < 4; j++) par[i][j] = (byte) (-2); // initialize pointers
-//        for (int i = 0; i < Ni; i++) for (int j = 0; j < 4; j++) cst[i][j] = Float.POSITIVE_INFINITY; // initialize scores to the highest
-//        heap_scrs.clear();
-//        heap_vals.clear();
-//        delin.clear();
-
-        //for (int i = 0; i < 2; i++) {
-
-            fmm(likelihood_xy, new float[]{clickX, clickY}, xcc, tag, par, cst, heap_vals, heap_scrs);
-
-            extract_streamlines(clickX, clickY, tag, par, cst, xcc, 4, delin); // xcc will be modified
-
-//            if (strm==null) {
-//                System.out.println("couldn't find");
-//                break;
-//            }
-//            else {
-//                delin.add(strm);
-//            }
-
-        //}
-
-        long t2 = System.currentTimeMillis();
-
-        System.out.println("     "+ ((t2-t1)/1000f) + "sec.");
-
-//        vizTag.setProcessor(getTag());
-//        vizTag.updateAndDraw();
-//        IJ.run(vizTag, "Enhance Contrast", "saturated=0.35");
-//        new ImagePlus("", getTag()).show();
-////        System.out.println("TAG:");
-//        for (int i = 0; i < tag.length; i++) {
-//            for (int j = 0; j < tag[i].length; j++) {
-//                System.out.print(tag[i][j]+"\t"+par[i][j]+"\t"+cst[i][j]+" | ");
-//            }
-//            System.out.println();
-//        }
-        Overlay ov_xt   = viz_xt(xt, wt);
-        Overlay ov_xc   = viz_xc(xc);
-        Overlay ov_xcc  = viz_xcc(xcc);
-        Overlay ov_delin = viz_delin(delin);
-
-        ov.clear();
-//        for (int i = 0; i <ov_xt.size(); i++) ov.add(ov_xt.get(i));
-        for (int i = 0; i <ov_xc.size(); i++) ov.add(ov_xc.get(i));
-        for (int i = 0; i <ov_xcc.size(); i++) ov.add(ov_xcc.get(i));
-        for (int i = 0; i <ov_delin.size(); i++) ov.add(ov_delin.get(i));
-
-        cnv.setOverlay(ov);
-
-    }
-
-    private ByteProcessor getTag()
-    {
-        byte[] out = new byte[4*Ni];
-        int cnt = 0;
-        for (int i = 0; i <Ni; i++) for (int j = 0; j < 4; j++) out[cnt++] = tag[i][j];
-        return new ByteProcessor(4, Ni, out);
-    }
+//    private ByteProcessor getTag()
+//    {
+//        byte[] out = new byte[4*Ni];
+//        int cnt = 0;
+//        for (int i = 0; i <Ni; i++) for (int j = 0; j < 4; j++) out[cnt++] = tag[i][j];
+//        return new ByteProcessor(4, Ni, out);
+//    }
 
     public static Overlay viz_xt(float[][][] xt, float[][] wt)
     {
@@ -360,18 +312,139 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 
     }
 
-    public void mousePressed(MouseEvent e) {}
-    public void mouseReleased(MouseEvent e) {}
-    public void mouseEntered(MouseEvent e) {}
-    public void mouseExited(MouseEvent e) {}
-    public void mouseDragged(MouseEvent e) {}
+    private void  extract(float[][][] _xt, float[][] _wt, byte[][] _pt, int _nr_streams, int _iter_margin, ArrayList<ArrayList<float[]>> _delin)
+    {
+        // will mark the traces as they happen
+        byte[][] trace_map = new byte[_xt.length][_xt[0].length]; // size of the table todo: outside as auxilliary not to be allocated each time
+
+        // will be filld with ids of the traces as they are checked (0, 1, 2, 3)
+        for (int i = 0; i < trace_map.length; i++)
+            for (int j = 0; j < trace_map[i].length; j++)
+                trace_map[i][j] = (byte)255; // 0 means the centroid at this location does not belong to any trace
+
+        _delin.clear(); // take the frozen ones from the last iteration and check their backtraces
+
+        boolean[] examined = new boolean[_xt[0].length]; // all are false at the beginning
+
+        int cnt_stream = 0; // will be labelling the streams with 1,2,3,4,...,Ns
+
+        for (int i = 0; i < _nr_streams; i++) { // pick the one with largest weight that does not overlap with the earlier taken one... _nr_streams times
+
+            float max_score = Float.NEGATIVE_INFINITY;
+            int max_idx = -1;
+
+            for (int j = 0; j < _wt[_wt.length-1].length; j++) { // loop the last iteration - loop all the states/weights from the distribution
+                if (!examined[j]) {
+                    if (_wt[_wt.length-1][j] > max_score) {
+                        max_score = _wt[_wt.length-1][j];
+                        max_idx = i;
+                    }
+                }
+            }
+
+            if (max_idx!=-1) { // min was found in the loop at one index
+
+                cnt_stream++;
+
+                // min was found - no need to examine it next iteration whether it was added in the end or not
+                examined[max_idx] = true;
+
+                // back trace to see whether it should be added
+                // no need to search for the minimum now - take all that there is, the fact that it is frozen means that the cost is not infinity
+                ArrayList<float[]> out_streamline = new ArrayList<float[]>(); // build it up gradually
+
+                boolean is_overlapping = false;
+
+                int found_j = max_idx;
+
+                for (int loop_streamiline = _xt.length-1; loop_streamiline >=0 ; loop_streamiline--) {
+
+//                    if (loop_streamiline==-1) {
+//                        out_streamline.add(new float[]{x_root, y_root});
+//                    }
+//                    else {
+                        if (trace_map[loop_streamiline][found_j]!=(byte)255 && loop_streamiline>=0) { // check if it overlaps with the earlier trace
+                            is_overlapping = true;
+                            break; // reached another stream
+                        }
+
+                        out_streamline.add(_xt[loop_streamiline][found_j].clone());
+                        trace_map[loop_streamiline][found_j] = (byte) cnt_stream;
+                        found_j = _pt[loop_streamiline][found_j]&0xff; // last one will give 255 (-1 in byte) but it won't be referenced
+//                    }
+
+                }
+
+                if (!is_overlapping) { // it it turned out to overlap
+                    _delin.add(out_streamline);
+                }
+            }
+            else break;
+
+        } // end looping the streams
+
+    }
+
+    public void mouseClicked(MouseEvent e)
+    {
+        int clickX = cnv.offScreenX(e.getX());
+        int clickY = cnv.offScreenY(e.getY());
+
+        System.out.print("(x,y) -> "+clickX+" , " +clickY+" -> ");
+
+        long t1 = System.currentTimeMillis();
+
+        // bayesian filtering
+        BayesianTracer2D.run(clickX, clickY, likelihood_xy, scirc, sigma_deg, Ni, Ns, xt, wt, pt);
+        extract(xt, wt, pt, 4, 0, delin); // states, weights, parent_index, nr_streams, overlap_margin, output_delineation
+
+            // mean-shift for estimation (local maxima detection)
+//            for (int i = 0; i < xc.length; i++) { // initialize xc with corresponding elements from xt
+//                for (int s = 0; s < xc[0].length; s++) {
+//                    xc[i][s][0] = xt[i + 1][s][0];
+//                    xc[i][s][1] = xt[i + 1][s][1];
+//                }
+//            }
+//            for (int i = 0; i < Ni; i++) { // do convergence at each iteration
+//                meanshift_xy_convg(xt[i + 1], wt[i + 1], xc[i], xn, max_iter, epsilon, r2); // xc will hold the converged values
+//                // clustering xc->xcc
+//                dists2(xc[i], dsts); // Ns*Ns distances at each iteration
+//                clustering(dsts, r2, cllab);
+//                extracting(cllab, xc[i], 1, Nc, xcc[i]);
+//            }
+//            fmm(likelihood_xy, new float[]{clickX, clickY}, xcc, tag, par, cst, heap_vals, heap_scrs);
+//            extract_streamlines(clickX, clickY, tag, par, cst, xcc, 4, delin); // xcc will be modified
+
+        long t2 = System.currentTimeMillis();
+        float tt = (t2-t1)/1000f;
+        System.out.println("     "+ tt + "sec. whole image would take " + (tt*Masker2D.i2xy.length));
+
+//        vizTag.setProcessor(getTag());
+//        vizTag.updateAndDraw();
+//        IJ.run(vizTag, "Enhance Contrast", "saturated=0.35");
+//        new ImagePlus("", getTag()).show();
+
+        Overlay ov_xt   = viz_xt(xt, wt);
+//        Overlay ov_xc   = viz_xc(xc);
+//        Overlay ov_xcc  = viz_xcc(xcc);
+        Overlay ov_delin = viz_delin(delin);
+
+        // comment here if you need different visualisations
+        ov.clear();
+        for (int i = 0; i <ov_xt.size(); i++) ov.add(ov_xt.get(i));
+//        for (int i = 0; i <ov_xc.size(); i++) ov.add(ov_xc.get(i));
+//        for (int i = 0; i <ov_xcc.size(); i++) ov.add(ov_xcc.get(i));
+        for (int i = 0; i <ov_delin.size(); i++) ov.add(ov_delin.get(i));
+
+        cnv.setOverlay(ov);
+
+    }
 
     public void mouseMoved(MouseEvent e)
     {
         mouseClicked(e);
     }
 
-    // fast marching method algorithm: xcc -> par,tag,scr
     private static void fmm(
                             float[][] inimg_xy,         // input data
                             float[] start_xy,           // input data
@@ -657,7 +730,7 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
     )
     {
 
-        int Ni_margin = 2;
+        int Ni_margin = 2; // todo parameter
 
 //        int nr_streams = 4; // to capture enough to cover all types of critpoints
         byte[][] trace_map = new byte[tag.length][tag[0].length]; // size of the tag todo: outside as auxilliary not to be allocated each time
@@ -666,7 +739,6 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
         for (int i = 0; i < trace_map.length; i++)
             for (int j = 0; j < trace_map[i].length; j++)
                 trace_map[i][j] = 0; // 0 means the centroid at this location does not belong to any trace
-
 
         streamlines.clear(); // take the frozen ones from the last iteration and check their backtraces
 
@@ -715,7 +787,6 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
                 examined[min_idx] = true;
 
                 // back trace to see whether it should be added
-
                 // no need to search for the minimum now - take all that there is, the fact that it is frozen means that the cost is not infinity
                 ArrayList<float[]> out_streamline = new ArrayList<float[]>(); // build it up gradually
 
@@ -724,7 +795,6 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
                 int found_j = min_idx;
 
                 for (int loop_streamiline = tag.length-1; loop_streamiline >=-1 ; loop_streamiline--) { // add all the points of the stram plus the central one (loop_streamline==-1)
-
 
                     // before adding the element - check if it overlaps with some previous path
                     if (loop_streamiline==-1) {
@@ -828,14 +898,10 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 
         for (int i = 0; i < xy_inpt.length; i++) { // converge each distribution element separately
 
-//            System.out.print("\nelement " + i + " -> " + Arrays.toString(xy_conv[i]));
-
             int iter = 0;
             float d;
 
             do {
-
-//                System.out.println("iter " + iter + " :: " + Arrays.toString(xy_conv[i]));
 
                 runone(xy_conv[i], xy_next, rad2, xy_inpt, w_inpt);
 
@@ -847,9 +913,7 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
                 iter++;
 
             }
-            while (iter < max_iter && d > epsilon*epsilon); //
-
-//            System.out.println("-> " + Arrays.toString(xy_conv[i]) + " in " + iter + " iterations");
+            while (iter < max_iter && d > epsilon*epsilon);
 
         }
 
@@ -1031,14 +1095,10 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 
     }
 
-//    private static void take_streamline(
-//            byte[][]  tag_map,
-//            float[][] cst_map,
-//            byte[][]  par_map,
-//            float[][][] xcc,
-//            ArrayList<float[]> out_stream // output
-//    )
-//    {
-//    }
+    public void mousePressed(MouseEvent e) {}
+    public void mouseReleased(MouseEvent e) {}
+    public void mouseEntered(MouseEvent e) {}
+    public void mouseExited(MouseEvent e) {}
+    public void mouseDragged(MouseEvent e) {}
 
 }

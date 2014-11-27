@@ -569,12 +569,12 @@ public class BayesianTracer2D {
             float       sigma_deg,
             int         Ni,     // number of the iterations
             int         Ns,     // number of the states
-            float[][][] xt,     // Ni x Ns X 4 (x,y,vx,vy)
-            float[][]   wt      // Ni x Ns
+            float[][][] xt,     // Ni+1 x Ns X 4 (x,y,vx,vy)
+            float[][]   wt,      // Ni+1 x Ns
+            byte[][]    pt
     )
     {
 
-//        System.out.println("running with " + circ.NN + " points per semi circle");
         // number of locations and allocated to cover the pi region
         // allocate the states for iter=0
         for (int i = 0; i < Ns; i++) {
@@ -588,12 +588,14 @@ public class BayesianTracer2D {
 
             wt[0][i] = 1/(float)Ns;
 
+            pt[0][i] = (byte) 0; // dummy parent - should not be accessed for iteration = 0, just to fill up the array
+
         }
 
         int iter = 1;
 
         while (iter<=Ni) {
-            bayesian_iteration(likelihood_xy, iter, circ, sigma_deg, xt, wt);
+            bayesian_iteration(likelihood_xy, iter, circ, sigma_deg, xt, wt, pt); // xt[iter], wt[iter], pt[iter]
             iter++;
         }
 
@@ -612,7 +614,8 @@ public class BayesianTracer2D {
             float                   _prior_sigma_deg,
 
             float[][][]             _xt,
-            float[][]               _wt
+            float[][]               _wt,
+            byte[][]                _pt
 
     )
     {
@@ -629,11 +632,12 @@ public class BayesianTracer2D {
 
         int Ns = prev_x.length;
 
-        // TODO allocation in the loop!!!
+        // TODO allocation in the loop!!! to speed up
         float[][]   transition_xy       = new float[prev_x.length * _scirc.NN][4]; // all the predictions are stored here
         float[]     ptes                = new float[prev_x.length * _scirc.NN];
         float[]     lhoods              = new float[prev_x.length * _scirc.NN];
-
+        byte[]      parents             = new byte[prev_x.length * _scirc.NN];
+        // TODO
         int count = 0;
         double sum_lhoods = 0;
         for (int i = 0; i < prev_x.length; i++) {
@@ -653,11 +657,10 @@ public class BayesianTracer2D {
                 transition_xy[count][2] = _scirc.v[j][0]; // vx
                 transition_xy[count][3] = _scirc.v[j][1]; // vy
 
+                parents[count] = (byte) i; // distribution index of the parent stored in byte variable
+
                 // immediately calculate the likelihood - correlation score
-
-                // check if it is within the image before interpolating
-
-                if (
+                if ( // check if it is within the image before interpolating
                                 transition_xy[count][0]<0                           ||
                                 transition_xy[count][0]>_likelihood_xy.length-1     ||
                                 transition_xy[count][1]<0                           ||
@@ -674,15 +677,14 @@ public class BayesianTracer2D {
                     }
                     else {
 
-                        // todo additional check there are some that would go out!!!
+                        // todo additional check there are some that would go out!!! when using measurement model sampling
+                        // calculate correlation as measurement
+                        m[0] = Interpolator.interpolateAt(transition_xy[count][0]+transition_xy[count][3], transition_xy[count][1]-transition_xy[count][2], _likelihood_xy);
+                        m[1] = Interpolator.interpolateAt(transition_xy[count][0], transition_xy[count][1], _likelihood_xy);
+                        m[2] = Interpolator.interpolateAt(transition_xy[count][0]-transition_xy[count][3], transition_xy[count][1]+transition_xy[count][2], _likelihood_xy);
+                        ma = (m[0] + m[1] + m[2]) / 3f;
 
-                    // calculate correlation as measurement
-                    m[0] = Interpolator.interpolateAt(transition_xy[count][0]+transition_xy[count][3], transition_xy[count][1]-transition_xy[count][2], _likelihood_xy);
-                    m[1] = Interpolator.interpolateAt(transition_xy[count][0], transition_xy[count][1], _likelihood_xy);
-                    m[2] = Interpolator.interpolateAt(transition_xy[count][0]-transition_xy[count][3], transition_xy[count][1]+transition_xy[count][2], _likelihood_xy);
-                    ma = (m[0] + m[1] + m[2]) / 3f;
-
-                    lhoods[count] = (float) (((m[0]-ma)*(t[0]-ta) + (m[1]-ma)*(t[1]-ta) + (m[2]-ma)*(t[2]-ta)) /
+                        lhoods[count] = (float) (((m[0]-ma)*(t[0]-ta) + (m[1]-ma)*(t[1]-ta) + (m[2]-ma)*(t[2]-ta)) /
                                                 Math.sqrt(
                                                         (Math.pow(m[0]-ma,2)+Math.pow(m[1]-ma,2)+Math.pow(m[2]-ma,2)) *
                                                         (Math.pow(t[0]-ta,2)+Math.pow(t[1]-ta,2)+Math.pow(t[2]-ta,2))
@@ -711,7 +713,7 @@ public class BayesianTracer2D {
         // now limit the number of estimates to best Ns
 //        if (transition_xy.length>Ns) {
 
-            // reduce, take best Nt
+            // reduce, take best Ns
             int[] sort_idx = descending(ptes);      // ptes will be sorted as a side effect
 
 //            float[][]   selection_xy    = new float[Ns][4];
@@ -724,6 +726,7 @@ public class BayesianTracer2D {
                 _xt[_iter][i][2] = transition_xy[sort_idx[i]][2];
                 _xt[_iter][i][3] = transition_xy[sort_idx[i]][3];
                 _wt[_iter][i]    = ptes[i]; // because they are already sorted
+                _pt[_iter][i]    = parents[sort_idx[i]];
 //                selection_xy[i][0] = transition_xy[sort_idx[i]][0];
 //                selection_xy[i][1] = transition_xy[sort_idx[i]][1];
 //                selection_w[i] = ptes[i];           //
@@ -744,10 +747,6 @@ public class BayesianTracer2D {
 
 //            _est_xy.add(selection_e);
 //        }
-
-
-
-
 
     }
 
