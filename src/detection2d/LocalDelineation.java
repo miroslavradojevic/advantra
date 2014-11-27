@@ -40,7 +40,7 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
     float radius = 1.5f;
     int Ni = 10;
     int Ns = 80;
-    float sigma_deg = 40;
+    float sigma_deg = 80;
     // mean shift convergence
     float r = 1.0f*radius; // neighbourhood
     int max_iter = 25;
@@ -187,7 +187,7 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 
             fmm(likelihood_xy, new float[]{clickX, clickY}, xcc, tag, par, cst, heap_vals, heap_scrs);
 
-            extract_streamlines(tag, par, cst, xcc, delin); // xcc will be modified
+            extract_streamlines(clickX, clickY, tag, par, cst, xcc, 4, delin); // xcc will be modified
 
 //            if (strm==null) {
 //                System.out.println("couldn't find");
@@ -629,13 +629,6 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
                                     par[at_i+1][i] = (byte) at_p;
                                     cst[at_i+1][i] = C;
 
-//                                    System.out.println("neighbour WAS in narrow band and replaced : "+new_val);
-//                                    System.out.print("ranks:: ");
-//                                    for (int ii = 0; ii <heap_vals.size(); ii++) {
-//                                        System.out.print(heap_vals.get(ii)[0] + " , ");
-//                                    }
-//                                    System.out.println("-----");
-
                                 }
 
                             }
@@ -647,134 +640,127 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
                 }
 
             }
-//            else {}// reacherd the end, no neighbours
 
         }
 
-//        System.out.println("HEAP:");
-//        for (int i = 0; i < heap_scrs.size(); i++) {
-//            System.out.println(heap_scrs.get(i) + " | " + Arrays.toString(heap_vals.get(i))+ "      " + Arrays.toString(tag[0]));
-//        }
-
     }
 
-    // tag,par,scr -> xcc
     private static void extract_streamlines(
+            float                           x_root,
+            float                           y_root,
             byte[][]                        tag, // input
             byte[][]                        par, // input
             float[][]                       cst, // input
             float[][][]                     xcc, // side output, extracted path will be excluded
+            int                             max_streamlines,
             ArrayList<ArrayList<float[]>>   streamlines
     )
     {
 
-        int nr_streams = 4;
+        int Ni_margin = 2;
+
+//        int nr_streams = 4; // to capture enough to cover all types of critpoints
         byte[][] trace_map = new byte[tag.length][tag[0].length]; // size of the tag todo: outside as auxilliary not to be allocated each time
-        // will be filld with ids of 4 traces (0, 1, 2, 3)
-        for (int i = 0; i < trace_map.length; i++) {
-            for (int j = 0; j < trace_map[i].length; j++) {
-                trace_map[i][j] = -1;
-            }
-        }
 
-        // take the frozen ones from the last iteration and consider their backtraces
-        streamlines.clear();
-
-        boolean[] examined = new boolean[tag[tag.length-1].length]; // all are false
-
-        for (int i = 0; i < nr_streams; i++) {
+        // will be filld with ids of the traces as they are checked (0, 1, 2, 3)
+        for (int i = 0; i < trace_map.length; i++)
+            for (int j = 0; j < trace_map[i].length; j++)
+                trace_map[i][j] = 0; // 0 means the centroid at this location does not belong to any trace
 
 
+        streamlines.clear(); // take the frozen ones from the last iteration and check their backtraces
 
+        boolean[] examined = new boolean[tag[tag.length-1].length]; // all are false at the beginning
+
+        int cnt_stream = 0;
+
+        for (int i = 0; i < max_streamlines; i++) { // pick the one with minimum cost that does not overlap with any earlier taken one max_streamlines times
 
             // extract streamlines will contain prunning so that the non-overlapping ones with lowest cost are extracted gradually
             float min_score = Float.POSITIVE_INFINITY;
-
             int min_idx = -1;
 
-            for (int i = 0; i < tag[tag.length-1].length; i++) {
+            for (int j = 0; j < tag[tag.length-1].length; j++) {
 
-                if (!examined[i]) {
-                    if (tag[tag.length-1][i]==(byte)2) { // if it is frozen (fmm reached it)
+                if (!examined[j]) {
+                    if (tag[tag.length-1][j]==(byte)2) { // if it is frozen (fmm reached it)
 
-
-                        // consider it as min
-                        if (cst[tag.length-1][i]<min_score) {
-                            min_score = cst[tag.length-1][i];
+                        // consider the corresponding cost as min
+                        if (cst[tag.length-1][j]<min_score) {
+                            min_score = cst[tag.length-1][j];
                             min_idx = i;
                         }
-
 
                     }
                     else {
                         // make it examined it can be only 0 (missing)
-                        if (tag[tag.length-1][i]==(byte)1) {
+                        if (tag[tag.length-1][j]==(byte)1) {
                             System.out.println("sth was wrong");
                             System.exit(0);
                         }
 
-                        examined[i] = true;
+                        examined[j] = true; // if it was not frozen consider it was examined, can be only NaN, so non-existing centroid, empty space
 
                     }
                 }
 
             }
 
-            if (min_idx!=-1) {
-                // min was found in the loop at one index
+            // all are examined
+            if (min_idx!=-1) { // min was found in the loop at one index
 
+                cnt_stream++;
 
-                // back trace
+                // min was found - no need to examine it next iteration whether it was added in the end or not
+                examined[min_idx] = true;
 
-                // todo put the block here...
-
-
-                // check if it overlaps with the earlier trace
-
-                // if so - nothing - mark it as examined
-
-                // if not then add it
-
-
-            }
-            else { // all are examined
-                break;
-            }
-
-
-
-
-
-        } // end looping the streams
-
-
-
-        
-        for (int i = 0; i < tag[tag.length-1].length; i++) { // take everything there is that reached the last iteration - lowest cost first
-            
-            if (tag[tag.length-1][i]==(byte) 2) {
+                // back trace to see whether it should be added
 
                 // no need to search for the minimum now - take all that there is, the fact that it is frozen means that the cost is not infinity
-                ArrayList<float[]> out_streamline = new ArrayList<float[]>();
+                ArrayList<float[]> out_streamline = new ArrayList<float[]>(); // build it up gradually
 
-                int found_j = i;
+                boolean is_overlapping = false;
 
-                for (int loop_streamiline = tag.length-1; loop_streamiline >=0 ; loop_streamiline--) {
+                int found_j = min_idx;
 
-                    out_streamline.add(xcc[loop_streamiline][found_j].clone());
-                    found_j = par[loop_streamiline][found_j]&0xff;
+                for (int loop_streamiline = tag.length-1; loop_streamiline >=-1 ; loop_streamiline--) { // add all the points of the stram plus the central one (loop_streamline==-1)
+
+
+                    // before adding the element - check if it overlaps with some previous path
+                    if (loop_streamiline==-1) {
+
+                        out_streamline.add(new float[]{x_root, y_root});
+
+                    }
+                    else {
+
+                        if (trace_map[loop_streamiline][found_j]!=(byte)0 && loop_streamiline>=Ni_margin) { // check if it overlaps with the earlier trace
+                            is_overlapping = true;
+                            break; // reached another stream
+                        }
+
+                        out_streamline.add(xcc[loop_streamiline][found_j].clone());
+                        trace_map[loop_streamiline][found_j] = (byte) cnt_stream;
+                        found_j = par[loop_streamiline][found_j]&0xff; // last one will give 255 (-1 in byte) but it won't be referenced
+
+                    }
 
                 }
 
-                streamlines.add(out_streamline);
-//                cnt++;
+                if (!is_overlapping) { // it it turned out to overlap
+                    streamlines.add(out_streamline);
+                }
             }
-        }
+            else break;
+
+        } // end looping the streams
+
+//        for (int i = 0; i < tag[tag.length-1].length; i++) { // take everything there is that reached the last iteration - lowest cost first
+//            if (tag[tag.length-1][i]==(byte) 2) {}
+//        }
 
 
 /*
-
-
         // use tag and cst to find initial thread point - most distant frozen that had the least cost
         boolean found = false;
         int found_i = -1;
