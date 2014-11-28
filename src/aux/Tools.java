@@ -1379,7 +1379,32 @@ public class Tools {
 
 	}
 
-	public static String getFileExtension(String file_path)
+    public static int[] descending(float[] a)
+    {
+
+        // prepare array with indexes first
+        int[] idx = new int[a.length];
+        for (int i=0; i<idx.length; i++) idx[i] = i;
+
+        for (int i = 0; i < a.length-1; i++) {
+            for (int j = i+1; j < a.length; j++) {
+                if (a[j]>a[i]) { // desc.
+                    float temp 	= a[i];
+                    a[i]		= a[j];
+                    a[j] 		= temp;
+
+                    int temp_idx 	= idx[i];
+                    idx[i] 			= idx[j];
+                    idx[j]			= temp_idx;
+                }
+            }
+        }
+
+        return idx;
+
+    }
+
+    public static String getFileExtension(String file_path)
 	{
 		String extension = "";
 

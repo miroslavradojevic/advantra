@@ -8,10 +8,18 @@ public class SemiCircle {
     public float[][]     p; // x,y
     public float[][]     v; // x,y
     public float[]       w; // weight assigned wrt the direction (geomrtry used as prior in tracing)
-    public int      NN;
-    float radius;
-    private static float    samplingStep    = 0.9f;
-    private static float    arcRes 	        = 1.0f;
+    public int           NN;
+    public float         radius;
+    private static float arcRes 	        = 1.0f;
+
+    public SemiCircle()
+    {
+        radius = Float.NaN;
+        NN = 0;
+        p = null;
+        v = null;
+        w = null;
+    }
 
     public SemiCircle(float radius)
     {
@@ -26,6 +34,7 @@ public class SemiCircle {
 
     public void reset(float radius)
     {
+        this.radius = radius;
         NN = (int) Math.ceil( ( (1 * Math.PI * radius) / arcRes) );
         p = new float[NN][2];
         v = new float[NN][2];

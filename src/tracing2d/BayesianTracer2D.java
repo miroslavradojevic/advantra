@@ -2,6 +2,7 @@ package tracing2d;
 
 import aux.Interpolator;
 import aux.Stat;
+import aux.Tools;
 import detection2d.SemiCircle;
 import detection2d.Masker2D;
 import ij.ImagePlus;
@@ -309,7 +310,7 @@ public class BayesianTracer2D {
         if (transition_xy.length>Nt) {
 
             // reduce, take best Nt
-            int[] sort_idx = descending(ptes);      // ptes will be sorted as a side effect
+            int[] sort_idx = Tools.descending(ptes);      // ptes will be sorted as a side effect
 
             float[][]   selection_xy    = new float[Nt][2];
             float[]     selection_w     = new float[Nt];
@@ -479,7 +480,7 @@ public class BayesianTracer2D {
         if (transition_xy.length>Nt) {
 
             // reduce, take best Nt
-            int[] sort_idx = descending(ptes);      // ptes will be sorted as a side effect
+            int[] sort_idx = Tools.descending(ptes);      // ptes will be sorted as a side effect
 
 
 
@@ -531,29 +532,5 @@ public class BayesianTracer2D {
 
     }
 
-    public static int[] descending(float[] a)
-    {
-
-        // prepare array with indexes first
-        int[] idx = new int[a.length];
-        for (int i=0; i<idx.length; i++) idx[i] = i;
-
-        for (int i = 0; i < a.length-1; i++) {
-            for (int j = i+1; j < a.length; j++) {
-                if (a[j]>a[i]) { // desc.
-                    float temp 	= a[i];
-                    a[i]		= a[j];
-                    a[j] 		= temp;
-
-                    int temp_idx 	= idx[i];
-                    idx[i] 			= idx[j];
-                    idx[j]			= temp_idx;
-                }
-            }
-        }
-
-        return idx;
-
-    }
 
 }

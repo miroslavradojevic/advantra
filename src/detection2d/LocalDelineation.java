@@ -12,6 +12,7 @@ import ij.plugin.PlugIn;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import tracing2d.BayesianTracer2D;
+import tracing2d.BayesianTracerMulti;
 
 import java.awt.*;
 import java.awt.event.MouseEvent;
@@ -27,39 +28,31 @@ import java.util.Arrays;
 public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListener {
 
     // input
-//    ImagePlus   img;
     ImageCanvas cnv;
     String      image_path;
-    float[][] likelihood_xy;
+    float[][]   likelihood_xy;
 
-    // classes used for processing
-    SemiCircle scirc;
-
-    /*
-        params
-    */
     // bayesian filtering
-    float radius = 1.5f;
-    int Ni = 15;
-    int Ns = 50;
-    float sigma_deg = 90;
+    int Rcnt = 4;           // will cover radiuses Rcnt * BayesianTracerMulti.sstep
+    int Ns = 50;            // nr samples
+    float sigma_deg = 90;   // degrees standard deviation
 
     // mean shift convergence
-    float r = .5f*radius;   // neighbourhood
-    float r2 = r*r;
-    int max_iter = 25;
-    float epsilon = 0.001f;
+//    float r = .5f;   // neighbourhood
+//    float r2 = r*r;
+//    int max_iter = 25;
+//    float epsilon = 0.001f;
     // centroid extraction
-    int Nc = 10;            // number of centroids to extract (NaN if they don't exist), 4 was not enough since the centroids are missed sometimes and fmm is disconnected
+//    int Nc = 10;            // number of centroids to extract (NaN if they don't exist), 4 was not enough since the centroids are missed sometimes and fmm is disconnected
     // foreground extraction
     int percentile = 90;    // how many to keep as the foreground/background, neighbourhood will be defined with radius and
-    int nbhood = (int) Math.ceil(Ni * radius);
+    int nbhood = (int) Math.ceil(2*Rcnt*BayesianTracerMulti.sstep[BayesianTracerMulti.sstep.length-1]);
     int CPU_NR = Runtime.getRuntime().availableProcessors() + 1;
 
     // output
-    float[][][] xt = new float[Ni+1][Ns][4];    // bayesian filtering states (x,y, vx, vy)
-    float[][]   wt = new float[Ni+1][Ns];       // bayesian filtering states
-    byte[][]    pt = new byte[Ni+1][Ns];          // bayesian filtering parent pointer - distribution index of the parent state in previous iteration
+    float[][][] xt = new float[BayesianTracerMulti.Ni+1][Ns][4];    // bayesian filtering states (x,y, vx, vy)
+    float[][]   wt = new float[BayesianTracerMulti.Ni+1][Ns];       // bayesian filtering states
+    byte[][]    pt = new byte[BayesianTracerMulti.Ni+1][Ns];          // bayesian filtering parent pointer - distribution index of the parent state in previous iteration
 
 
 //    float[][][] xc = new float[Ni][Ns][2];    // mean-shift convergence of the bayesian filtered states (x, y)
@@ -80,22 +73,19 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
     ArrayList<Float>    heap_scrs = new ArrayList<Float>();          // scores
 
     // interface - visualisations
-    ImagePlus vizTag = new ImagePlus("TAG", new ByteProcessor(4,Ni,new byte[4*Ni]));
-    ImagePlus vizPar = new ImagePlus("PARENT_IDX", new ByteProcessor(4,Ni,new byte[4*Ni]));
-    ImagePlus vizScr = new ImagePlus("SCORE", new FloatProcessor(4,Ni,new float[4*Ni]));
+//    ImagePlus vizTag = new ImagePlus("TAG", new ByteProcessor(4,Ni,new byte[4*Ni]));
+//    ImagePlus vizPar = new ImagePlus("PARENT_IDX", new ByteProcessor(4,Ni,new byte[4*Ni]));
+//    ImagePlus vizScr = new ImagePlus("SCORE", new FloatProcessor(4,Ni,new float[4*Ni]));
 
     Overlay ov = new Overlay();
 
-    public void run(String s) {
+    public void run(String s)
+    {
 
         // parent map is in bytes - can cover only 256 values (0-255) - that is the limit in number of the states
-        if (Ns >= 255) { IJ.log("Parent map supports up to 255 states. Current # " + Ns + ". Exiting..."); return; }
+        if (Ns >= 255) { IJ.log("Parent map (BYTE vals) supports up to 255 states. Current # " + Ns + ". Exiting..."); return; }
 
-//        for (int i = 0; i < 256; i++) System.out.println(i + " -- " + (byte) i + " -- " + ((byte) i & 0xff));
-
-        // experimental
-//        boolean stopit = true;
-//        if (stopit) return;
+        BayesianTracerMulti.generate_templates(Rcnt);
 
         // load the image through the menu
         String in_folder = Prefs.get("id.folder", System.getProperty("user.home"));
@@ -139,7 +129,13 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
             return;
         }
 
-        scirc = new SemiCircle(radius);
+
+
+
+
+
+
+
 
         /*
             extract the foreground -> Masker2D.xy2i, Masker2D.i2xy
@@ -162,11 +158,19 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
         }
         Masker2D.defineThreshold();
         Masker2D.formRemainingOutputs();
-        System.out.println(" done.");
+        System.out.println(" done. ");
 
         ImagePlus mask = new ImagePlus("mask", Masker2D.getMask());
-        mask.show();
-//      IJ.saveAs(mask, "Tiff", midresults_dir+"mask_"+D[didx]+".tif");
+//        mask.show();//      IJ.saveAs(mask, "Tiff", midresults_dir+"mask_"+D[didx]+".tif");
+
+
+
+
+
+
+
+
+
 
         // show it and get the canvas
         img.show();
@@ -175,9 +179,10 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
         cnv.addMouseMotionListener(this);
         IJ.setTool("hand");
 
+        System.out.println("ready...");
+
 //        vizTag.show();
 //        vizTag.getCanvas().zoom100Percent();
-//        vizTag.getCanvas().zoomIn(0,0);
 
     }
 
@@ -207,7 +212,13 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 
                 PointRoi pt = new PointRoi(xt[i][j][0]+.5, xt[i][j][1]+.5);
                 pt.setStrokeColor(new Color(1f,1f,1f,wt[i][j]));
-                pt.setFillColor(new Color(1f,1f,1f,wt[i][j]));
+                if (i==xt.length-1) {
+                    pt.setFillColor(Color.RED);
+                }
+                else {
+                    pt.setFillColor(new Color(1f,1f,1f,wt[i][j]));
+                }
+
                 ov.add(p);
                 ov.add(pt);
 //                ov.add(l);
@@ -395,9 +406,8 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
         long t1 = System.currentTimeMillis();
 
         // bayesian filtering
-        // todo continue here...
-//        BayesianTracerMulti.run2d(clickX, clickY, likelihood_xy, scirc, sigma_deg, Ni, Ns, xt, wt, pt);
-//        extract(xt, wt, pt, 4, 0, delin); // states, weights, parent_index, nr_streams, overlap_margin, output_delineation
+        BayesianTracerMulti.run2d(clickX, clickY, likelihood_xy,  Rcnt, sigma_deg, Ns,  xt, wt, pt);
+        extract(xt, wt, pt, 4, 0, delin); // states, weights, parent_index, nr_streams, overlap_margin, output_delineation
 
             // mean-shift for estimation (local maxima detection)
 //            for (int i = 0; i < xc.length; i++) { // initialize xc with corresponding elements from xt
@@ -443,7 +453,7 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 
     public void mouseMoved(MouseEvent e)
     {
-        mouseClicked(e);
+        //mouseClicked(e);
     }
 
     private static void fmm(
