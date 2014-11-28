@@ -395,8 +395,9 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
         long t1 = System.currentTimeMillis();
 
         // bayesian filtering
-        BayesianTracer2D.run(clickX, clickY, likelihood_xy, scirc, sigma_deg, Ni, Ns, xt, wt, pt);
-        extract(xt, wt, pt, 4, 0, delin); // states, weights, parent_index, nr_streams, overlap_margin, output_delineation
+        // todo continue here...
+//        BayesianTracerMulti.run2d(clickX, clickY, likelihood_xy, scirc, sigma_deg, Ni, Ns, xt, wt, pt);
+//        extract(xt, wt, pt, 4, 0, delin); // states, weights, parent_index, nr_streams, overlap_margin, output_delineation
 
             // mean-shift for estimation (local maxima detection)
 //            for (int i = 0; i < xc.length; i++) { // initialize xc with corresponding elements from xt
