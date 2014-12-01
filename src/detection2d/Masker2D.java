@@ -45,8 +45,8 @@ public class Masker2D extends Thread {
 	public static  int[][]			xy2i;
 
 	public Masker2D (int n0, int n1) {
-		this.begN = n0;
-		this.endN = n1;
+		begN = n0;
+		endN = n1;
 	}
 
 	public static void loadTemplate(float[][] _inimg_xy, int _margin, float _radiusNbhoodCheck, float _percentile)
@@ -69,7 +69,6 @@ public class Masker2D extends Thread {
 		back_xy = new byte[image_width][image_height];
 		mask_xy = new boolean[image_width][image_height];
 
-//		fg_score = new float[image_width][image_height];
 		criteria = new float[image_width][image_height];
 
 		i2xy 	= new int[1][1];  // values known after run()
@@ -106,7 +105,6 @@ public class Masker2D extends Thread {
 		}
 
 	}
-
 
 	public static void defineThreshold()
 	{
@@ -166,7 +164,8 @@ public class Masker2D extends Thread {
 
 	}
 
-	public static void formRemainingOutputs(){
+	public static void formRemainingOutputs()
+	{
 
 		xy2i 	= new int[image_width][image_height];
 
@@ -218,7 +217,8 @@ public class Masker2D extends Thread {
 
 	}
 
-	public static ByteProcessor getMask(){
+	public static ByteProcessor getMask()
+	{
 
 		byte[] out = new byte[image_height*image_width];
 		for (int i=0; i<out.length; i++) {
@@ -233,12 +233,8 @@ public class Masker2D extends Thread {
 		return new FloatProcessor(criteria);
 	}
 
-//	public static FloatProcessor getFgScore()
-//	{
-//		return new FloatProcessor(fg_score);
-//	}
-
-	public static ByteProcessor getBackground(){
+	public static ByteProcessor getBackground()
+	{
 
 		byte[] out = new byte[image_height*image_width];
 		for (int i=0; i<out.length; i++) {
@@ -298,7 +294,8 @@ public class Masker2D extends Thread {
 
 	}
 
-	private static float medianAtPoint(int x, int y, float[][] _inimg_xy) {
+	private static float medianAtPoint(int x, int y, float[][] _inimg_xy)
+	{
 
 		float[] nhood = new float[9];
 

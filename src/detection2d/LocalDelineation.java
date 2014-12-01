@@ -9,18 +9,14 @@ import ij.Prefs;
 import ij.gui.*;
 import ij.io.OpenDialog;
 import ij.plugin.PlugIn;
-import ij.process.ByteProcessor;
-import ij.process.FloatProcessor;
-import tracing2d.BayesianTracer2D;
 import tracing2d.BayesianTracerMulti;
+import tracing2d.Extractor;
 
 import java.awt.*;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
-import java.awt.geom.Arc2D;
 import java.util.ArrayList;
-import java.util.Arrays;
 
 /**
  * Created by miroslav on 11-11-14.
@@ -33,9 +29,10 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
     float[][]   likelihood_xy;
 
     // bayesian filtering
-    int Rcnt = 4;           // will cover radiuses Rcnt * BayesianTracerMulti.sstep
-    int Ns = 50;            // nr samples
-    float sigma_deg = 90;   // degrees standard deviation
+    int R               = 4;     // will cover radiuses R * BayesianTracerMulti.sstep
+    int Ns              = 50;    // nr samples
+    float sigma_deg     = 100;   // degrees standard deviation
+    int Nstreams        = 4;     //
 
     // mean shift convergence
 //    float r = .5f;   // neighbourhood
@@ -46,36 +43,23 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 //    int Nc = 10;            // number of centroids to extract (NaN if they don't exist), 4 was not enough since the centroids are missed sometimes and fmm is disconnected
     // foreground extraction
     int percentile = 90;    // how many to keep as the foreground/background, neighbourhood will be defined with radius and
-    int nbhood = (int) Math.ceil(2*Rcnt*BayesianTracerMulti.sstep[BayesianTracerMulti.sstep.length-1]);
+    int nbhood = (int) Math.ceil(2*R*BayesianTracerMulti.sstep[BayesianTracerMulti.sstep.length-1]);
     int CPU_NR = Runtime.getRuntime().availableProcessors() + 1;
 
     // output
-    float[][][] xt = new float[BayesianTracerMulti.Ni+1][Ns][4];    // bayesian filtering states (x,y, vx, vy)
-    float[][]   wt = new float[BayesianTracerMulti.Ni+1][Ns];       // bayesian filtering states
-    byte[][]    pt = new byte[BayesianTracerMulti.Ni+1][Ns];          // bayesian filtering parent pointer - distribution index of the parent state in previous iteration
-
+//    ArrayList<ArrayList<float[]>> delin = new ArrayList<ArrayList<float[]>>(); // will store the spatial delineation
 
 //    float[][][] xc = new float[Ni][Ns][2];    // mean-shift convergence of the bayesian filtered states (x, y)
-
 //    float[][][] xcc = new float[Ni][Nc][2];    // after clustering the converged values - take up to Nc clusters
 //    float[][]   dsts = new float[Ns][Ns];       // inter distances - used as a clustering criteria
 //    int[]       cllab = new int[Ns];                // clustering labels at each iteration
-
 //    byte[][]     tag = new byte[Ni][Nc];       // fmm tags (0, 1, 2)
 //    byte[][]     par = new byte[Ni][Nc];       // fmm pointers (-2, -1, 0, 1, 2, 3)
 //    float[][]    cst = new float[Ni][Nc];      // fmm scores
-
-    ArrayList<ArrayList<float[]>> delin = new ArrayList<ArrayList<float[]>>(); // will store the spatial delineation
-
     // aux
-    float[]     xn = new float[2];            // new one for the mean-shift (auxilliary variable)
-    ArrayList<int[]>    heap_vals = new ArrayList<int[]>();      // rank, Ni idx, N curr idx, N prev idx
-    ArrayList<Float>    heap_scrs = new ArrayList<Float>();          // scores
-
-    // interface - visualisations
-//    ImagePlus vizTag = new ImagePlus("TAG", new ByteProcessor(4,Ni,new byte[4*Ni]));
-//    ImagePlus vizPar = new ImagePlus("PARENT_IDX", new ByteProcessor(4,Ni,new byte[4*Ni]));
-//    ImagePlus vizScr = new ImagePlus("SCORE", new FloatProcessor(4,Ni,new float[4*Ni]));
+//    float[]     xn = new float[2];            // new one for the mean-shift (auxilliary variable)
+//    ArrayList<int[]>    heap_vals = new ArrayList<int[]>();      // rank, Ni idx, N curr idx, N prev idx
+//    ArrayList<Float>    heap_scrs = new ArrayList<Float>();          // scores
 
     Overlay ov = new Overlay();
 
@@ -85,7 +69,7 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
         // parent map is in bytes - can cover only 256 values (0-255) - that is the limit in number of the states
         if (Ns >= 255) { IJ.log("Parent map (BYTE vals) supports up to 255 states. Current # " + Ns + ". Exiting..."); return; }
 
-        BayesianTracerMulti.generate_templates(Rcnt);
+         // later will be used to trace, here is initialised to set the scale and the templates to match
 
         // load the image through the menu
         String in_folder = Prefs.get("id.folder", System.getProperty("user.home"));
@@ -99,7 +83,8 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
         ImagePlus img = new ImagePlus(image_path);
         if(img==null) { IJ.log("Input image was null."); return; }
 
-        // set image as float[][]
+//        stream_map = new byte[img.getWidth()][img.getHeight()];
+
         likelihood_xy = new float[img.getWidth()][img.getHeight()]; 	// x~column, y~row
         if (img.getType()== ImagePlus.GRAY8) {
 
@@ -134,9 +119,6 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 
 
 
-
-
-
         /*
             extract the foreground -> Masker2D.xy2i, Masker2D.i2xy
          */
@@ -160,7 +142,7 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
         Masker2D.formRemainingOutputs();
         System.out.println(" done. ");
 
-        ImagePlus mask = new ImagePlus("mask", Masker2D.getMask());
+//        ImagePlus mask = new ImagePlus("mask", Masker2D.getMask());
 //        mask.show();//      IJ.saveAs(mask, "Tiff", midresults_dir+"mask_"+D[didx]+".tif");
 
 
@@ -184,49 +166,6 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 //        vizTag.show();
 //        vizTag.getCanvas().zoom100Percent();
 
-    }
-
-//    private ByteProcessor getTag()
-//    {
-//        byte[] out = new byte[4*Ni];
-//        int cnt = 0;
-//        for (int i = 0; i <Ni; i++) for (int j = 0; j < 4; j++) out[cnt++] = tag[i][j];
-//        return new ByteProcessor(4, Ni, out);
-//    }
-
-    public static Overlay viz_xt(float[][][] xt, float[][] wt)
-    {
-
-        float rad = .5f;
-
-        Overlay ov = new Overlay();
-        for (int i = 0; i < xt.length; i++) { // iterations
-
-            Stat.min_max_normalize(wt[i]);
-
-            for (int j = 0; j <xt[i].length; j++) {
-
-                OvalRoi p = new OvalRoi(xt[i][j][0]-rad+.5, xt[i][j][1]-rad+.5, 2*rad, 2*rad);
-                p.setFillColor(new Color(1f,1f,1f,wt[i][j]));
-//                Line l = new Line(xt[i][j][0]+.5, xt[i][j][1]+.5, xt[i][j][0]+xt[i][j][2]+.5, xt[i][j][1]+xt[i][j][3]+.5);
-
-                PointRoi pt = new PointRoi(xt[i][j][0]+.5, xt[i][j][1]+.5);
-                pt.setStrokeColor(new Color(1f,1f,1f,wt[i][j]));
-                if (i==xt.length-1) {
-                    pt.setFillColor(Color.RED);
-                }
-                else {
-                    pt.setFillColor(new Color(1f,1f,1f,wt[i][j]));
-                }
-
-                ov.add(p);
-                ov.add(pt);
-//                ov.add(l);
-
-            }
-        }
-
-        return ov;
     }
 
     public static Overlay viz_xc(float[][][] xc)
@@ -284,118 +223,6 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
         return ov;
     }
 
-    public static Overlay viz_delin(ArrayList<ArrayList<float[]>> delin)
-    {
-        Overlay ov = new Overlay();
-
-        for (int i = 0; i < delin.size(); i++) {
-
-            // add the polygonroi that corresponds to the extracted streamline
-            float[] plgx = new float[delin.get(i).size()];
-            float[] plgy = new float[delin.get(i).size()];
-
-            for (int j = 0; j < delin.get(i).size(); j++) {
-
-//                OvalRoi or = new OvalRoi(delin.get(i).get(j)[0]-1f+.5f, delin.get(i).get(j)[1]-1f+.5f, 2f, 2f);
-//                or.setFillColor(Color.RED);
-//                or.setStrokeColor(Color.RED);
-
-//                PointRoi pt = new PointRoi(delin.get(i).get(j)[0]+.5f, delin.get(i).get(j)[1]+.5f);
-//                pt.setFillColor(Color.RED);
-//                pt.setStrokeColor(Color.RED);
-
-                plgx[j] = delin.get(i).get(j)[0]+.5f;
-                plgy[j] = delin.get(i).get(j)[1]+.5f;
-
-            }
-
-            PolygonRoi plg = new PolygonRoi(plgx, plgy, Roi.FREELINE);
-            if (i==0)       plg.setStrokeColor(Color.RED);
-            else if (i==1)  plg.setStrokeColor(Color.ORANGE);
-            else if (i==2)  plg.setStrokeColor(Color.BLUE);
-            else if (i==3)  plg.setStrokeColor(Color.YELLOW);
-            plg.setStrokeWidth(.25f);
-            ov.add(plg);
-
-        }
-
-        return ov;
-
-    }
-
-    private void  extract(float[][][] _xt, float[][] _wt, byte[][] _pt, int _nr_streams, int _iter_margin, ArrayList<ArrayList<float[]>> _delin)
-    {
-        // will mark the traces as they happen
-        byte[][] trace_map = new byte[_xt.length][_xt[0].length]; // size of the table todo: outside as auxilliary not to be allocated each time
-
-        // will be filld with ids of the traces as they are checked (0, 1, 2, 3)
-        for (int i = 0; i < trace_map.length; i++)
-            for (int j = 0; j < trace_map[i].length; j++)
-                trace_map[i][j] = (byte)255; // 0 means the centroid at this location does not belong to any trace
-
-        _delin.clear(); // take the frozen ones from the last iteration and check their backtraces
-
-        boolean[] examined = new boolean[_xt[0].length]; // all are false at the beginning
-
-        int cnt_stream = 0; // will be labelling the streams with 1,2,3,4,...,Ns
-
-        for (int i = 0; i < _nr_streams; i++) { // pick the one with largest weight that does not overlap with the earlier taken one... _nr_streams times
-
-            float max_score = Float.NEGATIVE_INFINITY;
-            int max_idx = -1;
-
-            for (int j = 0; j < _wt[_wt.length-1].length; j++) { // loop the last iteration - loop all the states/weights from the distribution
-                if (!examined[j]) {
-                    if (_wt[_wt.length-1][j] > max_score) {
-                        max_score = _wt[_wt.length-1][j];
-                        max_idx = i;
-                    }
-                }
-            }
-
-            if (max_idx!=-1) { // min was found in the loop at one index
-
-                cnt_stream++;
-
-                // min was found - no need to examine it next iteration whether it was added in the end or not
-                examined[max_idx] = true;
-
-                // back trace to see whether it should be added
-                // no need to search for the minimum now - take all that there is, the fact that it is frozen means that the cost is not infinity
-                ArrayList<float[]> out_streamline = new ArrayList<float[]>(); // build it up gradually
-
-                boolean is_overlapping = false;
-
-                int found_j = max_idx;
-
-                for (int loop_streamiline = _xt.length-1; loop_streamiline >=0 ; loop_streamiline--) {
-
-//                    if (loop_streamiline==-1) {
-//                        out_streamline.add(new float[]{x_root, y_root});
-//                    }
-//                    else {
-                        if (trace_map[loop_streamiline][found_j]!=(byte)255 && loop_streamiline>=0) { // check if it overlaps with the earlier trace
-                            is_overlapping = true;
-                            break; // reached another stream
-                        }
-
-                        out_streamline.add(_xt[loop_streamiline][found_j].clone());
-                        trace_map[loop_streamiline][found_j] = (byte) cnt_stream;
-                        found_j = _pt[loop_streamiline][found_j]&0xff; // last one will give 255 (-1 in byte) but it won't be referenced
-//                    }
-
-                }
-
-                if (!is_overlapping) { // it it turned out to overlap
-                    _delin.add(out_streamline);
-                }
-            }
-            else break;
-
-        } // end looping the streams
-
-    }
-
     public void mouseClicked(MouseEvent e)
     {
         int clickX = cnv.offScreenX(e.getX());
@@ -405,9 +232,13 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 
         long t1 = System.currentTimeMillis();
 
-        // bayesian filtering
-        BayesianTracerMulti.run2d(clickX, clickY, likelihood_xy,  Rcnt, sigma_deg, Ns,  xt, wt, pt);
-        extract(xt, wt, pt, 4, 0, delin); // states, weights, parent_index, nr_streams, overlap_margin, output_delineation
+        Extractor.loadTemplate(2, R, Ns, sigma_deg, Nstreams);
+        boolean show_tracks = false;
+        Overlay oo = Extractor.get_streamlines(clickX, clickY, likelihood_xy, show_tracks);
+
+        // bayesian filtering - take cate that it is initilized before
+
+//        extract(xt, wt, pt, Nstreams, stream_map, delin); // states, weights, parent_index, nr_streams, overlap_margin, output_delineation
 
             // mean-shift for estimation (local maxima detection)
 //            for (int i = 0; i < xc.length; i++) { // initialize xc with corresponding elements from xt
@@ -435,25 +266,21 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
 //        IJ.run(vizTag, "Enhance Contrast", "saturated=0.35");
 //        new ImagePlus("", getTag()).show();
 
-        Overlay ov_xt   = viz_xt(xt, wt);
 //        Overlay ov_xc   = viz_xc(xc);
 //        Overlay ov_xcc  = viz_xcc(xcc);
-        Overlay ov_delin = viz_delin(delin);
 
         // comment here if you need different visualisations
-        ov.clear();
-        for (int i = 0; i <ov_xt.size(); i++) ov.add(ov_xt.get(i));
+//        ov.clear();
 //        for (int i = 0; i <ov_xc.size(); i++) ov.add(ov_xc.get(i));
 //        for (int i = 0; i <ov_xcc.size(); i++) ov.add(ov_xcc.get(i));
-        for (int i = 0; i <ov_delin.size(); i++) ov.add(ov_delin.get(i));
 
-        cnv.setOverlay(ov);
+        cnv.setOverlay(oo);
 
     }
 
     public void mouseMoved(MouseEvent e)
     {
-        //mouseClicked(e);
+        mouseClicked(e);
     }
 
     private static void fmm(

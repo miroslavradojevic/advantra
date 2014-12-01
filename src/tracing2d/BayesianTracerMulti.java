@@ -19,9 +19,10 @@ public class BayesianTracerMulti {
 
     public static float[]   sigratios   = new float[]{1/8f, 1/4f, 1/2f, 1/1f};          // different shapes
     public static float[]  sstep       = new float[]{.5f, .75f, 1.0f};                 // scale of the measurement (keep it ascending)
-    public static int Ni = 8;                                                           // how many times to step with radius scaled steps to make sense EMPIRICAL
+    public static int Ni = 6;                                                           // how many times to step with radius scaled steps to make sense EMPIRICAL
     private static SemiCircle scirc = new SemiCircle();
 
+    private static int         Rmax = -1; // needs initialisation
     private static float[][]   tt      = new float[sigratios.length][]; // templates to be matched when filtering 2*Rcnt+1
     private static float[]     tta     = new float[sigratios.length];
 
@@ -32,7 +33,7 @@ public class BayesianTracerMulti {
 
 //            SemiCircle  circ,           // will contain the radius
 
-            int         Rmax,
+//            int         Rmax,
             float       sigma_deg,      // tracing parameter
 //            int         Ni,             // number of the iterations excluding the initial one
             int         Ns,             // number of the states to maintain
@@ -53,7 +54,7 @@ public class BayesianTracerMulti {
 
 
 
-        float big_iter_step = 0.75f*Rmax*sstep[sstep.length-1]; // stepping further when tracing is defined with
+        float big_iter_step = 0.75f*Rmax*sstep[sstep.length-1]; // stepping further in motion model when tracing is defined with scale
         float small_iter_step = 1.2f; // related to the resolution, just enought to capture
         float lbd = (float) (Math.log(small_iter_step/big_iter_step)/(1-Ni));
 
@@ -80,17 +81,8 @@ public class BayesianTracerMulti {
 
             float iter_step = (float) (big_iter_step*Math.exp(-lbd*(iter-1)));
 
-            scirc.reset(iter_step);
-            // some aux values for bayesian filtering
-            float[][]   transition_xy       = new float[Ns*scirc.NN][4];   // Ns*Nscirc x 4 store all the predictions at current iteration
-            float[]     ptes                = new float[Ns*scirc.NN];       // Ns*Nscirc        store the probabilities temporarily
-            float[]     lhoods              = new float[Ns*scirc.NN];       // Ns*Nscirc        store the likelihoods
-            byte[]      parents             = new byte[Ns*scirc.NN];       // Ns*Nscirc        store the index of the parent
+            bayesian_iteration(img_xy,iter,iter_step, Ns, sigma_deg, xt,wt,pt);// xt[iter], wt[iter], pt[iter]
 
-
-            System.out.println("iter " + iter + " -- " + iter_step + " || " + scirc.NN);
-
-            bayesian_iteration(img_xy,iter,scirc,sigma_deg, transition_xy,ptes,lhoods,parents,     xt,wt,pt); // xt[iter], wt[iter], pt[iter]
             iter++;
         }
 
@@ -102,16 +94,18 @@ public class BayesianTracerMulti {
 
             int                     _iter,  // will mark the array index where the value will be filled in
 
-            SemiCircle _scirc,              // step is contained here
+            float                   _iter_step,
+            int                     _Ns,
+//            SemiCircle _scirc,              // step is contained here
             float                   _prior_sigma_deg,
 
 //            float[][]               _tt,    // templates used for the matching (min-max normalized gaussian profiles, 2L+1 length)
 //            float[]                 _tta,   // precomputed averages
 
-            float[][]               _transition_xy, // auxilliary variables
-            float[]                 _ptes,
-            float[]                 _lhoods,
-            byte[]                  _parents,
+//            float[][]               _transition_xy, // auxilliary variables
+//            float[]                 _ptes,
+//            float[]                 _lhoods,
+//            byte[]                  _parents,
 
             float[][][]             _xt,    // outputs
             float[][]               _wt,
@@ -120,31 +114,23 @@ public class BayesianTracerMulti {
     )
     {
 
-
+        scirc.reset(_iter_step);
+        // some aux values for bayesian filtering (slows down a lot that they are allocated here - can be outside if the step would stay constant)
+        float[][]   _transition_xy       = new float[_Ns*scirc.NN][4];   // Ns*Nscirc x 4 store all the predictions at current iteration
+        float[]     _ptes                = new float[_Ns*scirc.NN];      // Ns*Nscirc        store the probabilities temporarily
+        float[]     _lhoods              = new float[_Ns*scirc.NN];      // Ns*Nscirc        store the likelihoods
+        byte[]      _parents             = new byte[_Ns*scirc.NN];       // Ns*Nscirc        store the index of the parent
 
         int L = (tt[0].length - 1)/2; // templates are allocated as Nsigmas x (2L+1) and contain L in its dimensions, take it from the first shape
         float[] valI = new float[2*L+1]; // profile values for the image samples
         int imgW = _likelihood_xy.length;
         int imgH = _likelihood_xy[0].length;
 
-//        System.out.println("... "+L);
-
-        // templates  - this can be given as an argument
-//        float[] t = new float[]{0, .5f, 0};
-//        float ta = .5f/3;
-//        float[] mes = new float[_tt[0].length]; // will be measurement from the image sampled with respect to the template size
-//        float   mesa = Float.NaN;
-
         // take states at _iter-1
         float[][] prev_x = _xt[_iter-1];
         float[]   prev_w = _wt[_iter-1];
 
         int Ns = prev_x.length;
-
-//        float[][]   transition_xy       = new float[prev_x.length * _scirc.NN][4]; // all the predictions are stored here
-//        float[]     ptes                = new float[prev_x.length * _scirc.NN];
-//        float[]     lhoods              = new float[prev_x.length * _scirc.NN];
-//        byte[]      parents             = new byte[prev_x.length * _scirc.NN];
 
         int count = 0;
         double sum_lhoods = 0;
@@ -156,14 +142,14 @@ public class BayesianTracerMulti {
             float vy = prev_x[i][3];
 
             // prior is calculated here, possible to change it so that it is averaged(vx,vy)
-            _scirc.set(x, y, vx, vy, _prior_sigma_deg);
+            scirc.set(x, y, vx, vy, _prior_sigma_deg);
 
-            for (int j = 0; j < _scirc.NN; j++) {
+            for (int j = 0; j < scirc.NN; j++) {
 
-                _transition_xy[count][0] = _scirc.p[j][0]; // start_xy[i][0] + _sph2d.locsXY.get(j)[0];
-                _transition_xy[count][1] = _scirc.p[j][1]; // start_xy[i][1] + _sph2d.locsXY.get(j)[1];
-                _transition_xy[count][2] = _scirc.v[j][0]; // vx
-                _transition_xy[count][3] = _scirc.v[j][1]; // vy
+                _transition_xy[count][0] = scirc.p[j][0]; // start_xy[i][0] + _sph2d.locsXY.get(j)[0];
+                _transition_xy[count][1] = scirc.p[j][1]; // start_xy[i][1] + _sph2d.locsXY.get(j)[1];
+                _transition_xy[count][2] = scirc.v[j][0]; // vx
+                _transition_xy[count][3] = scirc.v[j][1]; // vy
 
                 _parents[count] = (byte) i; // distribution index of the parent stored in byte variable
 
@@ -238,22 +224,9 @@ public class BayesianTracerMulti {
 
                 }
 
-                // _lhoods[count] is calculated
-
-//                        m[0] = Interpolator.interpolateAt(transition_xy[count][0]+transition_xy[count][3], transition_xy[count][1]-transition_xy[count][2], _likelihood_xy);
-//                        m[1] = Interpolator.interpolateAt(transition_xy[count][0], transition_xy[count][1], _likelihood_xy);
-//                        m[2] = Interpolator.interpolateAt(transition_xy[count][0]-transition_xy[count][3], transition_xy[count][1]+transition_xy[count][2], _likelihood_xy);
-//                        ma = (m[0] + m[1] + m[2]) / 3f;
-//                        lhoods[count] = 1;
-//                        (float) (((m[0]-ma)*(t[0]-ta) + (m[1]-ma)*(t[1]-ta) + (m[2]-ma)*(t[2]-ta)) /
-//                                Math.sqrt(
-//                                        (Math.pow(m[0]-ma,2)+Math.pow(m[1]-ma,2)+Math.pow(m[2]-ma,2)) *
-//                                                (Math.pow(t[0]-ta,2)+Math.pow(t[1]-ta,2)+Math.pow(t[2]-ta,2))
-//                                )+1);
-
                 sum_lhoods += _lhoods[count];
 
-                _ptes[count] = prev_w[i] * _scirc.w[j]; // w stores priors, possible to immediately multiply posterior here unless it is all zeros
+                _ptes[count] = prev_w[i] * scirc.w[j]; // w stores priors, possible to immediately multiply posterior here unless it is all zeros
 
                 count++;
             }
@@ -282,8 +255,10 @@ public class BayesianTracerMulti {
 
     }
 
-    public static void generate_templates(int _L) // templates will be 2L+1 samples, with total of L spaces , float[][] _templates, float[] _averages
+    public static void init(int _L) // templates will be 2L+1 samples
     {
+        Rmax = _L; // scale
+
         tt = new float[sigratios.length][2*_L+1];
         tta = new float[sigratios.length];
         for (int i = 0; i < sigratios.length; i++) {
