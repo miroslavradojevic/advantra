@@ -25,8 +25,8 @@ public class Extractor extends Thread {
     private static int merging_margin_idx = 1; // after this stream iteration index merging of the confluent paths is possible
     private static float merging_margin = 1f;
 
-    public static ArrayList[] i2scores;     // i2scores[0]      is ArrayList<Float>
-    public static ArrayList[] i2locEnd;  // i2terminals[0]   is ArrayList<float[]>
+    public static ArrayList[] i2scores;     // i2scores[0]      is ArrayList<float[]>
+    public static ArrayList[] i2locEnd;  // i2terminals[0]      is ArrayList<float[]>
     public static ArrayList[] i2range;// min-max Ni lowest / Ni highest in the neighbourhood defined with the range
 
     public Extractor (int n0, int n1)
@@ -109,40 +109,47 @@ public class Extractor extends Thread {
 
         BayesianTracerMulti.run2d(_x, _y, _img_xy,  sigma_deg, Ns,  xt, wt, pt);
 
-        ArrayList<float[][]> delin_locs = new ArrayList<float[][]>();
+        ArrayList<float[][]>    delin_locs      = new ArrayList<float[][]>();
+        ArrayList<float[]>      delin_scores    = new ArrayList<float[]>();
+        ArrayList<float[]>      delin_terminals = new ArrayList<float[]>();
 
         Overlay ov = new Overlay();
 
-        extract_delin_locs(nstreams, xt, wt, pt, et, delin_locs);
+        extract(nstreams, xt, wt, pt, et, delin_locs, delin_scores, delin_terminals);
 
         System.out.print(delin_locs.size() + "x ");
 
+        Overlay ov_xt = viz_xt(xt, wt, pt, et, _show_tracks);
+        for (int i = 0; i < ov_xt.size(); i++) ov.add(ov_xt.get(i));
         Overlay ov_delin = viz_delin(delin_locs);
         for (int i = 0; i < ov_delin.size(); i++) ov.add(ov_delin.get(i));
-        Overlay ov_xt = viz_xt(xt, wt, pt, _show_tracks);
-        for (int i = 0; i < ov_xt.size(); i++) ov.add(ov_xt.get(i));
+
 
         return ov;
 
     }
 
-    private static void  extract_delin_locs(
+    private static void  extract(
             int                     _nr_streams,
             float[][][]             _xt,
             float[][]               _wt,
             byte[][]                _pt,
             boolean[][]             _et,
-            ArrayList<float[][]>    _delin_locs
+            ArrayList<float[][]>    _delin_locs,
+            ArrayList<float[]>      _delin_scores,
+            ArrayList<float[]>      _delin_terminals
     )
     {
-
-        float[][] temp_locs = new float[2][_xt.length]; // x=0,y=1
 
         for (int i = 0; i < _et.length; i++) // reset examined map
             for (int j = 0; j < _et[i].length; j++)
                 if (_et[i][j]) _et[i][j] = false;
 
-        _delin_locs.clear();
+
+        if (_delin_locs!=null) _delin_locs.clear();
+
+
+        int curr_streams = 0;
 
         boolean all_examined;
 
@@ -150,28 +157,43 @@ public class Extractor extends Thread {
 
             float max_score = Float.NEGATIVE_INFINITY;
             int max_idx = -1;
+            int max_iter = -1;
 
-            for (int j = 0; j < _wt[_wt.length-1].length; j++) { // loop the last iteration - loop all the states/weights from the distribution
-                if (!_et[_wt.length-1][j]) {
-                    if (_wt[_wt.length-1][j] > max_score) {
-                        max_score = _wt[_wt.length-1][j];
-                        max_idx = j;
+            for (int i = _wt.length-1; i > merging_margin_idx; i--) {
+
+                max_score = Float.NEGATIVE_INFINITY;
+                max_idx = -1;
+                max_iter = -1;
+
+                for (int j = 0; j < _wt[i].length; j++) { // loop the last iteration - loop all the states/weights from the distribution
+                    if (!_et[i][j]) {
+                        if (_wt[i][j] > max_score) {
+                            max_score = _wt[_wt.length-1][j];
+                            max_idx = j;
+                            max_iter = i;
+                        }
                     }
+                }
+                if (max_idx!=-1) {
+                    break;
                 }
             }
 
             all_examined = false;
 
-            if (max_idx!=-1) { // max was found in the loop at one index
+
+            if (max_idx!=-1 && max_iter!=-1) { // max was found in the loop at one index
 
                 boolean is_overlapping = false;
                 boolean is_close = false;
                 int sidx = max_idx;
 
-                for (int iidx = _xt.length-1; iidx >=0 ; iidx--) {
+                float[][] temp_locs = new float[2][max_iter+1]; // x=0,y=1
+                float[]   temp_scores = new float[max_iter+1];
+
+                for (int iidx = max_iter; iidx >=0 ; iidx--) {
 
                     if (!is_close && iidx>merging_margin_idx) {
-
                         if (_et[iidx][sidx]) {
                             is_overlapping = true;
                         }
@@ -200,14 +222,21 @@ public class Extractor extends Thread {
 
                 if (!is_overlapping && !is_close) { // will occur up to 4 times
 
-                    float[][] tt = new float[temp_locs.length][temp_locs[0].length];
-                    for (int i = 0; i < temp_locs.length; i++) {
-                        for (int j = 0; j < temp_locs[i].length; j++) {
-                            tt[i][j] = temp_locs[i][j];
+                    if (_delin_locs!=null) {
+
+                        float[][] tt = new float[temp_locs.length][temp_locs[0].length];
+
+                        for (int i = 0; i < temp_locs.length; i++) {
+                            for (int j = 0; j < temp_locs[i].length; j++) {
+                                tt[i][j] = temp_locs[i][j];
+                            }
                         }
+
+                        _delin_locs.add(tt);
+
                     }
 
-                    _delin_locs.add(tt);
+                    curr_streams++;
 
                 }
 
@@ -215,20 +244,7 @@ public class Extractor extends Thread {
             else all_examined = true;
 
         }
-        while (_delin_locs.size()<_nr_streams && !all_examined);
-
-    }
-
-    public static void extract(
-            int                _nr_streams,
-            float[][][]        _xt,
-            float[][]          _wt,
-            byte[][]           _pt,
-            boolean[][]        _et,
-            ArrayList<Float>   _scores,
-            ArrayList<float[]> _locEnd
-    )
-    {
+        while (curr_streams<_nr_streams && !all_examined);
 
     }
 
@@ -253,14 +269,18 @@ public class Extractor extends Thread {
 
                 plgx[j] += .5f;
                 plgy[j] += .5f;
+                OvalRoi ovr = new OvalRoi(plgx[j]-.5, plgy[j]-.5, 1, 1);
+                ovr.setFillColor(Color.YELLOW);
+                ov.add(ovr);
 
             }
 
-            PolygonRoi plg = new PolygonRoi(plgx, plgy, Roi.FREELINE);
-            plg.setStrokeColor(Color.RED);
-            plg.setFillColor(Color.RED);
-            plg.setStrokeWidth(.25f);
-            ov.add(plg);
+
+//            PolygonRoi plg = new PolygonRoi(plgx, plgy, Roi.FREELINE);
+//            plg.setStrokeColor(Color.RED);
+//            plg.setFillColor(Color.RED);
+//            plg.setStrokeWidth(.25f);
+//            ov.add(plg);
 
         }
 
@@ -268,7 +288,7 @@ public class Extractor extends Thread {
 
     }
 
-    private static Overlay viz_xt(float[][][] xt, float[][] wt, byte[][] pt, boolean show_tracks)
+    private static Overlay viz_xt(float[][][] xt, float[][] wt, byte[][] pt, boolean[][] _et, boolean show_tracks)
     {
 
         float rad = .5f;
@@ -285,6 +305,8 @@ public class Extractor extends Thread {
                     p.setFillColor(new Color(1f,0f,0f,wt[i][j]));
                 else
                     p.setFillColor(new Color(1f,1f,1f,wt[i][j]));
+
+//                if (!_et[i][j]) p.setFillColor(new Color(1f, 1f, 0f, wt[i][j]));
 
                 ov.add(p);
 
@@ -317,7 +339,5 @@ public class Extractor extends Thread {
 
         return ov;
     }
-
-    private static Overlay viz_xt
 
 }
