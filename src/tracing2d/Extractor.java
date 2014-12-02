@@ -15,21 +15,22 @@ public class Extractor extends Thread {
 
     private int begN, endN;
 
-    public static int[][] 	i2loc;
-    public static int       R;
-    public static int       Ns;
-    public static float     sigma_deg;
-    public static int       nstreams;
-    private static int      dim;
+    public  static int[][] 	 i2loc;
+    public  static int       R;
+    public  static int       Ns;
+    public  static float     sigma_deg;
+    public  static int       nstreams;
+    private static int       dim;
 
     private static int merging_margin_idx = 1; // after this stream iteration index merging of the confluent paths is possible
     private static float merging_margin = 1f;
 
+    public static ArrayList[] i2scores;     // i2scores[0]      is ArrayList<Float>
+    public static ArrayList[] i2locEnd;  // i2terminals[0]   is ArrayList<float[]>
+    public static ArrayList[] i2range;// min-max Ni lowest / Ni highest in the neighbourhood defined with the range
 
-    public static ArrayList[] intenst; // intenst[0] is ArrayList<float[]>
-    public static ArrayList[] averags; // averags[0] is ArrayList<Float>
-
-    public Extractor (int n0, int n1) {
+    public Extractor (int n0, int n1)
+    {
         begN = n0;
         endN = n1;
     }
@@ -44,9 +45,10 @@ public class Extractor extends Thread {
     )
     {
 
-        i2loc       = null;
-        intenst     = null;
-        averags     = null;
+        i2loc        = null;
+        i2scores     = null;
+        i2locEnd     = null;
+        i2range      = null;
         dim         = _dim;
         R           = _radius;
         Ns          = _nsamples;
@@ -66,8 +68,16 @@ public class Extractor extends Thread {
     )
     {
         i2loc   = _i2loc;
-        intenst = new ArrayList[i2loc.length];
-        averags = new ArrayList[i2loc.length];
+        i2scores = new ArrayList[i2loc.length];
+        i2locEnd = new ArrayList[i2loc.length];
+        i2range  = new ArrayList[i2loc.length];
+
+        for (int i = 0; i < i2loc.length; i++) {
+            i2scores[i] = new ArrayList<Float>();
+            i2locEnd[i] = new ArrayList<float[]>();
+            i2range[i]  = new ArrayList<float[]>();
+        }
+        
         dim     = i2loc[0].length;
         R       = _radius;
         Ns      = _nsamples;
@@ -126,13 +136,16 @@ public class Extractor extends Thread {
     )
     {
 
-        for (int i = 0; i < _et.length; i++) // reset examined to be false
+        float[][] temp_locs = new float[2][_xt.length]; // x=0,y=1
+
+        for (int i = 0; i < _et.length; i++) // reset examined map
             for (int j = 0; j < _et[i].length; j++)
                 if (_et[i][j]) _et[i][j] = false;
 
         _delin_locs.clear();
 
         boolean all_examined;
+
         do {
 
             float max_score = Float.NEGATIVE_INFINITY;
@@ -151,42 +164,51 @@ public class Extractor extends Thread {
 
             if (max_idx!=-1) { // max was found in the loop at one index
 
-                float[][] temp_locs = new float[2][_xt.length]; // x=0,y=1
                 boolean is_overlapping = false;
-                int found_j = max_idx;
+                boolean is_close = false;
+                int sidx = max_idx;
 
-                for (int loop_streamiline = _xt.length-1; loop_streamiline >=0 ; loop_streamiline--) {
+                for (int iidx = _xt.length-1; iidx >=0 ; iidx--) {
 
-                    if (loop_streamiline>merging_margin_idx) {
+                    if (!is_close && iidx>merging_margin_idx) {
 
-                        if (_et[loop_streamiline][found_j]) {
+                        if (_et[iidx][sidx]) {
                             is_overlapping = true;
                         }
                         else {
-                            for (int t = 0; t < _xt[loop_streamiline].length; t++) {
-                                if (_et[loop_streamiline][t] &&
-                                    t!=found_j && Math.pow(_xt[loop_streamiline][t][0]-_xt[loop_streamiline][found_j][0],2) +Math.pow(_xt[loop_streamiline][t][1]-_xt[loop_streamiline][found_j][1],2) <= Math.pow(merging_margin,2))
-                                {
-                                    is_overlapping = true;
+                            for (int t = 0; t < _xt[iidx].length; t++) {
+                                if (_et[iidx][t] && t!=sidx && Math.pow(_xt[iidx][t][0]-_xt[iidx][sidx][0],2)+Math.pow(_xt[iidx][t][1]-_xt[iidx][sidx][1],2)<=Math.pow(merging_margin,2)) {
+                                    is_close = true;
                                     break;
                                 }
                             }
                         }
                     }
 
-                    _et[loop_streamiline][found_j] = true;
+                    _et[iidx][sidx] = true;
 
                     if (is_overlapping) break;
-                    else {
-                        temp_locs[0][loop_streamiline] = _xt[loop_streamiline][found_j][0];
-                        temp_locs[1][loop_streamiline] = _xt[loop_streamiline][found_j][1];
-                        found_j = _pt[loop_streamiline][found_j]&0xff;
+
+                    if (!is_close) { // no need to store them  won't be added anyway, just to fill _et
+                        temp_locs[0][iidx] = _xt[iidx][sidx][0];
+                        temp_locs[1][iidx] = _xt[iidx][sidx][1];
                     }
+
+                    sidx = _pt[iidx][sidx]&0xff;
 
                 }
 
-                if (!is_overlapping) {
-                    _delin_locs.add(temp_locs);
+                if (!is_overlapping && !is_close) { // will occur up to 4 times
+
+                    float[][] tt = new float[temp_locs.length][temp_locs[0].length];
+                    for (int i = 0; i < temp_locs.length; i++) {
+                        for (int j = 0; j < temp_locs[i].length; j++) {
+                            tt[i][j] = temp_locs[i][j];
+                        }
+                    }
+
+                    _delin_locs.add(tt);
+
                 }
 
             }
@@ -194,6 +216,19 @@ public class Extractor extends Thread {
 
         }
         while (_delin_locs.size()<_nr_streams && !all_examined);
+
+    }
+
+    public static void extract(
+            int                _nr_streams,
+            float[][][]        _xt,
+            float[][]          _wt,
+            byte[][]           _pt,
+            boolean[][]        _et,
+            ArrayList<Float>   _scores,
+            ArrayList<float[]> _locEnd
+    )
+    {
 
     }
 
@@ -282,5 +317,7 @@ public class Extractor extends Thread {
 
         return ov;
     }
+
+    private static Overlay viz_xt
 
 }

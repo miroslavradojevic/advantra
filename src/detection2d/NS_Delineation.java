@@ -1,7 +1,6 @@
 package detection2d;
 
 import aux.Interpolator;
-import aux.Stat;
 import aux.Tools;
 import ij.IJ;
 import ij.ImagePlus;
@@ -21,7 +20,7 @@ import java.util.ArrayList;
 /**
  * Created by miroslav on 11-11-14.
  */
-public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListener {
+public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListener {
 
     // input
     ImageCanvas cnv;
@@ -34,13 +33,6 @@ public class LocalDelineation implements PlugIn, MouseListener, MouseMotionListe
     float sigma_deg     = 100;   // degrees standard deviation
     int Nstreams        = 4;     //
 
-    // mean shift convergence
-//    float r = .5f;   // neighbourhood
-//    float r2 = r*r;
-//    int max_iter = 25;
-//    float epsilon = 0.001f;
-    // centroid extraction
-//    int Nc = 10;            // number of centroids to extract (NaN if they don't exist), 4 was not enough since the centroids are missed sometimes and fmm is disconnected
     // foreground extraction
     int percentile = 90;    // how many to keep as the foreground/background, neighbourhood will be defined with radius and
     int nbhood = (int) Math.ceil(2*R*BayesianTracerMulti.sstep[BayesianTracerMulti.sstep.length-1]);
