@@ -1,6 +1,8 @@
 package tracing2d;
 
+import aux.Interpolator;
 import aux.Stat;
+import ij.IJ;
 import ij.gui.*;
 
 import java.awt.*;
@@ -129,7 +131,6 @@ public class Extractor extends Thread {
     public void run()
     {
 
-        float[][]   tt  = new float[BayesianTracerMulti.Ni+1][2];            // aux to store the traces
         float[][][] xt      = new float[BayesianTracerMulti.Ni+1][Ns][4];    // bayesian filtering states (x,y, vx, vy)
         float[][]   wt      = new float[BayesianTracerMulti.Ni+1][Ns];       // bayesian filtering states
         byte[][]    pt      = new byte[BayesianTracerMulti.Ni+1][Ns];        // bayesian filtering parent pointer - distribution index of the parent state in previous iteration
@@ -139,45 +140,69 @@ public class Extractor extends Thread {
 
     }
 
-    public static Overlay get_streamlines(int _x, int _y, float[][] _img_xy, boolean _show_tracks)
+    public static Overlay extractAt(int _x, int _y, float[][] _img_xy, boolean _show_tracks)
     {
 
         float[][][] xt      = new float[BayesianTracerMulti.Ni+1][Ns][4];    // bayesian filtering states (x,y, vx, vy)
         float[][]   wt      = new float[BayesianTracerMulti.Ni+1][Ns];       // bayesian filtering states
         byte[][]    pt      = new byte[BayesianTracerMulti.Ni+1][Ns];        // bayesian filtering parent pointer - distribution index of the parent state in previous iteration
-        boolean[][] et      = new boolean[BayesianTracerMulti.Ni+1][Ns];     // extracting streamlines record
+        float[][]   mt      = new float[BayesianTracerMulti.Ni+1][Ns];       // measurements, likelihoods - correlations measured during sequential filtering
 
-        BayesianTracerMulti.run2d(_x, _y, _img_xy,  sigma_deg, Ns,  xt, wt, pt);
+        BayesianTracerMulti.run2d(_x, _y, _img_xy,  sigma_deg, Ns,  xt, wt, pt, mt);
 
         ArrayList<float[][]>    delin_locs      = new ArrayList<float[][]>();
+        ArrayList<Boolean>      delin_complete  = new ArrayList<Boolean>();
         ArrayList<float[]>      delin_scores    = new ArrayList<float[]>();
+        ArrayList<float[]>      delin_values    = new ArrayList<float[]>();
         ArrayList<float[]>      delin_terminals = new ArrayList<float[]>();
+        boolean[][] et                          = new boolean[BayesianTracerMulti.Ni+1][Ns];     // extracting streamlines record
 
         Overlay ov = new Overlay();
 
-        extract(nstreams, xt, wt, pt, et, delin_locs, delin_scores, delin_terminals);
+        extract(_img_xy, nstreams, xt, wt, pt, mt, et, delin_locs, delin_complete, delin_scores, delin_values, delin_terminals);
 
-        System.out.print(delin_locs.size() + "x ");
+        // todo printout
 
         Overlay ov_xt = viz_xt(xt, wt, pt, et, _show_tracks);
         for (int i = 0; i < ov_xt.size(); i++) ov.add(ov_xt.get(i));
-        Overlay ov_delin = viz_delin(delin_locs);
+        Overlay ov_delin = viz_delin(delin_locs, delin_scores, delin_values, delin_terminals);
         for (int i = 0; i < ov_delin.size(); i++) ov.add(ov_delin.get(i));
 
         return ov;
 
     }
 
+    private static void extractAt(
+            int _x, int _y, float[][] _img_xy,
+            float[][][] _xt,
+            float[][] _wt,
+            byte[][] _pt,
+            float[][] _mt,
+            ArrayList<Boolean> _delin_complete,
+            ArrayList<Float> _delin_wavalues,
+            ArrayList<Float> _delin_wascores,
+            ArrayList<float[]> _delin_terminals
+    )
+    {
+
+
+
+    }
+
     private static void  extract(
+            float[][]               _in_xy,
             int                     _nr_streams,
-            float[][][]             _xt,
-            float[][]               _wt,
-            byte[][]                _pt,
-            boolean[][]             _et,
+            float[][][]             _xt,                // states
+            float[][]               _wt,                // weights (posteriors)
+            byte[][]                _pt,                // parent
+            float[][]               _mt,                // measurements (likelihoods, correlations)
+            boolean[][]             _et,                // existing in the back track (auxillliary map)
             ArrayList<float[][]>    _delin_locs,
+            ArrayList<Boolean>      _delin_complete,
             ArrayList<float[]>      _delin_scores,
             ArrayList<float[]>      _delin_values,
-            ArrayList<float[]>      _delin_terminals
+            ArrayList<float[]>      _delin_terminals,
+
     )
     {
 
@@ -186,6 +211,7 @@ public class Extractor extends Thread {
                 if (_et[i][j]) _et[i][j] = false;
 
         _delin_locs.clear();
+        _delin_complete.clear();
         _delin_scores.clear();
         _delin_values.clear();
         _delin_terminals.clear();
@@ -200,7 +226,7 @@ public class Extractor extends Thread {
             int max_idx = -1;
             int max_iter = -1;
 
-            for (int i = _wt.length-1; i > merging_margin_idx; i--) {
+            for (int i = _wt.length-1; i > merging_margin_idx; i--) { // loop bayesian iterations backwards
 
                 max_score = Float.NEGATIVE_INFINITY;
                 max_idx = -1;
@@ -229,8 +255,10 @@ public class Extractor extends Thread {
                 boolean is_close = false;
                 int sidx = max_idx;
 
-                float[][] temp_locs = new float[2][max_iter+1]; // x=0,y=1
-                float[]   temp_scores = new float[max_iter+1];
+                // auxilliary array to fill up during the back track
+                float[][]   temp_locs = new float[2][max_iter+1]; // x=0,y=1
+                float[]     temp_scores = new float[max_iter+1];
+                float[]     temp_values = new float[max_iter+1];
 
                 for (int iidx = max_iter; iidx >=0 ; iidx--) {
 
@@ -253,9 +281,16 @@ public class Extractor extends Thread {
                     if (is_overlapping) break;
 
                     if (!is_close) { // no need to store them  won't be added anyway, just to fill _et
+
                         temp_locs[0][iidx] = _xt[iidx][sidx][0];
                         temp_locs[1][iidx] = _xt[iidx][sidx][1];
-                        // todo...
+
+                        temp_scores[iidx] = _mt[iidx][sidx];
+
+                        temp_values[iidx] = Interpolator.interpolateAt(_xt[iidx][sidx][0], _xt[iidx][sidx][1], _in_xy);
+
+
+
                     }
 
                     sidx = _pt[iidx][sidx]&0xff;
@@ -264,15 +299,31 @@ public class Extractor extends Thread {
 
                 if (!is_overlapping && !is_close) { // will occur up to 4 times
 
-                        float[][] tt = new float[temp_locs.length][temp_locs[0].length];
+                    // locs xy * length
+                    float[][]   add_locs    = new float[temp_locs.length][max_iter+1];
+                    float[]     add_scores  = new float[max_iter+1];
+                    float[]     add_values  = new float[max_iter+1];
 
-                        for (int i = 0; i < temp_locs.length; i++) {
-                            for (int j = 0; j < temp_locs[i].length; j++) {
-                                tt[i][j] = temp_locs[i][j];
-                            }
-                        }
+                    for (int i = 0; i < max_iter+1; i++) {
+                        add_locs[0][i] = temp_locs[0][i];
+                        add_locs[1][i] = temp_locs[1][i];
+                        add_scores[i] = temp_scores[i];
+                        add_values[i] = temp_values[i];
+                    }
 
-                        _delin_locs.add(tt);
+                    _delin_locs.add(add_locs);
+
+                    // complete
+                    _delin_complete.add(temp_locs[0].length == _xt.length);
+
+                    // scores
+                    _delin_scores.add(add_scores);
+
+                    // values
+                    _delin_values.add(add_values);
+
+                    // terminal locations
+                    if (temp_locs[0].length == _xt.length) _delin_terminals.add(new float[]{_xt[max_iter][max_idx][0], _xt[max_iter][max_idx][1]});
 
                     curr_streams++;
 
@@ -286,16 +337,18 @@ public class Extractor extends Thread {
 
     }
 
-    private static Overlay viz_delin(ArrayList<float[][]> _delin_locs, )
+    private static void extract()
+    {
+
+    }
+
+    private static Overlay viz_delin(ArrayList<float[][]> _delin_locs, ArrayList<float[]> _delin_scores, ArrayList<float[]> _delin_values, ArrayList<float[]> _delin_terminals)
     {
         Overlay ov = new Overlay();
 
         for (int i = 0; i < _delin_locs.size(); i++) {
 
-            float[] plgx = _delin_locs.get(i)[0].clone(); // new float[delin.get(i).size()];
-            float[] plgy = _delin_locs.get(i)[1].clone(); // new float[delin.get(i).size()];
-
-            for (int j = 0; j < plgx.length; j++) {
+            for (int j = 0; j < _delin_locs.get(i)[0].length; j++) {
 
 //                OvalRoi or = new OvalRoi(delin.get(i).get(j)[0]-1f+.5f, delin.get(i).get(j)[1]-1f+.5f, 2f, 2f);
 //                or.setFillColor(Color.RED);
@@ -305,14 +358,19 @@ public class Extractor extends Thread {
 //                pt.setFillColor(Color.RED);
 //                pt.setStrokeColor(Color.RED);
 
-                plgx[j] += .5f;
-                plgy[j] += .5f;
-                OvalRoi ovr = new OvalRoi(plgx[j]-.5, plgy[j]-.5, 1, 1);
+                float atx = _delin_locs.get(i)[0][j]+ .5f;
+                float aty = _delin_locs.get(i)[1][j]+ .5f;
+                float scr = _delin_values.get(i)[j];
+
+                OvalRoi ovr = new OvalRoi(atx-.5*scr, aty-.5*scr, scr, scr);
                 ovr.setFillColor(Color.YELLOW);
                 ov.add(ovr);
 
-            }
+                TextRoi tr = new TextRoi(atx-.5*scr, aty-.5*scr, scr, scr, IJ.d2s(scr, 1), new Font("TimesRoman", Font.PLAIN, 1));
+                tr.setStrokeColor(Color.BLUE);
+                ov.add(tr);
 
+            }
 
 //            PolygonRoi plg = new PolygonRoi(plgx, plgy, Roi.FREELINE);
 //            plg.setStrokeColor(Color.RED);
@@ -321,6 +379,27 @@ public class Extractor extends Thread {
 //            ov.add(plg);
 
         }
+
+        for (int i = 0; i < _delin_terminals.size(); i++) {
+            OvalRoi ovr = new OvalRoi(_delin_terminals.get(i)[0]-.25, _delin_terminals.get(i)[1]-.25, .5, .5);
+            ovr.setFillColor(Color.RED);
+            ov.add(ovr);
+        }
+
+        float rad = (float) Math.sqrt(Math.pow(_delin_terminals.get(0)[0]-_delin_locs.get(0)[0][0],2)+Math.pow(_delin_terminals.get(0)[1]-_delin_locs.get(0)[1][0],2));
+        OvalRoi circ = new OvalRoi(_delin_locs.get(0)[0][0]-rad, _delin_locs.get(0)[1][0]-rad, 2*rad, 2*rad);
+        circ.setStrokeColor(Color.RED);
+        ov.add(circ);
+
+//        int xc = Math.round(_delin_locs.get(0)[0][0]);
+//        int yc = Math.round(_delin_locs.get(0)[1][0]);
+
+//        float[] vals = new float[];
+//        for (int xx = xc-Math.round(rad); xx <= xc+Math.round(rad); xx++) {
+//            for (int yy = yc-Math.round(rad); yy <= yc+Math.round(rad); yy++) {
+//
+//            }
+//        }
 
         return ov;
 
@@ -339,9 +418,9 @@ public class Extractor extends Thread {
 
                 OvalRoi p = new OvalRoi(xt[i][j][0]-rad+.5, xt[i][j][1]-rad+.5, 2*rad, 2*rad);
 
-                if (i==xt.length-1) // last one in red
-                    p.setFillColor(new Color(1f,0f,0f,wt[i][j]));
-                else
+//                if (i==xt.length-1) // last one in red
+//                    p.setFillColor(new Color(1f,0f,0f,wt[i][j]));
+//                else
                     p.setFillColor(new Color(1f,1f,1f,wt[i][j]));
 
 //                if (!_et[i][j]) p.setFillColor(new Color(1f, 1f, 0f, wt[i][j]));

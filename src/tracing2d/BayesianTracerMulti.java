@@ -48,13 +48,12 @@ public class BayesianTracerMulti {
 
             float[][][] xt,             // Ni+1 x Ns X 4 (x,y,vx,vy)
             float[][]   wt,             // Ni+1 x Ns
-            byte[][]    pt              // Ni+1 x Ns
+            byte[][]    pt,             // Ni+1 x Ns
+            float[][]   mt              // Ni+1 x Ns
     )
     {
 
-
-
-        float big_iter_step = 0.75f*Rmax*sstep[sstep.length-1]; // stepping further in motion model when tracing is defined with scale
+        float big_iter_step = 0.75f*Rmax*sstep[sstep.length-1]; // stepping further in motion model when tracing is defined with scale - heuristic
         float small_iter_step = 1.2f; // related to the resolution, just enought to capture
         float lbd = (float) (Math.log(small_iter_step/big_iter_step)/(1-Ni));
 
@@ -72,6 +71,8 @@ public class BayesianTracerMulti {
 
             pt[0][i] = (byte) 255; // dummy parent - should not be accessed for iteration = 0, just to fill up the array
 
+            mt[0][i] = 0;
+
         }
 
 
@@ -81,7 +82,7 @@ public class BayesianTracerMulti {
 
             float iter_step = (float) (big_iter_step*Math.exp(-lbd*(iter-1)));
 
-            bayesian_iteration(img_xy,iter,iter_step, Ns, sigma_deg, xt,wt,pt);// xt[iter], wt[iter], pt[iter]
+            bayesian_iteration(img_xy,iter,iter_step, Ns, sigma_deg, xt,wt,pt,mt);// xt[iter], wt[iter], pt[iter]
 
             iter++;
         }
@@ -109,8 +110,8 @@ public class BayesianTracerMulti {
 
             float[][][]             _xt,    // outputs
             float[][]               _wt,    // weights
-            byte[][]                _pt     // parent index
-
+            byte[][]                _pt,     // parent index
+            float[][]               _mt     // measurement
 
     )
     {
@@ -249,6 +250,7 @@ public class BayesianTracerMulti {
             _xt[_iter][i][3] = _transition_xy[sort_idx[i]][3];
             _wt[_iter][i]    = _ptes[i]; // because they are already sorted
             _pt[_iter][i]    = _parents[sort_idx[i]];
+            _mt[_iter][i]    = _lhoods[sort_idx[i]];
 
         }
 
