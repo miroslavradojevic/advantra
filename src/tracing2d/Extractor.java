@@ -5,6 +5,7 @@ import ij.gui.*;
 
 import java.awt.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 /**
  * Created by miroslav on 29-11-14.
@@ -28,6 +29,9 @@ public class Extractor extends Thread {
     public static ArrayList[] i2scores;     // i2scores[0]      is ArrayList<float[]>
     public static ArrayList[] i2locEnd;  // i2terminals[0]      is ArrayList<float[]>
     public static ArrayList[] i2range;// min-max Ni lowest / Ni highest in the neighbourhood defined with the range
+
+    // number of iterations is maximum Ni+1 by definition
+    private static float[][] wgts; // set of weights assigned to each streamline length
 
     public Extractor (int n0, int n1)
     {
@@ -55,6 +59,24 @@ public class Extractor extends Thread {
         sigma_deg   = _sigma_deg;
         nstreams    = _nstreams;
         BayesianTracerMulti.init(R);
+
+        wgts = new float[BayesianTracerMulti.Ni+1][];
+        for (int i = 0; i < wgts.length; i++) {
+            if (i<=merging_margin_idx) {
+                wgts[i] = null;
+            }
+            else {
+                wgts[i] = new float[i+1];
+                float wgts_sum = 0;
+                for (int j = 0; j <= i; j++) {
+                    wgts[i][j] = (float) (1 - Math.exp(-2*((float)j/i)));
+                    wgts_sum += wgts[i][j];
+                }
+                for (int j = 0; j <= i; j++) {
+                    wgts[i][j] /= wgts_sum;
+                }
+            }
+        }
 
     }
 
@@ -84,6 +106,24 @@ public class Extractor extends Thread {
         sigma_deg   = _sigma_deg;
         nstreams    = _nstreams;
         BayesianTracerMulti.init(R);
+
+        wgts = new float[BayesianTracerMulti.Ni+1][];
+        for (int i = 0; i < wgts.length; i++) {
+            if (i<=merging_margin_idx) {
+                wgts[i] = null;
+            }
+            else {
+                wgts[i] = new float[i+1];
+                float wgts_sum = 0;
+                for (int j = 0; j <= i; j++) {
+                    wgts[i][j] = (float) (1 - Math.exp(-2*((float)j/i)));
+                    wgts_sum += wgts[i][j];
+                }
+                for (int j = 0; j <= i; j++) {
+                    wgts[i][j] /= wgts_sum;
+                }
+            }
+        }
     }
 
     public void run()
@@ -124,7 +164,6 @@ public class Extractor extends Thread {
         Overlay ov_delin = viz_delin(delin_locs);
         for (int i = 0; i < ov_delin.size(); i++) ov.add(ov_delin.get(i));
 
-
         return ov;
 
     }
@@ -137,6 +176,7 @@ public class Extractor extends Thread {
             boolean[][]             _et,
             ArrayList<float[][]>    _delin_locs,
             ArrayList<float[]>      _delin_scores,
+            ArrayList<float[]>      _delin_values,
             ArrayList<float[]>      _delin_terminals
     )
     {
@@ -145,9 +185,10 @@ public class Extractor extends Thread {
             for (int j = 0; j < _et[i].length; j++)
                 if (_et[i][j]) _et[i][j] = false;
 
-
-        if (_delin_locs!=null) _delin_locs.clear();
-
+        _delin_locs.clear();
+        _delin_scores.clear();
+        _delin_values.clear();
+        _delin_terminals.clear();
 
         int curr_streams = 0;
 
@@ -155,7 +196,7 @@ public class Extractor extends Thread {
 
         do {
 
-            float max_score = Float.NEGATIVE_INFINITY;
+            float max_score;
             int max_idx = -1;
             int max_iter = -1;
 
@@ -214,6 +255,7 @@ public class Extractor extends Thread {
                     if (!is_close) { // no need to store them  won't be added anyway, just to fill _et
                         temp_locs[0][iidx] = _xt[iidx][sidx][0];
                         temp_locs[1][iidx] = _xt[iidx][sidx][1];
+                        // todo...
                     }
 
                     sidx = _pt[iidx][sidx]&0xff;
@@ -221,8 +263,6 @@ public class Extractor extends Thread {
                 }
 
                 if (!is_overlapping && !is_close) { // will occur up to 4 times
-
-                    if (_delin_locs!=null) {
 
                         float[][] tt = new float[temp_locs.length][temp_locs[0].length];
 
@@ -233,8 +273,6 @@ public class Extractor extends Thread {
                         }
 
                         _delin_locs.add(tt);
-
-                    }
 
                     curr_streams++;
 
@@ -248,7 +286,7 @@ public class Extractor extends Thread {
 
     }
 
-    private static Overlay viz_delin(ArrayList<float[][]> _delin_locs)
+    private static Overlay viz_delin(ArrayList<float[][]> _delin_locs, )
     {
         Overlay ov = new Overlay();
 

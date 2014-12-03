@@ -108,8 +108,9 @@ public class BayesianTracerMulti {
 //            byte[]                  _parents,
 
             float[][][]             _xt,    // outputs
-            float[][]               _wt,
-            byte[][]                _pt
+            float[][]               _wt,    // weights
+            byte[][]                _pt     // parent index
+
 
     )
     {
