@@ -201,8 +201,7 @@ public class Extractor extends Thread {
             ArrayList<Boolean>      _delin_complete,
             ArrayList<float[]>      _delin_scores,
             ArrayList<float[]>      _delin_values,
-            ArrayList<float[]>      _delin_terminals,
-
+            ArrayList<float[]>      _delin_terminals
     )
     {
 

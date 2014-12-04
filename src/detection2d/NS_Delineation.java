@@ -226,7 +226,7 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
 
         Extractor.loadTemplate(2, R, Ns, sigma_deg, Nstreams);
         boolean show_tracks = false;
-        Overlay oo = Extractor.get_streamlines(clickX, clickY, likelihood_xy, show_tracks);
+        Overlay oo = Extractor.extractAt(clickX, clickY, likelihood_xy, show_tracks);
 
         // bayesian filtering - take cate that it is initilized before
 
