@@ -140,7 +140,7 @@ public class Extractor extends Thread {
 
     }
 
-    public static Overlay extractAt(int _x, int _y, float[][] _img_xy, boolean _show_tracks)
+    public static Overlay extractAt(int _x, int _y, float[][] _img_xy, boolean _show_tracks) // make a version for threading
     {
 
         float[][][] xt      = new float[BayesianTracerMulti.Ni+1][Ns][4];    // bayesian filtering states (x,y, vx, vy)
@@ -155,14 +155,44 @@ public class Extractor extends Thread {
         ArrayList<float[]>      delin_scores    = new ArrayList<float[]>();
         ArrayList<float[]>      delin_values    = new ArrayList<float[]>();
         ArrayList<float[]>      delin_terminals = new ArrayList<float[]>();
+        ArrayList<Float>        delin_wascores  = new ArrayList<Float>();
+        ArrayList<Float>        delin_wavalues  = new ArrayList<Float>();
+
         boolean[][] et                          = new boolean[BayesianTracerMulti.Ni+1][Ns];     // extracting streamlines record
 
+        int nrad = extract(_img_xy, nstreams, xt, wt, pt, mt, et, delin_locs, delin_complete, delin_scores, delin_values, delin_terminals, delin_wascores, delin_wavalues);
+        float mn = Float.POSITIVE_INFINITY;
+        float mx = Float.NEGATIVE_INFINITY;
+
+        for (int xx = _x-nrad; xx <= _x+nrad; xx++) {
+            if (xx>=0 && xx<_img_xy.length) {
+                for (int yy = _y-nrad; yy <= _y+nrad; yy++) {
+                    if (yy>=0 && yy<_img_xy[0].length) {
+                        float val = _img_xy[xx][yy];
+                        if (val<mn) mn = val;
+                        if (val>mx) mx = val;
+                    }
+                }
+            }
+        }
+
+        System.out.println("\n#\tCPLT\tE(V)");
+        for (int i = 0; i < delin_complete.size(); i++)
+            System.out.println((i+1) + "\t" + delin_complete.get(i) + "\t" + IJ.d2s(delin_wavalues.get(i),3)); //  + Arrays.toString(delin_values.get(i))
+
+        System.out.println("------------------");
+
+
+        ArrayList<Float> A = new ArrayList<Float>();
+        ArrayList<Float> B = new ArrayList<Float>();
+        arrange(delin_wavalues, delin_complete, A, B);
+
+        System.out.println("MIN->" + mn);
+        System.out.print("A->"); for (int i = 0; i < A.size(); i++) System.out.print(A.get(i) + "  "); System.out.println("");
+        System.out.print("B->"); for (int i = 0; i < B.size(); i++) System.out.print(B.get(i) + "  "); System.out.println("");
+        System.out.println("MAX->" + mx);
+
         Overlay ov = new Overlay();
-
-        extract(_img_xy, nstreams, xt, wt, pt, mt, et, delin_locs, delin_complete, delin_scores, delin_values, delin_terminals);
-
-        // todo printout
-
         Overlay ov_xt = viz_xt(xt, wt, pt, et, _show_tracks);
         for (int i = 0; i < ov_xt.size(); i++) ov.add(ov_xt.get(i));
         Overlay ov_delin = viz_delin(delin_locs, delin_scores, delin_values, delin_terminals);
@@ -172,24 +202,7 @@ public class Extractor extends Thread {
 
     }
 
-    private static void extractAt(
-            int _x, int _y, float[][] _img_xy,
-            float[][][] _xt,
-            float[][] _wt,
-            byte[][] _pt,
-            float[][] _mt,
-            ArrayList<Boolean> _delin_complete,
-            ArrayList<Float> _delin_wavalues,
-            ArrayList<Float> _delin_wascores,
-            ArrayList<float[]> _delin_terminals
-    )
-    {
-
-
-
-    }
-
-    private static void  extract(
+    private static int  extract(
             float[][]               _in_xy,
             int                     _nr_streams,
             float[][][]             _xt,                // states
@@ -201,7 +214,9 @@ public class Extractor extends Thread {
             ArrayList<Boolean>      _delin_complete,
             ArrayList<float[]>      _delin_scores,
             ArrayList<float[]>      _delin_values,
-            ArrayList<float[]>      _delin_terminals
+            ArrayList<float[]>      _delin_terminals,
+            ArrayList<Float>        _delin_wascores,
+            ArrayList<Float>        _delin_wavalues
     )
     {
 
@@ -288,8 +303,6 @@ public class Extractor extends Thread {
 
                         temp_values[iidx] = Interpolator.interpolateAt(_xt[iidx][sidx][0], _xt[iidx][sidx][1], _in_xy);
 
-
-
                     }
 
                     sidx = _pt[iidx][sidx]&0xff;
@@ -303,11 +316,19 @@ public class Extractor extends Thread {
                     float[]     add_scores  = new float[max_iter+1];
                     float[]     add_values  = new float[max_iter+1];
 
+                    float add_wascores = 0;
+                    float add_wavalues = 0;
+
                     for (int i = 0; i < max_iter+1; i++) {
+
                         add_locs[0][i] = temp_locs[0][i];
                         add_locs[1][i] = temp_locs[1][i];
                         add_scores[i] = temp_scores[i];
                         add_values[i] = temp_values[i];
+
+                        add_wascores += wgts[max_iter][i] * add_scores[i];
+                        add_wavalues += wgts[max_iter][i] * add_values[i];
+
                     }
 
                     _delin_locs.add(add_locs);
@@ -317,9 +338,11 @@ public class Extractor extends Thread {
 
                     // scores
                     _delin_scores.add(add_scores);
+                    _delin_wavalues.add(add_wavalues);
 
                     // values
                     _delin_values.add(add_values);
+                    _delin_wascores.add(add_wascores);
 
                     // terminal locations
                     if (temp_locs[0].length == _xt.length) _delin_terminals.add(new float[]{_xt[max_iter][max_idx][0], _xt[max_iter][max_idx][1]});
@@ -334,11 +357,42 @@ public class Extractor extends Thread {
         }
         while (curr_streams<_nr_streams && !all_examined);
 
+        // return neighbourhood radius
+        int nradius = (int) Math.round(Math.sqrt(Math.pow(_delin_terminals.get(0)[0] - _delin_locs.get(0)[0][0], 2) + Math.pow(_delin_terminals.get(0)[1] - _delin_locs.get(0)[1][0], 2)));
+
+        return nradius;
+
     }
 
-    private static void extract()
+    private static void arrange(ArrayList<Float> _vals, ArrayList<Boolean> _compl, ArrayList<Float> _A, ArrayList<Float> _B)
     {
+        _A.clear();
+        _B.clear();
+        int idx = 0;
+        for (int i = 0; i < _vals.size(); i++) {
 
+            if (_compl.get(i).booleanValue()==true) {
+                if (_A.size()==0) _A.add(_vals.get(i));
+                else { // append so that the highest one stray on the top
+                    idx = 0;
+                    while (idx<_A.size() && _A.get(idx)>_vals.get(i)) {
+                        idx++;
+                    }
+                    _A.add(idx, _vals.get(i));
+                }
+            }
+            else {
+                if (_B.size()==0) _B.add(_vals.get(i));
+                else {
+                    idx = 0;
+                    while (idx<_B.size() && _B.get(idx)>_vals.get(i)) {
+                        idx++;
+                    }
+                    _B.add(idx, _vals.get(i));
+                }
+            }
+
+        }
     }
 
     private static Overlay viz_delin(ArrayList<float[][]> _delin_locs, ArrayList<float[]> _delin_scores, ArrayList<float[]> _delin_values, ArrayList<float[]> _delin_terminals)
