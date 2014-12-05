@@ -154,7 +154,7 @@ public class Extractor extends Thread {
 
         boolean[][] et                          = new boolean[BayesianTracerMulti.Ni+1][Ns];     // extracting streamlines record
 
-        int nrad = extract(_img_xy, nstreams, expan, xt, wt, pt, mt, et, delin_locs, delin_complete, delin_scores, delin_values, delin_terminals, delin_wascores, delin_wavalues);
+        int nrad = extract(_img_xy, nstreams, xt, wt, pt, mt, et, delin_locs, delin_complete, delin_scores, delin_values, delin_terminals, delin_wascores, delin_wavalues);
         float mn = Float.POSITIVE_INFINITY;
         float mx = Float.NEGATIVE_INFINITY;
 
@@ -191,15 +191,76 @@ public class Extractor extends Thread {
         for (int i = 0; i < ov_xt.size(); i++) ov.add(ov_xt.get(i));
         Overlay ov_delin = viz_delin(delin_locs, delin_scores, delin_values, delin_terminals);
         for (int i = 0; i < ov_delin.size(); i++) ov.add(ov_delin.get(i));
+        float rad = BayesianTracerMulti.pred_path;//(float) Math.sqrt(Math.pow(_delin_terminals.get(0)[0]-_delin_locs.get(0)[0][0],2)+Math.pow(_delin_terminals.get(0)[1]-_delin_locs.get(0)[1][0],2));
+        OvalRoi circ = new OvalRoi(_x-rad+.5, _y-rad+.5, 2*rad, 2*rad);
+        circ.setStrokeColor(Color.RED);
+        ov.add(circ);
+
 
         return ov;
 
     }
 
-    private static int  extract(
+    private static void extract_bottom_top(
             float[][]               _in_xy,
             int                     _nr_streams,
-            BayesianTracerMulti.Expansion _expan,
+            float[][][]             _xt,
+            float[][]               _wt,
+            byte[][]                _pt,
+            float[][]               _mt,
+            boolean[][]             _et,
+            ArrayList<float[][]>    _delin_locs,
+            ArrayList<Boolean>      _delin_complete,
+            ArrayList<float[]>      _delin_scores,
+            ArrayList<float[]>      _delin_values,
+            ArrayList<float[]>      _delin_terminals,
+            ArrayList<Float>        _delin_wascores,
+            ArrayList<Float>        _delin_wavalues
+    )
+    {
+        float[][] wgts = wgts_outer;
+
+        for (int i = 0; i < _et.length; i++) // reset examined map
+            for (int j = 0; j < _et[i].length; j++)
+                if (_et[i][j]) _et[i][j] = false;
+
+        _delin_locs.clear();
+        _delin_complete.clear();
+        _delin_scores.clear();
+        _delin_values.clear();
+        _delin_terminals.clear();
+
+        int curr_streams = 0;
+
+        boolean all_examined;
+
+        do {
+
+        }
+        while (curr_streams<_nr_streams && !all_examined);
+
+
+    }
+
+    private static int pickmax(float[] _wti, boolean[] _eti) // will pick max from the current set of weights that are not examined
+    {
+        float max_score = Float.NEGATIVE_INFINITY;
+        int max_index = -1;
+
+        for (int j = 0; j < _wti.length; j++) { // loop the last iteration - loop all the states/weights from the distribution
+            if (!_eti[j]) {
+                if (_wti[j] > max_score) {
+                    max_score = _wti[j];
+                    max_index = j;
+                }
+            }
+        }
+        return max_index;
+    }
+
+    private static void  extract_top_bottom(
+            float[][]               _in_xy,
+            int                     _nr_streams,
             float[][][]             _xt,                // states
             float[][]               _wt,                // weights (posteriors)
             byte[][]                _pt,                // parent
@@ -215,9 +276,8 @@ public class Extractor extends Thread {
     )
     {
 
-        float[][] wgts = (_expan== BayesianTracerMulti.Expansion.OUTER)? wgts_outer : (_expan== BayesianTracerMulti.Expansion.INNER)? wgts_inner : null;
-
-        int merging_margin_idx = (_expan== BayesianTracerMulti.Expansion.OUTER)? merging_margin_step : (_expan== BayesianTracerMulti.Expansion.INNER)? _xt.length-1-merging_margin_step : null;
+        float[][] wgts = wgts_outer;//(_expan== BayesianTracerMulti.Expansion.OUTER)? wgts_outer : (_expan== BayesianTracerMulti.Expansion.INNER)? wgts_inner : null;
+//        int merging_margin_idx = merging_margin_step;//(_expan== BayesianTracerMulti.Expansion.OUTER)? merging_margin_step : (_expan== BayesianTracerMulti.Expansion.INNER)? _xt.length-1-merging_margin_step : null;
 
         for (int i = 0; i < _et.length; i++) // reset examined map
             for (int j = 0; j < _et[i].length; j++)
@@ -236,53 +296,46 @@ public class Extractor extends Thread {
         do {
 
             float max_score;
-            int max_idx = -1;
-            int max_iter = -1;
+            int max_idx_samp = -1;
+            int max_idx_iter = -1;
 
-            for (int i = _wt.length-1; i > merging_margin_idx; i--) { // loop bayesian iterations backwards
+            for (int i = _wt.length-1; i > merging_margin_step; i--) { // loop bayesian iterations backwards
 
-                max_score = Float.NEGATIVE_INFINITY;
-                max_idx = -1;
-                max_iter = -1;
+                max_idx_iter = i;
 
-                for (int j = 0; j < _wt[i].length; j++) { // loop the last iteration - loop all the states/weights from the distribution
-                    if (!_et[i][j]) {
-                        if (_wt[i][j] > max_score) {
-                            max_score = _wt[_wt.length-1][j];
-                            max_idx = j;
-                            max_iter = i;
-                        }
-                    }
-                }
-                if (max_idx!=-1) {
+                max_idx_samp = pickmax(_wt[i], _et[i]);
+
+                if (max_idx_samp!=-1) {
+                    max_score = _wt[i][max_idx_samp];
                     break;
                 }
             }
 
             all_examined = false;
 
-
-            if (max_idx!=-1 && max_iter!=-1) { // max was found in the loop at one index
+            if (max_idx_samp!=-1 && max_idx_iter!=-1) { // max was found in the loop at one index, otherwise it will stop checking
 
                 boolean is_overlapping = false;
                 boolean is_close = false;
-                int sidx = max_idx;
+
 
                 // auxilliary array to fill up during the back track
-                float[][]   temp_locs = new float[2][max_iter+1]; // x=0,y=1
-                float[]     temp_scores = new float[max_iter+1];
-                float[]     temp_values = new float[max_iter+1];
+                float[][]   temp_locs = new float[2][max_idx_iter+1]; // x=0,y=1
+                float[]     temp_scores = new float[max_idx_iter+1];
+                float[]     temp_values = new float[max_idx_iter+1];
 
-                for (int iidx = max_iter; iidx >=0 ; iidx--) {
+                int sidx = max_idx_samp;
 
-                    if (!is_close && iidx>merging_margin_idx) {
+                for (int iidx = max_iter; iidx >=0 ; iidx--) { // top-bottom
+
+                    if (!is_close && iidx>merging_margin_step) {
                         if (_et[iidx][sidx]) {
-                            is_overlapping = true;
+                            is_overlapping = true; // hm
                         }
                         else {
                             for (int t = 0; t < _xt[iidx].length; t++) {
                                 if (_et[iidx][t] && t!=sidx && Math.pow(_xt[iidx][t][0]-_xt[iidx][sidx][0],2)+Math.pow(_xt[iidx][t][1]-_xt[iidx][sidx][1],2)<=Math.pow(merging_margin_dist,2)) {
-                                    is_close = true;
+                                    is_close = true; // hm
                                     break;
                                 }
                             }
@@ -306,7 +359,7 @@ public class Extractor extends Thread {
 
                     sidx = _pt[iidx][sidx]&0xff;
 
-                }
+                }// top-bottom
 
                 if (!is_overlapping && !is_close) { // will occur up to 4 times
 
@@ -357,9 +410,8 @@ public class Extractor extends Thread {
         while (curr_streams<_nr_streams && !all_examined);
 
         // return neighbourhood radius
-        int nradius = (int) Math.round(Math.sqrt(Math.pow(_delin_terminals.get(0)[0] - _delin_locs.get(0)[0][0], 2) + Math.pow(_delin_terminals.get(0)[1] - _delin_locs.get(0)[1][0], 2)));
-
-        return nradius;
+        //int nradius = (int) Math.round(Math.sqrt(Math.pow(_delin_terminals.get(0)[0] - _delin_locs.get(0)[0][0], 2) + Math.pow(_delin_terminals.get(0)[1] - _delin_locs.get(0)[1][0], 2)));
+        //return nradius;
 
     }
 
@@ -412,10 +464,13 @@ public class Extractor extends Thread {
 
                 float atx = _delin_locs.get(i)[0][j]+ .5f;
                 float aty = _delin_locs.get(i)[1][j]+ .5f;
-                float scr = 1;//_delin_values.get(i)[j];
+                float scr = .5f;//_delin_values.get(i)[j];
 
                 OvalRoi ovr = new OvalRoi(atx-.5*scr, aty-.5*scr, scr, scr);
-                ovr.setFillColor(Color.YELLOW);
+                if (i==0) ovr.setFillColor(Color.RED);
+                if (i==1) ovr.setFillColor(Color.ORANGE);
+                if (i==2) ovr.setFillColor(Color.GREEN);
+                if (i==3) ovr.setFillColor(Color.BLUE);
                 ov.add(ovr);
 
 //                TextRoi tr = new TextRoi(atx-.5*scr, aty-.5*scr, scr, scr, IJ.d2s(scr, 1), new Font("TimesRoman", Font.PLAIN, 1));
@@ -433,15 +488,10 @@ public class Extractor extends Thread {
         }
 
         for (int i = 0; i < _delin_terminals.size(); i++) {
-            OvalRoi ovr = new OvalRoi(_delin_terminals.get(i)[0]-.25, _delin_terminals.get(i)[1]-.25, .5, .5);
+            OvalRoi ovr = new OvalRoi(_delin_terminals.get(i)[0]-.5, _delin_terminals.get(i)[1]-.5, 1, 1);
             ovr.setFillColor(Color.RED);
             ov.add(ovr);
         }
-
-        float rad = (float) Math.sqrt(Math.pow(_delin_terminals.get(0)[0]-_delin_locs.get(0)[0][0],2)+Math.pow(_delin_terminals.get(0)[1]-_delin_locs.get(0)[1][0],2));
-        OvalRoi circ = new OvalRoi(_delin_locs.get(0)[0][0]-rad, _delin_locs.get(0)[1][0]-rad, 2*rad, 2*rad);
-        circ.setStrokeColor(Color.RED);
-        ov.add(circ);
 
 //        int xc = Math.round(_delin_locs.get(0)[0][0]);
 //        int yc = Math.round(_delin_locs.get(0)[1][0]);
@@ -473,7 +523,9 @@ public class Extractor extends Thread {
 //                if (i==xt.length-1) // last one in red
 //                    p.setFillColor(new Color(1f,0f,0f,wt[i][j]));
 //                else
-                    p.setFillColor(new Color(1f,1f,1f,wt[i][j]));
+
+                if (i==0) p.setFillColor(new Color(0f, 1f, 0f, 1f)); // wt[i][j]
+                else p.setFillColor(new Color(1f, 1f, 1f, wt[i][j]));
 
 //                if (!_et[i][j]) p.setFillColor(new Color(1f, 1f, 0f, wt[i][j]));
 

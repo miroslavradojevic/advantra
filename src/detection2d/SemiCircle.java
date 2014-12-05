@@ -32,6 +32,14 @@ public class SemiCircle {
         w = new float[NN];
     }
 
+    /**
+     * Resets the circle radius value
+     * That causes new number of samples
+     * @param radius new radius value
+     * @return  modifications are inner.
+     * @exception java.lang.NullPointerException
+     *            If either argument is <code>null</code>.
+     */
     public void reset(float radius)
     {
         this.radius = radius;

@@ -35,7 +35,7 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
     BayesianTracerMulti.Expansion expan = BayesianTracerMulti.Expansion.INNER;
 
     // foreground extraction
-    int percentile = 90;    // how many to keep as the foreground/background, neighbourhood will be defined with radius and
+    int percentile = 95;    // how many to keep as the foreground/background, neighbourhood will be defined with radius and
     int nbhood = (int) Math.ceil(2*R*BayesianTracerMulti.sstep[BayesianTracerMulti.sstep.length-1]);
     int CPU_NR = Runtime.getRuntime().availableProcessors() + 1;
 
@@ -226,13 +226,11 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
         long t1 = System.currentTimeMillis();
 
         Extractor.loadTemplate(2, R, Ns, sigma_deg, Nstreams);
-        boolean show_tracks = false;
+        boolean show_tracks = true;
         Overlay oo = Extractor.extractAt(clickX, clickY, likelihood_xy, show_tracks, expan);
 
         // bayesian filtering - take cate that it is initilized before
-
 //        extract(xt, wt, pt, Nstreams, stream_map, delin); // states, weights, parent_index, nr_streams, overlap_margin, output_delineation
-
             // mean-shift for estimation (local maxima detection)
 //            for (int i = 0; i < xc.length; i++) { // initialize xc with corresponding elements from xt
 //                for (int s = 0; s < xc[0].length; s++) {
