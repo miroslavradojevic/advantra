@@ -25,15 +25,16 @@ public class Extractor extends Thread {
     public  static int       nstreams;
     private static int       dim;
 
-    private static int merging_margin_idx = 1; // after this stream iteration index merging of the confluent paths is possible
-    private static float merging_margin = 1f;
+    private static int merging_margin_step = 1; // after this stream iteration index merging of the confluent paths is possible
+    private static float merging_margin_dist = 1f;
 
     public static ArrayList[] i2scores;     // i2scores[0]      is ArrayList<float[]>
     public static ArrayList[] i2locEnd;  // i2terminals[0]      is ArrayList<float[]>
     public static ArrayList[] i2range;// min-max Ni lowest / Ni highest in the neighbourhood defined with the range
 
     // number of iterations is maximum Ni+1 by definition
-    private static float[][] wgts; // set of weights assigned to each streamline length
+    private static float[][] wgts_outer; // set of weights assigned to each streamline length (Ni+1) high towards the end
+    private static float[][] wgts_inner; // high at the beginnining
 
     public Extractor (int n0, int n1)
     {
@@ -62,24 +63,32 @@ public class Extractor extends Thread {
         nstreams    = _nstreams;
         BayesianTracerMulti.init(R);
 
-        wgts = new float[BayesianTracerMulti.Ni+1][];
-        for (int i = 0; i < wgts.length; i++) {
-            if (i<=merging_margin_idx) {
-                wgts[i] = null;
-            }
-            else {
-                wgts[i] = new float[i+1];
-                float wgts_sum = 0;
-                for (int j = 0; j <= i; j++) {
-                    wgts[i][j] = (float) (1 - Math.exp(-2*((float)j/i)));
-                    wgts_sum += wgts[i][j];
-                }
-                for (int j = 0; j <= i; j++) {
-                    wgts[i][j] /= wgts_sum;
-                }
-            }
-        }
+        weights();
 
+    }
+
+    private  static void weights()
+    {
+        wgts_outer = new float[BayesianTracerMulti.Ni+1][];
+        wgts_inner = new float[BayesianTracerMulti.Ni+1][];
+
+        for (int i = 0; i < wgts_outer.length; i++) {
+
+            wgts_outer[i] = new float[i+1];
+            wgts_inner[i] = new float[i+1];
+            float sum = 0;
+
+            for (int j = 0; j <= i; j++) {
+                float ratio = (i>0)? (float)j/i : 0;
+                wgts_outer[i][j] = (float) (1 - Math.exp(-2*ratio));
+                sum += wgts_outer[i][j];
+            }
+            for (int j = 0; j <= i; j++) {
+                wgts_outer[i][j] /= sum;
+                wgts_inner[i][i-j] = wgts_outer[i][j];
+            }
+
+        }
     }
 
     /* initializator for usage at selected set of locations (threaded) */
@@ -109,23 +118,8 @@ public class Extractor extends Thread {
         nstreams    = _nstreams;
         BayesianTracerMulti.init(R);
 
-        wgts = new float[BayesianTracerMulti.Ni+1][];
-        for (int i = 0; i < wgts.length; i++) {
-            if (i<=merging_margin_idx) {
-                wgts[i] = null;
-            }
-            else {
-                wgts[i] = new float[i+1];
-                float wgts_sum = 0;
-                for (int j = 0; j <= i; j++) {
-                    wgts[i][j] = (float) (1 - Math.exp(-2*((float)j/i)));
-                    wgts_sum += wgts[i][j];
-                }
-                for (int j = 0; j <= i; j++) {
-                    wgts[i][j] /= wgts_sum;
-                }
-            }
-        }
+        weights();
+
     }
 
     public void run()
@@ -140,7 +134,7 @@ public class Extractor extends Thread {
 
     }
 
-    public static Overlay extractAt(int _x, int _y, float[][] _img_xy, boolean _show_tracks) // make a version for threading
+    public static Overlay extractAt(int _x, int _y, float[][] _img_xy, boolean _show_tracks, BayesianTracerMulti.Expansion expan) // make a version for threading
     {
 
         float[][][] xt      = new float[BayesianTracerMulti.Ni+1][Ns][4];    // bayesian filtering states (x,y, vx, vy)
@@ -148,7 +142,7 @@ public class Extractor extends Thread {
         byte[][]    pt      = new byte[BayesianTracerMulti.Ni+1][Ns];        // bayesian filtering parent pointer - distribution index of the parent state in previous iteration
         float[][]   mt      = new float[BayesianTracerMulti.Ni+1][Ns];       // measurements, likelihoods - correlations measured during sequential filtering
 
-        BayesianTracerMulti.run2d(_x, _y, _img_xy,  sigma_deg, Ns,  xt, wt, pt, mt);
+        BayesianTracerMulti.spherical_wavefront_2d(_x, _y, _img_xy, sigma_deg, Ns, expan, xt, wt, pt, mt);
 
         ArrayList<float[][]>    delin_locs      = new ArrayList<float[][]>();
         ArrayList<Boolean>      delin_complete  = new ArrayList<Boolean>();
@@ -160,7 +154,7 @@ public class Extractor extends Thread {
 
         boolean[][] et                          = new boolean[BayesianTracerMulti.Ni+1][Ns];     // extracting streamlines record
 
-        int nrad = extract(_img_xy, nstreams, xt, wt, pt, mt, et, delin_locs, delin_complete, delin_scores, delin_values, delin_terminals, delin_wascores, delin_wavalues);
+        int nrad = extract(_img_xy, nstreams, expan, xt, wt, pt, mt, et, delin_locs, delin_complete, delin_scores, delin_values, delin_terminals, delin_wascores, delin_wavalues);
         float mn = Float.POSITIVE_INFINITY;
         float mx = Float.NEGATIVE_INFINITY;
 
@@ -205,6 +199,7 @@ public class Extractor extends Thread {
     private static int  extract(
             float[][]               _in_xy,
             int                     _nr_streams,
+            BayesianTracerMulti.Expansion _expan,
             float[][][]             _xt,                // states
             float[][]               _wt,                // weights (posteriors)
             byte[][]                _pt,                // parent
@@ -219,6 +214,10 @@ public class Extractor extends Thread {
             ArrayList<Float>        _delin_wavalues
     )
     {
+
+        float[][] wgts = (_expan== BayesianTracerMulti.Expansion.OUTER)? wgts_outer : (_expan== BayesianTracerMulti.Expansion.INNER)? wgts_inner : null;
+
+        int merging_margin_idx = (_expan== BayesianTracerMulti.Expansion.OUTER)? merging_margin_step : (_expan== BayesianTracerMulti.Expansion.INNER)? _xt.length-1-merging_margin_step : null;
 
         for (int i = 0; i < _et.length; i++) // reset examined map
             for (int j = 0; j < _et[i].length; j++)
@@ -282,7 +281,7 @@ public class Extractor extends Thread {
                         }
                         else {
                             for (int t = 0; t < _xt[iidx].length; t++) {
-                                if (_et[iidx][t] && t!=sidx && Math.pow(_xt[iidx][t][0]-_xt[iidx][sidx][0],2)+Math.pow(_xt[iidx][t][1]-_xt[iidx][sidx][1],2)<=Math.pow(merging_margin,2)) {
+                                if (_et[iidx][t] && t!=sidx && Math.pow(_xt[iidx][t][0]-_xt[iidx][sidx][0],2)+Math.pow(_xt[iidx][t][1]-_xt[iidx][sidx][1],2)<=Math.pow(merging_margin_dist,2)) {
                                     is_close = true;
                                     break;
                                 }
@@ -413,15 +412,15 @@ public class Extractor extends Thread {
 
                 float atx = _delin_locs.get(i)[0][j]+ .5f;
                 float aty = _delin_locs.get(i)[1][j]+ .5f;
-                float scr = _delin_values.get(i)[j];
+                float scr = 1;//_delin_values.get(i)[j];
 
                 OvalRoi ovr = new OvalRoi(atx-.5*scr, aty-.5*scr, scr, scr);
                 ovr.setFillColor(Color.YELLOW);
                 ov.add(ovr);
 
-                TextRoi tr = new TextRoi(atx-.5*scr, aty-.5*scr, scr, scr, IJ.d2s(scr, 1), new Font("TimesRoman", Font.PLAIN, 1));
-                tr.setStrokeColor(Color.BLUE);
-                ov.add(tr);
+//                TextRoi tr = new TextRoi(atx-.5*scr, aty-.5*scr, scr, scr, IJ.d2s(scr, 1), new Font("TimesRoman", Font.PLAIN, 1));
+//                tr.setStrokeColor(Color.BLUE);
+//                ov.add(tr);
 
             }
 

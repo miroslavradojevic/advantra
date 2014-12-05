@@ -18,15 +18,22 @@ import java.util.Arrays;
 public class BayesianTracerMulti {
 
     public static float[]   sigratios   = new float[]{1/8f, 1/4f, 1/2f, 1/1f};          // different shapes
-    public static float[]  sstep       = new float[]{.5f, .75f, 1.0f};                 // scale of the measurement (keep it ascending)
-    public static int Ni = 6;                                                           // how many times to step with radius scaled steps to make sense EMPIRICAL
-    private static SemiCircle scirc = new SemiCircle();
+    public static float[]  sstep        = new float[]{.5f, .75f, 1.0f};                 // scale of the measurement (keep it ascending)
+    public static int Ni                = 6;                                                           // how many times to step with radius scaled steps to make sense EMPIRICAL
+    private static SemiCircle scirc     = new SemiCircle();
 
-    private static int         Rmax = -1; // needs initialisation
-    private static float[][]   tt      = new float[sigratios.length][]; // templates to be matched when filtering 2*Rcnt+1
-    private static float[]     tta     = new float[sigratios.length];
+    private static int         Rmax     = -1; // needs initialisation
 
-    public static void run2d(
+    private static float       step_big = Float.NaN; // used to change bayesian filtering prediction steps depending on the iteration index
+    private static float       step_sml = 1.2f; // these are limit values
+    private static float       lbd      = Float.NaN; // slope such that exponentioal decrease complies big and small values...
+
+    private static float[][]   tt       = new float[sigratios.length][]; // templates to be matched when filtering 2*Rcnt+1
+    private static float[]     tta      = new float[sigratios.length];
+
+    public enum Expansion {OUTER, INNER}
+
+    public static void spherical_wavefront_2d(
             float       at_x,
             float       at_y,
             float[][]   img_xy,
@@ -45,7 +52,7 @@ public class BayesianTracerMulti {
 //            float[]     ptes,
 //            float[]     lhoods,
 //            byte[]      parents,
-
+            Expansion   expan,
             float[][][] xt,             // Ni+1 x Ns X 4 (x,y,vx,vy)
             float[][]   wt,             // Ni+1 x Ns
             byte[][]    pt,             // Ni+1 x Ns
@@ -53,9 +60,9 @@ public class BayesianTracerMulti {
     )
     {
 
-        float big_iter_step = 0.75f*Rmax*sstep[sstep.length-1]; // stepping further in motion model when tracing is defined with scale - heuristic
-        float small_iter_step = 1.2f; // related to the resolution, just enought to capture
-        float lbd = (float) (Math.log(small_iter_step/big_iter_step)/(1-Ni));
+        //float big_iter_step = 0.75f*Rmax*sstep[sstep.length-1]; // stepping further in motion model when tracing is defined with scale - heuristic
+//        float small_iter_step = 1.2f; // related to the resolution, just enought to capture
+//        float lbd = (float) (Math.log(small_iter_step/big_iter_step)/(1-Ni));
 
         // number of locations and allocated to cover the pi region, allocate the states for iter=0
         for (int i = 0; i < Ns; i++) {
@@ -80,7 +87,15 @@ public class BayesianTracerMulti {
 
         while (iter<=Ni) {
 
-            float iter_step = (float) (big_iter_step*Math.exp(-lbd*(iter-1)));
+            int iter_used;
+            if (expan==Expansion.OUTER) iter_used = iter;
+            else if (expan==Expansion.INNER) iter_used = Ni+1-iter;
+            else {
+                System.out.println("ERROR -- wrong expansion!");
+                break;
+            }
+
+            float iter_step = (float) (step_big*Math.exp(-lbd*(iter_used-1)));
 
             bayesian_iteration(img_xy,iter,iter_step, Ns, sigma_deg, xt,wt,pt,mt);// xt[iter], wt[iter], pt[iter]
 
@@ -258,19 +273,22 @@ public class BayesianTracerMulti {
 
     }
 
-    public static void init(int _L) // templates will be 2L+1 samples
+    public static void init(int _R) // templates will be 2L+1 samples
     {
-        Rmax = _L; // scale
+        Rmax = _R; // scale
 
-        tt = new float[sigratios.length][2*_L+1];
+        step_big = 0.75f*Rmax*sstep[sstep.length-1]; // big step is dependent on the scale - small step is ~ resolution
+        lbd = (float) (Math.log(step_sml/step_big)/(1-Ni));
+
+        tt = new float[sigratios.length][2*_R+1];
         tta = new float[sigratios.length];
         for (int i = 0; i < sigratios.length; i++) {
             float ag = 0;
-            for (int j = 0; j < 2*_L+1; j++) {
-                tt[i][j] = (float) Math.exp(-Math.pow(j-_L,2)/(2*Math.pow(sigratios[i]*_L,2)));
+            for (int j = 0; j < 2*_R+1; j++) {
+                tt[i][j] = (float) Math.exp(-Math.pow(j-_R,2)/(2*Math.pow(sigratios[i]*_R,2)));
                 ag += tt[i][j];
             }
-            tta[i] = ag/(2*_L+1);
+            tta[i] = ag/(2*_R+1);
         }
 
     }

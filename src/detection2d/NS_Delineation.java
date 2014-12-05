@@ -32,6 +32,7 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
     int Ns              = 50;    // nr samples
     float sigma_deg     = 100;   // degrees standard deviation
     int Nstreams        = 4;     //
+    BayesianTracerMulti.Expansion expan = BayesianTracerMulti.Expansion.INNER;
 
     // foreground extraction
     int percentile = 90;    // how many to keep as the foreground/background, neighbourhood will be defined with radius and
@@ -226,7 +227,7 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
 
         Extractor.loadTemplate(2, R, Ns, sigma_deg, Nstreams);
         boolean show_tracks = false;
-        Overlay oo = Extractor.extractAt(clickX, clickY, likelihood_xy, show_tracks);
+        Overlay oo = Extractor.extractAt(clickX, clickY, likelihood_xy, show_tracks, expan);
 
         // bayesian filtering - take cate that it is initilized before
 
