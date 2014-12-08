@@ -1404,6 +1404,31 @@ public class Tools {
 
     }
 
+    public static int[] descendingFloat(ArrayList<Float> a)
+    {
+
+        int[] idx = new int[a.size()];
+
+        for (int i = 0; i < idx.length; i++) idx[i] = i;
+
+        for (int i = 0; i < a.size()-1; i++) {
+            for (int j = i+1; j < a.size(); j++) {
+                if (a.get(j)>a.get(i)) {
+                    float temp = a.get(i);
+                    a.set(i, a.get(j));
+                    a.set(j, temp);
+
+                    int tmp_idx = idx[i];
+                    idx[i]      = idx[j];
+                    idx[j]      = tmp_idx;
+                }
+            }
+        }
+
+        return idx;
+
+    }
+
     public static String getFileExtension(String file_path)
 	{
 		String extension = "";

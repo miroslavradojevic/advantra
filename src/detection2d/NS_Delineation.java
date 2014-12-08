@@ -59,12 +59,13 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
     public void run(String s)
     {
 
+        IJ.log("NS_Delineation...");
+
         // parent map is in bytes - can cover only 256 values (0-255) - that is the limit in number of the states
         if (Ns >= 255) { IJ.log("Parent map (BYTE vals) supports up to 255 states. Current # " + Ns + ". Exiting..."); return; }
 
-         // later will be used to trace, here is initialised to set the scale and the templates to match
-
         // load the image through the menu
+        IJ.log("select image...");
         String in_folder = Prefs.get("id.folder", System.getProperty("user.home"));
         OpenDialog.setDefaultDirectory(in_folder);
         OpenDialog dc = new OpenDialog("Select file");
@@ -76,8 +77,7 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
         ImagePlus img = new ImagePlus(image_path);
         if(img==null) { IJ.log("Input image was null."); return; }
 
-//        stream_map = new byte[img.getWidth()][img.getHeight()];
-
+        IJ.log("loading image...");
         likelihood_xy = new float[img.getWidth()][img.getHeight()]; 	// x~column, y~row
         if (img.getType()== ImagePlus.GRAY8) {
 
@@ -93,7 +93,7 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
                 if (val>mx) mx = val;
             }
 
-            System.out.println("done. range=" + mn + " -- " + mx);
+            IJ.log("done. normalized range=" + mn + " -- " + mx + "(1==255 gray8)");
 
         }
 //        else if (img.getType()==ImagePlus.GRAY32) {
@@ -115,36 +115,28 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
         /*
             extract the foreground -> Masker2D.xy2i, Masker2D.i2xy
          */
-        System.out.print("extracting foreground...");
-        Masker2D.loadTemplate(
-                likelihood_xy, nbhood, nbhood, percentile); //image, margin, check, percentile
-        int totalLocs = likelihood_xy.length * likelihood_xy[0].length;
-        Masker2D ms_jobs[] = new Masker2D[CPU_NR];
-        for (int i = 0; i < ms_jobs.length; i++) {
-            ms_jobs[i] = new Masker2D(i*totalLocs/CPU_NR,  (i+1)*totalLocs/CPU_NR);
-            ms_jobs[i].start();
-        }
-        for (int i = 0; i < ms_jobs.length; i++) {
-            try {
-                ms_jobs[i].join();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-        Masker2D.defineThreshold();
-        Masker2D.formRemainingOutputs();
-        System.out.println(" done. ");
+        IJ.log("extracting foreground...");
+//        Masker2D.loadTemplate(
+//                likelihood_xy, nbhood, nbhood, percentile); //image, margin, check, percentile
+//        int totalLocs = likelihood_xy.length * likelihood_xy[0].length;
+//        Masker2D ms_jobs[] = new Masker2D[CPU_NR];
+//        for (int i = 0; i < ms_jobs.length; i++) {
+//            ms_jobs[i] = new Masker2D(i*totalLocs/CPU_NR,  (i+1)*totalLocs/CPU_NR);
+//            ms_jobs[i].start();
+//        }
+//        for (int i = 0; i < ms_jobs.length; i++) {
+//            try {
+//                ms_jobs[i].join();
+//            } catch (InterruptedException e) {
+//                e.printStackTrace();
+//            }
+//        }
+//        Masker2D.defineThreshold();
+//        Masker2D.formRemainingOutputs();
+        IJ.log(" done. ");
 
 //        ImagePlus mask = new ImagePlus("mask", Masker2D.getMask());
 //        mask.show();//      IJ.saveAs(mask, "Tiff", midresults_dir+"mask_"+D[didx]+".tif");
-
-
-
-
-
-
-
-
 
 
         // show it and get the canvas
@@ -154,7 +146,7 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
         cnv.addMouseMotionListener(this);
         IJ.setTool("hand");
 
-        System.out.println("ready...");
+        Extractor.loadTemplate(2, R, Ns, sigma_deg, Nstreams);
 
 //        vizTag.show();
 //        vizTag.getCanvas().zoom100Percent();
@@ -225,9 +217,8 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
 
         long t1 = System.currentTimeMillis();
 
-        Extractor.loadTemplate(2, R, Ns, sigma_deg, Nstreams);
         boolean show_tracks = true;
-        Overlay oo = Extractor.extractAt(clickX, clickY, likelihood_xy, show_tracks, expan);
+        Overlay oo = Extractor.extractAt(clickX, clickY, 2*R, likelihood_xy, show_tracks, expan);
 
         // bayesian filtering - take cate that it is initilized before
 //        extract(xt, wt, pt, Nstreams, stream_map, delin); // states, weights, parent_index, nr_streams, overlap_margin, output_delineation
@@ -250,7 +241,7 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
 
         long t2 = System.currentTimeMillis();
         float tt = (t2-t1)/1000f;
-        System.out.println("     "+ tt + "sec. whole image would take " + (tt*Masker2D.i2xy.length));
+        System.out.println("     "+ tt + "sec.");
 
 //        vizTag.setProcessor(getTag());
 //        vizTag.updateAndDraw();
@@ -271,7 +262,7 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
 
     public void mouseMoved(MouseEvent e)
     {
-        mouseClicked(e);
+//        mouseClicked(e);
     }
 
     private static void fmm(

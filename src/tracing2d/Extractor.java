@@ -2,8 +2,11 @@ package tracing2d;
 
 import aux.Interpolator;
 import aux.Stat;
+import aux.Tools;
+import detection2d.MyColors;
 import ij.IJ;
 import ij.gui.*;
+import ij.process.ByteProcessor;
 
 import java.awt.*;
 import java.util.ArrayList;
@@ -25,8 +28,8 @@ public class Extractor extends Thread {
     public  static int       nstreams;
     private static int       dim;
 
-    private static int merging_margin_step = 1; // after this stream iteration index merging of the confluent paths is possible
-    private static float merging_margin_dist = 1f;
+//    private static int merging_margin_step = 1; // after this stream iteration index merging of the confluent paths is possible
+//    private static float merging_margin_dist = 1f;
 
     public static ArrayList[] i2scores;     // i2scores[0]      is ArrayList<float[]>
     public static ArrayList[] i2locEnd;  // i2terminals[0]      is ArrayList<float[]>
@@ -34,7 +37,7 @@ public class Extractor extends Thread {
 
     // number of iterations is maximum Ni+1 by definition
     private static float[][] wgts_outer; // set of weights assigned to each streamline length (Ni+1) high towards the end
-    private static float[][] wgts_inner; // high at the beginnining
+//    private static float[][] wgts_inner; // high at the beginnining
 
     public Extractor (int n0, int n1)
     {
@@ -70,12 +73,12 @@ public class Extractor extends Thread {
     private  static void weights()
     {
         wgts_outer = new float[BayesianTracerMulti.Ni+1][];
-        wgts_inner = new float[BayesianTracerMulti.Ni+1][];
+//        wgts_inner = new float[BayesianTracerMulti.Ni+1][];
 
         for (int i = 0; i < wgts_outer.length; i++) {
 
             wgts_outer[i] = new float[i+1];
-            wgts_inner[i] = new float[i+1];
+//            wgts_inner[i] = new float[i+1];
             float sum = 0;
 
             for (int j = 0; j <= i; j++) {
@@ -85,7 +88,7 @@ public class Extractor extends Thread {
             }
             for (int j = 0; j <= i; j++) {
                 wgts_outer[i][j] /= sum;
-                wgts_inner[i][i-j] = wgts_outer[i][j];
+//                wgts_inner[i][i-j] = wgts_outer[i][j];
             }
 
         }
@@ -134,30 +137,41 @@ public class Extractor extends Thread {
 
     }
 
-    public static Overlay extractAt(int _x, int _y, float[][] _img_xy, boolean _show_tracks, BayesianTracerMulti.Expansion expan) // make a version for threading
+    public static Overlay extractAt(int _x, int _y, float _R, float[][] _img_xy, boolean _show_tracks, BayesianTracerMulti.Expansion expan) // make a version for threading
     {
 
-        float[][][] xt      = new float[BayesianTracerMulti.Ni+1][Ns][4];    // bayesian filtering states (x,y, vx, vy)
-        float[][]   wt      = new float[BayesianTracerMulti.Ni+1][Ns];       // bayesian filtering states
-        byte[][]    pt      = new byte[BayesianTracerMulti.Ni+1][Ns];        // bayesian filtering parent pointer - distribution index of the parent state in previous iteration
-        float[][]   mt      = new float[BayesianTracerMulti.Ni+1][Ns];       // measurements, likelihoods - correlations measured during sequential filtering
+//        float rNhood = BayesianTracerMulti.pred_path;
+        float ratioC = .5f;
+        float dd = 1f;
 
-        BayesianTracerMulti.spherical_wavefront_2d(_x, _y, _img_xy, sigma_deg, Ns, expan, xt, wt, pt, mt);
+        // allocate variables for bayesian filtering (dimensions have to be known in advance)
+        float[][][]     xt      = new float[BayesianTracerMulti.Ni+1][Ns][4];    // bayesian filtering states (x,y, vx, vy)
+        float[][]       wt      = new float[BayesianTracerMulti.Ni+1][Ns];       // bayesian filtering weights
+        byte[][]        pt      = new byte[BayesianTracerMulti.Ni+1][Ns];        // bayesian filtering parent pointer - index of the parent in previous iteration
+        ArrayList[][]   ft      = new ArrayList[BayesianTracerMulti.Ni+1][Ns];   // bayesian filtering follow up point
+        for (int i = 0; i < ft.length; i++) for (int j = 0; j < ft[i].length; j++) ft[i][j] = new ArrayList<Byte>();
+        float[][]       mt      = new float[BayesianTracerMulti.Ni+1][Ns];       // measurements, likelihoods - correlations measured during sequential filtering todo expell this later if not necessary
 
-        ArrayList<float[][]>    delin_locs      = new ArrayList<float[][]>();
-        ArrayList<Boolean>      delin_complete  = new ArrayList<Boolean>();
-        ArrayList<float[]>      delin_scores    = new ArrayList<float[]>();
-        ArrayList<float[]>      delin_values    = new ArrayList<float[]>();
-        ArrayList<float[]>      delin_terminals = new ArrayList<float[]>();
-        ArrayList<Float>        delin_wascores  = new ArrayList<Float>();
-        ArrayList<Float>        delin_wavalues  = new ArrayList<Float>();
+        BayesianTracerMulti.spherical_wavefront_2d(_x, _y, _R, _img_xy, sigma_deg, expan, xt, wt, pt, ft, mt);
 
-        boolean[][] et                          = new boolean[BayesianTracerMulti.Ni+1][Ns];     // extracting streamlines record
+//        ArrayList<float[][]>    delin_locs      = new ArrayList<float[][]>();
+//        ArrayList<Boolean>      delin_complete  = new ArrayList<Boolean>();
+//        ArrayList<float[]>      delin_scores    = new ArrayList<float[]>();
+//        ArrayList<float[]>      delin_values    = new ArrayList<float[]>();
+//        ArrayList<float[]>      delin_terminals = new ArrayList<float[]>();
+//        ArrayList<Float>        delin_wascores  = new ArrayList<Float>();
+//        ArrayList<Float>        delin_wavalues  = new ArrayList<Float>();
 
-        int nrad = extract(_img_xy, nstreams, xt, wt, pt, mt, et, delin_locs, delin_complete, delin_scores, delin_values, delin_terminals, delin_wascores, delin_wavalues);
+        boolean[][] et                          = new boolean[BayesianTracerMulti.Ni+1][Ns];     // extracting track clusters
+        byte[][] trace_map = new byte[BayesianTracerMulti.Ni+1][Ns];
+
+//        extract(_img_xy, _x, _y, _R, ratioC, dd, xt, wt, pt, mt, et,trace_map);
+
+        // local min-max
         float mn = Float.POSITIVE_INFINITY;
         float mx = Float.NEGATIVE_INFINITY;
 
+        int nrad = (int) Math.ceil(_R);
         for (int xx = _x-nrad; xx <= _x+nrad; xx++) {
             if (xx>=0 && xx<_img_xy.length) {
                 for (int yy = _y-nrad; yy <= _y+nrad; yy++) {
@@ -170,75 +184,35 @@ public class Extractor extends Thread {
             }
         }
 
-        System.out.println("\n#\tCPLT\tE(V)");
-        for (int i = 0; i < delin_complete.size(); i++)
-            System.out.println((i+1) + "\t" + delin_complete.get(i) + "\t" + IJ.d2s(delin_wavalues.get(i),3)); //  + Arrays.toString(delin_values.get(i))
+//        Tools.descendingFloat(delin_wavalues);
+//        float score = (delin_wavalues.size()>1)? delin_wavalues.get(0)-delin_wavalues.get(1) : (delin_wavalues.size()==1)? delin_wavalues.get(0)-mn : 0 ;
+//        String resume = "";
+//        for (int i = 0; i < delin_wavalues.size(); i++) resume+= IJ.d2s(delin_wavalues.get(i),3) + "  ";
+//        resume += IJ.d2s(mn,3) + "";
+//        resume += " $" + IJ.d2s(score,3);
+//        IJ.log(resume);
 
-        System.out.println("------------------");
+//        float rad = BayesianTracerMulti.pred_path;
 
+        Overlay ov = new Overlay(); // output
 
-        ArrayList<Float> A = new ArrayList<Float>();
-        ArrayList<Float> B = new ArrayList<Float>();
-        arrange(delin_wavalues, delin_complete, A, B);
+//        TextRoi tr = new TextRoi(_x+rad, _y-rad, rad, rad, resume, new Font("TimesRoman", Font.PLAIN, 1));
+//        tr.setStrokeColor(Color.RED);
+//        ov.add(tr);
 
-        System.out.println("MIN->" + mn);
-        System.out.print("A->"); for (int i = 0; i < A.size(); i++) System.out.print(A.get(i) + "  "); System.out.println("");
-        System.out.print("B->"); for (int i = 0; i < B.size(); i++) System.out.print(B.get(i) + "  "); System.out.println("");
-        System.out.println("MAX->" + mx);
-
-        Overlay ov = new Overlay();
-        Overlay ov_xt = viz_xt(xt, wt, pt, et, _show_tracks);
+        Overlay ov_xt = viz_xt(xt, wt, pt, trace_map, _show_tracks);
         for (int i = 0; i < ov_xt.size(); i++) ov.add(ov_xt.get(i));
-        Overlay ov_delin = viz_delin(delin_locs, delin_scores, delin_values, delin_terminals);
-        for (int i = 0; i < ov_delin.size(); i++) ov.add(ov_delin.get(i));
-        float rad = BayesianTracerMulti.pred_path;//(float) Math.sqrt(Math.pow(_delin_terminals.get(0)[0]-_delin_locs.get(0)[0][0],2)+Math.pow(_delin_terminals.get(0)[1]-_delin_locs.get(0)[1][0],2));
-        OvalRoi circ = new OvalRoi(_x-rad+.5, _y-rad+.5, 2*rad, 2*rad);
+//        Overlay ov_delin = viz_delin(delin_locs, delin_values, delin_terminals);
+//        for (int i = 0; i < ov_delin.size(); i++) ov.add(ov_delin.get(i));
+
+        OvalRoi circ = new OvalRoi(_x-_R+.5, _y-_R+.5, 2*_R, 2*_R);
         circ.setStrokeColor(Color.RED);
         ov.add(circ);
-
+        OvalRoi circ_center = new OvalRoi(_x-_R*ratioC+.5, _y-_R*ratioC+.5, 2*_R*ratioC, 2*_R*ratioC);
+        circ_center.setStrokeColor(Color.RED);
+        ov.add(circ_center);
 
         return ov;
-
-    }
-
-    private static void extract_bottom_top(
-            float[][]               _in_xy,
-            int                     _nr_streams,
-            float[][][]             _xt,
-            float[][]               _wt,
-            byte[][]                _pt,
-            float[][]               _mt,
-            boolean[][]             _et,
-            ArrayList<float[][]>    _delin_locs,
-            ArrayList<Boolean>      _delin_complete,
-            ArrayList<float[]>      _delin_scores,
-            ArrayList<float[]>      _delin_values,
-            ArrayList<float[]>      _delin_terminals,
-            ArrayList<Float>        _delin_wascores,
-            ArrayList<Float>        _delin_wavalues
-    )
-    {
-        float[][] wgts = wgts_outer;
-
-        for (int i = 0; i < _et.length; i++) // reset examined map
-            for (int j = 0; j < _et[i].length; j++)
-                if (_et[i][j]) _et[i][j] = false;
-
-        _delin_locs.clear();
-        _delin_complete.clear();
-        _delin_scores.clear();
-        _delin_values.clear();
-        _delin_terminals.clear();
-
-        int curr_streams = 0;
-
-        boolean all_examined;
-
-        do {
-
-        }
-        while (curr_streams<_nr_streams && !all_examined);
-
 
     }
 
@@ -258,161 +232,214 @@ public class Extractor extends Thread {
         return max_index;
     }
 
-    private static void  extract_top_bottom(
+    private static int  extract(
             float[][]               _in_xy,
-            int                     _nr_streams,
+            float                   _xc,
+            float                   _yc,
+            float                   _r,
+            float                   _ratio_center,
+            float                   _nearness,
             float[][][]             _xt,                // states
             float[][]               _wt,                // weights (posteriors)
-            byte[][]                _pt,                // parent
+            byte[][]                _pt,                // parent (needed for top-bottom)
             float[][]               _mt,                // measurements (likelihoods, correlations)
-            boolean[][]             _et,                // existing in the back track (auxillliary map)
-            ArrayList<float[][]>    _delin_locs,
-            ArrayList<Boolean>      _delin_complete,
-            ArrayList<float[]>      _delin_scores,
-            ArrayList<float[]>      _delin_values,
-            ArrayList<float[]>      _delin_terminals,
-            ArrayList<Float>        _delin_wascores,
-            ArrayList<Float>        _delin_wavalues
+            boolean[][]                _et,             // examined map (auxiliary map for extraction methods)
+            byte[][]                _trace_map
+//            ArrayList<float[][]>    _delin_locs,
+//            ArrayList<float[]>      _delin_scores,
+//            ArrayList<float[]>      _delin_values,
+//            ArrayList<Float>        _region_averages,
+//            ArrayList<float[]>      _region_terminals
+//            ArrayList<Float>        _delin_wascores,
+//            ArrayList<Float>        _delin_wavalues
     )
     {
 
-        float[][] wgts = wgts_outer;//(_expan== BayesianTracerMulti.Expansion.OUTER)? wgts_outer : (_expan== BayesianTracerMulti.Expansion.INNER)? wgts_inner : null;
-//        int merging_margin_idx = merging_margin_step;//(_expan== BayesianTracerMulti.Expansion.OUTER)? merging_margin_step : (_expan== BayesianTracerMulti.Expansion.INNER)? _xt.length-1-merging_margin_step : null;
-
         for (int i = 0; i < _et.length; i++) // reset examined map
             for (int j = 0; j < _et[i].length; j++)
-                if (_et[i][j]) _et[i][j] = false;
+            {
+                _et[i][j] = false;
+                _trace_map[i][j] = (byte) 255;
+            }
 
-        _delin_locs.clear();
-        _delin_complete.clear();
-        _delin_scores.clear();
-        _delin_values.clear();
-        _delin_terminals.clear();
+//        _delin_locs.clear();
+//        _delin_complete.clear();
+//        _delin_scores.clear();
+//        _delin_values.clear();
+//        _region_terminals.clear();
 
-        int curr_streams = 0;
+        ArrayList<Integer> path_i = new ArrayList<Integer>();
+        ArrayList<Integer> path_s = new ArrayList<Integer>();
 
         boolean all_examined;
+        int curr_streams = 0; // stream counter
 
         do {
 
-            float max_score;
             int max_idx_samp = -1;
             int max_idx_iter = -1;
 
-            for (int i = _wt.length-1; i > merging_margin_step; i--) { // loop bayesian iterations backwards
+            for (int i = _wt.length-1; i >= 0; i--) { // loop bayesian iterations backwards
 
                 max_idx_iter = i;
 
-                max_idx_samp = pickmax(_wt[i], _et[i]);
+                max_idx_samp = pickmax(_wt[i], _et[i]); // pick next max among those that were not examined in iteration i
 
-                if (max_idx_samp!=-1) {
-                    max_score = _wt[i][max_idx_samp];
-                    break;
-                }
+                if (max_idx_samp!=-1) break;
             }
 
             all_examined = false;
 
-            if (max_idx_samp!=-1 && max_idx_iter!=-1) { // max was found in the loop at one index, otherwise it will stop checking
+            if (max_idx_samp!=-1 && max_idx_iter!=-1) { // max was found at iteration max_idx_iter and sample index max_idx_samp
 
-                boolean is_overlapping = false;
-                boolean is_close = false;
+                float startx = _xt[max_idx_iter][max_idx_samp][0];
+                float starty = _xt[max_idx_iter][max_idx_samp][1];
 
+                if (Math.sqrt(Math.pow(startx - _xc, 2) + Math.pow(starty - _yc, 2))/_r<=_ratio_center) {
 
-                // auxilliary array to fill up during the back track
-                float[][]   temp_locs = new float[2][max_idx_iter+1]; // x=0,y=1
-                float[]     temp_scores = new float[max_idx_iter+1];
-                float[]     temp_values = new float[max_idx_iter+1];
+                    int sidx = max_idx_samp;
+                    boolean is_overlapping = false;
+                    boolean is_close = false;
+//                    boolean passes_center = false;
 
-                int sidx = max_idx_samp;
+                    byte label_found = (byte)255;
 
-                for (int iidx = max_iter; iidx >=0 ; iidx--) { // top-bottom
+                    path_i.clear();
+                    path_s.clear();
 
-                    if (!is_close && iidx>merging_margin_step) {
-                        if (_et[iidx][sidx]) {
-                            is_overlapping = true; // hm
-                        }
-                        else {
-                            for (int t = 0; t < _xt[iidx].length; t++) {
-                                if (_et[iidx][t] && t!=sidx && Math.pow(_xt[iidx][t][0]-_xt[iidx][sidx][0],2)+Math.pow(_xt[iidx][t][1]-_xt[iidx][sidx][1],2)<=Math.pow(merging_margin_dist,2)) {
-                                    is_close = true; // hm
-                                    break;
+                    for (int iidx = max_idx_iter; iidx >=0 ; iidx--) { // top-bottom
+
+                        _et[iidx][sidx] = true;
+                        path_i.add(iidx);
+                        path_s.add(sidx);
+
+                        float currx = _xt[iidx][sidx][0];
+                        float curry = _xt[iidx][sidx][1];
+
+                        float relative_r = (float) (Math.sqrt(Math.pow(currx - _xc, 2) + Math.pow(curry - _yc, 2)) / _r);
+//                        if (!passes_center) {  passes_center = relative_r <= _ratio_center; }
+
+                        if (relative_r > _ratio_center && !is_close && !is_overlapping) { // allow merging below merging_margin_step of top-bottom
+                            if (_trace_map[iidx][sidx]!=(byte)255) {
+//                            System.out.println("^^there was an overlap!");
+                                label_found = _trace_map[iidx][sidx];
+                                is_overlapping = true;
+                            }
+                            else {
+                                for (int titer = 0; titer < _xt.length; titer++) {
+                                    for (int t = 0; t < _xt[titer].length; t++) {
+                                        if (_trace_map[titer][t]!=(byte)255) {
+
+                                            if (!(titer==iidx && t == sidx)) {
+
+                                                float checkx = _xt[titer][t][0];
+                                                float checky = _xt[titer][t][1];
+
+                                                if (Math.sqrt(Math.pow(checkx - _xc, 2) + Math.pow(checky - _yc, 2)) / _r > _ratio_center) {
+                                                    if (Math.pow(checkx - currx, 2) + Math.pow(checky - curry, 2) <= Math.pow(_nearness, 2)) {
+                                                        label_found = _trace_map[titer][t];
+                                                        is_close = true;
+                                                    }
+                                                }
+
+                                            }
+                                            else IJ.log("wrong!!");
+
+                                        }
+                                    }
                                 }
                             }
                         }
+
+//                        if (is_overlapping) break; // it is guaranteed that the all the iterations backwards are marked as examined
+//                        if (!is_close) { // no need to store them further - won't be added anyway, just to fill _et examined map
+//                            temp_locs[0][iidx] = _xt[iidx][sidx][0];
+//                            temp_locs[1][iidx] = _xt[iidx][sidx][1];
+//                            temp_scores[iidx] = _mt[iidx][sidx];
+//                            temp_values[iidx] = Interpolator.interpolateAt(_xt[iidx][sidx][0], _xt[iidx][sidx][1], _in_xy);
+//                        }
+
+                        sidx = _pt[iidx][sidx]&0xff; // recursion backtrack
+
+                    }// top-bottom
+
+                    if (is_overlapping || is_close) {
+                        for (int i = 0; i < path_i.size(); i++) {
+                            _trace_map[path_i.get(i)][path_s.get(i)] = label_found;
+                        }
+                    }
+                    else {
+                        for (int i = 0; i < path_i.size(); i++) {
+                            _trace_map[path_i.get(i)][path_s.get(i)] = (byte)curr_streams;
+                        }
+                        curr_streams++;
                     }
 
-                    _et[iidx][sidx] = true;
+//                    if (!is_overlapping && !is_close) { // will occur up to 4 times
+//
+//                        // locs xy * length
+//
+//                        float[][]   add_locs    = new float[temp_locs.length][path_len];
+//                        float[]     add_scores  = new float[path_len];
+//                        float[]     add_values  = new float[path_len];
+//
+//                        float add_wascores = 0;
+//                        float add_wavalues = 0;
+//
+//                        for (int i = 0; i < path_len; i++) {
+//
+//                            add_locs[0][i] = temp_locs[0][i];
+//                            add_locs[1][i] = temp_locs[1][i];
+//                            add_scores[i] = temp_scores[i];
+//                            add_values[i] = temp_values[i];
+//
+//                            add_wascores += wgts_outer[path_len-1][i] * add_scores[i]; // weights for L long vectors are at wgts[L-1] index
+//                            add_wavalues += wgts_outer[path_len-1][i] * add_values[i];
+//
+//                        }
+//
+//                        _delin_locs.add(add_locs);
+//
+//                        // complete
+////                    _delin_complete.add(path_len == _xt.length);
+//
+//                        // scores
+////                        _delin_scores.add(add_scores);
+////                        _delin_wascores.add(add_wascores);
+//
+//
+//                        // values
+//                        _delin_values.add(add_values);
+//                        _delin_wavalues.add(add_wavalues);
+//
+//                        // terminal locations // if (path_len == _xt.length)
+//                        _delin_terminals.add(new float[]{temp_locs[0][0],temp_locs[1][0]}); // {_xt[max_idx_iter][max_idx_samp][0], _xt[max_idx_iter][max_idx_samp][1]}
+//
+//                        curr_streams++;
+//
+//                    }
 
-                    if (is_overlapping) break;
 
-                    if (!is_close) { // no need to store them  won't be added anyway, just to fill _et
 
-                        temp_locs[0][iidx] = _xt[iidx][sidx][0];
-                        temp_locs[1][iidx] = _xt[iidx][sidx][1];
-
-                        temp_scores[iidx] = _mt[iidx][sidx];
-
-                        temp_values[iidx] = Interpolator.interpolateAt(_xt[iidx][sidx][0], _xt[iidx][sidx][1], _in_xy);
-
-                    }
-
-                    sidx = _pt[iidx][sidx]&0xff;
-
-                }// top-bottom
-
-                if (!is_overlapping && !is_close) { // will occur up to 4 times
-
-                    // locs xy * length
-                    float[][]   add_locs    = new float[temp_locs.length][max_iter+1];
-                    float[]     add_scores  = new float[max_iter+1];
-                    float[]     add_values  = new float[max_iter+1];
-
-                    float add_wascores = 0;
-                    float add_wavalues = 0;
-
-                    for (int i = 0; i < max_iter+1; i++) {
-
-                        add_locs[0][i] = temp_locs[0][i];
-                        add_locs[1][i] = temp_locs[1][i];
-                        add_scores[i] = temp_scores[i];
-                        add_values[i] = temp_values[i];
-
-                        add_wascores += wgts[max_iter][i] * add_scores[i];
-                        add_wavalues += wgts[max_iter][i] * add_values[i];
-
-                    }
-
-                    _delin_locs.add(add_locs);
-
-                    // complete
-                    _delin_complete.add(temp_locs[0].length == _xt.length);
-
-                    // scores
-                    _delin_scores.add(add_scores);
-                    _delin_wavalues.add(add_wavalues);
-
-                    // values
-                    _delin_values.add(add_values);
-                    _delin_wascores.add(add_wascores);
-
-                    // terminal locations
-                    if (temp_locs[0].length == _xt.length) _delin_terminals.add(new float[]{_xt[max_iter][max_idx][0], _xt[max_iter][max_idx][1]});
-
-                    curr_streams++;
 
                 }
+                else _et[max_idx_iter][max_idx_samp] = true;
+
+//                int path_len = max_idx_iter + 1;
+//
+//                // auxilliary array to fill up during the back track
+//                float[][]   temp_locs   = new float[2][path_len]; // x=0,y=1
+//                float[]     temp_scores = new float[path_len];
+//                float[]     temp_values = new float[path_len];
 
             }
             else all_examined = true;
 
         }
-        while (curr_streams<_nr_streams && !all_examined);
+        while (!all_examined); // curr_streams<1 &&
 
-        // return neighbourhood radius
-        //int nradius = (int) Math.round(Math.sqrt(Math.pow(_delin_terminals.get(0)[0] - _delin_locs.get(0)[0][0], 2) + Math.pow(_delin_terminals.get(0)[1] - _delin_locs.get(0)[1][0], 2)));
-        //return nradius;
-
+//        IJ.log(curr_streams + " streams");
+return curr_streams;
     }
 
     private static void arrange(ArrayList<Float> _vals, ArrayList<Boolean> _compl, ArrayList<Float> _A, ArrayList<Float> _B)
@@ -446,11 +473,19 @@ public class Extractor extends Thread {
         }
     }
 
-    private static Overlay viz_delin(ArrayList<float[][]> _delin_locs, ArrayList<float[]> _delin_scores, ArrayList<float[]> _delin_values, ArrayList<float[]> _delin_terminals)
+    private static Overlay viz_delin(ArrayList<float[][]> _delin_locs, ArrayList<float[]> _delin_values, ArrayList<float[]> _delin_terminals)
     {
         Overlay ov = new Overlay();
 
+//        System.out.println(_delin_locs.size() + "delineations");
+
         for (int i = 0; i < _delin_locs.size(); i++) {
+
+            float[] plgx = _delin_locs.get(i)[0];
+            for (int j = 0; j < plgx.length; j++) plgx[j] += .5;
+
+            float[] plgy = _delin_locs.get(i)[1];
+            for (int j = 0; j < plgy.length; j++) plgy[j] += .5;
 
             for (int j = 0; j < _delin_locs.get(i)[0].length; j++) {
 
@@ -462,33 +497,30 @@ public class Extractor extends Thread {
 //                pt.setFillColor(Color.RED);
 //                pt.setStrokeColor(Color.RED);
 
-                float atx = _delin_locs.get(i)[0][j]+ .5f;
-                float aty = _delin_locs.get(i)[1][j]+ .5f;
+                float atx = plgx[j]; //_delin_locs.get(i)[0][j]+ .5f;
+                float aty = plgy[j]; //_delin_locs.get(i)[1][j]+ .5f;
                 float scr = .5f;//_delin_values.get(i)[j];
 
-                OvalRoi ovr = new OvalRoi(atx-.5*scr, aty-.5*scr, scr, scr);
-                if (i==0) ovr.setFillColor(Color.RED);
-                if (i==1) ovr.setFillColor(Color.ORANGE);
-                if (i==2) ovr.setFillColor(Color.GREEN);
-                if (i==3) ovr.setFillColor(Color.BLUE);
-                ov.add(ovr);
+//                OvalRoi ovr = new OvalRoi(atx-.5*scr, aty-.5*scr, scr, scr);  ovr.setFillColor(Color.RED);
 
-//                TextRoi tr = new TextRoi(atx-.5*scr, aty-.5*scr, scr, scr, IJ.d2s(scr, 1), new Font("TimesRoman", Font.PLAIN, 1));
-//                tr.setStrokeColor(Color.BLUE);
-//                ov.add(tr);
+//                if (i==0) ovr.setFillColor(Color.RED);
+//                if (i==1) ovr.setFillColor(Color.ORANGE);
+//                if (i==2) ovr.setFillColor(Color.GREEN);
+//                if (i==3) ovr.setFillColor(Color.BLUE);
+//                ov.add(ovr);
 
             }
 
-//            PolygonRoi plg = new PolygonRoi(plgx, plgy, Roi.FREELINE);
-//            plg.setStrokeColor(Color.RED);
-//            plg.setFillColor(Color.RED);
-//            plg.setStrokeWidth(.25f);
-//            ov.add(plg);
+            PolygonRoi plg = new PolygonRoi(plgx, plgy, Roi.FREELINE);
+            plg.setStrokeColor(Color.RED);
+            plg.setFillColor(Color.RED);
+            plg.setStrokeWidth(.25f);
+            ov.add(plg);
 
         }
 
         for (int i = 0; i < _delin_terminals.size(); i++) {
-            OvalRoi ovr = new OvalRoi(_delin_terminals.get(i)[0]-.5, _delin_terminals.get(i)[1]-.5, 1, 1);
+            OvalRoi ovr = new OvalRoi(_delin_terminals.get(i)[0]-.5+.5, _delin_terminals.get(i)[1]-.5+.5, 1, 1);
             ovr.setFillColor(Color.RED);
             ov.add(ovr);
         }
@@ -507,7 +539,7 @@ public class Extractor extends Thread {
 
     }
 
-    private static Overlay viz_xt(float[][][] xt, float[][] wt, byte[][] pt, boolean[][] _et, boolean show_tracks)
+    private static Overlay viz_xt(float[][][] xt, float[][] wt, byte[][] pt, byte[][] _et, boolean show_tracks)
     {
 
         float rad = .5f;
@@ -524,12 +556,15 @@ public class Extractor extends Thread {
 //                    p.setFillColor(new Color(1f,0f,0f,wt[i][j]));
 //                else
 
-                if (i==0) p.setFillColor(new Color(0f, 1f, 0f, 1f)); // wt[i][j]
-                else p.setFillColor(new Color(1f, 1f, 1f, wt[i][j]));
-
-//                if (!_et[i][j]) p.setFillColor(new Color(1f, 1f, 0f, wt[i][j]));
-
-                ov.add(p);
+//                if (i==0) p.setFillColor(new Color(0f, 1f, 0f, 1f)); // wt[i][j]
+//                else p.setFillColor(new Color(1f, 1f, 1f, wt[i][j]));
+                if (i==xt.length-1) { // _et[i][j]!=(byte)255 _et[i][j] & 0xff
+                    p.setFillColor(new Color(MyColors.getR(0), MyColors.getG(0), MyColors.getB(0), wt[i][j]));
+                }
+                else {
+                    p.setFillColor(new Color(1f, 1f, 1f, wt[i][j]));
+                }
+                //ov.add(p);
 
 //                PointRoi pt = new PointRoi(xt[i][j][0]+.5, xt[i][j][1]+.5);
 //                pt.setStrokeColor(new Color(1f,1f,1f,wt[i][j]));
@@ -541,24 +576,21 @@ public class Extractor extends Thread {
 
         if (show_tracks) {
 
-            float[] trackx = new float[xt.length];
-            float[] tracky = new float[xt.length];
-
-            for (int i = 0; i < Ns; i++) {
-                int curr = i;
-                for (int t = xt.length-1; t >= 0; t--) {
-                    trackx[t] = xt[t][curr][0] + .5f;
-                    tracky[t] = xt[t][curr][1] + .5f;
-                    curr = pt[t][curr]&0xff;
+            for (int i = 1; i < xt.length; i++) {
+                for (int j = 0; j < xt[i].length; j++) {
+                    float currx = xt[i][j][0]+.5f;
+                    float curry = xt[i][j][1]+.5f;
+                    float prevx = xt[i-1][pt[i][j]&0xff][0]+.5f;
+                    float prevy = xt[i-1][pt[i][j]&0xff][1]+.5f;
+                    ov.add(new Line(currx, curry, prevx, prevy));
                 }
-                PolygonRoi proi = new PolygonRoi(trackx, tracky, Roi.FREELINE);
-                proi.setFillColor(Color.WHITE);
-                proi.setStrokeColor(Color.WHITE);
-                ov.add(proi);
             }
+
         }
 
         return ov;
     }
 
 }
+
+
