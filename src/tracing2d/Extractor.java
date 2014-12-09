@@ -14,8 +14,9 @@ import java.util.Arrays;
 
 /**
  * Created by miroslav on 29-11-14.
- * extract local number of streamlines, their intensities, average intensities for each streamline
+ * extract local number of streamlines, their intensities based on the cloud of the locations covering, average intensities for each streamline
  * possible to multithread for selected number od locations
+ * possible to call only for one particular location
  */
 public class Extractor extends Thread {
 
@@ -25,7 +26,7 @@ public class Extractor extends Thread {
     public  static int       R;
     public  static int       Ns;
     public  static float     sigma_deg;
-    public  static int       nstreams;
+//    public  static int       nstreams;
     private static int       dim;
 
 //    private static int merging_margin_step = 1; // after this stream iteration index merging of the confluent paths is possible
@@ -50,8 +51,7 @@ public class Extractor extends Thread {
             int     _dim,
             int     _radius,
             int     _nsamples,
-            float   _sigma_deg,
-            int     _nstreams
+            float   _sigma_deg
     )
     {
 
@@ -63,7 +63,6 @@ public class Extractor extends Thread {
         R           = _radius;
         Ns          = _nsamples;
         sigma_deg   = _sigma_deg;
-        nstreams    = _nstreams;
         BayesianTracerMulti.init(R);
 
         weights();
@@ -73,12 +72,10 @@ public class Extractor extends Thread {
     private  static void weights()
     {
         wgts_outer = new float[BayesianTracerMulti.Ni+1][];
-//        wgts_inner = new float[BayesianTracerMulti.Ni+1][];
 
         for (int i = 0; i < wgts_outer.length; i++) {
 
             wgts_outer[i] = new float[i+1];
-//            wgts_inner[i] = new float[i+1];
             float sum = 0;
 
             for (int j = 0; j <= i; j++) {
@@ -88,7 +85,6 @@ public class Extractor extends Thread {
             }
             for (int j = 0; j <= i; j++) {
                 wgts_outer[i][j] /= sum;
-//                wgts_inner[i][i-j] = wgts_outer[i][j];
             }
 
         }
@@ -99,8 +95,7 @@ public class Extractor extends Thread {
             int[][] _i2loc,
             int     _radius,
             int     _nsamples,
-            float   _sigma_deg,
-            int     _nstreams
+            float   _sigma_deg
     )
     {
         i2loc   = _i2loc;
@@ -118,7 +113,6 @@ public class Extractor extends Thread {
         R       = _radius;
         Ns      = _nsamples;
         sigma_deg   = _sigma_deg;
-        nstreams    = _nstreams;
         BayesianTracerMulti.init(R);
 
         weights();

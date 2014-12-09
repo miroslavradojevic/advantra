@@ -19,6 +19,7 @@ import java.util.ArrayList;
 
 /**
  * Created by miroslav on 11-11-14.
+ * will demonstrate local delineation sampling used to extract the features for critpoint detection
  */
 public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListener {
 
@@ -27,39 +28,15 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
     String      image_path;
     float[][]   likelihood_xy;
 
-    // bayesian filtering
     int R               = 4;     // will cover radiuses R * BayesianTracerMulti.sstep
     int Ns              = 50;    // nr samples
     float sigma_deg     = 100;   // degrees standard deviation
-    int Nstreams        = 4;     //
     BayesianTracerMulti.Expansion expan = BayesianTracerMulti.Expansion.INNER;
 
-    // foreground extraction
-    int percentile = 95;    // how many to keep as the foreground/background, neighbourhood will be defined with radius and
-    int nbhood = (int) Math.ceil(2*R*BayesianTracerMulti.sstep[BayesianTracerMulti.sstep.length-1]);
-    int CPU_NR = Runtime.getRuntime().availableProcessors() + 1;
-
-    // output
-//    ArrayList<ArrayList<float[]>> delin = new ArrayList<ArrayList<float[]>>(); // will store the spatial delineation
-
-//    float[][][] xc = new float[Ni][Ns][2];    // mean-shift convergence of the bayesian filtered states (x, y)
-//    float[][][] xcc = new float[Ni][Nc][2];    // after clustering the converged values - take up to Nc clusters
-//    float[][]   dsts = new float[Ns][Ns];       // inter distances - used as a clustering criteria
-//    int[]       cllab = new int[Ns];                // clustering labels at each iteration
-//    byte[][]     tag = new byte[Ni][Nc];       // fmm tags (0, 1, 2)
-//    byte[][]     par = new byte[Ni][Nc];       // fmm pointers (-2, -1, 0, 1, 2, 3)
-//    float[][]    cst = new float[Ni][Nc];      // fmm scores
-    // aux
-//    float[]     xn = new float[2];            // new one for the mean-shift (auxilliary variable)
-//    ArrayList<int[]>    heap_vals = new ArrayList<int[]>();      // rank, Ni idx, N curr idx, N prev idx
-//    ArrayList<Float>    heap_scrs = new ArrayList<Float>();          // scores
-
-    Overlay ov = new Overlay();
+    Overlay oo = new Overlay();
 
     public void run(String s)
     {
-
-        IJ.log("NS_Delineation...");
 
         // parent map is in bytes - can cover only 256 values (0-255) - that is the limit in number of the states
         if (Ns >= 255) { IJ.log("Parent map (BYTE vals) supports up to 255 states. Current # " + Ns + ". Exiting..."); return; }
@@ -107,105 +84,14 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
             return;
         }
 
-
-
-
-
-
-        /*
-            extract the foreground -> Masker2D.xy2i, Masker2D.i2xy
-         */
-        IJ.log("extracting foreground...");
-//        Masker2D.loadTemplate(
-//                likelihood_xy, nbhood, nbhood, percentile); //image, margin, check, percentile
-//        int totalLocs = likelihood_xy.length * likelihood_xy[0].length;
-//        Masker2D ms_jobs[] = new Masker2D[CPU_NR];
-//        for (int i = 0; i < ms_jobs.length; i++) {
-//            ms_jobs[i] = new Masker2D(i*totalLocs/CPU_NR,  (i+1)*totalLocs/CPU_NR);
-//            ms_jobs[i].start();
-//        }
-//        for (int i = 0; i < ms_jobs.length; i++) {
-//            try {
-//                ms_jobs[i].join();
-//            } catch (InterruptedException e) {
-//                e.printStackTrace();
-//            }
-//        }
-//        Masker2D.defineThreshold();
-//        Masker2D.formRemainingOutputs();
-        IJ.log(" done. ");
-
-//        ImagePlus mask = new ImagePlus("mask", Masker2D.getMask());
-//        mask.show();//      IJ.saveAs(mask, "Tiff", midresults_dir+"mask_"+D[didx]+".tif");
-
-
-        // show it and get the canvas
-        img.show();
+        img.show(); // show it and get the canvas
         cnv = img.getCanvas();
         cnv.addMouseListener(this);
         cnv.addMouseMotionListener(this);
         IJ.setTool("hand");
 
-        Extractor.loadTemplate(2, R, Ns, sigma_deg, Nstreams);
-
-//        vizTag.show();
-//        vizTag.getCanvas().zoom100Percent();
-
-    }
-
-    public static Overlay viz_xc(float[][][] xc)
-    {
-
-//        float rad = .5f;
-
-        Overlay ov = new Overlay();
-        for (int i = 0; i < xc.length; i++) { // iterations
-
-//            Stat.min_max_normalize(wt[i]);
-
-            for (int j = 0; j <xc[i].length; j++) {
-
-                PointRoi p = new PointRoi(xc[i][j][0]+.5, xc[i][j][1]+.5);
-//                p.setFillColor(new Color(1f,1f,1f,wt[i][j]));
-//                Line l = new Line(xt[i][j][0]+.5, xt[i][j][1]+.5, xt[i][j][0]+xt[i][j][2]+.5, xt[i][j][1]+xt[i][j][3]+.5);
-
-                ov.add(p);
-//                ov.add(l);
-
-            }
-        }
-
-        return ov;
-    }
-
-    public static Overlay viz_xcc(float[][][] xcc) // Ni*4*2
-    {
-
-//        float rad = .5f;
-
-        Overlay ov = new Overlay();
-        for (int i = 0; i < xcc.length; i++) { // iterations
-
-//            Stat.min_max_normalize(wt[i]);
-
-            for (int j = 0; j <xcc[i].length; j++) {
-
-                if (!Float.isNaN(xcc[i][j][0])) {
-                    PointRoi p = new PointRoi(xcc[i][j][0]+.5, xcc[i][j][1]+.5);
-                    p.setFillColor(Color.GREEN);
-                    p.setStrokeColor(Color.GREEN);
-                    p.setStrokeWidth(2);
-                    ov.add(p);
-                }
-
-//                p.setFillColor(new Color(1f,1f,1f,wt[i][j]));
-//                Line l = new Line(xt[i][j][0]+.5, xt[i][j][1]+.5, xt[i][j][0]+xt[i][j][2]+.5, xt[i][j][1]+xt[i][j][3]+.5);
-//                ov.add(l);
-
-            }
-        }
-
-        return ov;
+        Extractor.loadTemplate(2, R, Ns, sigma_deg);
+        new ImagePlus("Templates", BayesianTracerMulti.show_templates()).show();
     }
 
     public void mouseClicked(MouseEvent e)
@@ -213,48 +99,16 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
         int clickX = cnv.offScreenX(e.getX());
         int clickY = cnv.offScreenY(e.getY());
 
-        System.out.print("(x,y) -> "+clickX+" , " +clickY+" -> ");
+        System.out.print("["+clickX+", " +clickY+"] --- ");
 
         long t1 = System.currentTimeMillis();
 
         boolean show_tracks = true;
-        Overlay oo = Extractor.extractAt(clickX, clickY, 2*R, likelihood_xy, show_tracks, expan);
-
-        // bayesian filtering - take cate that it is initilized before
-//        extract(xt, wt, pt, Nstreams, stream_map, delin); // states, weights, parent_index, nr_streams, overlap_margin, output_delineation
-            // mean-shift for estimation (local maxima detection)
-//            for (int i = 0; i < xc.length; i++) { // initialize xc with corresponding elements from xt
-//                for (int s = 0; s < xc[0].length; s++) {
-//                    xc[i][s][0] = xt[i + 1][s][0];
-//                    xc[i][s][1] = xt[i + 1][s][1];
-//                }
-//            }
-//            for (int i = 0; i < Ni; i++) { // do convergence at each iteration
-//                meanshift_xy_convg(xt[i + 1], wt[i + 1], xc[i], xn, max_iter, epsilon, r2); // xc will hold the converged values
-//                // clustering xc->xcc
-//                dists2(xc[i], dsts); // Ns*Ns distances at each iteration
-//                clustering(dsts, r2, cllab);
-//                extracting(cllab, xc[i], 1, Nc, xcc[i]);
-//            }
-//            fmm(likelihood_xy, new float[]{clickX, clickY}, xcc, tag, par, cst, heap_vals, heap_scrs);
-//            extract_streamlines(clickX, clickY, tag, par, cst, xcc, 4, delin); // xcc will be modified
+        //oo = Extractor.extractAt(clickX, clickY, 2*R, likelihood_xy, show_tracks, expan);
 
         long t2 = System.currentTimeMillis();
         float tt = (t2-t1)/1000f;
         System.out.println("     "+ tt + "sec.");
-
-//        vizTag.setProcessor(getTag());
-//        vizTag.updateAndDraw();
-//        IJ.run(vizTag, "Enhance Contrast", "saturated=0.35");
-//        new ImagePlus("", getTag()).show();
-
-//        Overlay ov_xc   = viz_xc(xc);
-//        Overlay ov_xcc  = viz_xcc(xcc);
-
-        // comment here if you need different visualisations
-//        ov.clear();
-//        for (int i = 0; i <ov_xc.size(); i++) ov.add(ov_xc.get(i));
-//        for (int i = 0; i <ov_xcc.size(); i++) ov.add(ov_xcc.get(i));
 
         cnv.setOverlay(oo);
 
@@ -265,15 +119,26 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
 //        mouseClicked(e);
     }
 
+    public void mousePressed(MouseEvent e) {}
+    public void mouseReleased(MouseEvent e) {}
+    public void mouseEntered(MouseEvent e) {}
+    public void mouseExited(MouseEvent e) {}
+    public void mouseDragged(MouseEvent e) {}
+
+    /*
+        fast marching + mean-shift that was not used eventually
+     */
+
+    /*
     private static void fmm(
-                            float[][] inimg_xy,         // input data
-                            float[] start_xy,           // input data
-                            float[][][] xcc,            // input to fast march through Ni*4*2
-                            byte[][] tag,               // output Ni*4 byte (0,1,2)
-                            byte[][] par,               // output Ni*4 byte (-2,-1,0,1,2,3)
-                            float[][] cst,              // output Ni*4 float - cost
-                            ArrayList<int[]> heap_vals, // auxilliary heap
-                            ArrayList<Float> heap_scrs  // auxilliary heap
+            float[][] inimg_xy,         // input data
+            float[] start_xy,           // input data
+            float[][][] xcc,            // input to fast march through Ni*4*2
+            byte[][] tag,               // output Ni*4 byte (0,1,2)
+            byte[][] par,               // output Ni*4 byte (-2,-1,0,1,2,3)
+            float[][] cst,              // output Ni*4 float - cost
+            ArrayList<int[]> heap_vals, // auxilliary heap
+            ArrayList<Float> heap_scrs  // auxilliary heap
     )
     {
 
@@ -354,9 +219,9 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
             int get_lowest_score = -1;
             for (int i = 0; i < heap_vals.size(); i++) // loop through vals list
                 if (heap_vals.get(i)[0] == 1)
-                   get_lowest_score = i;
+                    get_lowest_score = i;
                 else
-                   heap_vals.get(i)[0]--; // decrease ranking
+                    heap_vals.get(i)[0]--; // decrease ranking
 
             if (get_lowest_score==-1) {
                 System.out.println("wrong !!!! cannot find rank 1");
@@ -397,14 +262,12 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
                             // see what is xp, yp
                             float xp= Float.NaN, yp=Float.NaN;
 
-//                            System.out.println("test " + at_i + "    --- " + at_p);
-
                             if (par[at_i][at_p]==(byte)-1) {      // if it was root point
                                 xp = start_xy[0];
                                 yp = start_xy[1];
                             }
                             else if (       par[at_i][at_p]>=(byte)0 &&
-                                            par[at_i][at_p]<(byte)xcc[at_i].length
+                                    par[at_i][at_p]<(byte)xcc[at_i].length
                                     )
                             {
                                 xp = xcc[at_i-1][par[at_i][at_p]&0xff][0];
@@ -472,7 +335,6 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
                             }
                             else {
 
-//                                System.out.println("shoud be 1 " + (tag[at_i+1][i]&0xff));
                                 // neighbour IS in narrow band already - means that it is already added to the heap
                                 // find the corresponding heap location and update it
 
@@ -493,9 +355,7 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
 
                                 if (C<found_score) {
 
-                                    /*
-                                        heap updates
-                                     */
+                                    //   heap updates
 
                                     // update rankings
                                     float old_val = found_score;
@@ -515,9 +375,7 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
                                     // replace the score with the cheaper one once the rankings are corrected
                                     heap_scrs.set(idx_found, new_val);
 
-                                    /*
-                                        table updates
-                                     */
+                                    // table updates
                                     // update parent table - means updating the score and the parent, labels do not need correction - value stays the same
                                     par[at_i+1][i] = (byte) at_p;
                                     cst[at_i+1][i] = C;
@@ -649,70 +507,60 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
 //            if (tag[tag.length-1][i]==(byte) 2) {}
 //        }
 
-
-/*
-        // use tag and cst to find initial thread point - most distant frozen that had the least cost
-        boolean found = false;
-        int found_i = -1;
-        int found_j = -1;
-        float min_cost;
-
-        for (int i = tag.length-1; i >= 0; i--) { //  tag.length-1-margin_end
-
-            min_cost = Float.POSITIVE_INFINITY; // searching the centroids at concentric circle - the one with min cost
-
-            for (int j = 0; j < tag[i].length; j++) {
-                if (tag[i][j]==(byte)2) { // if it was frozen
-                    if (cst[i][j]<min_cost) { min_cost = cst[i][j]; found_i = i; found_j = j; }
-                }
-            }
-
-            if (!Float.isInfinite(min_cost)) {
-                found = true;
-                break; // found get out as soon as it is found at one iteration
-            }
-
-        } // take the latest with the lowest cost
-
-        if (found) { // found_i, found_j
-
-            ArrayList<float[]> out = new ArrayList<float[]>();
-
-            for (int loop_streamiline = found_i; loop_streamiline >=0 ; loop_streamiline--) {
-
-                out.add(xcc[loop_streamiline][found_j].clone()); // start from found_i,j
-
-                // cancel the one that was added - set it as NaN for future fast marching iteration
-//                if (loop_streamiline>=2) {
-//                    xcc[loop_streamiline][found_j][0] = Float.NaN;
-//                    xcc[loop_streamiline][found_j][1] = Float.NaN;
+//        // use tag and cst to find initial thread point - most distant frozen that had the least cost
+//        boolean found = false;
+//        int found_i = -1;
+//        int found_j = -1;
+//        float min_cost;
+//
+//        for (int i = tag.length-1; i >= 0; i--) { //  tag.length-1-margin_end
+//
+//            min_cost = Float.POSITIVE_INFINITY; // searching the centroids at concentric circle - the one with min cost
+//
+//            for (int j = 0; j < tag[i].length; j++) {
+//                if (tag[i][j]==(byte)2) { // if it was frozen
+//                    if (cst[i][j]<min_cost) { min_cost = cst[i][j]; found_i = i; found_j = j; }
 //                }
-
-                found_j = par[loop_streamiline][found_j]&0xff; // recursively go backwards
-
-            }
-
-            return out;
-
-        }
-        else {
-
-            return null;
-
-        }
-
-*/
+//            }
+//
+//            if (!Float.isInfinite(min_cost)) {
+//                found = true;
+//                break; // found get out as soon as it is found at one iteration
+//            }
+//
+//        } // take the latest with the lowest cost
+//
+//        if (found) { // found_i, found_j
+//
+//            ArrayList<float[]> out = new ArrayList<float[]>();
+//
+//            for (int loop_streamiline = found_i; loop_streamiline >=0 ; loop_streamiline--) {
+//
+//                out.add(xcc[loop_streamiline][found_j].clone()); // start from found_i,j
+//
+//                // cancel the one that was added - set it as NaN for future fast marching iteration
+////                if (loop_streamiline>=2) {
+////                    xcc[loop_streamiline][found_j][0] = Float.NaN;
+////                    xcc[loop_streamiline][found_j][1] = Float.NaN;
+////                }
+//                found_j = par[loop_streamiline][found_j]&0xff; // recursively go backwards
+//            }
+//            return out;
+//        }
+//        else {
+//            return null;
+//        }
 
     }
 
     private static void	meanshift_xy_convg(
-                                            float[][]   xy_inpt,        // one row, particular iteration
-                                            float[]     w_inpt,
-                                            float[][]   xy_conv,
-                                            float[]     xy_next,        // auxiliary variable for iteration (to avoid allocation inside the loop)
-                                            int         max_iter,
-                                            float       epsilon,
-                                            float       rad2
+            float[][]   xy_inpt,        // one row, particular iteration
+            float[]     w_inpt,
+            float[][]   xy_conv,
+            float[]     xy_next,        // auxiliary variable for iteration (to avoid allocation inside the loop)
+            int         max_iter,
+            float       epsilon,
+            float       rad2
     )
     {
 
@@ -738,12 +586,11 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
         }
 
     }
-
+    */
+    /*
     private static void runone(float[] curr_xy, float[] next_xy, float rad2, float[][] template_xy, float[] template_w)
     {
 
-
-//        System.out.println(Arrays.toString(curr_xy)+" :: " + rad2 + " :: ");
 
         float sum 	= 0;
         next_xy[0] 	= 0;
@@ -758,8 +605,6 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
 //                kk++;
             }
         }
-
-//        System.out.println("cases = " + kk + " / " + template_xy.length);
 
         if (sum>=Float.MIN_VALUE) {
             next_xy[0] /= sum;
@@ -789,11 +634,11 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
         }
 
     }
-
+    */
+    /*
     private static void clustering(float[][] dists2, float threshold_dists2, int[] labels)
     {
 
-//        int[] labels = new int[idxs.length];
         for (int i = 0; i < dists2.length; i++) labels[i] = i;
 
         for (int i = 0; i < dists2.length; i++) {
@@ -827,8 +672,6 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
             }
 
         }
-
-//        return labels;
 
     }
 
@@ -870,20 +713,11 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
             }
         }
 
-
-        // print before sorting
-//		for (int ii = 0; ii < cnt.size(); ii++) {
-//			IJ.log(ii + " : " + cnt.get(ii) + " points,  at " + Arrays.toString(out.get(ii)));
-//		}
-
         // take top _Nc of all those that qualified
-
-//        int nr_clusters_after_clustering = out.size();
 
         // sort by the counts of the converged elements in one cluster (take from Sorting.java) descending indexes
         int[] desc_idx = Tools.descending(cnt);      // it will change cnt list as well!!!!, indexes start with 0
 //        int clusters_nr = (desc_idx.length>4)? 4 : desc_idx.length ;
-
 //        ArrayList<float[]> out_sorted = new ArrayList<float[]>(clusters_nr); // top _Nc if there are as many
         for (int i = 0; i < _Nc; i++) { // extract top _Nc clusters
 
@@ -901,24 +735,16 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
 //		out_sorted = new float[clusters_nr][2];
 //		System.out.println(clusters_nr+" clusters allocated");
 //		int[] clustered_counts = new int[clusters_nr];
-
 //        for (int ii=0; ii<clusters_nr; ii++) {
-//
 //            float vx 	= out.get(desc_idx[ii])[0];
 //            float vy 	= out.get(desc_idx[ii])[1];
 //            float vcnt 	= cnt.get(ii);  // because cnt is already sorted
-//
 //            out_sorted.add(new float[]{vx, vy, vcnt}); // add top 1,2,3 or 4 directions based on the count
 //        }
 //
 //        return out_sorted;
 
     }
-
-    public void mousePressed(MouseEvent e) {}
-    public void mouseReleased(MouseEvent e) {}
-    public void mouseEntered(MouseEvent e) {}
-    public void mouseExited(MouseEvent e) {}
-    public void mouseDragged(MouseEvent e) {}
+    */
 
 }

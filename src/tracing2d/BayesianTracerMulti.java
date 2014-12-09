@@ -25,7 +25,7 @@ public class BayesianTracerMulti {
 
     private static SemiCircle scirc     = new SemiCircle();
 
-    private static int         Rmax     = -1;           // needs initialisation
+//    private static int         Rmax     = -1;           // needs initialisation
 //    private static float[]     pred_steps = null;       // depends on Rmax
 //    private static float       step_big = Float.NaN;    // used to change bayesian filtering prediction steps depending on the iteration index
 //    private static float       step_sml = 1.2f;         // these are limit values
@@ -271,15 +271,13 @@ public class BayesianTracerMulti {
 
     public static void init(int _R) // templates will be 2L+1 samples
     {
-        Rmax = _R; // scale
+//        Rmax = _R; // scale
 
 //        pred_path = 2 * Rmax * 1;
 
         Ni = 4;//(int) Math.ceil((3 * pred_path) / step);
-//        System.out.println("Ni="+Ni);
 //        step_big = 0.75f*Rmax*sstep[sstep.length-1]; // big step is dependent on the scale - small step is ~ resolution
 //        lbd = (float) (Math.log(step_sml/step_big)/(1-Ni));
-
 //        pred_steps = new float[Ni];
 //        pred_path = 0;
 //        for (int i = 0; i < Ni; i++) pred_path += step;// pred_steps[i];
@@ -297,22 +295,37 @@ public class BayesianTracerMulti {
 
     }
 
-    public static ImageStack show_templates(float[][] _templates)
+    public static ImageStack show_templates()
     {
         int wd = new Plot("", "", "").getProcessor().getWidth();
         int ht = new Plot("", "", "").getProcessor().getHeight();
         ImageStack is = new ImageStack(wd, ht);
 
-        float[] xx = new float[_templates[0].length];
+        int LL = tt[0].length;
+        int RR = (LL-1)/2;
+
+        float[][] xx = new float[sstep.length][LL];
+        for (int i = 0; i < sstep.length; i++) {
+            float stp = sstep[i];
+            xx[i][RR] = 0;
+            for (int j = 1; j <= RR; j++) {xx[i][RR-j] = - j * stp; xx[i][RR+j] = + j * stp;}
+        }
+
+        String profiles = "templates<-c(";
         for (int i = 0; i < xx.length; i++) {
-            xx[i] = i;
+            for (int j = 0; j < tt.length; j++) {
+                Plot plt = new Plot("", "", "", xx[i], tt[j], Plot.LINE);
+                is.addSlice("step="+ IJ.d2s(sstep[i],2)+",sigma="+sigratios[j]+"xLength", plt.getProcessor());
+
+                for (int k = 0; k < LL; k++) profiles += xx[i][k] + ",";
+                for (int k = 0; k < LL; k++) profiles += tt[j][k] + ",";
+
+            }
         }
 
-        for (int i = 0; i < _templates.length; i++) {
-            Plot plt = new Plot("", "", "", xx, _templates[i], Plot.LINE);
-            is.addSlice("sig="+ IJ.d2s(sigratios[i],2)+"xL", plt.getProcessor());
-
-        }
+        if (profiles != null && profiles.length() > 1) profiles = profiles.substring(0, profiles.length() - 1);
+        profiles += ")";
+        IJ.log(profiles);
         return is;
     }
 
