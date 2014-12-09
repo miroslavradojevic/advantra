@@ -23,9 +23,9 @@ public class Extractor extends Thread {
     private int begN, endN;
 
     public  static int[][] 	 i2loc;
-    public  static int       R;
-    public  static int       Ns;
-    public  static float     sigma_deg;
+//    public  static int       R;
+//    public  static int       Ns;
+//    public  static float     sigma_deg;
 //    public  static int       nstreams;
     private static int       dim;
 
@@ -50,8 +50,8 @@ public class Extractor extends Thread {
     public static void loadTemplate(
             int     _dim,
             int     _radius,
-            int     _nsamples,
-            float   _sigma_deg
+//            float   _sigma_deg,
+            BayesianTracerMulti.Expansion _expan_type
     )
     {
 
@@ -60,10 +60,10 @@ public class Extractor extends Thread {
         i2locEnd     = null;
         i2range      = null;
         dim         = _dim;
-        R           = _radius;
-        Ns          = _nsamples;
-        sigma_deg   = _sigma_deg;
-        BayesianTracerMulti.init(R);
+//        R           = _radius;
+//        Ns          = _nsamples;
+//        sigma_deg   = _sigma_deg;
+        BayesianTracerMulti.init(_radius, _expan_type);
 
         weights();
 
@@ -94,8 +94,8 @@ public class Extractor extends Thread {
     public static void loadTemplate(
             int[][] _i2loc,
             int     _radius,
-            int     _nsamples,
-            float   _sigma_deg
+//            float   _sigma_deg,
+            BayesianTracerMulti.Expansion _expan_type
     )
     {
         i2loc   = _i2loc;
@@ -110,10 +110,10 @@ public class Extractor extends Thread {
         }
         
         dim     = i2loc[0].length;
-        R       = _radius;
-        Ns      = _nsamples;
-        sigma_deg   = _sigma_deg;
-        BayesianTracerMulti.init(R);
+//        R       = _radius;
+//        Ns      = _nsamples;
+//        sigma_deg   = _sigma_deg;
+        BayesianTracerMulti.init(_radius, _expan_type);
 
         weights();
 
@@ -121,93 +121,7 @@ public class Extractor extends Thread {
 
     public void run()
     {
-
-        float[][][] xt      = new float[BayesianTracerMulti.Ni+1][Ns][4];    // bayesian filtering states (x,y, vx, vy)
-        float[][]   wt      = new float[BayesianTracerMulti.Ni+1][Ns];       // bayesian filtering states
-        byte[][]    pt      = new byte[BayesianTracerMulti.Ni+1][Ns];        // bayesian filtering parent pointer - distribution index of the parent state in previous iteration
-        boolean[][] et      = new boolean[BayesianTracerMulti.Ni+1][Ns];     // extracting streamlines record
-
-
-
-    }
-
-    public static Overlay extractAt(int _x, int _y, float _R, float[][] _img_xy, boolean _show_tracks, BayesianTracerMulti.Expansion expan) // make a version for threading
-    {
-
-//        float rNhood = BayesianTracerMulti.pred_path;
-        float ratioC = .5f;
-        float dd = 1f;
-
-        // allocate variables for bayesian filtering (dimensions have to be known in advance)
-        float[][][]     xt      = new float[BayesianTracerMulti.Ni+1][Ns][4];    // bayesian filtering states (x,y, vx, vy)
-        float[][]       wt      = new float[BayesianTracerMulti.Ni+1][Ns];       // bayesian filtering weights
-        byte[][]        pt      = new byte[BayesianTracerMulti.Ni+1][Ns];        // bayesian filtering parent pointer - index of the parent in previous iteration
-        ArrayList[][]   ft      = new ArrayList[BayesianTracerMulti.Ni+1][Ns];   // bayesian filtering follow up point
-        for (int i = 0; i < ft.length; i++) for (int j = 0; j < ft[i].length; j++) ft[i][j] = new ArrayList<Byte>();
-        float[][]       mt      = new float[BayesianTracerMulti.Ni+1][Ns];       // measurements, likelihoods - correlations measured during sequential filtering todo expell this later if not necessary
-
-        BayesianTracerMulti.spherical_wavefront_2d(_x, _y, _R, _img_xy, sigma_deg, expan, xt, wt, pt, ft, mt);
-
-//        ArrayList<float[][]>    delin_locs      = new ArrayList<float[][]>();
-//        ArrayList<Boolean>      delin_complete  = new ArrayList<Boolean>();
-//        ArrayList<float[]>      delin_scores    = new ArrayList<float[]>();
-//        ArrayList<float[]>      delin_values    = new ArrayList<float[]>();
-//        ArrayList<float[]>      delin_terminals = new ArrayList<float[]>();
-//        ArrayList<Float>        delin_wascores  = new ArrayList<Float>();
-//        ArrayList<Float>        delin_wavalues  = new ArrayList<Float>();
-
-        boolean[][] et                          = new boolean[BayesianTracerMulti.Ni+1][Ns];     // extracting track clusters
-        byte[][] trace_map = new byte[BayesianTracerMulti.Ni+1][Ns];
-
-//        extract(_img_xy, _x, _y, _R, ratioC, dd, xt, wt, pt, mt, et,trace_map);
-
-        // local min-max
-        float mn = Float.POSITIVE_INFINITY;
-        float mx = Float.NEGATIVE_INFINITY;
-
-        int nrad = (int) Math.ceil(_R);
-        for (int xx = _x-nrad; xx <= _x+nrad; xx++) {
-            if (xx>=0 && xx<_img_xy.length) {
-                for (int yy = _y-nrad; yy <= _y+nrad; yy++) {
-                    if (yy>=0 && yy<_img_xy[0].length) {
-                        float val = _img_xy[xx][yy];
-                        if (val<mn) mn = val;
-                        if (val>mx) mx = val;
-                    }
-                }
-            }
-        }
-
-//        Tools.descendingFloat(delin_wavalues);
-//        float score = (delin_wavalues.size()>1)? delin_wavalues.get(0)-delin_wavalues.get(1) : (delin_wavalues.size()==1)? delin_wavalues.get(0)-mn : 0 ;
-//        String resume = "";
-//        for (int i = 0; i < delin_wavalues.size(); i++) resume+= IJ.d2s(delin_wavalues.get(i),3) + "  ";
-//        resume += IJ.d2s(mn,3) + "";
-//        resume += " $" + IJ.d2s(score,3);
-//        IJ.log(resume);
-
-//        float rad = BayesianTracerMulti.pred_path;
-
-        Overlay ov = new Overlay(); // output
-
-//        TextRoi tr = new TextRoi(_x+rad, _y-rad, rad, rad, resume, new Font("TimesRoman", Font.PLAIN, 1));
-//        tr.setStrokeColor(Color.RED);
-//        ov.add(tr);
-
-        Overlay ov_xt = viz_xt(xt, wt, pt, trace_map, _show_tracks);
-        for (int i = 0; i < ov_xt.size(); i++) ov.add(ov_xt.get(i));
-//        Overlay ov_delin = viz_delin(delin_locs, delin_values, delin_terminals);
-//        for (int i = 0; i < ov_delin.size(); i++) ov.add(ov_delin.get(i));
-
-        OvalRoi circ = new OvalRoi(_x-_R+.5, _y-_R+.5, 2*_R, 2*_R);
-        circ.setStrokeColor(Color.RED);
-        ov.add(circ);
-        OvalRoi circ_center = new OvalRoi(_x-_R*ratioC+.5, _y-_R*ratioC+.5, 2*_R*ratioC, 2*_R*ratioC);
-        circ_center.setStrokeColor(Color.RED);
-        ov.add(circ_center);
-
-        return ov;
-
+        //allocate xt, etc...
     }
 
     private static int pickmax(float[] _wti, boolean[] _eti) // will pick max from the current set of weights that are not examined
@@ -531,58 +445,6 @@ return curr_streams;
 
         return ov;
 
-    }
-
-    private static Overlay viz_xt(float[][][] xt, float[][] wt, byte[][] pt, byte[][] _et, boolean show_tracks)
-    {
-
-        float rad = .5f;
-
-        Overlay ov = new Overlay();
-        for (int i = 0; i < xt.length; i++) { // iterations
-
-            Stat.min_max_normalize(wt[i]);
-            for (int j = 0; j <xt[i].length; j++) {
-
-                OvalRoi p = new OvalRoi(xt[i][j][0]-rad+.5, xt[i][j][1]-rad+.5, 2*rad, 2*rad);
-
-//                if (i==xt.length-1) // last one in red
-//                    p.setFillColor(new Color(1f,0f,0f,wt[i][j]));
-//                else
-
-//                if (i==0) p.setFillColor(new Color(0f, 1f, 0f, 1f)); // wt[i][j]
-//                else p.setFillColor(new Color(1f, 1f, 1f, wt[i][j]));
-                if (i==xt.length-1) { // _et[i][j]!=(byte)255 _et[i][j] & 0xff
-                    p.setFillColor(new Color(MyColors.getR(0), MyColors.getG(0), MyColors.getB(0), wt[i][j]));
-                }
-                else {
-                    p.setFillColor(new Color(1f, 1f, 1f, wt[i][j]));
-                }
-                //ov.add(p);
-
-//                PointRoi pt = new PointRoi(xt[i][j][0]+.5, xt[i][j][1]+.5);
-//                pt.setStrokeColor(new Color(1f,1f,1f,wt[i][j]));
-//                pt.setFillColor(new Color(1f, 1f, 1f, wt[i][j]));
-//                ov.add(pt);
-
-            }
-        }
-
-        if (show_tracks) {
-
-            for (int i = 1; i < xt.length; i++) {
-                for (int j = 0; j < xt[i].length; j++) {
-                    float currx = xt[i][j][0]+.5f;
-                    float curry = xt[i][j][1]+.5f;
-                    float prevx = xt[i-1][pt[i][j]&0xff][0]+.5f;
-                    float prevy = xt[i-1][pt[i][j]&0xff][1]+.5f;
-                    ov.add(new Line(currx, curry, prevx, prevy));
-                }
-            }
-
-        }
-
-        return ov;
     }
 
 }

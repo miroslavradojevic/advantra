@@ -9,13 +9,10 @@ import ij.gui.*;
 import ij.io.OpenDialog;
 import ij.plugin.PlugIn;
 import tracing2d.BayesianTracerMulti;
-import tracing2d.Extractor;
 
-import java.awt.*;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
-import java.util.ArrayList;
 
 /**
  * Created by miroslav on 11-11-14.
@@ -70,7 +67,7 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
                 if (val>mx) mx = val;
             }
 
-            IJ.log("done. normalized range=" + mn + " -- " + mx + "(1==255 gray8)");
+            IJ.log("done.");
 
         }
 //        else if (img.getType()==ImagePlus.GRAY32) {
@@ -84,14 +81,16 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
             return;
         }
 
+        BayesianTracerMulti.init(R, expan);
+        new ImagePlus("Templates", BayesianTracerMulti.show_templates()).show();
+
         img.show(); // show it and get the canvas
         cnv = img.getCanvas();
         cnv.addMouseListener(this);
         cnv.addMouseMotionListener(this);
         IJ.setTool("hand");
 
-        Extractor.loadTemplate(2, R, Ns, sigma_deg);
-        new ImagePlus("Templates", BayesianTracerMulti.show_templates()).show();
+
     }
 
     public void mouseClicked(MouseEvent e)
@@ -104,7 +103,7 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
         long t1 = System.currentTimeMillis();
 
         boolean show_tracks = true;
-        //oo = Extractor.extractAt(clickX, clickY, 2*R, likelihood_xy, show_tracks, expan);
+        oo = BayesianTracerMulti.extractAt(clickX, clickY, likelihood_xy, show_tracks, Ns, sigma_deg);
 
         long t2 = System.currentTimeMillis();
         float tt = (t2-t1)/1000f;

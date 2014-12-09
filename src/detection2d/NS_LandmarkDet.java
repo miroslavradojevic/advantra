@@ -12,7 +12,7 @@ public class NS_LandmarkDet implements PlugIn {
 
     int R               = 4;     // will cover radiuses R * BayesianTracerMulti.sstep
     int percentile = 95;    // how many to keep as the foreground/background, neighbourhood will be defined with radius and
-    int nbhood = (int) Math.ceil(2*R* BayesianTracerMulti.sstep[BayesianTracerMulti.sstep.length-1]);
+    int nbhood = 2*R;
     int CPU_NR = Runtime.getRuntime().availableProcessors() + 1;
 
 
