@@ -428,6 +428,8 @@ public class BayesianTracerMulti {
 
     public static ImageStack show_templates()
     {
+        Plot p = new Plot("", "", "", new float[2], new float[2]);
+//        p.show();
         int wd = new Plot("", "", "").getProcessor().getWidth();
         int ht = new Plot("", "", "").getProcessor().getHeight();
         ImageStack is = new ImageStack(wd, ht);
