@@ -24,7 +24,7 @@ import java.util.Arrays;
 public class BayesianTracerMulti {
 
     private static float neuron_radius  = -1;
-    private static float nbhood_scale   = 2;
+    private static float nbhood_scale   = 2; // scale neuron radius
     private static float nbhood_radius  = -1;
     private static Expansion expan = null;
     public static float[] sigmas;// = new float[];
@@ -34,19 +34,14 @@ public class BayesianTracerMulti {
     public static int Ni                = -1;                                    // how many times to step with radius scaled steps to make sense EMPIRICAL
     public static int ns=-1, ns2=-1;
 
-    private static SemiCircle   scirc       = new SemiCircle();
-
-//    private static int         Rmax     = -1;           // needs initialisation
-//    private static float[]     pred_steps = null;       // depends on Rmax
-//    private static float       step_big = Float.NaN;    // used to change bayesian filtering prediction steps depending on the iteration index
-//    private static float       step_sml = 1.2f;         // these are limit values
-    private static float        cross_profile_step        = 0.5f;
+    private static SemiCircle   scirc = new SemiCircle();
+    private static float        cross_profile_step = 0.5f;
     private static float        semi_circ_step = 1.2f;
-    private  static float ring = .3f;
-    private static float dd = 1f;
+    private  static float       ring = .3f;
+    private static float        dd = 1.0f;
 
-   private static float[][]   tt;//       = new float[][]; // templates to be matched when filtering 2*Rcnt+1
-    private static float[]     tta;//      = new float[];
+   private static float[][]   tt;       // templates to be matched when filtering 2*Rcnt+1
+    private static float[]     tta;
 
     public enum Expansion {OUTER, INNER}
 
@@ -58,8 +53,10 @@ public class BayesianTracerMulti {
         ArrayList[][]   ft      = new ArrayList[Ni+1][_Ns];   // bayesian filtering follow up point
         for (int i = 0; i < ft.length; i++) for (int j = 0; j < ft[i].length; j++) ft[i][j] = new ArrayList<Byte>();
         float[][]       mt      = new float[Ni+1][_Ns];       // measurements, likelihoods - correlations measured during sequential filtering todo expell this later if not necessary
+        float[][][]     tracks  = new float[Ni+1][_Ns][2];    // extracted tracks that survived all the iterations
 
-        spherical_wavefront_2d(_x, _y, _img_xy, _sigma_deg, expan, xt, wt, pt, ft, mt);
+        spherical_wavefront_2d(_x, _y, _img_xy, _sigma_deg, expan, xt, wt, pt, ft, mt); // will evolve points
+        extract_tracks(xt, pt, tracks);
 
 //        ArrayList<float[][]>    delin_locs      = new ArrayList<float[][]>();
 //        ArrayList<Boolean>      delin_complete  = new ArrayList<Boolean>();
@@ -70,26 +67,29 @@ public class BayesianTracerMulti {
 //        ArrayList<Float>        delin_wavalues  = new ArrayList<Float>();
 
         boolean[][] et                          = new boolean[Ni+1][_Ns];     // extracting track clusters
-        byte[][] trace_map = new byte[Ni+1][_Ns];
+        byte[][] trace_map                      = new byte[Ni+1][_Ns];
 
 //        extract(_img_xy, _x, _y, _R, ratioC, dd, xt, wt, pt, mt, et,trace_map);
 
         // local min-max
-        float mn = Float.POSITIVE_INFINITY;
-        float mx = Float.NEGATIVE_INFINITY;
 
-        int nrad = Math.round(nbhood_radius);
-        for (int xx = _x-nrad; xx <= _x+nrad; xx++) {
-            if (xx>=0 && xx<_img_xy.length) {
-                for (int yy = _y-nrad; yy <= _y+nrad; yy++) {
-                    if (yy>=0 && yy<_img_xy[0].length) {
-                        float val = _img_xy[xx][yy];
-                        if (val<mn) mn = val;
-                        if (val>mx) mx = val;
-                    }
-                }
-            }
-        }
+
+
+//        float mn = Float.POSITIVE_INFINITY;
+//        float mx = Float.NEGATIVE_INFINITY;
+//
+//        int nrad = Math.round(nbhood_radius);
+//        for (int xx = _x-nrad; xx <= _x+nrad; xx++) {
+//            if (xx>=0 && xx<_img_xy.length) {
+//                for (int yy = _y-nrad; yy <= _y+nrad; yy++) {
+//                    if (yy>=0 && yy<_img_xy[0].length) {
+//                        float val = _img_xy[xx][yy];
+//                        if (val<mn) mn = val;
+//                        if (val>mx) mx = val;
+//                    }
+//                }
+//            }
+//        }
 
 //        Tools.descendingFloat(delin_wavalues);
 //        float score = (delin_wavalues.size()>1)? delin_wavalues.get(0)-delin_wavalues.get(1) : (delin_wavalues.size()==1)? delin_wavalues.get(0)-mn : 0 ;
@@ -107,19 +107,24 @@ public class BayesianTracerMulti {
 //        tr.setStrokeColor(Color.RED);
 //        ov.add(tr);
 
-        Overlay ov_xt = viz_xt(xt, wt, pt, trace_map, _show_tracks);
+        Overlay ov_xt = viz_xt(xt, wt);
         for (int i = 0; i < ov_xt.size(); i++) ov.add(ov_xt.get(i));
-//        Overlay ov_delin = viz_delin(delin_locs, delin_values, delin_terminals);
-//        for (int i = 0; i < ov_delin.size(); i++) ov.add(ov_delin.get(i));
+
+        if (_show_tracks) {
+            Overlay ov_conn = viz_connections(xt, pt);
+            for (int i = 0; i < ov_conn.size(); i++) ov.add(ov_conn.get(i));
+            Overlay ov_tracks = viz_tracks(tracks);
+            for (int i = 0; i < ov_tracks.size(); i++) ov.add(ov_tracks.get(i));
+        }
 
         OvalRoi circ = new OvalRoi(_x-nbhood_radius+.5, _y-nbhood_radius+.5, 2*nbhood_radius, 2*nbhood_radius);
         circ.setStrokeColor(Color.RED);
         ov.add(circ);
-        float ratio_in = (expan==Expansion.INNER)? 1-ring : (expan==Expansion.OUTER)? ring : Float.NaN;
-        OvalRoi circ_center = new OvalRoi(_x-nbhood_radius*ratio_in+.5, _y-nbhood_radius*ratio_in+.5, 2*nbhood_radius*ratio_in, 2*nbhood_radius*ratio_in);
-        circ_center.setFillColor(new Color(1,0,0,.1f));
 
-        ov.add(circ_center);
+//        float ratio_in = (expan==Expansion.INNER)? 1-ring : (expan==Expansion.OUTER)? ring : Float.NaN;
+//        OvalRoi circ_center = new OvalRoi(_x-nbhood_radius*ratio_in+.5, _y-nbhood_radius*ratio_in+.5, 2*nbhood_radius*ratio_in, 2*nbhood_radius*ratio_in);
+//        circ_center.setFillColor(new Color(1,0,0,.1f));
+//        ov.add(circ_center);
 
         return ov;
 
@@ -153,7 +158,8 @@ public class BayesianTracerMulti {
                 xt[0][i][2] = (float) Math.cos(ang); // vx
                 xt[0][i][3] = (float) Math.sin(ang); // vy
             }
-            else if (expan==Expansion.INNER) {
+            else { // expan==Expansion.INNER
+//                System.out.println("inner!!");
                 float vx = (float) Math.cos(ang);
                 float vy = (float) Math.sin(ang);
                 xt[0][i][0] = at_x + nbhood_radius * vx; // x
@@ -161,10 +167,10 @@ public class BayesianTracerMulti {
                 xt[0][i][2] = -vx;
                 xt[0][i][3] = -vy;
             }
-            else {
-                System.out.println("problem - wrong expansion!!");
-                System.exit(0);
-            }
+//            else {
+//                System.out.println("problem - wrong expansion!!");
+//                System.exit(0);
+//            }
 
             wt[0][i] = 1f/(float)Nstates;
 
@@ -185,35 +191,29 @@ public class BayesianTracerMulti {
 
     }
 
-    private static Overlay viz_xt(float[][][] xt, float[][] wt, byte[][] pt, byte[][] _et, boolean show_tracks)
+    private static Overlay viz_xt(float[][][] xt, float[][] wt)
     {
 
         Overlay ov = new Overlay();
+
         for (int i = 0; i < xt.length; i++) { // iterations
 
             Stat.min_max_normalize(wt[i]);
             for (int j = 0; j <xt[i].length; j++) {
 
                 OvalRoi p = new OvalRoi(xt[i][j][0]-dd/2+.5, xt[i][j][1]-dd/2+.5, dd, dd);
-
-//                p.setFillColor(new Color(1f, 1f, 1f, wt[i][j]));
-                if (i==xt.length-1) { // _et[i][j]!=(byte)255 _et[i][j] & 0xff
-                    p.setFillColor(new Color(MyColors.getR(0), MyColors.getG(0), MyColors.getB(0), wt[i][j]));
-                }
-                else {
-                    p.setFillColor(new Color(1f, 1f, 1f, wt[i][j]));
-                }
+                p.setFillColor(new Color(1f, 1f, 1f, wt[i][j]));
                 ov.add(p);
-
-//                PointRoi pt = new PointRoi(xt[i][j][0]+.5, xt[i][j][1]+.5);
-//                pt.setStrokeColor(new Color(1f,1f,1f,wt[i][j]));
-//                pt.setFillColor(new Color(1f, 1f, 1f, wt[i][j]));
-//                ov.add(pt);
 
             }
         }
 
-        if (show_tracks) {
+        return ov;
+    }
+
+    private static Overlay viz_connections(float[][][] xt, byte[][] pt)
+    {
+        Overlay ov = new Overlay();
 
             for (int i = 1; i < xt.length; i++) {
                 for (int j = 0; j < xt[i].length; j++) {
@@ -225,17 +225,90 @@ public class BayesianTracerMulti {
                 }
             }
 
+        return ov;
+
+    }
+
+    private static Overlay viz_tracks(float[][][] tracks)
+    {
+
+        Overlay ov = new Overlay();
+
+        for (int i = 0; i < tracks.length; i++) {
+            for (int j = 0; j < tracks[i].length; j++) {
+                float dd = 0.5f;
+                OvalRoi ovroi = new OvalRoi(tracks[i][j][0]+.25, tracks[i][j][1]+.25, .5, .5);
+
+                if (i==0)               ovroi.setFillColor(Color.BLUE);
+                if (i==tracks.length-1) ovroi.setFillColor(Color.RED);
+                if (i>0 && i<tracks.length-1) ovroi.setFillColor(Color.GREEN);
+
+                ov.add(ovroi);
+            }
         }
 
         return ov;
+
+    }
+
+    private static void extract_tracks(float[][][] xt, byte[][] pt, float[][][] tracks)
+    {
+
+        // start from the last iteration
+        int i = xt.length-1;
+        for (int j = 0; j < xt[i].length; j++) { // all states of the last iteration
+
+            tracks[i][j][0] = xt[i][j][0];
+            tracks[i][j][1] = xt[i][j][1];
+
+            int next_s = pt[i][j]&0xff;
+
+            for (int ii = i-1; ii >=0 ; ii--) { // loop recursively
+                tracks[ii][j][0] = xt[ii][next_s][0]; // make it generic loop the last dimension
+                tracks[ii][j][1] = xt[ii][next_s][1];
+                next_s = pt[ii][next_s]&0xff;
+            }
+
+        }
+
+    }
+
+    private static void extract_offset(float[][] x_at_iter, float centerx, float centery, float[] offset_bias_var)
+    {
+
+        float meanx = x_at_iter[0][0];
+        float meany = x_at_iter[0][1];
+
+        for (int i = 1; i < x_at_iter.length; i++) {
+            meanx += x_at_iter[i][0];
+            meany += x_at_iter[i][1];
+        }
+
+        meanx /= x_at_iter.length;
+        meany /= x_at_iter.length;
+
+        offset_bias_var[0] = (float) Math.sqrt(Math.pow(meanx - centerx, 2) + Math.pow(meany - centery, 2)); // bias
+
+        offset_bias_var[1] = (float) (Math.pow(x_at_iter[0][0]-meanx,2)+Math.pow(x_at_iter[0][1]-meany,2));
+
+        for (int i = 1; i < x_at_iter.length; i++)
+            offset_bias_var[1] += (float) (Math.pow(x_at_iter[i][0] - meanx, 2) + Math.pow(x_at_iter[i][1] - meany, 2));
+
+        offset_bias_var[1] /= x_at_iter.length-1;
+
+    }
+
+    private static void cluster_tracks()
+    {
+
     }
 
     private static void bayesian_iteration(
-            float xc, float yc, //float rc,
+            float                   xc,
+            float                   yc,
             float[][]               _likelihood_xy,
             int                     _iter,  // will mark the array index where the value will be filled in
             float                   _iter_step,
-//            int                     _Ns,
             float                   _prior_sigma_deg,
             float[][][]             _xt,    // outputs
             float[][]               _wt,    // weights
@@ -254,7 +327,6 @@ public class BayesianTracerMulti {
         float[]     _lhoods              = new float[_Ns*scirc.NN];      // Ns*Nscirc        store the likelihoods
         byte[]      _parents             = new byte[_Ns*scirc.NN];       // Ns*Nscirc        store the index of the parent
 
-//        int L = (tt[0].length - 1)/2; // templates are allocated as Nsigmas x (2L+1) and contain L in its dimensions, take it from the first shape
         float[] valI = new float[ns]; // profile values for the image samples
         int imgW = _likelihood_xy.length;
         int imgH = _likelihood_xy[0].length;
@@ -347,10 +419,6 @@ public class BayesianTracerMulti {
                     }
                 }
 
-//                for (int k = 0; k < sstep.length; k++) {
-//                        for (int sigmaidx = 0; sigmaidx < sigratios.length; sigmaidx++) {}
-//                }
-
                 sum_lhoods += _lhoods[count];
 
                 _ptes[count] = prev_w[i] * scirc.w[j]; // w stores priors, possible to immediately multiply posterior here unless it is all zeros
@@ -368,12 +436,13 @@ public class BayesianTracerMulti {
         int[] sort_idx = Tools.descending(_ptes);      // ptes will be sorted as a side effect
 
         int cnt = 0;
-        for (int i = 0; i < sort_idx.length; i++) { //
+        for (int i = 0; i < sort_idx.length; i++) {
 
             float currx = _transition_xy[sort_idx[i]][0];
             float curry = _transition_xy[sort_idx[i]][1];
 
-            if ((currx-xc)*(currx-xc)+(curry-yc)*(curry-yc)<=nbhood_radius*nbhood_radius) {
+            boolean is_in_circ = (currx-xc)*(currx-xc)+(curry-yc)*(curry-yc)<=nbhood_radius*nbhood_radius;
+            if (is_in_circ) { // check if it is in the circle -- constrain the convergence
 
                 _xt[_iter][cnt][0] = _transition_xy[sort_idx[i]][0];
                 _xt[_iter][cnt][1] = _transition_xy[sort_idx[i]][1];
@@ -384,7 +453,7 @@ public class BayesianTracerMulti {
                 _ft[_iter-1][_pt[_iter][cnt]&0xff].add((byte)cnt);
                 _mt[_iter][cnt]    = _lhoods[sort_idx[i]];
                 cnt++;
-                if (cnt==Ns) break;
+                if (cnt==Ns) break; // add top Ns points that are in the circle for further tracing
 
             }
 
@@ -428,9 +497,7 @@ public class BayesianTracerMulti {
 
     public static ImageStack show_templates()
     {
-        Plot p = new Plot("", "", "", new float[2], new float[2]);
-//        p.show();
-        int wd = new Plot("", "", "").getProcessor().getWidth();
+        int wd = new Plot("", "", "", new float[1], new float[1]).getProcessor().getWidth();
         int ht = new Plot("", "", "").getProcessor().getHeight();
         ImageStack is = new ImageStack(wd, ht);
 
