@@ -26,7 +26,6 @@ public class BayesianTracerMulti {
     private static float neuron_radius  = -1;
     private static float nbhood_scale   = 2; // scale neuron radius
     private static float nbhood_radius  = -1;
-    private static Expansion expan = null;
     public static float[] sigmas;// = new float[];
 //    public static float[]   sigratios   = new float[]{1/8f, 1/4f, 1/2f, 1/1f};  // different shapes
 //    public static float[]  sstep        = new float[]{.5f, .75f, 1.0f};         // scale of the measurement (keep it ascending)
@@ -43,9 +42,9 @@ public class BayesianTracerMulti {
    private static float[][]   tt;       // templates to be matched when filtering 2*Rcnt+1
     private static float[]     tta;
 
-    public enum Expansion {OUTER, INNER}
+    public enum CircExpansion {IN, OUT}
 
-    public static Overlay extractAt(int _x, int _y, float[][] _img_xy, boolean _show_tracks, int _Ns, float _sigma_deg) // make a version for threading
+    public static Overlay extractAt(int _x, int _y, float[][] _img_xy, boolean _show_tracks, int _Ns, float _sigma_deg, CircExpansion expan) // make a version for threading
     {
         float[][][]     xt      = new float[Ni+1][_Ns][4];    // bayesian filtering states (x,y, vx, vy)
         float[][]       wt      = new float[Ni+1][_Ns];       // bayesian filtering weights
@@ -55,7 +54,7 @@ public class BayesianTracerMulti {
         float[][]       mt      = new float[Ni+1][_Ns];       // measurements, likelihoods - correlations measured during sequential filtering todo expell this later if not necessary
         float[][][]     tracks  = new float[Ni+1][_Ns][2];    // extracted tracks that survived all the iterations
 
-        spherical_wavefront_2d(_x, _y, _img_xy, _sigma_deg, expan, xt, wt, pt, ft, mt); // will evolve points
+        circular_tracer(_x, _y, _img_xy, _sigma_deg, expan, xt, wt, pt, ft, mt); // will evolve points
         extract_tracks(xt, pt, tracks);
 
 //        ArrayList<float[][]>    delin_locs      = new ArrayList<float[][]>();
@@ -70,11 +69,7 @@ public class BayesianTracerMulti {
         byte[][] trace_map                      = new byte[Ni+1][_Ns];
 
 //        extract(_img_xy, _x, _y, _R, ratioC, dd, xt, wt, pt, mt, et,trace_map);
-
         // local min-max
-
-
-
 //        float mn = Float.POSITIVE_INFINITY;
 //        float mx = Float.NEGATIVE_INFINITY;
 //
@@ -98,7 +93,6 @@ public class BayesianTracerMulti {
 //        resume += IJ.d2s(mn,3) + "";
 //        resume += " $" + IJ.d2s(score,3);
 //        IJ.log(resume);
-
 //        float rad = BayesianTracerMulti.pred_path;
 
         Overlay ov = new Overlay(); // output
@@ -130,12 +124,63 @@ public class BayesianTracerMulti {
 
     }
 
-    public static void spherical_wavefront_2d(
+    public static void linear_tracer( // 2d
+            float       at_x,
+            float       at_y,
+            float       v_x,
+            float       v_y,
+            float[][]   img_xy,
+            float       sigma_deg,
+            float[][][] xt,
+            float[][]   wt,
+            byte[][]    pt,
+            ArrayList[][] ft,
+            float[][]   mt
+    )
+    {
+
+        float sigma_rad = (float) ((sigma_deg/180f)*Math.PI);
+
+        float vnorm = (float) Math.sqrt(v_x*v_x+v_y*v_y);
+        float vxnorm = v_x / vnorm;
+        float vynorm = v_y / vnorm;
+
+        int Nstates = xt[0].length; // allocated number of states
+
+        // initialise states for iter=0
+        float wnorm = 0;
+        for (int i = 0; i < Nstates; i++) {
+
+            float ang = (float) (-Math.PI/2 + i * (Math.PI/(Nstates-1))); // -pi/2 -- +pi/2
+
+            xt[0][i][0] = semi_circ_step * (float) (vxnorm * Math.cos(ang) - vynorm * Math.sin(ang)); // x
+            xt[0][i][1] = semi_circ_step * (float) (vxnorm * Math.sin(ang) + vynorm * Math.cos(ang)); // y
+            xt[0][i][2] = (float) (vxnorm * Math.cos(ang) - vynorm * Math.sin(ang)); // vx
+            xt[0][i][3] = (float) (vxnorm * Math.sin(ang) + vynorm * Math.cos(ang)); // vy
+
+            wt[0][i] = (float) Math.exp(-Math.pow(ang,2)/(2*sigma_rad*sigma_rad));// 1f/Nstates; // depending on the divergence
+            wnorm += wt[0][i];
+
+            pt[0][i] = (byte) 255;
+
+            mt[0][i] = 0;
+
+        }
+
+        for (int i = 0; i < Nstates; i++) {
+            wt[0][i] /= wnorm;
+        }
+
+
+
+    }
+
+    public static void circular_tracer( // 2d
             float       at_x,
             float       at_y,
             float[][]   img_xy,
             float       sigma_deg,      // tracing parameter
-            Expansion   expan,          // OUTWARD
+            CircExpansion   expan,          // OUTWARD
             float[][][] xt,             // Ni+1 x Ns X 4 (x,y,vx,vy)
             float[][]   wt,             // Ni+1 x Ns
             byte[][]    pt,             // Ni+1 x Ns
@@ -152,14 +197,13 @@ public class BayesianTracerMulti {
             float ang = (float) ((i*2*Math.PI)/Nstates);
 
             // initialize depending on the expansion type
-            if (expan==Expansion.OUTER) {
+            if (expan==CircExpansion.OUT) {
                 xt[0][i][0] = at_x; // x
                 xt[0][i][1] = at_y; // y
                 xt[0][i][2] = (float) Math.cos(ang); // vx
                 xt[0][i][3] = (float) Math.sin(ang); // vy
             }
-            else { // expan==Expansion.INNER
-//                System.out.println("inner!!");
+            else if (expan==CircExpansion.IN) {
                 float vx = (float) Math.cos(ang);
                 float vy = (float) Math.sin(ang);
                 xt[0][i][0] = at_x + nbhood_radius * vx; // x
@@ -167,10 +211,6 @@ public class BayesianTracerMulti {
                 xt[0][i][2] = -vx;
                 xt[0][i][3] = -vy;
             }
-//            else {
-//                System.out.println("problem - wrong expansion!!");
-//                System.exit(0);
-//            }
 
             wt[0][i] = 1f/(float)Nstates;
 
@@ -318,9 +358,9 @@ public class BayesianTracerMulti {
     )
     {
 
-        int _Ns = _xt[0].length;
+        int _Ns = _xt[0].length; // the amount of spaces to fill up
 
-        scirc.reset(_iter_step); // costly
+        scirc.reset(_iter_step); // costly to be executed each time
         // some aux values for bayesian filtering (slows down a lot that they are allocated here - can be outside if the step would stay constant)
         float[][]   _transition_xy       = new float[_Ns*scirc.NN][4];   // Ns*Nscirc x 4 store all the predictions at current iteration
         float[]     _ptes                = new float[_Ns*scirc.NN];      // Ns*Nscirc        store the probabilities temporarily
@@ -463,12 +503,11 @@ public class BayesianTracerMulti {
 
     }
 
-    public static void init(int _R, Expansion expan_type) // _R is neuron radius in pix
+    public static void init(int _R) // _R is neuron radius in pix
     {
 
         neuron_radius = _R;
         nbhood_radius = nbhood_scale *_R;
-        expan = expan_type;
 
         sigmas = new float[_R]; // sigma will range from 1:_R
         for (int i = 0; i < sigmas.length; i++) sigmas[i] = i + 1;

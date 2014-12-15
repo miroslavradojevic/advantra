@@ -51,7 +51,7 @@ public class Extractor extends Thread {
             int     _dim,
             int     _radius,
 //            float   _sigma_deg,
-            BayesianTracerMulti.Expansion _expan_type
+            BayesianTracerMulti.CircExpansion _expan_type
     )
     {
 
@@ -63,7 +63,7 @@ public class Extractor extends Thread {
 //        R           = _radius;
 //        Ns          = _nsamples;
 //        sigma_deg   = _sigma_deg;
-        BayesianTracerMulti.init(_radius, _expan_type);
+        BayesianTracerMulti.init(_radius);
 
         weights();
 
@@ -95,7 +95,7 @@ public class Extractor extends Thread {
             int[][] _i2loc,
             int     _radius,
 //            float   _sigma_deg,
-            BayesianTracerMulti.Expansion _expan_type
+            BayesianTracerMulti.CircExpansion _expan_type
     )
     {
         i2loc   = _i2loc;
@@ -113,7 +113,7 @@ public class Extractor extends Thread {
 //        R       = _radius;
 //        Ns      = _nsamples;
 //        sigma_deg   = _sigma_deg;
-        BayesianTracerMulti.init(_radius, _expan_type);
+        BayesianTracerMulti.init(_radius);
 
         weights();
 

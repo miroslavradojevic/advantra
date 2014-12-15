@@ -4,6 +4,7 @@ import aux.Interpolator;
 import aux.Tools;
 import ij.IJ;
 import ij.ImagePlus;
+import ij.Macro;
 import ij.Prefs;
 import ij.gui.*;
 import ij.io.OpenDialog;
@@ -20,15 +21,21 @@ import java.awt.event.MouseMotionListener;
  */
 public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListener {
 
+    // store clicked locations
+    float x1=Float.NaN, x2=Float.NaN;
+    float y1=Float.NaN, y2=Float.NaN;
+    int cnt_clicks = 0;
+
     // input
     ImageCanvas cnv;
     String      image_path;
     float[][]   likelihood_xy;
 
-    int R               = 4;     // will cover radiuses R * BayesianTracerMulti.sstep
-    int Ns              = 50;    // nr samples
-    float sigma_deg     = 100;   // degrees standard deviation
-    BayesianTracerMulti.Expansion expan = BayesianTracerMulti.Expansion.INNER;
+    int R               = -1;     // radius
+    int Ns              = -1;    // nr samples
+    float sigma_deg     = Float.NaN;   // degrees standard deviation
+    String expan_type = "";
+//    BayesianTracerMulti.CircExpansion expan = null;//BayesianTracerMulti.CircExpansion.OUT;
 
     Overlay oo = new Overlay();
 
@@ -81,15 +88,44 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
             return;
         }
 
-        BayesianTracerMulti.init(R, expan);
-        new ImagePlus("Templates", BayesianTracerMulti.show_templates()).show();
+        if (Macro.getOptions()==null) {
+
+            R 		                = (int)     Prefs.get("critpoint.tracing2d.R", 4);
+            Ns 		                = (int)     Prefs.get("critpoint.tracing2d.Ns", 50);
+            sigma_deg				= (float)	Prefs.get("critpoint.tracing2d.sigma_deg", 80f);
+
+            GenericDialog gd = new GenericDialog("NS_DELINEATION2D");
+
+            gd.addNumericField("R",       R, 	    2,  10, "");
+            gd.addNumericField("NS", 				Ns,					1,	10,	"");
+            gd.addNumericField("SIGMA_DEG", 	        sigma_deg, 			2,  10, "");
+            gd.addChoice("TRACK_TYPE", new String[]{"CIRC_IN", "CIRC_OUT", "LIN_2D"}, "CIRC_IN");
+
+            gd.showDialog();
+            if (gd.wasCanceled()) return;
+
+            R	            = (int) gd.getNextNumber();			Prefs.set("critpoint.tracing2d.R", R);
+            Ns          	= (int) gd.getNextNumber(); 		Prefs.set("critpoint.tracing2d.Ns", Ns);
+            sigma_deg   	= (float) gd.getNextNumber();   	Prefs.set("critpoint.tracing2d.sigma_deg", sigma_deg);
+            expan_type      = gd.getNextChoice();
+
+        }
+        else { // continue with macro arguments without rising graphic window
+            R = Integer.valueOf(Macro.getValue(Macro.getOptions(),                  "R", String.valueOf(4)));
+            Ns = Integer.valueOf(Macro.getValue(Macro.getOptions(),                 "NS", String.valueOf(50)));
+            sigma_deg           = Float.valueOf(Macro.getValue(Macro.getOptions(),  "SIGMA_DEG", String.valueOf(80)));
+            expan_type            = Macro.getValue(Macro.getOptions(), "EXPAN_TYPE", "CIRC_IN");
+        }
+
+        IJ.log(R + " :: " + Ns + " :: " + sigma_deg + " :: " + expan_type + " :: " );
+
+//        new ImagePlus("Templates", BayesianTracerMulti.show_templates()).show();
 
         img.show(); // show it and get the canvas
         cnv = img.getCanvas();
         cnv.addMouseListener(this);
         cnv.addMouseMotionListener(this);
         IJ.setTool("hand");
-
 
     }
 
@@ -98,12 +134,33 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
         int clickX = cnv.offScreenX(e.getX());
         int clickY = cnv.offScreenY(e.getY());
 
-        System.out.print("["+clickX+", " +clickY+"] --- ");
+        System.out.print("["+clickX+", " +clickY+"] ---- ");
 
         long t1 = System.currentTimeMillis();
 
-        boolean show_tracks = true;
-        oo = BayesianTracerMulti.extractAt(clickX, clickY, likelihood_xy, show_tracks, Ns, sigma_deg);
+        boolean show_tracks = true; // will show those that went till the end in circular and those that were centroid in linear tracing
+        BayesianTracerMulti.init(R);
+        if (expan_type == "CIRC_IN") {
+            oo = BayesianTracerMulti.extractAt(clickX, clickY, likelihood_xy, show_tracks, Ns, sigma_deg, BayesianTracerMulti.CircExpansion.IN);
+        }
+        if (expan_type == "CIRC_OUT") {
+            oo = BayesianTracerMulti.extractAt(clickX, clickY, likelihood_xy, show_tracks, Ns, sigma_deg, BayesianTracerMulti.CircExpansion.OUT);
+        }
+        if (expan_type == "LIN_2D") { // works every second click
+            cnt_clicks++;
+            if (cnt_clicks==1) { x1 = clickX; y1 =clickY; oo.add(new PointRoi(x1+.5, y1+.5));      }
+            if (cnt_clicks==2) {
+                x2 = clickX; y2 = clickY;
+                oo.add(new Line(x1+.5, y1+.5, x2+.5, y2+.5));
+
+                float vx = x2 - x1;
+                float vy = y2 - y1;
+
+
+
+            }
+            if (cnt_clicks==3) { cnt_clicks = 0; oo.clear();         }
+        }
 
         long t2 = System.currentTimeMillis();
         float tt = (t2-t1)/1000f;
