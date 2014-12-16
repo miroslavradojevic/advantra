@@ -9,6 +9,7 @@ import ij.Prefs;
 import ij.gui.*;
 import ij.io.OpenDialog;
 import ij.plugin.PlugIn;
+import tracing2d.BayesianTracer;
 import tracing2d.BayesianTracerMulti;
 
 import java.awt.event.MouseEvent;
@@ -119,7 +120,10 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
 
         IJ.log(R + " :: " + Ns + " :: " + sigma_deg + " :: " + expan_type + " :: " );
 
-//        new ImagePlus("Templates", BayesianTracerMulti.show_templates()).show();
+
+
+        BayesianTracer.init(1, 4, 1);
+        new ImagePlus("Templates", BayesianTracer.show_templates()).show();
 
         img.show(); // show it and get the canvas
         cnv = img.getCanvas();
@@ -138,14 +142,12 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
 
         long t1 = System.currentTimeMillis();
 
-        boolean show_tracks = true; // will show those that went till the end in circular and those that were centroid in linear tracing
-        BayesianTracerMulti.init(R);
-        if (expan_type == "CIRC_IN") {
-            oo = BayesianTracerMulti.extractAt(clickX, clickY, likelihood_xy, show_tracks, Ns, sigma_deg, BayesianTracerMulti.CircExpansion.IN);
-        }
-        if (expan_type == "CIRC_OUT") {
-            oo = BayesianTracerMulti.extractAt(clickX, clickY, likelihood_xy, show_tracks, Ns, sigma_deg, BayesianTracerMulti.CircExpansion.OUT);
-        }
+        boolean show_tracks = true;
+//        BayesianTracerMulti.init(R);
+        if (expan_type == "CIRC_IN")
+//            oo = BayesianTracerMulti.extractAt(clickX, clickY, likelihood_xy, show_tracks, Ns, sigma_deg, BayesianTracerMulti.CircExpansion.IN);
+        if (expan_type == "CIRC_OUT")
+//            oo = BayesianTracerMulti.extractAt(clickX, clickY, likelihood_xy, show_tracks, Ns, sigma_deg, BayesianTracerMulti.CircExpansion.OUT);
         if (expan_type == "LIN_2D") { // works every second click
             cnt_clicks++;
             if (cnt_clicks==1) { x1 = clickX; y1 =clickY; oo.add(new PointRoi(x1+.5, y1+.5));      }
@@ -155,11 +157,10 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
 
                 float vx = x2 - x1;
                 float vy = y2 - y1;
-
-
+                float vn = (float) Math.sqrt(vx*vx+vy*vy);
 
             }
-            if (cnt_clicks==3) { cnt_clicks = 0; oo.clear();         }
+            if (cnt_clicks==3) { cnt_clicks = 0; oo.clear(); }
         }
 
         long t2 = System.currentTimeMillis();
