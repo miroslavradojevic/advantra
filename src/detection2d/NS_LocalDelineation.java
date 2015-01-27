@@ -20,7 +20,7 @@ import java.awt.event.MouseMotionListener;
  * Created by miroslav on 11-11-14.
  * will demonstrate local delineation sampling used to extract the features for critpoint detection
  */
-public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListener {
+public class NS_LocalDelineation implements PlugIn, MouseListener, MouseMotionListener {
 
     // store clicked locations
     float x1=Float.NaN, x2=Float.NaN;
@@ -139,6 +139,17 @@ public class NS_Delineation implements PlugIn, MouseListener, MouseMotionListene
         int clickY = cnv.offScreenY(e.getY());
 
         System.out.print("["+clickX+", " +clickY+"] ---- ");
+
+
+        // temp storage for image values
+        float[][] aux_vals = new float[BayesianTracer.tt.length][];
+        for (int i = 0; i < aux_vals.length; i++) aux_vals[i] = new float[BayesianTracer.tt[i].length];
+
+        float[] corr_radius = new float[]{-1, 0};
+
+        BayesianTracer.zncc(clickX, clickY, 90, likelihood_xy, aux_vals, corr_radius);
+
+        System.out.println(corr_radius[1] + " is the radius");
 
         long t1 = System.currentTimeMillis();
 

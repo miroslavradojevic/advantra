@@ -51,6 +51,10 @@ public class Detector2D {
 	float       	minCos = -.5f;
 	float			k = 0.1f;                   	// hardcoded, defines the strictness of the threshold for out membership function, k higher => means more strictness
 
+	// hardcoded (for grid parameter testing - does not make sense to examine more)
+	int 			maxNrRegions = 500;            // max nr regions for CP type (more than that is discarded)
+	float 			ratioOnPix	= 0.05f;		   // pixels that were belonging to CP regions cannot be more than ratio of the total area
+
 	private boolean save_midresults = false;
 	String          midresults_dir = "";
     public boolean  auto_smoothness = false;
@@ -64,7 +68,7 @@ public class Detector2D {
 	Entropy_Threshold et = new Entropy_Threshold(); // will be used to threshold the scores after regularisation
 
     float[] kernel = new float[9];     				// for score regularisation
-    public int Nreg = 2;
+    public int Nreg = 2; 							// how many times it is done
     public float ang_deg = 20f;  					// ms parameter
 
 	int         CPU_NR;
@@ -568,7 +572,7 @@ public class Detector2D {
 
 		if (do_endpoints) {
 
-            System.out.print("EndpointDirections(+MS clustering)... ");
+            System.out.print("EndpointRegions... ");
 
             for (int i = 0; i <cumm_regions_end.size(); i++) {
 
@@ -578,6 +582,7 @@ public class Detector2D {
                 }
 
                 if (do_directions) {
+					System.out.print("(+MS to extract directions)... ");
                     appendDetectedRegions(
                             cumm_regions_end.get(i),
                             cumm_directions_end.get(i),
@@ -599,7 +604,7 @@ public class Detector2D {
 
 		if (do_junctions) {
 
-            System.out.print("JunctionDirections(+MS clustering)... ");
+            System.out.print("JunctionRegions... ");
 
             for (int i = 0; i <cumm_regions_end.size(); i++) {
 
@@ -609,14 +614,15 @@ public class Detector2D {
                 }
 
                 if (do_directions) {
-                    appendDetectedRegions(
+					System.out.print("(+MS to extract directions)... ");
+					appendDetectedRegions(
                             cumm_regions_jun.get(i),
                             cumm_directions_jun.get(i),
                             map_scores_jun, CritpointRegion.RegionType.BIF_CROSS, ang_deg,
                             detected_regions.get(i)); // append in detected_regions
                 }
                 else {
-                    appendDetectedRegions( // no direction analysis
+					appendDetectedRegions( // no direction analysis
                             cumm_regions_jun.get(i),
                             map_scores_jun, CritpointRegion.RegionType.BIF_CROSS,
                             detected_regions.get(i)
@@ -878,23 +884,35 @@ public class Detector2D {
             ArrayList<CritpointRegion>  region_list
     ) {
 
+		// check the number of pixels that were above the threshold
+		byte[] check_vals = (byte[])_region_map.getPixels();
+		int cnt = 0;
+		for (int i = 0; i < check_vals.length; i++) if ((check_vals[i]&0xff) > 0) cnt++;
+		if (cnt/(float)check_vals.length>ratioOnPix) {
+			System.out.println("break! overshot, %ONpix = " + (cnt/(float)check_vals.length));
+			return;
+		}
+
         ///// connected components
         ip_exporter.setProcessor(_region_map);
         Find_Connected_Regions conn_reg = new Find_Connected_Regions(ip_exporter, true);
         conn_reg.run("");
         ArrayList<ArrayList<int[]>> regs = conn_reg.getConnectedRegions();
 
-        int Dmax = (int) Math.round(Stat.get_max(D));
+		int Dmax = (int) Math.round(Stat.get_max(D));
         int Amax = (int) (2*Math.pow(Dmax, 2)); // 2 is heuristic
-//        int nr_regs = 0;
+		int Amin = 4;
+
+		if (regs.size()>maxNrRegions) {
+			System.out.print("break! overshot, #regions = " + regs.size());
+			return;
+		}
 
         // regs
         for (int i=0; i<regs.size(); i++) {
 
             if (regs.get(i).size() > Amax) continue; // go to the next region
-            if (regs.get(i).size() < 4) continue; // go to the next region
-
-//            nr_regs++;
+            if (regs.get(i).size() < Amin) continue; // go to the next region
 
             float Cx=0, Cy=0; 	// centroid
             float C=0;        	// score

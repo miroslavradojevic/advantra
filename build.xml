@@ -35,6 +35,7 @@
 
         <copy file="./critpoint_.jar"  toDir="${env.HOME}/ImageJ/plugins/" />
         <copy file="./critpoint_.jar"  toDir="${env.HOME}/Fiji.app/plugins/" />
+        <copy file="./critpoint_.jar"  toDir="${env.HOME}/fiji/plugins/" />
 
     </target>
 

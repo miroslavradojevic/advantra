@@ -279,6 +279,11 @@ public class Evaluator2D implements PlugIn {
 			eval_image_end.setOverlay(eval_overlay_end);
 			eval_image_end.show();
 
+			IJ.log("EVALUATION legend:");
+			IJ.log("TP:	\tRED  		\t	FULL");
+			IJ.log("FN:	\tGREEN 	\t	FULL");
+			IJ.log("FP:	\tCYAN 		\t	EMPTY");
+
 		}
 
 	}

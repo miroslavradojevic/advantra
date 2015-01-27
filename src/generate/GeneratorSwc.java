@@ -8,6 +8,7 @@ import ij.ImageStack;
 import ij.process.ByteProcessor;
 
 import java.io.*;
+import java.util.Arrays;
 
 /**
  * Created with IntelliJ IDEA.
@@ -15,40 +16,41 @@ import java.io.*;
  * Date: 10/23/13
  * Time: 4:46 PM
  */
-public class GeneratorSwc {
-    // will be used to generate 2D/3D image stacks
+public class GeneratorSwc { // will be used to generate 2D/3D image stacks
 
-    private static int bg = 20; // background level  (used when defining snr)
-	private static int MARGIN_MIN = 50; // pixels
-	public static float R_MIN = 3.0f;
+    private static int bg = 20; 		// background level in 8bit image (used when defining snr)
+	private static int MARGIN_MIN = 50; // pixel margin around the structure
+//	public static float R_MIN = 3.0f;   // ???
 
     /*
     	generate ImageStack from swc & export corresponding swc
      */
-    public static ImagePlus swc2image(ReadSWC readerSWC, boolean is2D, float k, float snr, File out_rec, File gndtth_swc, File out_img)
+    public static ImagePlus swc2image(ReadSWC 	readSWC_pix,
+									  boolean 	is2D,
+									  float 	k,
+									  float 	snr,
+									  File 		out_rec,
+									  File 		gndtth_swc,
+									  File 		out_img
+	)
 	{
 
-		float margin = MARGIN_MIN + ((readerSWC.maxR<1f)? 1f : readerSWC.maxR);
-		// offsets when filling the values up
-		float dX = -readerSWC.minX + margin;
-		float dY = -readerSWC.minY + margin;
-		float dZ = -readerSWC.minZ + margin;
+		float margin = MARGIN_MIN + readSWC_pix.maxR;//((readerSWC.maxR<1f)? 1f : readerSWC.maxR);
 
-//        System.out.println("margin: " + margin);
-//        System.out.println("X : " + readerSWC.minX + " , " + readerSWC.maxX);
-//        System.out.println("Y : " + readerSWC.minY + " , " + readerSWC.maxY);
-//        System.out.println("Z : " + readerSWC.minZ + " , " + readerSWC.maxZ);
+		// offsets when filling the values up
+		float dX = -readSWC_pix.minX + margin;
+		float dY = -readSWC_pix.minY + margin;
+		float dZ = -readSWC_pix.minZ + margin;
 
 		// dimensions
-		int W = (int)Math.ceil(readerSWC.maxX + dX + margin);
-		int H = (int)Math.ceil(readerSWC.maxY + dY + margin);
-		int L = (int)Math.ceil(readerSWC.maxZ + dZ + margin);
+		int W = (int)Math.ceil(readSWC_pix.maxX + dX + margin);
+		int H = (int)Math.ceil(readSWC_pix.maxY + dY + margin);
+		int L = (int)Math.ceil(readSWC_pix.maxZ + dZ + margin);
 
 		// allocate 8 bit image
 		byte[] outIm;
 		if (is2D) outIm = new byte[W * H * 1]; // allocate 2d image
 		else outIm = new byte[W * H * L]; // allocate 3d image
-
 
 		float fg = foregroundLevel(bg, snr); // this is where snr calculations are embedded
 
@@ -63,69 +65,54 @@ public class GeneratorSwc {
 //            logNonWriter = new PrintWriter(new BufferedWriter(new FileWriter(out_non, true)));
         } catch (IOException e) {}
 
-
-        System.out.print("\ngenerating... ");
-
 //        logNonWriter.println("#");
 //        logNonWriter.close();  System.out.println("exported: " + out_non.getAbsolutePath());
 
 		// fill up the values and output swc files
-		for (int ii=0; ii<readerSWC.nodes.size(); ii++) {  // loop through the list to draw cones and export bifs and ends
+		int count_end = 0;
+		int count_jun = 0;
+		for (int ii=0; ii<readSWC_pix.nodes.size(); ii++) {  // loop through the list to draw cones and export bifs and ends
 
 			int currId, currMotherId, laterMotherId, count;
 			float currX, currY, currZ, currR;
 			boolean isEnd, isBif;
 
-			currId = Math.round(readerSWC.nodes.get(ii)[readerSWC.ID]);
-			currMotherId = Math.round(readerSWC.nodes.get(ii)[readerSWC.MOTHER]);
-			currX = readerSWC.nodes.get(ii)[readerSWC.XCOORD] + dX;
-			currY = readerSWC.nodes.get(ii)[readerSWC.YCOORD] + dY;
-			currZ = readerSWC.nodes.get(ii)[readerSWC.ZCOORD] + dZ;
-			currR = readerSWC.nodes.get(ii)[readerSWC.RADIUS];
+			currId = Math.round(readSWC_pix.nodes.get(ii)[readSWC_pix.ID]);
+			currMotherId = Math.round(readSWC_pix.nodes.get(ii)[readSWC_pix.MOTHER]);
+			currX = readSWC_pix.nodes.get(ii)[readSWC_pix.XCOORD] + dX;
+			currY = readSWC_pix.nodes.get(ii)[readSWC_pix.YCOORD] + dY;
+			currZ = readSWC_pix.nodes.get(ii)[readSWC_pix.ZCOORD] + dZ;
+			currR = readSWC_pix.nodes.get(ii)[readSWC_pix.RADIUS];
 
-			//// critpoint check
-			count = 0;
-			isEnd = true;
-			isBif = false;
+			boolean short_tail = readSWC_pix.isEndPoint(ii) && readSWC_pix.getSteps(ii)==1; // will skip those with short tail
 
-			if (currMotherId!=-1) { // it is not root, assign it as endpoint by default if it is root, no need to loop
-				for (int jj=ii+1; jj<readerSWC.nodes.size(); jj++) {
+			if (short_tail) continue;
 
-					laterMotherId = Math.round(readerSWC.nodes.get(jj)[readerSWC.MOTHER]);
-					if (laterMotherId==currId) {
-						isEnd = false;
-						count++;
-						if (count==2) {
-							isBif = true;
-							break;
-						}
-					}
+			if (readSWC_pix.isEndPoint(ii)) count_end++;
 
-				}
-			}
+			if (readSWC_pix.isBifPoint(ii) || readSWC_pix.isCrsPoint(ii)) count_jun++;
 
-            float r_recon = R_MIN+currR-readerSWC.minR;
-            float r_to_plot = 1.5f * r_recon;//(R_MIN+currR-readerSWC.minR);
+//            float r_recon = R_MIN+currR-readerSWC.minR;
+            float r_to_plot = 3.0f * currR;//(R_MIN+currR-readerSWC.minR);
 
 			if (is2D) {
 
-                // rec
+                // reconstruction for the generated image
 				assert logRecWriter != null;
 				logRecWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f %-4d",
                         currId,
-                        Math.round(readerSWC.nodes.get(ii)[readerSWC.TYPE]), // propagate id
-                        currX, currY, 0f, r_recon, currMotherId));
+                        Math.round(readSWC_pix.nodes.get(ii)[readSWC_pix.TYPE]), // propagate id
+                        currX, currY, 0f, currR, currMotherId));
 
                 // gndtth in case it is critical point
-
-                if (isEnd) {
+                if (readSWC_pix.isEndPoint(ii)) {
                     assert logGndTthWriter != null;
                     logGndTthWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1",
                             currId,
                             CritpointRegion.annotationId(CritpointRegion.AnnotationType.END),
                             currX, currY, 0f, r_to_plot));
                 }
-                else if (isBif) {
+                else if (readSWC_pix.isBifPoint(ii) || readSWC_pix.isCrsPoint(ii)) {
                     assert logGndTthWriter != null;
                     logGndTthWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1",
                             currId,
@@ -136,23 +123,22 @@ public class GeneratorSwc {
             }
 			else { // 3d
 
-                // rec
+				// reconstruction for the generated image
 				assert logRecWriter != null;
 				logRecWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f %-4d",
                         currId,
-                        Math.round(readerSWC.nodes.get(ii)[readerSWC.TYPE]), // propagate id
-                        currX, currY, currZ, r_recon, currMotherId));
+                        Math.round(readSWC_pix.nodes.get(ii)[readSWC_pix.TYPE]), // propagate id
+                        currX, currY, currZ, currR, currMotherId));
 
-                // gndtth in case it is critical point
-
-                if (isEnd) {
+				// gndtth in case it is critical point
+                if (readSWC_pix.isEndPoint(ii)) {
                     assert logGndTthWriter != null;
                     logGndTthWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1",
                             currId,
                             CritpointRegion.annotationId(CritpointRegion.AnnotationType.END),
                             currX, currY, currZ, r_to_plot));
                 }
-                else if (isBif) {
+                else if (readSWC_pix.isBifPoint(ii) || readSWC_pix.isCrsPoint(ii)) {
                     assert logGndTthWriter != null;
                     logGndTthWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1",
                             currId,
@@ -163,46 +149,55 @@ public class GeneratorSwc {
 
 			}
 
-			// fill the cones' values to array if it is not the root node
-			if (currMotherId!=-1) {
+			if (currMotherId!=-1) { // fill the cones' values to array if it is not the root node
 
-				// loop backwards till the mother node is found
-				int jj;
-				for (jj=ii-1; jj>=0; jj--) {
-					if (readerSWC.nodes.get(jj)[readerSWC.ID]==currMotherId) {
-						break;
+//				if (!short_tail) { // draw if it is not a short tail
+
+					// loop the rest till the mother node is found as a node id -seek for the previous one
+					boolean found_parent_node = false;
+					int jj;
+					for (jj=ii-1; jj>=0; jj--) {
+						if (readSWC_pix.nodes.get(jj)[readSWC_pix.ID]==currMotherId) {
+							found_parent_node = true;
+							break;
+						}
 					}
-				}
+					if (!found_parent_node) { // check forward as it is not guaranteed that the mother index is always smaller
+						for (jj = ii+1; jj < readSWC_pix.nodes.size(); jj++) {
+							if (readSWC_pix.nodes.get(jj)[readSWC_pix.ID]==currMotherId) {
+								break;
+							}
+						}
+					}
 
-				float prevX = readerSWC.nodes.get(jj)[readerSWC.XCOORD] + dX;
-				float prevY = readerSWC.nodes.get(jj)[readerSWC.YCOORD] + dY;
-				float prevZ = readerSWC.nodes.get(jj)[readerSWC.ZCOORD] + dZ;
-				float prevR = readerSWC.nodes.get(jj)[readerSWC.RADIUS];
+					float prevX = readSWC_pix.nodes.get(jj)[readSWC_pix.XCOORD] + dX;
+					float prevY = readSWC_pix.nodes.get(jj)[readSWC_pix.YCOORD] + dY;
+					float prevZ = readSWC_pix.nodes.get(jj)[readSWC_pix.ZCOORD] + dZ;
+					float prevR = readSWC_pix.nodes.get(jj)[readSWC_pix.RADIUS];
 
-				// draw
-				currR = R_MIN + (currR - readerSWC.minR);
-				prevR = R_MIN + (prevR - readerSWC.minR);
+					// draw
+//					currR = R_MIN + (currR - readSWC_pix.minR);
+//					prevR = R_MIN + (prevR - readSWC_pix.minR);
 
-				if (is2D) {
-					int countElements = drawCone(currX, currY, currR, prevX, prevY, prevR, outIm, W, k, fg);
+					if (is2D) {
+						int countElements = drawCone(currX, currY, currR, prevX, prevY, prevR, outIm, W, k, fg);
 //					System.out.println(" done(2d). "+countElements+" pixels added");
-				}
-				else {
-					int countElements = drawCone(currX, currY, currZ, currR, prevX, prevY, prevZ, prevR, outIm, W, H, k, fg);
+					}
+					else { // 3d
+						int countElements = drawCone(currX, currY, currZ, currR, prevX, prevY, prevZ, prevR, outIm, W, H, k, fg);
 //					System.out.println(" done(3d). "+countElements+" pixels added");
-				}
+					}
+
+
+//				}
 
 			}
 
 		}
 
-        System.out.println("done.");
-
 		/*
 			add poisson noise
 		*/
-
-		System.out.print("\nadding poisson noise...");
 
 		PoissonGenerator poiss 	= new PoissonGenerator();
 
@@ -216,20 +211,16 @@ public class GeneratorSwc {
 
 		}
 
-        System.out.println(" done.");
-
 		logRecWriter.close();       System.out.println("exported: " + out_rec.getAbsolutePath());
 		logGndTthWriter.close();    System.out.println("exported: " + gndtth_swc.getAbsolutePath());
 
 		ImageStack  isOut       = toImageStack(outIm, W, H);
         ImagePlus imOut = new ImagePlus("", isOut);
         IJ.saveAs(imOut, "Tiff", out_img.getAbsolutePath());
-//        FileSaver fs = new FileSaver(imOut);
-//        if (is2D)
-//            fs.saveAsTiff(pathOutTif);
-//        else
-//            fs.saveAsTiffStack(pathOutTif);
         System.out.println("exported: " + out_img.getAbsolutePath());
+
+		IJ.log(out_img.getName()+" W,H = (" + W + "," + H + "), Rmin=" + readSWC_pix.minR + " [pix], Rmax="+readSWC_pix.maxR+"[pix], #JUN="+count_jun+", #END="+count_end+"\n");
+		System.out.println("DONE");
 
 		return imOut;
 

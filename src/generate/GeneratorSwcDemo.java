@@ -10,27 +10,34 @@ import ij.io.OpenDialog;
 import ij.plugin.PlugIn;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.PrintWriter;
 
 /**
  * Created with IntelliJ IDEA.
  * User: miroslav
  * Date: 10/23/13
  * Time: 4:49 PM
- * a wrapper plugin class that would use .swc files to create 2d or 3d
- * synthetic images of neurons with different snr's and ground truth
- * critical points inferred from the swc itself
- * input : path to swc, output: tif image stack or image, critical point swc, end point swc
+ * plugin that calls GeneratorSwc class that would use .swc files to create 2d or 3d image stacks (8bit, tif)
+ * synthetic images of neurons with possibility of having different snr
+ * ground truth critical points are inferred from the swc itself automatically
+ * input : path to swc,
+ * output: tif image stack or image, critical point swc, end point swc
  */
 public class GeneratorSwcDemo implements PlugIn {
 
-	String      swc_path;
-	String		out_dir;
-	float 		SNR;
-	boolean		is2D;
+	String      swc_path;   	// input swc path
+	String		out_dir;    	// output directory
+	float 		SNR;        	// snr level of the generated file
+	boolean		is2D;       	// generate 2d or 3d image stack
+	float 		um_pix_xy;  	// size of one pixel in micro meters in xy (used to convert micro-meter values into pixels) -- will be used for radius as well (?!)
+	float 		um_pix_z;   	// size of one pixel in micro meters in z
+	boolean     auto_um_to_pix; // select the pixel size automatically so that it fits NpixPerDiam per diameter
 
 	// some constants
-	static float 		DMIN = 3;
-	static float 		K = 2.5f;   // scaling the gaussian to match radius
+//	static float 		RMIN = 1.5f;			//
+	static float 		K = 2.5f;   		// scaling the gaussian of the profile to match radius - swc has radius information
+	static float 			pixPerRadius = 1.5f; 	// used in automatic selection of the pixel size, generation constant - at least 3 pixels are used to get the smallest radius, otherwise it won't be visible
 
     public void run(String s) {
 
@@ -47,16 +54,22 @@ public class GeneratorSwcDemo implements PlugIn {
 		if(swc_file==null) return;
 
 		if (Macro.getOptions()==null) {
-			// there was no macro call
+
 			SNR 		= (float) Prefs.get("critpoint.generate.snr", 3);
 			is2D	 	=         Prefs.get("critpoint.generate.is2D", true);
 			out_dir		= 		  Prefs.get("critpoint.generate.out_dir", System.getProperty("user.home"));
+			um_pix_xy   = (float) Prefs.get("critpoint.generate.um_pix_xy", 0.1f);
+			um_pix_z	= (float) Prefs.get("critpoint.generate.um_pix_z",  0.5f);
+			auto_um_to_pix = (boolean) Prefs.get("critpoint.generate.auto_um_to_pix", true);
 
 			GenericDialog gd = new GenericDialog("GENERATE NEURON FROM SWC");
 
-			gd.addNumericField("SNR", 				SNR,  2);
+			gd.addNumericField("SNR", 				SNR,  		2);
 			gd.addCheckbox("2D", 					is2D);
-			gd.addStringField("out_dir", 			out_dir, 50);
+			gd.addStringField("out_dir", 			out_dir, 	50);
+			gd.addNumericField("um/pix (at x,y)", 		um_pix_xy,  2, 	5, "");
+			gd.addNumericField("um/pix (at z)", 	 	um_pix_z, 	2,	5, "");
+			gd.addCheckbox("automatic um/pix (at x,y,z) (overrides um/pix for x,y,z)", auto_um_to_pix);
 
 			gd.showDialog();
 			if (gd.wasCanceled()) return;
@@ -64,16 +77,24 @@ public class GeneratorSwcDemo implements PlugIn {
 			SNR     	= (float) gd.getNextNumber();
 			is2D 		= gd.getNextBoolean();
 			out_dir  	= gd.getNextString();
+			auto_um_to_pix = gd.getNextBoolean();
 
 			Prefs.set("critpoint.generate.snr", 		SNR);
 			Prefs.set("critpoint.generate.is2D", 		is2D);
 			Prefs.set("critpoint.generate.out_dir",		out_dir);
+			Prefs.set("critpoint.generate.um_pix_xy", 	um_pix_xy);
+			Prefs.set("critpoint.generate.um_pix_z", 	um_pix_z);
+			Prefs.set("critpoint.generate.auto_um_to_pix", auto_um_to_pix);
 		}
 		else {
-			// macro is called, parameters are there
-			SNR     = Float.valueOf(Macro.getValue(Macro.getOptions(), "SNR", String.valueOf(3)));
-			is2D 	= Boolean.valueOf(Macro.getValue(Macro.getOptions(), "is2D", String.valueOf(true)));
-			out_dir  = Macro.getValue(Macro.getOptions(), "out_dir", System.getProperty("user.home"));
+
+			SNR     	= Float.valueOf(Macro.getValue(Macro.getOptions(), "SNR", String.valueOf(3)));
+			is2D 		= Boolean.valueOf(Macro.getValue(Macro.getOptions(), "is2D", String.valueOf(true)));
+			out_dir  	= Macro.getValue(Macro.getOptions(), "out_dir", System.getProperty("user.home"));
+			um_pix_xy 	= Float.valueOf(Macro.getValue(Macro.getOptions(), "um_pix_xy", String.valueOf(0.1f)));
+			um_pix_z 	= Float.valueOf(Macro.getValue(Macro.getOptions(), "um_pix_z", String.valueOf(0.5f)));
+			auto_um_to_pix = Boolean.valueOf(Macro.getValue(Macro.getOptions(), "auto_um_to_pix", String.valueOf(true)));
+
 		}
 
 //		float k 		 = (float) Prefs.get("critpoint.generate.k", 1);
@@ -105,10 +126,11 @@ public class GeneratorSwcDemo implements PlugIn {
 
         // swc radius correction (swc has irregular radiuses and also generating tiny radiuses does not make sense)
         ReadSWC readerSwc = new ReadSWC(swc_path); // pulled out so that expected diameter can be known in advance
-        float[] all_radiuses = new float[readerSwc.nodes.size()];
-        for (int ii=0; ii<readerSwc.nodes.size(); ii++)
-            all_radiuses[ii] = GeneratorSwc.R_MIN + (readerSwc.nodes.get(ii)[readerSwc.RADIUS] - readerSwc.minR);
-        float diam_est = 2 * Stat.average(all_radiuses);
+
+//		float[] all_radiuses = new float[readerSwc.nodes.size()];
+//        for (int ii=0; ii<readerSwc.nodes.size(); ii++)
+//            all_radiuses[ii] = RMIN + (readerSwc.nodes.get(ii)[readerSwc.RADIUS] - readerSwc.minR);
+//        float diam_est = 2 * Stat.average(all_radiuses);
 
 		// new names for outputs
         String out_name = String.format("%s", name);//, diam_est);
@@ -118,11 +140,46 @@ public class GeneratorSwcDemo implements PlugIn {
         File image_path  = new File(out_dir+out_name+".tif");
         File gnd_tth_swc = new File(out_dir+out_name+"_gndtth"+".swc");
 
-        GeneratorSwc neuronGenerator = new GeneratorSwc();
-        neuronGenerator.swc2image(readerSwc, is2D, K, SNR, rec_swc, gnd_tth_swc, image_path);
+		System.out.println("\n" + swc_path);
 
-        System.out.println("DONE");
+		//
+		// NOTE: x,y,z and r are in micrometers!
+		// all the values stored in readerSWC are in um, while generating works in pix
+		// use constant um/pix to convert those into pixels - because pixels are used as metric when generating
+		//
 
+		if (auto_um_to_pix) {
+			// redefine, override old pixel size
+			um_pix_xy = readerSwc.minR / pixPerRadius;
+			um_pix_z  = um_pix_xy; // z gets the same pixel size - maybe not ok!!!
+		}
+
+		readerSwc.umToPix(um_pix_xy, um_pix_z); // convert it before plugged into generator, radiuses are scaled as well
+		System.out.println(IJ.d2s(um_pix_xy, 2) + " um/pix");
+
+		GeneratorSwc neuronGenerator = new GeneratorSwc();
+
+		// clean output files if they exist
+		if(gnd_tth_swc.exists()) try {
+			new PrintWriter(gnd_tth_swc.getAbsolutePath()).close();
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+
+		if(rec_swc.exists()) try {
+			new PrintWriter(rec_swc.getAbsolutePath()).close();
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+
+		neuronGenerator.swc2image(readerSwc, is2D, K, SNR,
+				rec_swc,
+				gnd_tth_swc,
+				image_path
+		);
+		// rec_swc: output reconstruction, for the generated image
+		// gnd_tth_swc: output swc with critical points
+		// image_path: output image path
 
     }
 

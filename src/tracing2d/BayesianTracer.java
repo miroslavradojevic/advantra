@@ -1,5 +1,6 @@
 package tracing2d;
 
+import aux.Interpolator;
 import detection2d.SemiCircle;
 import ij.IJ;
 import ij.ImageStack;
@@ -95,27 +96,105 @@ public class BayesianTracer {
         return is;
     }
 
-    public static float local_radius(float x,
+    public static void zncc(         float x,
                                      float y,
-                                     int nang,
-                                     float[][] img_xy
+                                     int   nang,
+                                     float[][] img_xy,
+                                     float[][] aux_vals,    // has to be allocated properly
+                                     float[] out_corr_radius
     )
     {
 
-        // will give the radius estimation based on the correlations obtained at different directions
-        float max_corr = -1;
-        float max_corr_radius = Float.NaN;
+        out_corr_radius[0] = -1;
+        out_corr_radius[1] = 0;
 
         for (int iang = 0; iang < nang; iang++) {
-            float ang = (float) (Math.PI/nang);
-            float vx = ;
-            float vy = ;
-            for (int irad = 0; irad < radiuses.length; irad++) {
 
-            }
+            float ang = (float) (iang * (Math.PI/nang));
+            float vx = (float) Math.cos(ang);
+            float vy = (float) Math.sin(ang);
+
+            // ncc calculation
+            zncc(   x,y,vx,vy,
+                    img_xy,
+                    aux_vals,
+                    out_corr_radius
+            );
+
         }
 
-        return max_corr_radius;
+    }
+
+    public static void zncc( float      x,
+                             float      y,
+                             float      vx,
+                             float      vy,
+                             float[][]  img_xy,
+                             float[][]  img_vals,
+                             float[]    out_ncc_radius
+                             ){
+
+        out_ncc_radius[0] = -1;
+        out_ncc_radius[1] = Float.NaN;
+
+        int imgW = img_xy.length;
+        int imgH = img_xy[0].length;
+
+        for (int irad = 0; irad < tt.length; irad++) {
+
+            // check if this sampling range falls into the image at all - borders are enough to check
+            float p1x = x + nsamp2[irad]*cross_sampling*vy; // x+L*max_step*vy
+            float p1y = y - nsamp2[irad]*cross_sampling*vx; // y-L*max_step*vx
+            float p2x = x - nsamp2[irad]*cross_sampling*vy; // x-L*max_step*vy
+            float p2y = y + nsamp2[irad]*cross_sampling*vx; // y+L*max_step*vx
+
+            if ((p1x>=0 && p1x<=imgW-1 && p1y>=0 && p1y<=imgH-1) &&
+                    (p2x>=0 && p2x<=imgW-1 && p2y>=0 && p2y<=imgH-1)) {
+
+                img_vals[irad][nsamp2[irad]] = Interpolator.interpolateAt(x,y,img_xy);
+                float avgVals = img_vals[irad][nsamp2[irad]];
+
+                for (int shift = 1; shift <= nsamp2[irad]; shift++) {
+
+                    img_vals[irad][nsamp2[irad]+shift] = Interpolator.interpolateAt(
+                            x + shift * cross_sampling * vy,
+                            y - shift * cross_sampling * vx,
+                            img_xy
+                    );
+                    avgVals += img_vals[irad][nsamp2[irad]+shift];
+
+                    img_vals[irad][nsamp2[irad]-shift] = Interpolator.interpolateAt(
+                            x - shift * cross_sampling * vy,
+                            y + shift * cross_sampling * vx,
+                            img_xy
+                    );
+                    avgVals += img_vals[irad][nsamp2[irad]-shift];
+
+                }
+
+                avgVals /= (float) (2*nsamp2[irad]+1);
+
+                float corra = 0;
+                float corrb = 0;
+                float corrc = 0;
+
+                for (int i = 0; i < ((2*nsamp2[irad]+1)); i++) {
+                    corra += (img_vals[irad][i]-avgVals) * (tt[irad][i]-tta[irad]);
+                    corrb += Math.pow(img_vals[irad][i]-avgVals,2);
+                    corrc += Math.pow(tt[irad][i]-tta[irad],2);
+                }
+
+                float ncc = (float) (corra / Math.sqrt(corrb*corrc));
+
+                if (ncc>out_ncc_radius[0]) {
+                    out_ncc_radius[0] = ncc;
+                    out_ncc_radius[1] = radiuses[irad];
+                }
+
+            }
+
+        }
+
     }
 
     public static void linear_tracer(float       x,
