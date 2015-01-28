@@ -19,15 +19,14 @@ import java.util.Arrays;
 public class GeneratorSwc { // will be used to generate 2D/3D image stacks
 
     private static int bg = 20; 		// background level in 8bit image (used when defining snr)
-	private static int MARGIN_MIN = 50; // pixel margin around the structure
-//	public static float R_MIN = 3.0f;   // ???
+	private static int MARGIN_MIN = 20; // pixel margin around the structure
 
     /*
     	generate ImageStack from swc & export corresponding swc
      */
-    public static ImagePlus swc2image(ReadSWC 	readSWC_pix,
+    public static ImagePlus swc2image(ReadSWC 	readSWC_pix, // values are in pixels - in image space now
 									  boolean 	is2D,
-									  float 	k,
+//									  float 	k,
 									  float 	snr,
 									  File 		out_rec,
 									  File 		gndtth_swc,
@@ -61,16 +60,14 @@ public class GeneratorSwc { // will be used to generate 2D/3D image stacks
         try {
             logRecWriter        = new PrintWriter(new BufferedWriter(new FileWriter(out_rec, true)));
             logGndTthWriter     = new PrintWriter(new BufferedWriter(new FileWriter(gndtth_swc, true)));
-//            logEndWriter = new PrintWriter(new BufferedWriter(new FileWriter(out_end, true))); //logEndWriter.println("# endpoints\n# source swc file "+ inSwc);
-//            logNonWriter = new PrintWriter(new BufferedWriter(new FileWriter(out_non, true)));
         } catch (IOException e) {}
-
-//        logNonWriter.println("#");
-//        logNonWriter.close();  System.out.println("exported: " + out_non.getAbsolutePath());
 
 		// fill up the values and output swc files
 		int count_end = 0;
 		int count_jun = 0;
+
+		System.out.println("generating...");
+
 		for (int ii=0; ii<readSWC_pix.nodes.size(); ii++) {  // loop through the list to draw cones and export bifs and ends
 
 			int currId, currMotherId, laterMotherId, count;
@@ -92,8 +89,7 @@ public class GeneratorSwc { // will be used to generate 2D/3D image stacks
 
 			if (readSWC_pix.isBifPoint(ii) || readSWC_pix.isCrsPoint(ii)) count_jun++;
 
-//            float r_recon = R_MIN+currR-readerSWC.minR;
-            float r_to_plot = 3.0f * currR;//(R_MIN+currR-readerSWC.minR);
+//
 
 			if (is2D) {
 
@@ -105,20 +101,23 @@ public class GeneratorSwc { // will be used to generate 2D/3D image stacks
                         currX, currY, 0f, currR, currMotherId));
 
                 // gndtth in case it is critical point
-                if (readSWC_pix.isEndPoint(ii)) {
-                    assert logGndTthWriter != null;
-                    logGndTthWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1",
-                            currId,
-                            CritpointRegion.annotationId(CritpointRegion.AnnotationType.END),
-                            currX, currY, 0f, r_to_plot));
-                }
-                else if (readSWC_pix.isBifPoint(ii) || readSWC_pix.isCrsPoint(ii)) {
-                    assert logGndTthWriter != null;
-                    logGndTthWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1",
-                            currId,
-                            CritpointRegion.annotationId(CritpointRegion.AnnotationType.BIF),
-                            currX, currY, 0f, r_to_plot));
-                }
+				if (!readSWC_pix.isSomaNode(ii)) {
+					if (readSWC_pix.isEndPoint(ii)) {
+						float r_to_plot = (float) (2.0f * currR);// (Math.log(currR)/Math.log(2)) //(R_MIN+currR-readerSWC.minR);
+						assert logGndTthWriter != null;
+						logGndTthWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1",
+								currId,
+								CritpointRegion.annotationId(CritpointRegion.AnnotationType.END),
+								currX, currY, 0f, r_to_plot));
+					} else if (readSWC_pix.isBifPoint(ii) || readSWC_pix.isCrsPoint(ii)) {
+						float r_to_plot = (float) (2.0f * (Math.log(currR) / Math.log(2)));//(R_MIN+currR-readerSWC.minR);
+						assert logGndTthWriter != null;
+						logGndTthWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1",
+								currId,
+								CritpointRegion.annotationId(CritpointRegion.AnnotationType.BIF),
+								currX, currY, 0f, r_to_plot));
+					}
+				}
 
             }
 			else { // 3d
@@ -131,27 +130,41 @@ public class GeneratorSwc { // will be used to generate 2D/3D image stacks
                         currX, currY, currZ, currR, currMotherId));
 
 				// gndtth in case it is critical point
-                if (readSWC_pix.isEndPoint(ii)) {
-                    assert logGndTthWriter != null;
-                    logGndTthWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1",
-                            currId,
-                            CritpointRegion.annotationId(CritpointRegion.AnnotationType.END),
-                            currX, currY, currZ, r_to_plot));
-                }
-                else if (readSWC_pix.isBifPoint(ii) || readSWC_pix.isCrsPoint(ii)) {
-                    assert logGndTthWriter != null;
-                    logGndTthWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1",
-                            currId,
-                            CritpointRegion.annotationId(CritpointRegion.AnnotationType.BIF),
-                            currX, currY, currZ, r_to_plot));
-                }
-
+				if (!readSWC_pix.isSomaNode(ii)) {
+					if (readSWC_pix.isEndPoint(ii)) {
+						float r_to_plot = (float) (2.0f * currR);
+						assert logGndTthWriter != null;
+						logGndTthWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1",
+								currId,
+								CritpointRegion.annotationId(CritpointRegion.AnnotationType.END),
+								currX, currY, currZ, r_to_plot));
+					} else if (readSWC_pix.isBifPoint(ii) || readSWC_pix.isCrsPoint(ii)) {
+						float r_to_plot = (float) (2.0f * (Math.log(currR) / Math.log(2)));
+						assert logGndTthWriter != null;
+						logGndTthWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f -1",
+								currId,
+								CritpointRegion.annotationId(CritpointRegion.AnnotationType.BIF),
+								currX, currY, currZ, r_to_plot));
+					}
+				}
 
 			}
 
 			if (currMotherId!=-1) { // fill the cones' values to array if it is not the root node
 
 //				if (!short_tail) { // draw if it is not a short tail
+
+				if (readSWC_pix.isSomaNode(ii)) {
+
+					if (is2D) {
+						int countElements = drawSphere(currX, currY, currR, outIm, W, fg);
+					}
+					else {
+						int countElements = drawSphere(currX, currY, currZ, currR, outIm, W, H, fg);
+					}
+
+				}
+				else {
 
 					// loop the rest till the mother node is found as a node id -seek for the previous one
 					boolean found_parent_node = false;
@@ -175,23 +188,26 @@ public class GeneratorSwc { // will be used to generate 2D/3D image stacks
 					float prevZ = readSWC_pix.nodes.get(jj)[readSWC_pix.ZCOORD] + dZ;
 					float prevR = readSWC_pix.nodes.get(jj)[readSWC_pix.RADIUS];
 
+					if (readSWC_pix.nodes.get(jj)[readSWC_pix.TYPE]==readSWC_pix.SOMA) prevR = currR; // small correction when parent node is SOMA - then the radius will be currR
+
 					// draw
 //					currR = R_MIN + (currR - readSWC_pix.minR);
 //					prevR = R_MIN + (prevR - readSWC_pix.minR);
 
 					if (is2D) {
-						int countElements = drawCone(currX, currY, currR, prevX, prevY, prevR, outIm, W, k, fg);
+						int countElements = drawCone(currX, currY, currR, prevX, prevY, prevR, outIm, W, fg);
 //					System.out.println(" done(2d). "+countElements+" pixels added");
 					}
 					else { // 3d
-						int countElements = drawCone(currX, currY, currZ, currR, prevX, prevY, prevZ, prevR, outIm, W, H, k, fg);
+						int countElements = drawCone(currX, currY, currZ, currR, prevX, prevY, prevZ, prevR, outIm, W, H, fg);
 //					System.out.println(" done(3d). "+countElements+" pixels added");
 					}
 
 
-//				}
+				}
 
 			}
+
 
 		}
 
@@ -219,14 +235,14 @@ public class GeneratorSwc { // will be used to generate 2D/3D image stacks
         IJ.saveAs(imOut, "Tiff", out_img.getAbsolutePath());
         System.out.println("exported: " + out_img.getAbsolutePath());
 
-		IJ.log(out_img.getName()+" W,H = (" + W + "," + H + "), Rmin=" + readSWC_pix.minR + " [pix], Rmax="+readSWC_pix.maxR+"[pix], #JUN="+count_jun+", #END="+count_end+"\n");
+		IJ.log(out_img.getName()+" W, H = (" + W + ", " + H + "), Rmin=" + readSWC_pix.minR + " [pix], Rmax="+readSWC_pix.maxDiameter()+"[pix], #JUN="+count_jun+", #END="+count_end+"\n");
 		System.out.println("DONE");
 
 		return imOut;
 
     }
 
-	private static int drawCone(float x, float y, float r, float xPrev, float yPrev, float rPrev, byte[] image2d, int W, float k, float fg)
+	private static int drawCone(float x, float y, float r, float xPrev, float yPrev, float rPrev, byte[] image2d, int W, float fg)
 	{
 
 		// x,y are expected to be valid 2d coordinates of the image stack layer
@@ -262,7 +278,7 @@ public class GeneratorSwc { // will be used to generate 2D/3D image stacks
 													 xLoop, yLoop,// zLoop,
 													 x, y, r, //z,
 													 xPrev, yPrev, rPrev, //, zPrev
-													 k, fg
+													 fg
 								);
 
 						if (calculatedValue>currentValue) {
@@ -279,8 +295,7 @@ public class GeneratorSwc { // will be used to generate 2D/3D image stacks
 
 	}
 
-
-	private static int drawCone(float x, float y, float z, float r, float xPrev, float yPrev, float zPrev, float rPrev, byte[] image3d, int W, int H, float k, float fg)
+	private static int drawCone(float x, float y, float z, float r, float xPrev, float yPrev, float zPrev, float rPrev, byte[] image3d, int W, int H, float fg)
     {
 
         // x,y,z are expected to be valid 3d coordinates of the image stack
@@ -316,7 +331,7 @@ public class GeneratorSwc { // will be used to generate 2D/3D image stacks
                                 xLoop, yLoop, zLoop,
                                 x, y, z, r,
                                 xPrev, yPrev, zPrev, rPrev,
-                                k, fg
+                                fg
                                 );
 
                         if (calculatedValue>currentValue) {
@@ -333,21 +348,119 @@ public class GeneratorSwc { // will be used to generate 2D/3D image stacks
 
 	}
 
+	private static int drawSphere(float x, float y, float r, byte[] image2d, int W, float fg)
+	{
+		// x,y are expected to be valid 2d coordinates of the image stack layer
+		// cone defined with (x1,y1,r1),(x2,y2,r2)
+
+		int H = image2d.length / W;
+
+		// count how many values were added
+		int count = 0;
+
+		// range in x
+		int xMin = (int)Math.floor(x-r);
+		int xMax = (int)Math.ceil(x+r);
+
+		// range in y
+		int yMin = (int)Math.floor(y-r);
+		int yMax = (int)Math.ceil(y+r);
+
+//		// range in z
+//		int zMin = (int)Math.floor(Math.min(z-r, zPrev-rPrev));
+//		int zMax = (int)Math.ceil(Math.max(z+r, zPrev+rPrev));
+
+		// loop
+		for (int xLoop=xMin; xLoop<=xMax; xLoop++) {
+			for (int yLoop=yMin; yLoop<=yMax;yLoop++) {
+//				for (int zLoop=zMin; zLoop<=zMax; zLoop++) {
+				if ((xLoop>=0 && xLoop<W) && (yLoop>=0 && yLoop<H)) { // is inside the image && (zLoop>=0 && zLoop<L)
+
+					int currentIndex        = xy2ind(xLoop, yLoop, W);
+					int currentValue        = (image2d[currentIndex] & 0xff);           // byte to int
+					int calculatedValue     = //255;
+							sphereIntensity(
+									xLoop, yLoop,// zLoop,
+									x, y, r, //z,
+									fg
+							);
+
+					if (calculatedValue>currentValue) {
+						image2d[currentIndex] = (byte)calculatedValue;
+						count++;
+					}
+
+				}
+//				}
+			}
+		}
+
+		return count;
+	}
+
+	private static int drawSphere(float x, float y, float z, float r, byte[] image3d, int W, int H, float fg)
+	{
+
+		int L = image3d.length / (W*H);
+
+		// count how many values were added
+		int count = 0;
+
+		// range in x
+		int xMin = (int)Math.floor(x-r);
+		int xMax = (int)Math.ceil(x+r);
+
+		// range in y
+		int yMin = (int)Math.floor(y-r);
+		int yMax = (int)Math.ceil(y+r);
+
+		// range in z
+		int zMin = (int)Math.floor(z-r);
+		int zMax = (int)Math.ceil(z+r);
+
+		// loop
+		for (int xLoop=xMin; xLoop<=xMax; xLoop++) {
+			for (int yLoop=yMin; yLoop<=yMax;yLoop++) {
+				for (int zLoop=zMin; zLoop<=zMax; zLoop++) {
+					if ((xLoop>=0 && xLoop<W) && (yLoop>=0 && yLoop<H) && (zLoop>=0 && zLoop<L)) { // is inside the image
+
+						int currentIndex        = xyz2ind(xLoop, yLoop, zLoop, W, H);
+						int currentValue        = (image3d[currentIndex] & 0xff);           // byte to int
+						int calculatedValue     = //255;
+								sphereIntensity(
+										xLoop, yLoop, zLoop,
+										x, y, z, r,
+//										xPrev, yPrev, zPrev, rPrev,
+										fg
+								);
+
+						if (calculatedValue>currentValue) {
+							image3d[currentIndex] = (byte)calculatedValue;
+							count++;
+						}
+
+					}
+				}
+			}
+		}
+
+		return count;
+
+
+	}
+
 	private static int coneIntensity( // will output value at xyLoc based on cone geometry and gaussian cross-profile outputs -1 in case it is out of the cone
 									  int xLoc, int yLoc, //int zLoc,
 									  float x1, float y1, float r1, // float z1,
 									  float x2, float y2, float r2, //  float z2,
-									  float k, // scales the gaussian sigma with respect to the neurite radius
 									  float fg // foreground scaled wrt snr and chosen background
 	)
 	{
 		// returns 0-255 value for gaussian cross-profile
 		// of the cone based on the normal distance from the axis
-		// if it's out of the cone or the cone is really short, returns -1
-
         // some convention is that k * gauss_sigma ~ 2.5 * gauss_sigma ~ diameter = 2 * radius
         // therefore gauss_sigma ~ ( 2 * radius ) / k ~ ( 2 * radius ) / 2.5
-        // used for intensity decay generation knowing radius and the k ratio
+        // !!! new change: gauss_sigma ~ log2(radius)+ small value
 
 		float p21_x = x2 - x1;
 		float p21_y = y2 - y1;
@@ -379,7 +492,7 @@ public class GeneratorSwc { // will be used to generate 2D/3D image stacks
 			// take the spherical distance from (x1,y1,z1)
 
 			double d1 		= Math.sqrt( Math.pow(c1_x, 2) + Math.pow(c1_y, 2) ); //+ Math.pow(c1_z, 2)
-			double sigma1 	= (2 * r1) / k;
+			double sigma1 	= Math.log(r1)/Math.log(2);//(2 * r1) / k;
 
 			int val = 0;
 			if (d1<=3*sigma1)
@@ -391,7 +504,7 @@ public class GeneratorSwc { // will be used to generate 2D/3D image stacks
 			// take the spherical distance from (x2,y2,z2)
 
 			double d2 		= Math.sqrt( Math.pow(c2_x, 2) + Math.pow(c2_y, 2) ); // + Math.pow(c2_z, 2)
-			double sigma2 	= (2 * r2) / k;
+			double sigma2 	= Math.log(r2)/Math.log(2);//(2 * r2) / k;
 
 			int val = 0;
 			if (d2<=3*sigma2)
@@ -407,7 +520,7 @@ public class GeneratorSwc { // will be used to generate 2D/3D image stacks
 
 		// interpolate radius based on r1 and r2
 		double r = (d2*r1 + (P12-d2)*r2)/P12;
-		double sigma =  (2 * r) / k;
+		double sigma = Math.log(r)/Math.log(2);// (2 * r) / k;
 
 		// use d, sigma to calculate the value and scale it with fg
 		int val = 0;
@@ -419,11 +532,28 @@ public class GeneratorSwc { // will be used to generate 2D/3D image stacks
 
 	}
 
+	private static int sphereIntensity(
+			int xLoc, int yLoc, //int zLoc,
+			float x1, float y1, float r1, // float z1,
+			float fg // foreground scaled wrt snr and chosen background
+	)
+	{
+
+		double d = Math.sqrt( Math.pow(xLoc-x1, 2) + Math.pow(yLoc-y1, 2) ); // + Math.pow(-p12_z * d2 + c2_z, 2)
+		double sigma = Math.log(r1)/Math.log(2);// (2 * r) / k;
+
+		// use d, sigma to calculate the value and scale it with fg
+		int val = 0;
+		if (d<=3*sigma)
+			val =  (int) (fg * Math.exp(-(d * d) / (2 * sigma * sigma)));
+		return val;
+
+	}
+
     private static int coneIntensity( // will output value at xyzLoc based on cone geometry and gaussian cross-profile outputs -1 in case it is out of the cone
         int xLoc, int yLoc, int zLoc,
         float x1, float y1, float z1, float r1,
         float x2, float y2, float z2, float r2,
-        float k, // scales the gaussian sigma
         float fg // foreground scaled wrt snr and chosen background
     )
     {
@@ -466,7 +596,7 @@ public class GeneratorSwc { // will be used to generate 2D/3D image stacks
 			// take the spherical distance from (x1,y1,z1)
 
 			double d1 		= Math.sqrt( Math.pow(c1_x, 2) + Math.pow(c1_y, 2) + Math.pow(c1_z, 2) );
-			double sigma1 	= (2 * r1) / k;
+			double sigma1 	= Math.log(r1)/Math.log(2);//(2 * r1) / k;
 
 			int val = 0;
 			if (d1<=3*sigma1)
@@ -478,7 +608,7 @@ public class GeneratorSwc { // will be used to generate 2D/3D image stacks
 			// take the spherical distance from (x2,y2,z2)
 
 			double d2 		= Math.sqrt( Math.pow(c2_x, 2) + Math.pow(c2_y, 2) + Math.pow(c2_z, 2) );
-			double sigma2 	= (2 * r2) / k;
+			double sigma2 	= Math.log(r2)/Math.log(2);//(2 * r2) / k;
 
 			int val = 0;
 			if (d2<=3*sigma2)
@@ -494,7 +624,7 @@ public class GeneratorSwc { // will be used to generate 2D/3D image stacks
 
         // interpolate radius based on r1 and r2
         double r = (d2*r1 + (P12-d2)*r2)/P12;
-        double sigma =  (2 * r) / k;
+        double sigma =  Math.log(r)/Math.log(2);//(2 * r) / k;
 
         // use d, sigma to calculate the value and scale it with fg
         int val = 0;
@@ -505,6 +635,24 @@ public class GeneratorSwc { // will be used to generate 2D/3D image stacks
         return val;
 
     }
+
+	private static int sphereIntensity( // will output value at xyzLoc based on cone geometry and gaussian cross-profile outputs -1 in case it is out of the cone
+									  int xLoc, int yLoc, int zLoc,
+									  float x1, float y1, float z1, float r1,
+									  float fg // foreground scaled wrt snr and chosen background
+	)
+	{
+
+		double d = Math.sqrt( Math.pow(xLoc-x1, 2) + Math.pow(yLoc-y1, 2) + Math.pow(zLoc-z1, 2) );
+		double sigma =  Math.log(r1)/Math.log(2);//(2 * r) / k;
+
+		// use d, sigma to calculate the value and scale it with fg
+		int val = 0;
+		if (d<=3*sigma)
+			val =  (int) (fg * Math.exp(-(d * d) / (2 * sigma * sigma)));
+		return val;
+
+	}
 
     private static float foregroundLevel(float bg, float snr)
     {
@@ -635,7 +783,5 @@ public class GeneratorSwc { // will be used to generate 2D/3D image stacks
         return isOut;
 
     }
-
-
 
 }

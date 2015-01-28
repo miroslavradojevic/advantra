@@ -32,6 +32,12 @@ public class ReadSWC {
 	public static int RADIUS 	= 5;
 	public static int MOTHER 	= 6;
 
+    public static int UNDEFINED = 0;
+    public static int SOMA = 1;
+    public static int AXON = 2;
+    public static int BASAL_DENDRITE = 3;
+    public static int APICAL_DENDRITE = 4;
+
     // variables that count connections
     int[] cnt_conn; // count connections
     int[] cnt_stps; // count steps (only for terminal points)
@@ -172,6 +178,8 @@ public class ReadSWC {
         return cnt_conn[node_idx]!=2;
     }
 
+    public boolean isSomaNode(int node_idx) {return Math.round(nodes.get(node_idx)[TYPE])==SOMA; }
+
     public void printCritpointCounts()
     {
         for (int i = 0; i < cnt_conn.length; i++) {
@@ -185,6 +193,81 @@ public class ReadSWC {
     {
         return cnt_stps[node_idx]; // -1, unless it is an endpoint, then it counts the path towards nearest critpoint
     }
+
+    public float maxDiameter()
+    {
+
+        float mx = Float.NEGATIVE_INFINITY;
+        for (int i = 0; i < nodes.size(); i++) {
+            if (Math.round(nodes.get(i)[TYPE]) != SOMA) {
+                if (nodes.get(i)[RADIUS]>mx)
+                    mx = nodes.get(i)[RADIUS];
+            }
+        }
+
+        return mx;
+
+    }
+
+    public void lowRadiusBoundary(float low_bdry)
+    {
+
+        for (int i = 0; i < nodes.size(); i++) {
+            if (Math.round(nodes.get(i)[TYPE]) != SOMA) {
+                if (nodes.get(i)[RADIUS]<low_bdry)
+                    nodes.get(i)[RADIUS] = low_bdry;
+            }
+        }
+
+    }
+
+    public float averageDiameter()
+    {
+
+        float avg = 0;
+
+        if (nodes.size()>0) {
+
+            int cnt = 0;
+
+            for (int i = 0; i < nodes.size(); i++) {
+                if (Math.round(nodes.get(i)[TYPE]) != SOMA) {
+                    cnt++;
+                    avg += 2 * nodes.get(i)[RADIUS];
+                }
+            }
+
+            avg = avg / cnt;
+
+        }
+        else {
+            avg = Float.NaN;
+        }
+
+        return avg;
+
+    }
+
+    public float medianDiameter()
+    {
+        
+        int count = 0;
+
+        for (int i = 0; i < nodes.size(); i++)
+            if (Math.round(nodes.get(i)[TYPE]) != SOMA) count++;
+
+        float[] vals = new float[count];
+
+        count = 0;
+        for (int i = 0; i < nodes.size(); i++) {
+            if (Math.round(nodes.get(i)[TYPE]) != SOMA) vals[count++] = 2 * nodes.get(i)[RADIUS];
+        }
+
+        return Stat.median(vals);
+        
+    }
+
+
 
     public void print(){
 
