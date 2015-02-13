@@ -21,17 +21,21 @@ public class Viewer2D implements PlugIn {
 		IJ.open();
 		ImagePlus img = IJ.getImage();
 
+		float r = -1;
+
 		String det_path = img.getOriginalFileInfo().directory;
 		boolean show_dirs = false;
 
 		GenericDialog gd = new GenericDialog("Select Detection");
 		gd.addStringField("detection (name.det) path", det_path, 50);
+		gd.addNumericField("regionradius", r, 1);
 		gd.addCheckbox("include_directions", true);
 		gd.showDialog();
 
 		if (gd.wasCanceled()) return;
 
 		det_path = gd.getNextString();
+		r = (float) gd.getNextNumber();
 		show_dirs = gd.getNextBoolean();
 
 		/* read detection */
@@ -62,21 +66,26 @@ public class Viewer2D implements PlugIn {
 
 			float x = det_reader.x.get(i);
 			float y = det_reader.y.get(i);
-			float r = det_reader.r.get(i);
+			if (r==-1) r = det_reader.r.get(i); // will change the size of the detection overlay circles
 
 			boolean body_added = false;
+
 			Color clr=null;
 
 			if (det_reader.t.get(i).equals("END")) {
-				clr = Color.YELLOW;
+//				clr = Color.YELLOW;
+				clr = new Color(1, 1, 0, 0.6f);
 				body_added = true;
 			}
 			else if (det_reader.t.get(i).equals("BIF")) {
-				clr = Color.RED;
+//				clr = Color.RED;
+				clr = new Color(1, 0, 0, 0.6f);
 				body_added = true;
 			}
 			else if (det_reader.t.get(i).equals("CROSS")){
-				clr = Color.GREEN;
+//				clr = Color.GREEN;
+				//clr = new Color(0, 1, 0, 0.6f);
+				clr = new Color(1, 0, 0, 0.6f);
 				body_added = true;
 			}
 
@@ -84,11 +93,12 @@ public class Viewer2D implements PlugIn {
 			regroi.setStrokeWidth(1);
 			regroi.setStrokeColor(clr);
 			regroi.setFillColor(clr);
-			ov_read.add(regroi);
+//			if (det_reader.t.get(i).equals("END"))
+				ov_read.add(regroi);
 
 			if (show_dirs && body_added) { // add directions if they are !NaN
 
-				float scale_direction = 1.3f; // just for visualization
+				float scale_direction = 2f; // just for visualization
 				int nr_directions = det_reader.v.get(i).length;
 				for (int j = 0; j < nr_directions; j++) {
 
@@ -96,8 +106,8 @@ public class Viewer2D implements PlugIn {
 					dy = det_reader.v.get(i)[j][1];
 
                     if (!Float.isNaN(dx) && !Float.isNaN(dy)) {
-                        Line l = new Line(x, y, x+scale_direction*r*dx, y+scale_direction*r*dy);
-                        l.setStrokeWidth(r/2f);
+                        Line l = new Line(x+r*dx, y+r*dy, x+scale_direction*r*dx, y+scale_direction*r*dy);
+                        l.setStrokeWidth(1f);
                         l.setStrokeColor(clr);
                         l.setFillColor(clr);
                         ov_read.add(l);

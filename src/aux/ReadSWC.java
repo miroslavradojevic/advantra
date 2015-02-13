@@ -121,11 +121,17 @@ public class ReadSWC {
         for (int i = 0; i < nodes.size(); i++) { // loop all the nodes to fill the table
 
             int id 		= Math.round(nodes.get(i)[ReadSWC.ID]);
+
+            if (id<=0) System.out.println("index<=0   " + id);
+
             int id_mother 	= Math.round(nodes.get(i)[ReadSWC.MOTHER]);
 
             // store both values in the table - table index corresponds to the ID
             cnt_conn[id-1]++;
-            if (id_mother!=-1) {cnt_conn[id_mother-1]++;}
+            if (id_mother!=-1) {
+                System.out.println("it was---> " + id_mother);
+                cnt_conn[id_mother-1]++;
+            }
 
         }
 

@@ -69,7 +69,7 @@ public class Detector2D {
 
     float[] kernel = new float[9];     				// for score regularisation
     public int Nreg = 2; 							// how many times it is done
-    public float ang_deg = 20f;  					// ms parameter
+    public float ang_deg = 30f;  					// ms parameter
 
 	int         CPU_NR;
 
@@ -155,6 +155,8 @@ public class Detector2D {
 
 		output_membership_th = (float) Math.exp(-(0.5f*0.5f)/(2*output_sigma*output_sigma)); // 0.5 is middle of the output range
 		output_membership_th = (float) (1 - Math.pow(output_membership_th,k) * (1-output_membership_th)); // h1 = 1 - h^k * (1-h)
+
+//		System.out.println("output membership threshold: " + output_membership_th);
 
         output_dir_name = new ArrayList<String>(dsens.length);
         for (int i = 0; i < dsens.length; i++) {
@@ -721,7 +723,7 @@ public class Detector2D {
 
 							// check if it exists and if it exists check whether the branch is on
 							int curr_peak_i = _peaks_i[icoord][peak_idx];
-							boolean curr_peak_on = true;//_branch_score[icoord][peak_idx]>output_membership_th;
+							boolean curr_peak_on = _branch_score[icoord][peak_idx]>output_membership_th; // true;
 
 							if (curr_peak_i!=-1 && curr_peak_i!=-2 && curr_peak_on) { // indexes of the spatial locations corresponding to peaks
 
@@ -787,22 +789,23 @@ public class Detector2D {
 					// write one component of the Overlay
                     float cx = detected_regions.get(i).get(ii).centroid[0];
                     float cy = detected_regions.get(i).get(ii).centroid[1];
-                    float cr = detected_regions.get(i).get(ii).radius;
+                    float cr = D[0]/2f;//detected_regions.get(i).get(ii).radius;
                     float sc = detected_regions.get(i).get(ii).score;
                     CritpointRegion.RegionType ctype = detected_regions.get(i).get(ii).type;
 
                     Color region_color = null;
+					sc = 0.6f;
                     switch (ctype) {
                         case BIF:
-                            region_color = Color.RED;//new Color(1, 0, 0, sc);
+                            region_color = new Color(1, 0, 0, sc); // Color.RED;//
                             break;
 
                         case END:
-                            region_color = Color.YELLOW;//new Color(1, 1, 0, sc);
+                            region_color = new Color(1, 1, 0, sc); // Color.YELLOW;//
                             break;
 
                         case CROSS:
-                            region_color = Color.GREEN;//new Color(0, 1, 0, sc);
+                            region_color = new Color(1, 0, 0, sc); // Color.GREEN;// turned to RED
                             break;
 
                         default:
@@ -816,10 +819,10 @@ public class Detector2D {
 					String curr_detection = "";
 
 					//add region as OvalRoi to output array of Overlays[]
-                    OvalRoi ovroi = new OvalRoi(cx-cr, cy-cr, 2*cr, 2*cr);
+                    OvalRoi ovroi = new OvalRoi(cx-cr+.5, cy-cr+.5, 2*cr, 2*cr);
                     ovroi.setStrokeWidth(1);
                     ovroi.setStrokeColor(region_color);
-                    ovroi.setFillColor(region_color);
+                    if (true) ovroi.setFillColor(region_color); // ctype== CritpointRegion.RegionType.END
 					ovs[i].add(ovroi);
 
 					// add line to .det  (what's loaded so far) // HERE IS HOW IT IS WRITTTEN!!!
@@ -829,7 +832,7 @@ public class Detector2D {
 									IJ.d2s(sc,2)+", "+detected_regions.get(i).get(ii).type+", ";
 
                     // add directions (outward_directions) os Line  Overlay component
-                    float scale_direction = 1.3f; // just for visualization
+                    float scale_direction = 2f; // just for visualization
 					int nr_directions = detected_regions.get(i).get(ii).outward_directions.length;
                     for (int j = 0; j < nr_directions; j++) {
 
@@ -841,8 +844,8 @@ public class Detector2D {
 
                         if (!Float.isNaN(dx) && !Float.isNaN(dy)) {
 
-                            Line l = new Line(cx, cy, cx+scale_direction*cr*dx, cy+scale_direction*cr*dy);
-                            l.setStrokeWidth(2);
+                            Line l = new Line(cx+cr*dx+.5, cy+cr*dy+.5, cx+scale_direction*cr*dx+.5, cy+scale_direction*cr*dy+.5);
+                            l.setStrokeWidth(1);
                             l.setStrokeColor(region_color);
                             l.setFillColor(region_color);
                             ovs[i].add(l);

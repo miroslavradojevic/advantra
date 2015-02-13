@@ -147,7 +147,7 @@ public class GeneratorSwcDemo implements PlugIn {
 		readerSwc.umToPix(um_pix_xy, um_pix_z); // convert it before plugged into generator, radiuses are scaled as well
 		IJ.log(" " + IJ.d2s(um_pix_xy, 2) + " um/pix");
 
-		readerSwc.lowRadiusBoundary(1.5f); //
+		readerSwc.lowRadiusBoundary(1.5f);
 
 		GeneratorSwc neuronGenerator = new GeneratorSwc();
 

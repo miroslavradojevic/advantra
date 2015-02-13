@@ -532,5 +532,4 @@ public class BayesianTracer2D {
 
     }
 
-
 }

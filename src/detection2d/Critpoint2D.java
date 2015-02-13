@@ -238,6 +238,11 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
 			ImagePlus out_imp = new ImagePlus("Critpoint2D", out_stack);
 			out_imp.setOverlay(out_ovl);
 			out_imp.show();
+//            out_imp.getCanvas().zoomIn(0,0);
+//            out_imp.getCanvas().zoomIn(0,0);
+//            out_imp.getCanvas().zoomIn(0,0);
+//            out_imp.getCanvas().zoomIn(0,0);
+//            out_imp.getWindow().maximize();
 
 			ip_load.show();
 			cnv = ip_load.getCanvas();

@@ -60,7 +60,7 @@ public class TreeReconstructor2D implements PlugIn {
     ArrayList<float[][]>    tracer2d_est_xy     = new ArrayList<float[][]>();    // (trace#)[trace_len][xy]
 
     ArrayList<float[]>      tracer2d_vals       = new ArrayList<float[]>();      // (trace#)[trace_len] values sampled from the image along the trace
-    ArrayList<Float>        tracer2d_vals_med   = new ArrayList<Float>();        // (trace#) median of each of the values
+    ArrayList<Float>        tracer2d_vals_med   = new ArrayList<Float>();            // (trace#) median of each of the values
 
     // inputs - parameters
     String _image_path;  // path to the original image (selected throughout menu)
@@ -477,29 +477,29 @@ public class TreeReconstructor2D implements PlugIn {
         /*
         correction for the branches that were NONE (those that ended with Integer.MAX_VALUE)
          */
-            //ImageStack is_traces = new ImageStack(528,255); // for plots
+        //ImageStack is_traces = new ImageStack(528,255); // for plots
         for (int i = 0; i < label_end.size(); i++) {
-            if (label_end.get(i)==Integer.MAX_VALUE) { // if it was finished ?
+            if (label_end.get(i)==Integer.MAX_VALUE && true) { // if it was finished ? skip cutting the endpoint, add it anyway (last chhange)
 
                 float[] trackx = extract(tracer2d_est_xy.get(i), 0);
                 float[] tracky = extract(tracer2d_est_xy.get(i), 1);
                 float[] extr = extract_intensities(btracer.likelihood_xy, trackx, tracky);
-                float[] cost = get_costs(extr);
-                int break_idx = find_end_point_index(extr);
+//                  float[] cost = get_costs(extr);
+//              int break_idx = find_end_point_index(extr);
+                int break_idx = extr.length-1;
 
-                if (break_idx>_NR_SAMPLES_MARGIN && break_idx<extr.length-_NR_SAMPLES_MARGIN) {
+                if (break_idx>_NR_SAMPLES_MARGIN) { // break_idx>_NR_SAMPLES_MARGIN && break_idx<extr.length-_NR_SAMPLES_MARGIN
 
                     int length_to_keep = break_idx;
                     float[] broken_vals = new float[length_to_keep];
                     System.arraycopy(extr, 0, broken_vals, 0, length_to_keep);
                     float broken_vals_med = Stat.median(broken_vals);
 
-                    if (broken_vals_med>MIN_MED) {
+                    if (true) { // broken_vals_med>MIN_MED
 
                         // add it - all the conditions were there
                         float[][] broken_tarce = new float[length_to_keep][2];
                         System.arraycopy(tracer2d_est_xy.get(i), 0, broken_tarce, 0, length_to_keep); // src, src_pos, dest, dest_pos, len
-
 
                         float[] cxy = new float[]{tracer2d_est_xy.get(i)[break_idx][0], tracer2d_est_xy.get(i)[break_idx][1], 2f}; // last one before it is replaced, added r as well, fixed to 2
 
@@ -508,6 +508,11 @@ public class TreeReconstructor2D implements PlugIn {
                         tracer2d_vals.set(i, broken_vals);
                         tracer2d_vals_med.set(i, broken_vals_med);
                         label_end.set(i, region_label); // update labels
+
+                        System.out.println("kept it full");
+                        System.out.println("end: " + label_end.get(i));
+                        System.out.println("beg: " + label_beg.get(i));
+                        System.out.println("---");
 
                         cpregion_xy.add(cxy);
 
@@ -521,7 +526,8 @@ public class TreeReconstructor2D implements PlugIn {
                     }
 
                 }
-                else { // the length was not big enough, set it as null (overlay output will not plot it in that case)
+                else {
+                    // the length was not big enough, set it as null (overlay output will not plot it in that case)
                     //tracer2d_vals, tracer2d_vals_med will stay null, NaN
                     tracer2d_est_xy.set(i, null);
                     label_end.set(i, Integer.MAX_VALUE); // was there before as well
@@ -964,8 +970,6 @@ public class TreeReconstructor2D implements PlugIn {
 
                     logWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f %-4d", swc_id, 2, cpregion_xy.get(label_beg.get(i)-1)[0],cpregion_xy.get(label_beg.get(i)-1)[1], 0f,1f, mother_idx));
 
-
-
                     // add the last point and add it to the swc table & frontier
                     regLab2swcId[label_beg.get(i)-1] = swc_id;
                     frontier.add(label_beg.get(i));
@@ -996,10 +1000,15 @@ public class TreeReconstructor2D implements PlugIn {
                     { // begin is in the frontier list
 
                         int mother_idx = regLab2swcId[label_beg.get(i)-1];
+                        if(mother_idx==Integer.MAX_VALUE){
+                            System.out.println("something was wrong!!!:" + label_beg.get(i));
+                            System.out.println(Arrays.toString(regLab2swcId));
+                        }
 
                         for (int j = 0; j <tracer2d_est_xy.get(i).length; j++) { // now loop the trace beg-end
 
-                            logWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f %-4d", swc_id, 2, tracer2d_est_xy.get(i)[j][0],tracer2d_est_xy.get(i)[j][1], 0f,1f, mother_idx));
+                            logWriter.println(String.format("%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f %-4d",
+                                    swc_id, 2, tracer2d_est_xy.get(i)[j][0],tracer2d_est_xy.get(i)[j][1], 0f,1f, mother_idx));
                             mother_idx = swc_id;
                             swc_id++;
 

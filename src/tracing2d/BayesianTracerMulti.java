@@ -39,7 +39,7 @@ public class BayesianTracerMulti {
     private  static float       ring = .3f;
     private static float        dd = 1.0f;
 
-   private static float[][]   tt;       // templates to be matched when filtering 2*Rcnt+1
+    private static float[][]   tt;       // templates to be matched when filtering 2*Rcnt+1
     private static float[]     tta;
 
     public enum CircExpansion {IN, OUT}
@@ -180,7 +180,7 @@ public class BayesianTracerMulti {
             float       at_y,
             float[][]   img_xy,
             float       sigma_deg,      // tracing parameter
-            CircExpansion   expan,          // OUTWARD
+            CircExpansion   expan,      // OUTWARD
             float[][][] xt,             // Ni+1 x Ns X 4 (x,y,vx,vy)
             float[][]   wt,             // Ni+1 x Ns
             byte[][]    pt,             // Ni+1 x Ns
