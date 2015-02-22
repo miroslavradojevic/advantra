@@ -5,12 +5,12 @@ package detection2d;
  */
 public class SemiCircle {
 
-    public float[][]     p; // x,y
-    public float[][]     v; // x,y
-    public float[]       w; // weight assigned wrt the direction (geomrtry used as prior in tracing)
+    public float[][]     p; // 2d locations, x,y
+    public float[][]     v; // 2d orientation,vx,vy
+    public float[]       w; // prior: weight assigned wrt the direction (geomrtry used as prior in tracing)
     public int           NN;
     public float         radius;
-    private static float arcRes 	        = 1.0f;
+    private static float arcRes 	        = 1.0f; // default sampling resolution along arc
 
     public SemiCircle()
     {
@@ -32,18 +32,19 @@ public class SemiCircle {
         w = new float[NN];
     }
 
-    /**
-     * Resets the circle radius value
-     * That causes new number of samples
-     * @param radius new radius value
-     * @return  modifications are inner.
-     * @exception java.lang.NullPointerException
-     *            If either argument is <code>null</code>.
-     */
     public void reset(float radius)
     {
         this.radius = radius;
         NN = (int) Math.ceil( ( (1 * Math.PI * radius) / arcRes) );
+        p = new float[NN][2];
+        v = new float[NN][2];
+        w = new float[NN];
+    }
+
+    public void reset(float radius, int Nset)
+    {
+        this.radius = radius;
+        NN = Nset;
         p = new float[NN][2];
         v = new float[NN][2];
         w = new float[NN];

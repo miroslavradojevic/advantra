@@ -1,5 +1,6 @@
 package reconstruction2d;
 
+import detection2d.SemiCircle;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
@@ -10,43 +11,64 @@ import ij.gui.Plot;
  */
 public class BayesianTracer2D {
 
+    int Niterations;
+    int Nstates;
+
     float[][][]     xt;//      = new float[Ni+1][_Ns][4];    // bayesian filtering states (x,y, vx, vy, r)
     float[][]       wt;//      = new float[Ni+1][_Ns];       // bayesian filtering weights
 
-    float       neuron_radius;
-    float       sigma_deg;
+    // auxiliary arrays for sequential bayesian filtering
+    float[][]   trans_xy;
+    float[]     pties;
+    float[]     lhoods;
+
+    public int          neuron_radius;
+    public float       step;
+    public float       sigma_deg;
 
     float[][]   tt;                                          // templates to be matched when filtering 2*Rcnt+1
     float[]     tta;
     float[]     sigmas;
 
+    SemiCircle scirc;
+
     private static float        cross_profile_step = 0.5f;
+    private static float        sg_min = 1.0f;
     private static float        sigma_step = 0.5f;
 
-    public BayesianTracer2D(int _Ni, int _Ns, float _neuron_radius, float _sigma_deg){
+    public BayesianTracer2D(int _Ni, int _Ns, float _step, float _neuron_radius, float _sigma_deg){
+
+        Niterations = _Ni;
+        Nstates = _Ns;
+
+        step = _step;
+        scirc = new SemiCircle(step);
+        int total_preds = _Ns * scirc.NN;
+        System.out.println(total_preds + "  total predictions");
 
         xt = new float[_Ni][_Ns][5];
         wt = new float[_Ni][_Ns];
 
-        neuron_radius = _neuron_radius;
+        // auxiliary variables assigned with values at each iteration
+        trans_xy    = new float[total_preds][4];
+        pties       = new float[total_preds];
+        lhoods      = new float[total_preds];
 
         sigma_deg = _sigma_deg;
 
-        int _neuron_radius_round = Math.round(neuron_radius);
-        _neuron_radius_round = (_neuron_radius_round<1)? 1 : _neuron_radius_round;
-
+        int neuron_radius = Math.round(_neuron_radius);
+        neuron_radius = (neuron_radius<1)? 1 : neuron_radius;
 
         // sigmas define
-        float sg_min = 0.5f;
+
         int cnt = 0;
-        for (float sg = sg_min; sg <= _neuron_radius_round; sg+=sigma_step) {
+        for (float sg = sg_min; sg <= neuron_radius; sg+=sigma_step) {
             cnt++;
         }
-        System.out.println(cnt);
         sigmas = new float[cnt];
 
         cnt = 0;
-        for (float sg = sg_min; sg <= _neuron_radius_round; sg+=sigma_step) {
+        for (float sg = sg_min; sg <= neuron_radius; sg+=sigma_step) {
             sigmas[cnt++] = sg;
         }
 
@@ -69,11 +91,13 @@ public class BayesianTracer2D {
             tta[i] = ag/ns;
         }
 
+
+
     }
     
-    public void showTemplates(){
+    public ImagePlus getTemplates(){
 
-        // show templates tt
+        // show templates tt used for measurement
 
         int L = tt[0].length; // length is the same for all sigmas
         int L2  = L/2;
@@ -97,7 +121,9 @@ public class BayesianTracer2D {
 
         }
 
-        new ImagePlus("neuron radius = "+IJ.d2s(neuron_radius,1), is).show();
+        ImagePlus im_templates = new ImagePlus("neuron radius = "+IJ.d2s(neuron_radius,1), is);
+
+        return im_templates;
 
     }
 
@@ -106,18 +132,50 @@ public class BayesianTracer2D {
 
     }
 
-    public void reset(int _Ni, int _Ns) {
+    public void reset() {
+
+        // reset xt, wt values
+        for (int i = 0; i < xt.length; i++) {
+            for (int j = 0; j < xt[i].length; j++) {
+                for (int k = 0; k < xt[i][j].length; k++) {
+                    xt[i][j][k] = 0;
+                }
+            }
+        }
+
+        for (int i = 0; i < wt.length; i++) {
+            for (int j = 0; j < wt[i].length; j++) {
+                wt[i][j] = 0;
+            }
+        }
+
     }
 
-    public void trace () {
+    public void trace (float x, float y, float vx) {
 
         // before the trace, the values are initialized with zeros if there were any from
         // earlier function call
+        reset();
 
+        int iter = 0;
+
+        while (iter < Niterations) {
+
+            if (iter == 0) {
+                bayesian_iteration();
+            }
+            else {
+                bayesian_iteration(at_x, at_y, img_xy,iter,semi_circ_step, sigma_deg, xt,wt,pt,ft,mt);
+            }
+
+
+
+
+            iter++;
+        }
 
     }
 
-//    public
 
 
 }

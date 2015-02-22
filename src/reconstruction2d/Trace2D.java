@@ -1,5 +1,9 @@
 package reconstruction2d;
 
+import ij.ImagePlus;
+import ij.process.FloatProcessor;
+import ij.process.ImageProcessor;
+
 import java.util.ArrayList;
 
 /**
@@ -12,13 +16,18 @@ public class Trace2D {
     public ArrayList<Float> locs_y;
     public ArrayList<Float> rads;
 
-    public int tag_start;
-    public int tag_end;
+    public int tag_init; // will be the first available tag
+    public int tag_prev; // will be the tag of the region where it ended
 
-    public Trace2D(int _tag_start){
+    // typical usage
+    // set_init(tag_init)   first available tag, using the counting machine
+    // add(x,y,r)           as many times as it needs - depending on the tracer2D, it stops at some existing tag
+    // set_prev(tag_prev)   set that tag at which the trace stopped
 
-        tag_start   = _tag_start;
-        tag_end     = -1;
+    public Trace2D(int _tag_init){
+
+        tag_init   = _tag_init; // first available tag given by the tracer
+        tag_prev   = Integer.MIN_VALUE; // yet to be set by a separate method
 
         locs_x      = new ArrayList<Float>();
         locs_y      = new ArrayList<Float>();
@@ -27,22 +36,23 @@ public class Trace2D {
     }
 
     public void add(float x, float y, float r) {
-
         locs_x.add(x);
         locs_y.add(y);
         rads.add(r);
-
     }
 
-    public void terminate(int _tag_end) {
-        tag_end = _tag_end;
+    public void add(float[] x, float[] y, float[] r) {
+        for (int i = 0; i < x.length; i++) {
+            add(x[i], y[i], r[i]);
+        }
     }
 
-    public void add_to_map(int[] _map) {
-        // will update tag map over the trace
-        // update with tag indexes incremented starting from the start tag
-        // TODO
+    public void set_prev(int _tag_prev) {
+        tag_prev = _tag_prev;
+    }
 
+    public boolean check_trace(){
+        return (tag_prev!=Integer.MIN_VALUE)&&(locs_x.size()>0);
     }
 
 }
