@@ -1,2 +1,0 @@
-This is a repository of the Java Eclipse project dedicated to neuron tracing, image analysis - advantra. 
-(set advantra as project name when loading Eclipse. it will recognize the folder structure and the rest is to make proper setup in Eclipse: project properties, build options, link libraries, etc...)
