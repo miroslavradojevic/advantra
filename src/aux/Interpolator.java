@@ -50,7 +50,7 @@ public final class Interpolator {
 
 	}
 
-	public static final float interpolateAt(float atX, float atY, float atZ_layer, float[][][] img3d_zxy) {
+	public static final float interpolateAt(float atX, float atY, float atZ, float[][][] img3d_xyz) {
 
         int x1 = (int) atX;
         int x2 = x1 + 1;
@@ -60,40 +60,34 @@ public final class Interpolator {
         int y2 = y1 + 1;
         float y_frac = atY - y1;
 
-        int z1 = (int) atZ_layer;
+        int z1 = (int) atZ;
         int z2 = z1 + 1;
-        float z_frac = atZ_layer - z1;
+        float z_frac = atZ - z1;
 
-        // technically this check should be there but is skipped to make things faster
         boolean isIn =
-						y1>=0 && y1<img3d_zxy[0][0].length &&
-						y2>=0 && y2<img3d_zxy[0][0].length &&
-						x1>=0 && x1<img3d_zxy[0].length &&
-						x2>=0 && x2<img3d_zxy[0].length &&
-						z1>=0 && z1<img3d_zxy.length &&
-						z2>=0 && z2<img3d_zxy.length;
+						y1>=0 && y1<img3d_xyz[0].length &&
+						y2>=0 && y2<img3d_xyz[0].length &&
+						x1>=0 && x1<img3d_xyz.length &&
+						x2>=0 && x2<img3d_xyz.length &&
+						z1>=0 && z1<img3d_xyz[0][0].length &&
+						z2>=0 && z2<img3d_xyz[0][0].length;
 
-		if(!isIn){
-			System.out.println(atX+" , "+atY+" , "+atZ_layer+" -> "+x1+", "+x2+" | "+y1+", "+y2+", "+z1+", "+z2);
-		}
+		if(!isIn)
+            System.out.println("\nthere was a problem with interpolation at " + atX + " , " + atY + "  , " + atZ + " -> x range: " + x1 + " -- " + x2 + " | y range: " + y1 + " -- " + y2 + " | z range: " + z1 + " -- " + z2 +"\n");
 
-			// take neighbourhood
-			float I11_1 = img3d_zxy[ z1 ][ x1  ][ y1 ];  // upper left
-			float I12_1 = img3d_zxy[ z1 ][ x2  ][ y1 ];  // upper right
-			float I21_1 = img3d_zxy[ z1 ][ x1  ][ y2  ]; // bottom left
-			float I22_1 = img3d_zxy[ z1 ][ x2  ][ y2  ]; // bottom right
+		// take neighbourhood
+		float I11_1 = img3d_xyz[ x1 ][ y1 ][ z1 ];  // upper left
+		float I12_1 = img3d_xyz[ x2 ][ y1 ][ z1 ];  // upper right
+		float I21_1 = img3d_xyz[ x1 ][ y2 ][ z1 ]; // bottom left
+		float I22_1 = img3d_xyz[ x2 ][ y2 ][ z1 ]; // bottom right
 
-			float I11_2 = img3d_zxy[ z2  ][ x1 ][ y1 ]; // upper left
-			float I12_2 = img3d_zxy[ z2  ][ x2 ][ y1 ]; // upper right
-			float I21_2 = img3d_zxy[ z2  ][ x1 ][ y2 ]; // bottom left
-			float I22_2 = img3d_zxy[ z2  ][ x2 ][ y2 ]; // bottom right
+		float I11_2 = img3d_xyz[ x1 ][ y1 ][ z2 ]; // upper left
+		float I12_2 = img3d_xyz[ x2 ][ y1 ][ z2 ]; // upper right
+		float I21_2 = img3d_xyz[ x1 ][ y2 ][ z2 ]; // bottom left
+		float I22_2 = img3d_xyz[ x2 ][ y2 ][ z2 ]; // bottom right
 
-			float I_1 =
-
-                    (1-z_frac)  * (  (1-y_frac) * ((1-x_frac)*I11_1 + x_frac*I12_1) + (y_frac) * ((1-x_frac)*I21_1 + x_frac*I22_1) )   +
-                    z_frac      * (  (1-y_frac) * ((1-x_frac)*I11_2 + x_frac*I12_2) + (y_frac) * ((1-x_frac)*I21_2 + x_frac*I22_2) );
-
-		return I_1;
+		return (1-z_frac)  * (  (1-y_frac) * ((1-x_frac)*I11_1 + x_frac*I12_1) + (y_frac) * ((1-x_frac)*I21_1 + x_frac*I22_1) )   +
+                z_frac      * (  (1-y_frac) * ((1-x_frac)*I11_2 + x_frac*I12_2) + (y_frac) * ((1-x_frac)*I21_2 + x_frac*I22_2) );
 
 	}
 
@@ -114,10 +108,8 @@ public final class Interpolator {
                 x1>=0 && x1<img2d_xy.length &&
                 x2>=0 && x2<img2d_xy.length;
 
-        if(!isIn){
-            System.out.println("\nthere was a problem with interpolation at "+atX+" , "+atY+"   "+" -> x range: "+x1+" -- "+x2+" | y range: "+y1+" -- "+y2+", "+"  \n");
-            // TODO get out if it is wrong, return something - this way it still continues accessing wrong values
-        }
+        if(!isIn)
+            System.out.println("\nthere was a problem with interpolation at " + atX + " , " + atY + "   " + " -> x range: " + x1 + " -- " + x2 + " | y range: " + y1 + " -- " + y2 + ", " + "  \n");
 
         // take neighbourhood
         float I11_1 = img2d_xy[ x1  ][ y1 ];  // upper left
@@ -125,14 +117,7 @@ public final class Interpolator {
         float I21_1 = img2d_xy[ x1  ][ y2  ]; // bottom left
         float I22_1 = img2d_xy[ x2  ][ y2  ]; // bottom right
 
-//        float I11_2 = img3d_zxy[ z2  ][ x1 ][ y1 ]; // upper left
-//        float I12_2 = img3d_zxy[ z2  ][ x2 ][ y1 ]; // upper right
-//        float I21_2 = img3d_zxy[ z2  ][ x1 ][ y2 ]; // bottom left
-//        float I22_2 = img3d_zxy[ z2  ][ x2 ][ y2 ]; // bottom right
-
-        float I_1 = (  (1-y_frac) * ((1-x_frac)*I11_1 + x_frac*I12_1) + (y_frac) * ((1-x_frac)*I21_1 + x_frac*I22_1) );
-
-        return I_1;
+        return (1-y_frac) * ((1-x_frac)*I11_1 + x_frac*I12_1) + (y_frac) * ((1-x_frac)*I21_1 + x_frac*I22_1);
 
     }
 

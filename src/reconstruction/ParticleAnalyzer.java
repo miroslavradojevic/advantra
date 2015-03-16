@@ -1,8 +1,7 @@
-package reconstruction2d;
+package reconstruction;
 
 import java.awt.*;
 import java.awt.image.IndexColorModel;
-import java.util.Arrays;
 import java.util.Properties;
 import ij.*;
 import ij.gui.*;
@@ -11,7 +10,6 @@ import ij.process.*;
 import ij.measure.*;
 import ij.text.*;
 import ij.plugin.filter.Analyzer;
-import ij.plugin.frame.Recorder;
 import ij.plugin.frame.RoiManager;
 import ij.plugin.Colors;
 import ij.macro.Interpreter;

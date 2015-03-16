@@ -1,8 +1,4 @@
-package reconstruction2d;
-
-import ij.ImagePlus;
-import ij.process.FloatProcessor;
-import ij.process.ImageProcessor;
+package reconstruction;
 
 import java.util.ArrayList;
 
@@ -24,10 +20,25 @@ public class Trace2D {
     // add(x,y,r)           as many times as it needs - depending on the tracer2D, it stops at some existing tag
     // set_prev(tag_prev)   set that tag at which the trace stopped
 
-    public Trace2D(int _tag_init){
+    public Trace2D(int _tag_init, int _tag_prev){
 
         tag_init   = _tag_init; // first available tag given by the tracer
-        tag_prev   = Integer.MIN_VALUE; // yet to be set by a separate method
+        tag_prev   = _tag_prev; // tag that was obtained while tracing
+
+        // last tag will be determined with the number of elements
+        // so:
+        // tag_init    ...(0)... tag_prev
+        // tag_init+1  ...(1)... tag_init
+        // tag_init+2  ...(2)... tag_init+1
+        // tag_init+3  ...(3)... tag_init+2
+        // ...
+        // ...
+        // tag_init+(L-1) (L-1)  tag_init+(L-1)-1
+
+        // follow up tag will therefore always be tag_init+locs_x.length() - that's set outside
+        // for each individual trace it becomes important to know the initial tag and predcessor
+        // initial tag and predcessor tag is known at the moment of creating the trace
+        // last tag is not necessary to book keep here as it can be inferred from the list length
 
         locs_x      = new ArrayList<Float>();
         locs_y      = new ArrayList<Float>();
@@ -47,12 +58,8 @@ public class Trace2D {
         }
     }
 
-    public void set_prev(int _tag_prev) {
-        tag_prev = _tag_prev;
-    }
-
-    public boolean check_trace(){
-        return (tag_prev!=Integer.MIN_VALUE)&&(locs_x.size()>0);
-    }
+//    public boolean check_trace(){
+//        return (tag_prev!=Integer.MIN_VALUE)&&(locs_x.size()>0);
+//    }
 
 }

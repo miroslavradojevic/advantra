@@ -1,4 +1,4 @@
-package reconstruction2d;
+package reconstruction;
 
 //package ij.plugin.filter;
 import ij.plugin.filter.*;

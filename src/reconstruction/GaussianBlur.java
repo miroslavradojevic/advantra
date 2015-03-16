@@ -1,4 +1,4 @@
-package reconstruction2d;
+package reconstruction;
 
 import ij.*;
 import ij.gui.DialogListener;

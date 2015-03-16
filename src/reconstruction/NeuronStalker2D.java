@@ -1,27 +1,22 @@
-package reconstruction2d;
+package reconstruction;
 
 import aux.Tools;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.Prefs;
-import ij.WindowManager;
 import ij.gui.GenericDialog;
 import ij.gui.OvalRoi;
 import ij.gui.Overlay;
-import ij.gui.PointRoi;
 import ij.io.OpenDialog;
 import ij.measure.Measurements;
 import ij.measure.ResultsTable;
-import ij.plugin.ImageCalculator;
 import ij.plugin.PlugIn;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
-import tracing2d.BayesianTracer;
 
 import java.awt.*;
 import java.io.*;
 import java.util.ArrayList;
-import java.util.Arrays;
 
 /**
  * main plugin for neuron reconstruction in 2d
@@ -46,25 +41,27 @@ public class NeuronStalker2D implements PlugIn {
     int     minSz       = 5; // min size of soma area
 
     // params
-    float new_masker_percentile = 80;
-    float relative_correlation_threshold = 0.6f;
+    float new_masker_percentile;
+    float corr_bound = 0.80f;
 
     float neuron_radius = 4; // neurite diameter
-    float sigma_degrees = 80;
+    float std_angle_deg = 80;
+    float std_gcsstd_pix = 2;
     float step = 2f;
 
-    int Ni = 100; // hardcoded
-    int Ns  = 50; // hardcoded
+    int Ni = 2; // hardcoded
+    int Ns  = 10; // hardcoded
 
     int counter;
     // tag map for book-keeping the traces
     int[] tag_map = null; // will be used to book-keep the tags - value at some location will correspond to the
 
+
     // trace list
     ArrayList<Trace2D> tlist = new ArrayList<Trace2D>(); // some traces will be soma, some branches, etc.
 
     // soma centroid list
-    ArrayList<float[]> slist = new ArrayList<float[]>(); // soma list (used when calcualting the distances)
+    ArrayList<double[]> slist = new ArrayList<double[]>(); // soma list (used when calcualting the distances)
 
     // computation module
     Zncc2D zncc;
@@ -81,16 +78,7 @@ public class NeuronStalker2D implements PlugIn {
 
     public void run(String s) {
 
-//        float[] test = new float[5];
-//        test[0] = 2;
-//        test[1] = 5;
-//        test[2] = 1;
-//        test[3] = 4;
-//        System.out.println(Arrays.toString(test));
-//        System.out.println(Arrays.toString(Tools.descending(test)));
-//        if (true) return;
-
-        CPU_NR = Runtime.getRuntime().availableProcessors() + 1; //5;
+        CPU_NR = Runtime.getRuntime().availableProcessors() + 1; // 5;
 
         // load the image
         String in_folder = Prefs.get("id.folder", System.getProperty("user.home"));
@@ -156,8 +144,12 @@ public class NeuronStalker2D implements PlugIn {
         sigma_max = (float) Prefs.get("neuronstalker2d.sigmaMax", 30);
         tolerance = (float) Prefs.get("neuronstalker2d.tolerance", 5);
         neuron_radius = (float) Prefs.get("neuronstalker2d.neuron_radius", 6);
-        new_masker_percentile = (float) Prefs.get("neuronstalker2d.percentile", 90);
-        sigma_degrees = (float) Prefs.get("neuronstalker2d.sigma_degrees", 90);
+        new_masker_percentile = (float) Prefs.get("neuronstalker2d.percentile", 80);
+
+        Ni = (int) Prefs.get("neuronstalker2d.Niterations", Ni);
+        Ns = (int) Prefs.get("neuronstalker2d.Nstates", Ns);
+
+        std_angle_deg = (float) Prefs.get("neuronstalker2d.sigma_degrees", 90);
 
         GenericDialog gd = new GenericDialog("NeuronStalker2D");
 
@@ -166,18 +158,24 @@ public class NeuronStalker2D implements PlugIn {
         gd.addNumericField("tolerance", tolerance, 0);
         gd.addNumericField("neuron_radius", neuron_radius, 0);
         gd.addNumericField("percentile", new_masker_percentile, 0);
-        gd.addNumericField("angularSigmaDeg", sigma_degrees, 0);
+
+        gd.addNumericField("Niterations", Ni, 0);
+        gd.addNumericField("Nstates", Ns, 0);
+
+        gd.addNumericField("angularSigmaDeg", std_angle_deg, 0);
 
         gd.showDialog();
         if (gd.wasCanceled()) return;
 
         // take params
-        sigma_min = (float) gd.getNextNumber();         Prefs.set("neuronstalker2d.sigmaMin", sigma_min);
-        sigma_max = (float) gd.getNextNumber();         Prefs.set("neuronstalker2d.sigmaMax", sigma_max);
-        tolerance = (float) gd.getNextNumber();         Prefs.set("neuronstalker2d.tolerance", tolerance);
-        neuron_radius = (float) gd.getNextNumber();     Prefs.set("neuronstalker2d.neuron_radius", neuron_radius);
-        new_masker_percentile = (float) gd.getNextNumber();Prefs.set("neuronstalker2d.percentile", new_masker_percentile);
-        sigma_degrees = (float) gd.getNextNumber(); Prefs.set("neuronstalker2d.sigma_degrees", sigma_degrees);
+        sigma_min = (float) gd.getNextNumber();             Prefs.set("neuronstalker2d.sigmaMin", sigma_min);
+        sigma_max = (float) gd.getNextNumber();             Prefs.set("neuronstalker2d.sigmaMax", sigma_max);
+        tolerance = (float) gd.getNextNumber();             Prefs.set("neuronstalker2d.tolerance", tolerance);
+        neuron_radius = (float) gd.getNextNumber();         Prefs.set("neuronstalker2d.neuron_radius", neuron_radius);
+        new_masker_percentile = (float) gd.getNextNumber(); Prefs.set("neuronstalker2d.percentile", new_masker_percentile);
+        Ni = (int) gd.getNextNumber();                      Prefs.set("neuronstalker2d.Niterations", Ni);
+        Ns = (int) gd.getNextNumber();                      Prefs.set("neuronstalker2d.Nstates", Ns);
+        std_angle_deg = (float) gd.getNextNumber();         Prefs.set("neuronstalker2d.sigma_degrees", std_angle_deg);
 
         //
         //
@@ -186,7 +184,7 @@ public class NeuronStalker2D implements PlugIn {
         //
 
         System.out.print("_____________________\nforeground extraction...\n");
-        float new_masker_radius = 2 * neuron_radius;// 1.5f*sph2d.getOuterRadius();   	// important that it is outer radius of the sphere
+        float new_masker_radius = (float)(2.0f/Math.sqrt(2)) * neuron_radius;// 1.5f*sph2d.getOuterRadius();   	// important that it is outer radius of the sphere
                            		// used to have these two as argument but not necessary
         Masker2D.loadTemplate(
                 inimg_xy,
@@ -208,12 +206,29 @@ public class NeuronStalker2D implements PlugIn {
         }
         Masker2D.defineThreshold();
         Masker2D.formRemainingOutputs();
+
         if (save_midresults) {
-            ImagePlus mask = new ImagePlus("mask", Masker2D.getMask());
+
+            /*ImagePlus mask = new ImagePlus("mask", Masker2D.getMask()); // if there is interaction
             IJ.saveAs(mask, "Tiff", output_dir_midresults+"fg.tif");
+
+            mask.show();    mask.setTitle("mask");
+            inimg.show();
+            IJ.selectWindow(inimg.getTitle());
+            IJ.run("Add Image...", "image=mask x=0 y=0 opacity=60");
+            mask.close();
+
+            // would you go further?
+            GenericDialog gd1 = new GenericDialog("Continue?");
+            gd1.showDialog();
+            if (gd1.wasCanceled()) return;
+            */
+//            inimg.close();
+
         }
         System.out.println("done. " + (Masker2D.i2xy.length/1000f) + "k locations (" +
                 IJ.d2s((Masker2D.i2xy.length / (float) (W * H)) * 100f, 2) + "%%)");
+
 
         System.out.print("_____________________\nsoma extraction...\n");
 
@@ -247,11 +262,9 @@ public class NeuronStalker2D implements PlugIn {
         int maxSz = Math.round(W*H*0.25f);
         ResultsTable rt = new ResultsTable();
         ParticleAnalyzer pa = new ParticleAnalyzer(opts, meas, rt, minSz, maxSz);
-        pa.setup("", blur_temp);
+        pa.setup("", blur_temp); // binary image as an argument
         pa.run(blur_temp.getProcessor());
         System.out.print("->" + rt.getCounter() + " soma(s)... ");
-
-
 
         // adding soma traces to the list and to the tag_map
         for (int i = 0; i < rt.getCounter(); i++) {
@@ -260,13 +273,13 @@ public class NeuronStalker2D implements PlugIn {
             float yy = rt.getColumn(ResultsTable.Y_CENTER_OF_MASS)[i];
             float rr = (float) Math.sqrt(rt.getColumn(ResultsTable.AREA)[i] / Math.PI);
 
-            Trace2D soma_trace = new Trace2D(counter);
-            soma_trace.add(xx, yy, rr);
-            soma_trace.set_prev(-1);
-            counter += soma_trace.locs_x.size();
+            // how to generate the trace? example
+            Trace2D soma_trace = new Trace2D(counter, -1); // first available count
+            soma_trace.add(xx, yy, rr); // here trace has only one element
+            counter += soma_trace.locs_x.size(); // update count
 
             tlist.add(soma_trace);
-            slist.add(new float[]{xx, yy});
+            slist.add(new double[]{xx, yy});
 
             addToMap(soma_trace, tag_map, W, H);
 
@@ -284,30 +297,30 @@ public class NeuronStalker2D implements PlugIn {
                 float yy = rt.getColumn(ResultsTable.Y_CENTER_OF_MASS)[i];
                 float rr = (float) Math.sqrt(rt.getColumn(ResultsTable.AREA)[i] / Math.PI);
 
-                PointRoi p = new PointRoi(xx+.5f, yy+.5f);
-                OvalRoi  o = new OvalRoi(xx-rr, yy-rr, 2*rr, 2*rr);
-                o.setFillColor(new Color(1,1,0,0.3f));
-                ovl.add(p);
-                ovl.add(o);
+//                PointRoi p = new PointRoi(xx+.5f, yy+.5f);
+                //                ovl.add(p);
 
+                OvalRoi  o = new OvalRoi(xx-rr+.5, yy-rr+.5, 2*rr, 2*rr);
+                o.setFillColor(new Color(1,1,0,0.3f));
+
+                ovl.add(o);
 
                 ImagePlus outip = inimg.duplicate();
                 outip.setOverlay(ovl);
                 IJ.saveAs(outip, "Tiff", output_dir_midresults+"somas.tif");
 
+                outip.show();
+//                inimg.setOverlay(ovl);
+//                inimg.updateAndDraw();
+                // would you go further?
+                GenericDialog gd1 = new GenericDialog("Continue?");
+                gd1.showDialog();
+                if (gd1.wasCanceled()) return;
+                outip.close();
+
             }
 
         }
-
-        if (save_midresults) {
-            IJ.saveAs(getTagMap(), "Tiff", output_dir_midresults+"tagMap_00.tif");
-        }
-
-        //
-        //
-        //  define ZNCC2D
-        //
-        //
 
         zncc = new Zncc2D(neuron_radius);
         if (save_midresults) {
@@ -315,20 +328,11 @@ public class NeuronStalker2D implements PlugIn {
             IJ.saveAs(zncc.getTemplates(),  "Tiff", output_dir_midresults+"wgts.tif");
         }
 
-        //
-        //
-        //
-        //     PROFILER2D
-        //
-        //
-        //
-
         System.out.print("_____________________\nlocal correlations (Profiler2D)...");
         long t1 = System.currentTimeMillis();
         Profiler2D.loadTemplate(
                 zncc,
                 Masker2D.i2xy,
-                Masker2D.xy2i,
                 slist, // current soma list to calcualate the distances towards somas
                 inimg_xy);
         int totalProfileComponents = Masker2D.i2xy.length;//sph2d.getProfileLength();
@@ -345,20 +349,10 @@ public class NeuronStalker2D implements PlugIn {
             }
         }
 
-        if (save_midresults) {
-            IJ.saveAs(Profiler2D.getScores(), "Tiff", output_dir_midresults + "zncc_map.tif");
-        }
-
-        Profiler2D.createQueue(relative_correlation_threshold);
-
-        if (save_midresults){
-            IJ.saveAs(Profiler2D.getQueueMap(), "Tiff", output_dir_midresults + "queue_map.tif");
-        }
-
+        if (save_midresults) IJ.saveAs(Profiler2D.getScores(), "Tiff", output_dir_midresults + "zncc_map.tif");
 
         long t2 = System.currentTimeMillis();
         System.out.println("done ["+ ((t2-t1)/1000f) +" sec.].");
-
 
         //
         //
@@ -366,9 +360,10 @@ public class NeuronStalker2D implements PlugIn {
         // BAYESIANTRACER2D
         //
         //
+        //
 
         System.out.print("_____________________\ninitializing BayesianTracer2D...");
-        bt = new BayesianTracer2D(Ni, Ns, step, neuron_radius, sigma_degrees);
+        bt = new BayesianTracer2D(Ni, Ns, step, neuron_radius);
 
         if (save_midresults) {
             IJ.saveAs(bt.getTemplates(), "Tiff", output_dir_midresults + "trace_templates.tif");
@@ -381,19 +376,144 @@ public class NeuronStalker2D implements PlugIn {
         //
         //
 
-        System.out.print("_____________________\nstalking...");
+        System.out.print("_____________________\nstalking...\n");
 
-        for (int i = 0; i < Profiler2D.queue.length; i++) {
+        boolean save_frames = false;
 
-            System.out.print(".");
+        t1 = System.currentTimeMillis();
 
-            if (i==1) break; // test case
+        // first get the queue of ponts to use as ancors to confirm and initialize the traces (using Profiler2D)
+        int[] queue = Profiler2D.createQueue(corr_bound, 0);   // or createQueue1
 
-            float startx = Masker2D.i2xy[Profiler2D.queue[i]][0];
+        // queue has all the foreground locations - so indexes in arrays of foreground locations
 
+        boolean[][] queue_map = Profiler2D.getQueueLocationMap(queue);
+
+        if (save_midresults){
+            ImagePlus imp = inimg.duplicate();
+            imp.setOverlay(Profiler2D.getQueueLocationOverlay(queue));
+            IJ.saveAs(imp, "Tiff", output_dir_midresults + "queue_map.tif");
+            imp.show();
+            // would you go further?
+            GenericDialog gd1 = new GenericDialog("Continue?");
+            gd1.showDialog();
+            if (gd1.wasCanceled()) return;
+            imp.close();
+        }
+
+        boolean[] queue_success = new boolean[queue.length];
+
+        int new_traces_found = Integer.MAX_VALUE;
+        int cnt_evol = 0;
+
+
+        while (new_traces_found>0) {
+
+            System.out.print("ev. " + cnt_evol + " :\t");
+
+            new_traces_found = 0;
+            int LOG_EVERY = queue.length / 10;
+
+            for (int i = 0; i < queue.length; i++) {
+
+                if (i % LOG_EVERY == 0)
+                    System.out.print(IJ.d2s((i/LOG_EVERY)*10,0) + "%\t");
+
+                if (queue_success[i]) continue;
+
+                int startpx = Masker2D.i2xy[queue[i]][0];
+                int startpy = Masker2D.i2xy[queue[i]][1];
+                float startvx = Profiler2D.i2vxy[queue[i]][0];
+                float startvy = Profiler2D.i2vxy[queue[i]][1];
+                float startgcsstd = Profiler2D.i2sigma[queue[i]];
+
+                // don't trace if it is in the tag map
+                if (tag_map[startpy * W + startpx] != 0) continue; // no retracing!!!
+
+                int outcome;
+
+                outcome = bt.trace(startpx, startpy, startvx, startvy, startgcsstd, inimg_xy, std_angle_deg, std_gcsstd_pix, tag_map, Masker2D.mask_xy, queue_map);
+
+                if (outcome!=0) { // means that it reached region with a tag
+                    new_traces_found++;
+                    queue_success[i] = true;
+                    Trace2D branch_trace = new Trace2D(counter, outcome); // create trace
+                    // loop available elements
+                    for (int j = 0; j < bt.iter_counter; j++) branch_trace.add(bt.xc[j][0], bt.xc[j][1], bt.rc[j]);
+                    counter += branch_trace.locs_x.size(); // update count, possible to put bt.iter_counter here as well - should be the same
+                    // add it to the tracelist (so that it is later exported to swc)
+                    tlist.add(branch_trace);
+                    // update tag map wrt trace
+                    addToMap(branch_trace, tag_map, W, H);
+                    if (save_frames)
+                        IJ.saveAs(getTagMap(), "Tiff", output_dir_midresults + "tagMap_" + IJ.d2s(tlist.size(), 0) + ".tif");
+                }
+                else { // either went to background or reached limit, then trace up to the last queue location, don't throw away and make it easier for the scheme
+                    if (bt.last_queue_element_checked>0) {
+
+                        queue_success[i] = true;
+                        Trace2D branch_trace = new Trace2D(counter, -1); // start it from the beginning (but this needs to be checked as it makes interruptions!!!!)
+                        for (int j = 0; j < bt.last_queue_element_checked; j++) branch_trace.add(bt.xc[j][0], bt.xc[j][1], bt.rc[j]);
+                        counter += bt.last_queue_element_checked;
+
+
+                        tlist.add(branch_trace);
+                        addToMap(branch_trace, tag_map, W, H);
+                        if (save_frames)
+                            IJ.saveAs(getTagMap(), "Tiff", output_dir_midresults + "tagMap_" + IJ.d2s(tlist.size(), 0) + ".tif");
+
+                    }
+                }
+
+                // the other direction - go!
+
+                outcome = bt.trace(startpx, startpy, -startvx, -startvy, startgcsstd, inimg_xy, std_angle_deg, std_gcsstd_pix, tag_map, Masker2D.mask_xy, queue_map);
+
+                if (outcome!=0) {
+                    new_traces_found++;
+                    queue_success[i] = true;
+                    Trace2D branch_trace = new Trace2D(counter, outcome); // create trace
+                    // loop available elements
+                    for (int j = 0; j < bt.iter_counter; j++) branch_trace.add(bt.xc[j][0], bt.xc[j][1], bt.rc[j]);
+                    counter += branch_trace.locs_x.size(); // update count
+
+                    // add it to the tracelist (so that it is later exported to swc)
+                    tlist.add(branch_trace);
+                    // update tag map wrt trace
+                    addToMap(branch_trace, tag_map, W, H);
+                    if (save_frames)
+                        IJ.saveAs(getTagMap(), "Tiff", output_dir_midresults + "tagMap_" + IJ.d2s(tlist.size(), 0) + ".tif");
+
+                }
+                else {
+                    if (bt.last_queue_element_checked>0) {
+
+                        queue_success[i] = true;
+                        Trace2D branch_trace = new Trace2D(counter, -1); // start it from the beginning (but this needs to be checked as it makes interruptions!!!!)
+                        for (int j = 0; j < bt.last_queue_element_checked; j++) branch_trace.add(bt.xc[j][0], bt.xc[j][1], bt.rc[j]);
+                        counter += bt.last_queue_element_checked;
+
+                        tlist.add(branch_trace);
+                        addToMap(branch_trace, tag_map, W, H);
+                        if (save_frames)
+                            IJ.saveAs(getTagMap(), "Tiff", output_dir_midresults + "tagMap_" + IJ.d2s(tlist.size(), 0) + ".tif");
+
+                    }
+                }
+            }
+
+//            System.out.println((2*queue.length)/((float)1000) + "k trace inits -> " + count_BCG/1000f + "k BCG, " + count_LIM/1000f + "k LIM, " + count_OKE/1000f + "k OKE");
+//            if (true) break;
+
+            cnt_evol++;
+            System.out.println(" " + cnt_evol + " -> " + new_traces_found + " new traces");
+            t2 = System.currentTimeMillis();
+            System.out.println("done ["+ ((t2-t1)/1000f) +" sec.].");
 
         }
 
+//        inimg.show();
+        inimg.close();
         System.out.println("done.");
 
         System.out.print("_____________________\nswc export...");
@@ -479,12 +599,12 @@ public class NeuronStalker2D implements PlugIn {
                 if (j==curr_trace.locs_x.size()-1) { // last in the trace list, first in tagging
                     logWriter.println(String.format(
                             "%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f %-4d",
-                            cnt, 1, curr_trace.locs_x.get(j), curr_trace.locs_y.get(j), 0f, curr_trace.rads.get(j), tlist.get(i).tag_prev));
+                            cnt, 2, curr_trace.locs_x.get(j), curr_trace.locs_y.get(j), 0f, curr_trace.rads.get(j), tlist.get(i).tag_prev));
                 }
                 else {
                     logWriter.println(String.format( // somewhere along
                             "%-4d %-4d %-6.2f %-6.2f %-6.2f %-3.2f %-4d",
-                            cnt, 1, curr_trace.locs_x.get(j), curr_trace.locs_y.get(j), 0f, curr_trace.rads.get(j), cnt-1));
+                            cnt, 2, curr_trace.locs_x.get(j), curr_trace.locs_y.get(j), 0f, curr_trace.rads.get(j), cnt-1));
 
                 }
 
@@ -525,7 +645,7 @@ public class NeuronStalker2D implements PlugIn {
                         if (_map[yy * _mapW + xx] == 0) {// fill new value if it has not been filled already
 
                             _map[yy * _mapW + xx] = curr_tag;
-//                            System.out.println("x="+xx+", y="+yy+", i(x,y)="+(yy * _mapW + xx)+_map[yy * _mapW + xx]);
+//                            System.out.println("x="+xx+", y="+yy+", i(x,y)="+(yy * _mapW + xx)+" = "+_map[yy * _mapW + xx]);
 
                         }
                     }

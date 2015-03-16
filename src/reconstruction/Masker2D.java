@@ -1,7 +1,9 @@
-package reconstruction2d;
+package reconstruction;
 
 import aux.Stat;
+import ij.ImageStack;
 import ij.process.ByteProcessor;
+import imagescience.image.Image;
 
 import java.util.Arrays;
 
@@ -23,12 +25,10 @@ public class Masker2D extends Thread {
     private static float            percentile;
 
     // outputs
-//    public static byte[][]			back_xy; 	// background estimate
+    public static float[]  		    criteria;	// where scores for each pixel are located
     public static boolean[][]		mask_xy;    // output mask
-    public static float[][]  		criteria;	//
     public static int[][] 			i2xy;       // mapping
-    public static  int[][]			xy2i;
-
+    public static int[][]			xy2i;
 
     public Masker2D (int n0, int n1) {
         begN = n0;
@@ -54,17 +54,28 @@ public class Masker2D extends Thread {
         image_height 	= inimg_xy[0].length;
         image_width 	= inimg_xy.length;
 
-		/*
-			initialize outputs
-		 */
-//        back_xy = new byte[image_width][image_height];
+		// initialize outputs
         mask_xy = new boolean[image_width][image_height];
+        criteria = new float[image_width*image_height];
+        i2xy 	= null;//new int[1][1];  // values known after run()
+        xy2i 	= null;//new int[1][1];  // values known after run()
 
-        criteria = new float[image_width][image_height];
+    }
 
-        i2xy 	= new int[1][1];  // values known after run()
-        xy2i 	= new int[1][1];  // values known after run()
+    public static void clean(){
 
+//        image_width = -1;
+//        image_height = -1;
+//        radiusCheck = -1;
+//        globalTh = -1;
+//        marginPix = -1;
+//        percentile = -1;
+
+        inimg_xy = null;
+        criteria = null;
+        mask_xy = null;
+        i2xy = null;
+        xy2i = null;
     }
 
     public void run()
@@ -87,9 +98,7 @@ public class Masker2D extends Thread {
                 extractCircularNbhood(atX, atY, radiusCheck, circNeigh, inimg_xy); // extract from the image
                 float m05 	= Stat.quantile(circNeigh, 1, 20);
                 float m95 	= Stat.quantile(circNeigh, 19, 20);
-
-//                back_xy[atX][atY] 	= (byte) Math.round(m05);
-                criteria[atX][atY] 	= m95 - m05;
+                criteria[locIdx] = m95 - m05; // atY*image_width+atX
 
             }
 
@@ -156,45 +165,74 @@ public class Masker2D extends Thread {
     public static void defineThreshold()
     {
 
-        float[][] criteria_local_max = new float[criteria.length][criteria[0].length];
+        // count the number of those that have discrepancy criteria above zero, they will be thresholded using percentile threshold
+        int count = 0;
+        for (int i = 0; i < criteria.length; i++) {
+            if (criteria[i]>Float.MIN_VALUE)
+                count++;
+        }
 
-        int circNeighSize = sizeCircularNbhood(radiusCheck);
-        float[] circNeigh = new float[circNeighSize];
+        float[] criteria_reduced = new float[count]; // useful if there are many zeros in the background
 
-        for (int x=0; x<criteria.length; x++) {
-            for (int y=0; y<criteria[0].length; y++) {
-                extractCircularNbhood(x, y, radiusCheck, circNeigh, criteria);
-                criteria_local_max[x][y] = Stat.get_max(circNeigh);
+        count = 0;
+        for (int i = 0; i < criteria.length; i++) {
+            if (criteria[i]>Float.MIN_VALUE) {
+                criteria_reduced[count] = criteria[i];
+                count++;
             }
         }
 
-        for (int ii=0; ii<criteria.length; ii++) {
-            for (int jj=0; jj<criteria[0].length; jj++) {
-                criteria[ii][jj] = criteria_local_max[ii][jj];
+        // exclude those that were zero criteria (reduced) when calculating percentile threshold
+        globalTh = Stat.quantile(criteria_reduced, (int) percentile, 20);
+
+        for (int i = 0; i < criteria.length; i++) {
+            if (criteria[i]>globalTh) {
+                mask_xy[i%image_width][i/image_width] = true;
+            }
+            else {
+                mask_xy[i%image_width][i/image_width] = false;
             }
         }
 
-        float[] criteria_temp = new float[criteria.length*criteria[0].length];
-        int		cnt = 0;
-        for (int ii=0; ii<criteria.length; ii++) {
-            for (int jj=0; jj<criteria[0].length; jj++) {
-                criteria_temp[cnt] = criteria_local_max[ii][jj];
-                cnt++;
-            }
-        }
-
-        globalTh = Stat.quantile(criteria_temp, (int) percentile, 20);
-
+//        float[][] criteria_local_max = new float[criteria.length][criteria[0].length];
+//
+//        int circNeighSize = sizeCircularNbhood(radiusCheck);
+//        float[] circNeigh = new float[circNeighSize];
+//
+//        // this is effectively dilatation
+//        for (int x=0; x<criteria.length; x++) {
+//            for (int y=0; y<criteria[0].length; y++) {
+//                extractCircularNbhood(x, y, radiusCheck, circNeigh, criteria);
+//                criteria_local_max[x][y] = Stat.get_max(circNeigh);
+//            }
+//        }
+//
+//        for (int ii=0; ii<criteria.length; ii++) {
+//            for (int jj=0; jj<criteria[0].length; jj++) {
+//                criteria[ii][jj] = criteria_local_max[ii][jj];
+//            }
+//        }
+//        // this is effectively dilatation - just to change criteria
+//
+//        float[] criteria_temp = new float[criteria.length*criteria[0].length];
+//        int		cnt = 0;
+//        for (int ii=0; ii<criteria.length; ii++) {
+//            for (int jj=0; jj<criteria[0].length; jj++) {
+//                criteria_temp[cnt] = criteria_local_max[ii][jj];
+//                cnt++;
+//            }
+//        }
+//
 //        cnt = 0;
-        for (int xx=0; xx<image_width; xx++) {
-            for (int yy=0; yy<image_height; yy++) {
+//        for (int xx=0; xx<image_width; xx++) {
+//            for (int yy=0; yy<image_height; yy++) {
 
-                if (criteria[xx][yy] > globalTh) {
-                    mask_xy[xx][yy] = true;
-                }
-                else {
-                    mask_xy[xx][yy] = false;
-                }
+//                if (criteria[xx][yy] > globalTh) {
+//                    mask_xy[xx][yy] = true;
+//                }
+//                else {
+//                    mask_xy[xx][yy] = false;
+//                }
 
 //                criteria[xx][yy] = criteria_temp[cnt];
 
@@ -206,12 +244,12 @@ public class Masker2D extends Thread {
 //				else {
 //					mask_xy[xx][yy] = false;
 //				}
-            }
-        }
+//            }
+//        }
 
     }
 
-    public static void formRemainingOutputs()
+    public static void formRemainingOutputs() // will fill in the remainder of the mapping arrays
     {
 
         xy2i 	= new int[image_width][image_height];
@@ -261,17 +299,6 @@ public class Masker2D extends Thread {
         }
 //		}
 
-
-    }
-
-    public static ByteProcessor getMask()
-    {
-
-        byte[] out = new byte[image_height*image_width];
-        for (int i=0; i<out.length; i++) {
-            out[i] = mask_xy[i%image_width][i/image_width]? (byte)255 : (byte)0;
-        }
-        return new ByteProcessor(image_width, image_height, out);
 
     }
 

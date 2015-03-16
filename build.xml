@@ -3,7 +3,7 @@
     <dirname property="basedir" file="${ant.file}"/>
 
     <description>
-        neuron tracing project build file
+        Neuron Pinpointer project build file
     </description>
 
     <property environment="env"/>
@@ -11,16 +11,21 @@
     <property name="build"  		location="build" />
     <property name="user" 		    value="miroslavR" />
 
-    <mkdir dir="${build}"/>
-
-    <!-- clean build directory -->
-    <delete includeemptydirs="true">
-        <fileset dir="${build}">
-            <include name="**/*.*" />
-        </fileset>
-    </delete>
-
     <target name="main" depends="compress" description="main target">
+
+        <!--delete build directory-->
+        <delete includeemptydirs="true">
+            <fileset dir="${build}">
+                <include name="**/*.*" />
+            </fileset>
+        </delete>
+
+        <delete>
+            <dirset dir="${build}" includes="*" />
+        </delete>
+
+        <delete dir="${build}" />
+
     </target>
 
     <target name="compress" depends="compile" description="generate distribution">
@@ -34,8 +39,8 @@
         </jar>
 
         <copy file="./critpoint_.jar"  toDir="${env.HOME}/ImageJ/plugins/" />
-        <copy file="./critpoint_.jar"  toDir="${env.HOME}/Fiji.app/plugins/" />
-        <copy file="./critpoint_.jar"  toDir="${env.HOME}/fiji/plugins/" />
+        <!--<copy file="./critpoint_.jar"  toDir="${env.HOME}/Fiji.app/plugins/" />-->
+        <!--<copy file="./critpoint_.jar"  toDir="${env.HOME}/fiji/plugins/" />-->
 
     </target>
 
@@ -62,7 +67,7 @@
     <!-- compilation command (compile & copy to build folder) -->
     <!-- <bootclasspath refid="bootclasspath"/>  -->
     <!--target="1.x" -->
-    <target name="compile" description="Compile module">
+    <target name="compile" depends="createbuilddir" description="Compile module">
 
         <javac target="1.6" destdir="${build}" srcdir="${src}" debug="true" debuglevel="lines,vars,source">
             <classpath refid="classpath"/>
@@ -83,6 +88,20 @@
             <fileset dir="${src}"          includes="plugins.config" />
         </copy>
 
+
+    </target>
+
+    <target name="createbuilddir" description="creates build directory">
+
+        <!--create build directory-->
+        <mkdir dir="${build}"/>
+
+        <!-- clean build directory -->
+        <delete includeemptydirs="true">
+            <fileset dir="${build}">
+                <include name="**/*.*" />
+            </fileset>
+        </delete>
 
     </target>
 

@@ -176,6 +176,32 @@ public class Stat {
 
 	}
 
+    public static final float[] min_max_normalize1(float[] in)
+    {
+
+        float[] out = new float[in.length];
+
+        float curr_min = in[0];
+        float curr_max = in[0];
+        out[0] = in[0];
+
+        for (int i=1; i<in.length; i++) {
+            out[i] = in[i];
+            if (in[i]>curr_max) curr_max = in[i];
+            if (in[i]<curr_min) curr_min = in[i];
+        }
+        if (Math.abs(curr_max-curr_min)>Float.MIN_VALUE) {
+
+            for (int i=0; i<out.length; i++) {
+                out[i] = (out[i]-curr_min)/(curr_max-curr_min);
+                out[i] = (out[i]>1)? 1 : (out[i]<0)? 0 : out[i];
+            }
+        }
+
+        return out;
+
+    }
+
     public static final void probability_distribution(float[] in) {
 
         float sum = 0;

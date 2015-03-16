@@ -1,4 +1,4 @@
-package reconstruction2d;
+package reconstruction;
 
 import aux.Interpolator;
 import ij.IJ;
@@ -13,7 +13,6 @@ import ij.process.FloatProcessor;
 
 import java.awt.*;
 import java.util.ArrayList;
-import java.util.Arrays;
 
 /**
  * Created by miroslav on 15-2-15.
@@ -24,13 +23,12 @@ public class Zncc2D {
     private static float samplingStep = .7f;
 
     private float   radius;
-    private float   diameter;
     private int     N;
-    private int 	limR, limT;
+    public int 	limR, limT;
 
     private float[] sigmas;
     private float sigma_step = .5f;
-    private float sg_min = 1.0f;
+    private float sg_min = 0.5f;
 
     public static ArrayList<Float>          theta = new ArrayList<Float>(); 	        // list of elements (theta) covering the circle
     private static ArrayList<float[][]> 	offstXY = new ArrayList<float[][]>(); 	    // list of filter offsets for each direction
@@ -46,8 +44,8 @@ public class Zncc2D {
     {
 
         radius = _radius;
-        diameter = 2*radius;
         N 	= (int) Math.ceil(((TWO_PI * radius)/arcRes));
+//        System.out.println("Ndirections was " + N);
         limT = (int) Math.ceil(radius/samplingStep);    // transversal sampling limits
         limR = 2 * limT + 1; // how many to take radially with given sampling step
 
@@ -56,11 +54,12 @@ public class Zncc2D {
 
         // sigmas define
         int cnt = 0;
-        for (float sg = sg_min; sg <= rr; sg+=sigma_step) cnt++;
+        for (float sg = sg_min; sg <= rr/2; sg+=sigma_step) cnt++;
         sigmas = new float[cnt];
         cnt = 0;
-        for (float sg = sg_min; sg <= rr; sg+=sigma_step) sigmas[cnt++] = sg;
+        for (float sg = sg_min; sg <= rr/2; sg+=sigma_step) sigmas[cnt++] = sg;
 
+        // form N theta (N directions)
         theta.clear();
         for (int i=0; i<N; i++) theta.add(i * (TWO_PI/N));
 
@@ -98,6 +97,7 @@ public class Zncc2D {
 
         }
 
+        // fill the templates in
         tplt            = new float[sigmas.length][limR*limR]; // weights at different sigmas only for the first theta, the rest are the same
         tplt_avg        = new float[sigmas.length];
         tplt_hat        = new float[sigmas.length][limR*limR];
@@ -108,8 +108,6 @@ public class Zncc2D {
             float minWgt = Float.POSITIVE_INFINITY;
             float maxWgt = Float.NEGATIVE_INFINITY;
 
-
-
             cnt = 0;
             for (int k=-limT; k<=limT; k++) {
                 for (int i = -limT; i <= limT; i++) {
@@ -119,7 +117,6 @@ public class Zncc2D {
                     float dstAxis = point2line(0,0,        0,1,       px,py);
 
                     tplt[sig_idx][cnt] = (float) Math.exp(-(dstAxis*dstAxis)/(2*Math.pow(sigmas[sig_idx],2)));
-
 
                     if (tplt[sig_idx][cnt]>maxWgt) maxWgt = tplt[sig_idx][cnt];
                     if (tplt[sig_idx][cnt]<minWgt) minWgt = tplt[sig_idx][cnt];
@@ -262,7 +259,9 @@ public class Zncc2D {
             float[][]   _inimg_xy,      // image in array form
             float[]     _i2zncc,        // output - list of correlations    (from Profiler2D)
             float[]     _i2sigma,       // output - index of the sigma      (from Profiler2D)
-            float[][]   _i2vxy          // output - vector, 2D direction    (from Profiler2D)
+            float[][]   _i2vxy,          // output - vector, 2D direction    (from Profiler2D)
+
+            float[]     vals
     )
     {
 
@@ -276,7 +275,7 @@ public class Zncc2D {
         _i2vxy[_idx][1] = Float.NaN;
 
         float curr_zncc;
-        float[] vals = new float[limR*limR]; // can be allocated outside BUT independently for each thread
+//        float[] vals = new float[limR*limR]; // can be allocated outside BUT independently for each thread
         float vals_avg = 0;
 
         for (int dir_idx = 0; dir_idx < offstXY.size(); dir_idx++) {
