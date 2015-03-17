@@ -204,7 +204,6 @@ public class Detector2D {
             cumm_regions_end.add(i, new ByteProcessor(ip_load.getWidth(), ip_load.getHeight()));
             cumm_regions_jun.add(i, new ByteProcessor(ip_load.getWidth(), ip_load.getHeight()));
         }
-        //cumm_regions_end = new ByteProcessor(ip_load.getWidth(), ip_load.getHeight());
 
         cumm_directions_end = new ArrayList<ArrayList[][]>(dsens.length);
         cumm_directions_jun = new ArrayList<ArrayList[][]>(dsens.length);
@@ -502,6 +501,8 @@ public class Detector2D {
 					IJ.saveAs(ip_exporter, "Tiff", midresults_dir+"map_scores_end_reg_"+D[didx]+".tif");
 				}
 
+                map_region_end.clear();
+
                 for (int i = 0; i < dsens.length; i++) {  // for all dsens thresholds
 
                     map_region_end.add(i, et.runMaxEntropyThreshold(map_scores_end, dsens[i])); // map_scores_end -> map_region_end, use maximum entropy to threshold ~1
@@ -542,6 +543,8 @@ public class Detector2D {
 					IJ.saveAs(ip_exporter, "Tiff", midresults_dir+"map_scores_jun_reg_"+D[didx]+".tif");
 				}
 
+                map_region_jun.clear();
+
                 for (int i = 0; i < dsens.length; i++) {  // for all thresholds
 
                     map_region_jun.add(i, et.runMaxEntropyThreshold(map_scores_jun, dsens[i])); // map_scores_end -> map_region_end, use maximum entropy to threshold ~1
@@ -571,6 +574,20 @@ public class Detector2D {
 		t2 = System.currentTimeMillis();
 		System.out.println("\nfinished. " + ((t2 - t1) / 1000f) + "sec.");
 		t1 = System.currentTimeMillis();
+
+        /**
+         * addition
+         */
+//        System.out.println("testing... " + cumm_regions_end.size() + " || " + cumm_regions_jun.size());
+//        for (int i = 0; i < dsens.length; i++) System.out.print(i + " : " + dsens[i] + " , ");
+
+        // assume dsens is high-low!!!! so loop backwards and redefine the cumm_regions_*
+        for (int i = dsens.length-2; i >= 0; i--) {
+            appendLogicalOr(cumm_regions_end.get(i), cumm_regions_end.get(i+1));
+            appendLogicalOr(cumm_regions_jun.get(i), cumm_regions_jun.get(i+1));
+        }
+//        System.out.println("done correction");
+
 
 		if (do_endpoints) {
 
@@ -608,7 +625,7 @@ public class Detector2D {
 
             System.out.print("JunctionRegions... ");
 
-            for (int i = 0; i <cumm_regions_end.size(); i++) {
+            for (int i = 0; i <cumm_regions_jun.size(); i++) {
 
                 if (save_midresults) {
                     ip_exporter.setProcessor(cumm_regions_jun.get(i));
@@ -904,18 +921,18 @@ public class Detector2D {
 
 		int Dmax = (int) Math.round(Stat.get_max(D));
         int Amax = (int) (2*Math.pow(Dmax, 2)); // 2 is heuristic
-		int Amin = 4;
+//		int Amin = 4;
 
-		if (regs.size()>maxNrRegions) {
-			System.out.print("break! overshot, #regions = " + regs.size());
-			return;
-		}
+//		if (regs.size()>maxNrRegions) {
+//			System.out.print("break! overshot, #regions = " + regs.size());
+//			return;
+//		}
 
         // regs
         for (int i=0; i<regs.size(); i++) {
 
-            if (regs.get(i).size() > Amax) continue; // go to the next region
-            if (regs.get(i).size() < Amin) continue; // go to the next region
+//            if (regs.get(i).size() > Amax) continue; // go to the next region
+            if (regs.get(i).size() < 2) continue; // go to the next region if it's only 2 pixels
 
             float Cx=0, Cy=0; 	// centroid
             float C=0;        	// score
@@ -1046,7 +1063,6 @@ public class Detector2D {
 							unit_vxy[1] = unit_vxy[1] / norm_vxy;
 
 							vxy.add(unit_vxy); // vxy.add(new float[]{take_xy[0], take_xy[1]});
-
 
 						}
 

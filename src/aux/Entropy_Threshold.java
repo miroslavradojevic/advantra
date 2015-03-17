@@ -56,15 +56,15 @@ public class Entropy_Threshold implements PlugInFilter {
 		int thresholdMaxEntropy = entropySplit(hist);
 //		int thresoldMax = (int) bp.getMax();
 
-		int thresholdMax1 = 0;
+		int thresholdMax1 = Integer.MIN_VALUE;
+        int thresholdMin1 = Integer.MAX_VALUE;
 		byte[] vals = (byte[]) bp.getPixels();
 		for (int i = 0; i < vals.length; i++) {
 
 			int v = vals[i]&0xff;
 
-			if (v > thresholdMax1) {
-				thresholdMax1 = v;
-			}
+			if (v>thresholdMax1) thresholdMax1 = v;
+            if (v<thresholdMin1) thresholdMin1 = v;
 
 		}
 
@@ -73,7 +73,7 @@ public class Entropy_Threshold implements PlugInFilter {
 //		System.out.println("MX1:" 	+ thresholdMax1);
 
 		// choose threshold depending on the sensitivity
-		int threshold = (int) (_detection_sensitivity * thresholdMaxEntropy + (1 - _detection_sensitivity) * thresholdMax1);
+		int threshold = (int) (_detection_sensitivity * (thresholdMaxEntropy/2f) + (1 - _detection_sensitivity) * thresholdMax1); // thresholdMaxEntropy thresholdMin1
 
 //		System.out.println("TH: " + threshold);
 

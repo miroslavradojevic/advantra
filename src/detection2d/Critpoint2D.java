@@ -216,7 +216,7 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
 			// allocate joint Overlay for the stack
 			Overlay    out_ovl = new Overlay();
 
-            for (int i = 0; i < detection_overlays.length; i++) {  // loops dsens.length times
+            for (int i = detection_overlays.length-1; i >= 0; i--) {  // loops dsens.length times
 
                 if (detection_overlays[i].size()>0) {
 
@@ -250,6 +250,38 @@ public class Critpoint2D implements PlugIn, MouseListener, MouseMotionListener {
 			cnv.addMouseMotionListener(this);
 			IJ.setTool("hand");
 		}
+        else { // if not interactive just show the stack with detections
+
+            // allocate image stack
+
+            ImageStack out_stack = new ImageStack(ip_load.getWidth(), ip_load.getHeight());
+
+            Overlay    out_ovl = new Overlay();
+
+            for (int i = detection_overlays.length-1; i >= 0; i--) {  // loops dsens.length times
+
+                if (detection_overlays[i].size()>0) {
+
+                    out_stack.addSlice("DET2D,dsens="+IJ.d2s(_dsens[i],2)+".tif", ip_load.getProcessor().duplicate());
+
+                    for (int j = 0; j < detection_overlays[i].size(); j++) {
+
+                        Roi get_roi = detection_overlays[i].get(j);
+                        get_roi.setPosition(out_stack.getSize());
+                        out_ovl.add(get_roi);
+
+                    }
+
+                }
+                else System.out.print("Empty overlay with detections.");
+
+            }
+
+            ImagePlus out_imp = new ImagePlus("Critpoint2D", out_stack);
+            out_imp.setOverlay(out_ovl);
+            out_imp.show();
+
+        }
 
         System.out.println("DONE.");
 
