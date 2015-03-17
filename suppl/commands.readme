@@ -1,0 +1,71 @@
+find . -type f -iname '*.swc' -exec sh -c 'echo $0;' {} \;
+find . -type f -iname 'n[0-9][0-9].swc' -exec sh -c 'echo $0;' {} \;
+
+/opt/vaa3d/vaa3d -x resample_swc -f resample_swc -i n01.swc -o out.swc -p 1
+
+rm -rf ./res2/; mkdir ./res2/;
+
+
+find . -type f -iname 'n[0-9][0-9].swc' -exec sh -c '
+/opt/vaa3d/vaa3d -x resample_swc -f resample_swc -i $0 -p 2; cp --parents $0_resampled.swc ./res2/;
+rm -rf $0_resampled.swc; ' {} \;
+
+
+
+
+
+mkdir ./res1
+
+find . -type f -iname 'n[0-9][0-9].swc' -exec sh -c '
+/opt/vaa3d/vaa3d -x resample_swc -f resample_swc -i $0 -p 1; cp --parents $0_resampled.swc ./res1/;
+rm -rf $0_resampled.swc; ' {} \;
+
+cd ./res1
+
+find . -type f -iname '*.swc' -exec sh -c '
+F=$0; NAME=${F%%_resampled.swc}; mv $F $NAME; ' {} \;
+
+
+
+
+
+
+find . -type f -iname 'n[0-9][0-9].swc' -exec sh -c '
+/opt/vaa3d/vaa3d -x resample_swc -f resample_swc -i $0 -p 3; cp --parents $0_resampled.swc ./res3/;
+rm -rf $0_resampled.swc; ' {} \;
+
+
+
+find . -type f -iname 'n01.swc' -exec sh -c 'echo $0;' {} \;
+find . -type f -iname 'n12.swc' -exec sh -c 'cp --parents $0 /home/miroslav/neuronstalker.tests/n/res1_app2/;' {} \;
+
+
+find . -type f -iname '*.swc' -exec sh -c '
+F=$0;
+NAME=${F##*/};
+NAME1=${NAME%%_resampled.swc};
+echo $NAME1; ' {} \;
+
+
+find . -type f -iname '*.swc_resampled.swc' -exec sh -c '
+F=$0;
+NAME=${F##*/};
+NAME1=${NAME%%_resampled.swc};
+DIR=${F%/*};
+mv $0 $DIR/$NAME1; ' {} \;
+
+${variable%pattern}
+  Trim the shortest match from the end
+${variable##pattern}
+  Trim the longest match from the beginning
+${variable%%pattern}
+  Trim the longest match from the end
+${variable#pattern}
+  Trim the shortest match from the beginning
+
+FILENAME=somefile.tar.gz
+echo ${FILENAME%%.*}
+somefile
+
+echo ${FILENAME%.*}
+somefile.tar
