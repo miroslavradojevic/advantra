@@ -5,14 +5,13 @@ find . -type f -iname 'n[0-9][0-9].swc' -exec sh -c 'echo $0;' {} \;
 
 rm -rf ./res2/; mkdir ./res2/;
 
-
 find . -type f -iname 'n[0-9][0-9].swc' -exec sh -c '
 /opt/vaa3d/vaa3d -x resample_swc -f resample_swc -i $0 -p 2; cp --parents $0_resampled.swc ./res2/;
 rm -rf $0_resampled.swc; ' {} \;
 
-
-
-
+find . -type f -iname 'n[0-9][0-9].swc' -exec sh -c '
+/Applications/vaa3d/vaa3d64.app/Contents/MacOS/vaa3d64 -x resample_swc -f resample_swc -i $0 -p 2; cp --parents $0_resampled.swc ./res2/;
+rm -rf $0_resampled.swc; ' {} \;
 
 mkdir ./res1
 
@@ -26,14 +25,12 @@ find . -type f -iname '*.swc' -exec sh -c '
 F=$0; NAME=${F%%_resampled.swc}; mv $F $NAME; ' {} \;
 
 
-
-
-
-
 find . -type f -iname 'n[0-9][0-9].swc' -exec sh -c '
 /opt/vaa3d/vaa3d -x resample_swc -f resample_swc -i $0 -p 3; cp --parents $0_resampled.swc ./res3/;
 rm -rf $0_resampled.swc; ' {} \;
 
+
+find . -type f -iname 'n[0-9][0-9].tif' -exec sh -c 'F=$0;NAME=${F##*/};echo $NAME' {} \;
 
 
 find . -type f -iname 'n01.swc' -exec sh -c 'echo $0;' {} \;

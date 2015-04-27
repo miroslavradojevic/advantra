@@ -33,6 +33,7 @@
         <jar jarfile="ns_.jar">
             <fileset dir="."          includes="plugins.config" />
             <fileset dir="${build}"   includes="**/*.*"         />
+            <fileset dir="${src}"          includes="**/*.cu"/>
             <manifest>
                 <attribute name="Built-By" value="${user}"/>
             </manifest>
@@ -53,6 +54,8 @@
     <!-- external modules (jar) -->
     <path id="classpath">
         <pathelement location="${env.HOME}/jarlib/ij.jar"/>
+        <pathelement location="${env.HOME}/jarlib/jcuda-0.6.5.jar"/>
+        <pathelement location="${env.HOME}/jarlib/jcudaUtils-0.0.4.jar"/>
     </path>
 
     <path id="sourcepath">

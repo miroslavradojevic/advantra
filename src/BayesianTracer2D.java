@@ -21,7 +21,7 @@ public class BayesianTracer2D {
 
     float[] img_vals;                           // reservoir for image values that will be sampled along template cross profile to calculate zncc()
 
-    private static float        gcsstd_step = 0.5f;
+    private static float        gcsstd_step = 1.0f;
     private static float        gcsstd_min  = 1.0f;
 
     // spatial prediction for one state sample - this is what one state will produce: Nsemicirc*gcsstd.length
@@ -39,14 +39,17 @@ public class BayesianTracer2D {
     public int                      iter_counter;   // number of iterations carried out before stopped
     public float[][]                xc;             // centroid locations
     public float[]                  rc;             // centroid radiuses
-    public int                      last_queue_element_checked; // remembers at which iteration the last
+//    public int                      last_queue_element_checked; // remembers at which iteration the last
+
+//    public int nearest_gp_iter;
+//    public boolean first_queue_element_found;
 
     // sequential bayesian filtering
     float[][]           trans_xy;
     float[]             pties;
     public float[]      lhoods;
 
-    private static float        cross_profile_step = 0.5f;
+    private static float        cross_profile_step = 0.7f;
 
     private int mode = 1; // 0 - RAW IMAGE VALUES, 1 - ZNCC
 
@@ -64,21 +67,23 @@ public class BayesianTracer2D {
         xc = new float[Niterations][2];
         rc = new float[Niterations];
         iter_counter = Integer.MIN_VALUE;
-        last_queue_element_checked = Integer.MIN_VALUE;
+//        last_queue_element_checked = Integer.MIN_VALUE;
 
         neuron_radius = (int) Math.ceil(_neuron_radius);
         neuron_radius = (neuron_radius<2)? 2 : neuron_radius;
 
         // gcsstd define
         int cnt = 0;
-        for (float sg = gcsstd_min; sg <= neuron_radius/2; sg+=gcsstd_step) cnt++;
+        for (float sg = gcsstd_min; sg <= 0.4f*neuron_radius; sg+=gcsstd_step) cnt++;
         gcsstd = new float[cnt];
         cnt = 0;
-        for (float sg = gcsstd_min; sg <= neuron_radius/2; sg+=gcsstd_step) gcsstd[cnt++] = sg;
+        for (float sg = gcsstd_min; sg <= 0.4f*neuron_radius; sg+=gcsstd_step) gcsstd[cnt++] = sg;
 
         // tt, tta templates define
         int ns2 = (int) Math.ceil(neuron_radius/cross_profile_step);
         int ns = ns2*2+1;
+
+        // the template will correspond to 2*tracing radius
 
         tt = new float[gcsstd.length][ns];
         tta = new float[gcsstd.length];
@@ -197,21 +202,30 @@ public class BayesianTracer2D {
 
     }
 
-    public int trace(float x, float y, float vx, float vy, float gcsstd,
-                     float[][] _inimg_xy, float _angula_deg, float _gcsstd_pix,
-                     int[] _tag_map,
-                     boolean[][] _mask_xy,
-                     boolean[][] _queue_map)
+    public void trace(float             x,
+                     float              y,
+                     float              vx,
+                     float              vy,
+                     float              gcsstd,
+                     float[][]          _inimg_xy,
+                     float              _angula_deg,
+                     float              _gcsstd_pix,
+                     int[]              _tag_map,
+                     boolean[][]        _mask_xy,
+                     int[][]            _gp_lab_map,
+                     int                _gp_lab,
+                     int[]              tag_NODE_GDPNT)
     {
 
-//        float[] x_y_r = new float[3];
-        int xnode, ynode;
+        int   xnode,  ynode;
+        int   rnode;
+
         int W = _inimg_xy.length;
+        int H = _inimg_xy[0].length;
 
         reset(); // before each trace, the values are initialized with zeros if there were any from
 
         iter_counter = 0;
-        last_queue_element_checked = 0; // because we start from one
 
         while (iter_counter < Niterations) { // till the limit
 
@@ -223,21 +237,133 @@ public class BayesianTracer2D {
             // round them and check
             xnode = Math.round(xc[iter_counter][0]);
             ynode = Math.round(xc[iter_counter][1]);
+            rnode = (int) Math.ceil(rc[iter_counter]);
 
-            if (_queue_map[xnode][ynode] && iter_counter>1) last_queue_element_checked = iter_counter;
+            // stop & return zero if it was out
+            if (xnode<rnode || xnode>=_mask_xy.length-rnode || ynode<rnode || ynode>=_mask_xy[0].length-rnode) {
+                tag_NODE_GDPNT[0] = Integer.MIN_VALUE;
+                tag_NODE_GDPNT[1] = Integer.MIN_VALUE;
+                return;
+            }
 
-            if (!_mask_xy[xnode][ynode]) return 0;
-            if (_tag_map[ynode * W + xnode] != 0) return _tag_map[ynode * W + xnode];
+            // stop & return zero if the estimate reached background
+            if (!_mask_xy[xnode][ynode]) {
+                tag_NODE_GDPNT[0] = Integer.MIN_VALUE;
+                tag_NODE_GDPNT[1] = Integer.MIN_VALUE;
+                return;
+            }
+
+            // check local circular neighbourhood
+            for (int dx = -rnode; dx <= rnode; dx++) {
+                for (int dy = -rnode; dy <= rnode; dy++) {
+                    if ((int)Math.round(Math.sqrt(dx*dx+dy*dy))<=rnode) {
+
+                        int xchk = xnode+dx;
+                        int ychk = ynode+dy;
+
+                        // some other guidepoint region was reached
+                        if (_gp_lab_map[xchk][ychk]!=0 && _gp_lab_map[xchk][ychk]!=_gp_lab) {
+                            tag_NODE_GDPNT[0] = Integer.MIN_VALUE;
+                            tag_NODE_GDPNT[1] = _gp_lab_map[xchk][ychk];
+                            return;
+                        }
+
+                        // other node was reached
+                        if (_tag_map[ychk * W + xchk] > 0) {
+                            tag_NODE_GDPNT[0] = _tag_map[ychk * W + xchk];
+                            tag_NODE_GDPNT[1] = Integer.MIN_VALUE;
+                            return;
+                        }
+
+                    }
+                }
+            }
+
+
+            // check the cylinder between current and the previous node and stop if a tag or a guidepoint was reached
+            if (iter_counter>0) {
+//                System.out.print("(");
+                // check the area that connects the two nodes (previous node is indexed with 1, current with 2)
+                float x1 = xc[iter_counter-1][0];
+                float y1 = xc[iter_counter-1][1];
+                int   r1 = (int) Math.ceil(rc[iter_counter-1]);
+
+                float x2 = xc[iter_counter][0];
+                float y2 = xc[iter_counter][1];
+                int   r2 = (int) Math.ceil(rc[iter_counter]);
+
+                float v1x = x2-x1;
+                float v1y = y2-y1;
+
+                float v2x = x1-x2;
+                float v2y = y1-y2;
+
+                float vnorm = (float) Math.sqrt(v1x * v1x + v1y * v1y);
+
+                if (vnorm>=r1+r2){// no need to check what is in between
+                    v1x /= vnorm;
+                    v1y /= vnorm;
+
+                    v2x /= vnorm;
+                    v2y /= vnorm;
+
+                    // borders in 2d
+                    int xmin = (int) Math.floor(Math.min(x1-r1, x2-r2));
+                    int xmax = (int) Math.ceil(Math.max(x1+r1, x2+r2));
+
+                    int ymin = (int) Math.floor(Math.min(y1-r1, y2-r2));
+                    int ymax = (int) Math.ceil(Math.max(y1+r1, y2+r2));
+
+//                    System.out.print(xmin+" -- " +xmax);
+//                    System.out.print(ymin+" -- " +ymax);
+
+                    for (int xchk = xmin; xchk <= xmax; xchk++) {
+                        for (int ychk = ymin; ychk <= ymax; ychk++) {
+                            if (xchk>=0 && xchk<W && ychk>=0 && ychk<H) {
+
+                                float p1x = xchk-x1;
+                                float p1y = ychk-y1;
+
+                                float p2x = xchk-x2;
+                                float p2y = ychk-y2;
+
+                                float side1 = p1x*v1x + p1y*v1y;
+                                float side2 = p2x*v2x + p2y*v2y;
+
+                                float d2l_squared = (float) (Math.pow(-p1x + side1 * v1x,2)+Math.pow(-p1y + side2 * v2x,2));
+
+                                if (side1>0 && side2>0 && d2l_squared<=Math.pow(Math.min(r1, r2), 2)) {
+
+                                    // some other guidepoint region was reached
+                                    if (_gp_lab_map[xchk][ychk]!=0 && _gp_lab_map[xchk][ychk]!=_gp_lab) {
+                                        tag_NODE_GDPNT[0] = Integer.MIN_VALUE;
+                                        tag_NODE_GDPNT[1] = _gp_lab_map[xchk][ychk];
+                                        return;
+                                    }
+
+                                    // other node was reached
+                                    if (_tag_map[ychk * W + xchk] > 0) {
+                                        tag_NODE_GDPNT[0] = _tag_map[ychk * W + xchk];
+                                        tag_NODE_GDPNT[1] = Integer.MIN_VALUE;
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                }
+
+//                System.out.print(")");
+            }
 
             iter_counter++; // will be used to describe how far we've gone
 
-            // check
-//            getNode(it, x_y_r);// will return xcentroid, ycentroid and rcentroid at this iteration
-//            it++;
-
         }
 
-        return 0;
+        // reached the end of the loop, also return nothing
+        tag_NODE_GDPNT[0] = Integer.MIN_VALUE;
+        tag_NODE_GDPNT[1] = Integer.MIN_VALUE;
 
     }
 

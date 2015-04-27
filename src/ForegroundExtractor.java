@@ -47,6 +47,7 @@ public class ForegroundExtractor {
         Masker2D ms_jobs[] = new Masker2D[CPU_NR];
 
         for (int i = 0; i < ms_jobs.length; i++) {
+//            System.out.println((i*totalLocs/CPU_NR) + " --- " + ((i+1)*totalLocs/CPU_NR));
                 ms_jobs[i] = new Masker2D(i*totalLocs/CPU_NR,  (i+1)*totalLocs/CPU_NR);
                 ms_jobs[i].start();
         }
@@ -59,21 +60,22 @@ public class ForegroundExtractor {
                 }
         }
 
+
+        // criteria calculated in paralel
+
         Masker2D.defineThreshold();
         Masker2D.formRemainingOutputs();
 
         // append outputs to the output variables
-//        mask_xy.clear();
         mask_xy.add(Masker2D.mask_xy.clone());
 
-//        i2xy.clear();
         i2xy.add(Masker2D.i2xy.clone());
 
-//        xy2i.clear();
         xy2i.add(Masker2D.xy2i.clone());
 
         if (!_midresults_dir.equalsIgnoreCase("")) {
             IJ.saveAs(getMask(), "Tiff", _midresults_dir + "mask.tif");
+            IJ.saveAs(Masker2D.getCriteria(), "Tiff", _midresults_dir + "criteria.tif");
         }
 
         Masker2D.clean();

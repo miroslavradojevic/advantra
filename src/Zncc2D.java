@@ -12,53 +12,74 @@ import java.awt.*;
 import java.util.ArrayList;
 
 /**
+ *
+ *
+ *
+ *
+ *
+ In a right-handed coordinate system, the rotations are as follows:
+
+ 90 degrees CW about x-axis: (x, y, z) -> (x, -z, y)
+ 90 degrees CCW about x-axis: (x, y, z) -> (x, z, -y)
+
+ 90 degrees CW about y-axis: (x, y, z) -> (-z, y, x)
+ 90 degrees CCW about y-axis: (x, y, z) -> (z, y, -x)
+
+ 90 degrees CW about z-axis: (x, y, z) -> (y, -x, z)
+ 90 degrees CCW about z-axis: (x, y, z) -> (-y, x, z)
+
  * Created by miroslav on 15-2-15.
  */
 public class Zncc2D {
 
-    private static float arcRes = 1.5f;
-    private static float samplingStep = .7f;
+    private static float arcRes = 1.0f;     //
+    private static float samplingStep = 1f; // something that was used for the first version of filtering
 
-    private float   radius;
-    private int     N;
-    public int 	limR, limT;
+    private float   radius;                 // aa
+    private int     N;                      // aa
+    public int 	limR, limT;                 // aa
 
-    private float[] sigmas;
+    public float[] sigmas;
     private float sigma_step = .5f;
-    private float sg_min = 0.5f;
+    private float sg_min = 1f;
 
-    public static ArrayList<Float>          theta = new ArrayList<Float>(); 	        // list of elements (theta) covering the circle
+    public static ArrayList<Float>          theta = new ArrayList<Float>(); 	            // list of elements (theta) covering the circle
     private static ArrayList<float[][]> 	offstXY = new ArrayList<float[][]>(); 	    // list of filter offsets for each direction
 
-    private float[][]   tplt;           // template
-    private float[]     tplt_avg;       // template average
-    private float[][]   tplt_hat;       // template - template average
-    private float[]     tplt_hat_sum_2; // sum(template- template average)^2
+    private float[][]   tplt;               // template
+    private float[]     tplt_avg;           // template average
+    private float[][]   tplt_hat;           // template - template average
+    private float[]     tplt_hat_sum_2;     // sum(template- template average)^2
+
+    float[][]           kernels;            // Ndirections*Nscales x limR*limR
+    float[]             kernels_avg;        // average
+    float[][]           kernels_hat;        // kernel-average
+    float[]             kernels_hat_sum_2;  // sum(kernel-average)^2
 
     private static float TWO_PI = (float) (2 * Math.PI);
+    private static float PI = (float) (Math.PI);
 
     public Zncc2D(float _radius)
     {
 
         radius = _radius;
-        N 	= (int) Math.ceil(((TWO_PI * radius)/arcRes));
-//        System.out.println("Ndirections was " + N);
+
         limT = (int) Math.ceil(radius/samplingStep);    // transversal sampling limits
         limR = 2 * limT + 1; // how many to take radially with given sampling step
-
         int rr = (int) Math.ceil(_radius);
         rr = (rr<1)? 1 : rr;
 
         // sigmas define
         int cnt = 0;
-        for (float sg = sg_min; sg <= rr/2; sg+=sigma_step) cnt++;
+        for (float sg = sg_min; sg <= .4f*rr; sg+=sigma_step) cnt++;
         sigmas = new float[cnt];
         cnt = 0;
-        for (float sg = sg_min; sg <= rr/2; sg+=sigma_step) sigmas[cnt++] = sg;
+        for (float sg = sg_min; sg <= .4f*rr; sg+=sigma_step) sigmas[cnt++] = sg;
 
         // form N theta (N directions)
+        N 	= (int) Math.ceil(((PI * radius)/arcRes));
         theta.clear();
-        for (int i=0; i<N; i++) theta.add(i * (TWO_PI/N));
+        for (int i=0; i<N; i++) theta.add(i * (PI/N));
 
         offstXY.clear();
 //        float sumWgt = 0;
@@ -138,6 +159,71 @@ public class Zncc2D {
             }
 
         }
+
+        // create kernels that will be used for filtering (this is alternative, at first location sampling was used and templates were fixed in tplt variable)
+//        System.out.println(N + " directions, " + sigmas.length + " scales");
+        kernels             = new float[N*sigmas.length][limR*limR];
+        kernels_avg         = new float[N*sigmas.length];
+        kernels_hat         = new float[N*sigmas.length][limR*limR];
+        kernels_hat_sum_2   = new float[N*sigmas.length];
+
+        for (int i = 0; i < kernels.length; i++) {
+
+            int direc_idx = i % N;
+            int scale_idx = i / N;
+
+            float sigx = sigmas[scale_idx];
+            float sigy = limT;                      // broader than sigmax
+            float ang = direc_idx * (PI / N);
+
+            float vx =  ((float) Math.cos(ang)); // - (float) Math.sin(ang)
+            float vy =  ((float) Math.sin(ang)); //  + (float) Math.cos(ang)
+
+            kernels_avg[i] = 0; // average
+
+            for (int j = 0; j < kernels[i].length; j++) {
+
+                int xx = j % limR;
+                int yy = j / limR;
+
+                float currx = (xx - limT) *   vx  + (yy - limT) * vy;
+                float curry = (xx - limT) * (-vy) + (yy - limT) * vx;
+
+                kernels[i][j] = (float) Math.exp( -(  ((Math.pow(currx,2)/(2*Math.pow(sigx,2))) + (Math.pow(curry,2)/(2*Math.pow(sigy,2)))   ) )   );
+                kernels_avg[i] += kernels[i][j];
+
+            }
+
+            kernels_avg[i] /= kernels[i].length;
+
+            kernels_hat_sum_2[i] = 0;
+
+            for (int j = 0; j < kernels[i].length; j++) {
+
+//                int xx = j % limR;
+//                int yy = j / limR;
+//                float currx  = (xx - limT) *   vx  + (yy - limT) * vy;
+//                float curry  = (xx - limT) * (-vy) + (yy - limT) * vx;
+
+                kernels_hat[i][j] = kernels[i][j] - kernels_avg[i];
+                kernels_hat_sum_2[i] += Math.pow(kernels_hat[i][j], 2);
+
+            }
+        }
+    }
+
+    public ImagePlus getKernels() {
+
+        ImageStack iskernels = new ImageStack(limR, limR);
+
+        for (int i = 0; i <kernels.length; i++) {
+            int direc_idx = i % N;
+            int scale_idx = i / N;
+            float ang = direc_idx * (PI / N);
+            iskernels.addSlice(sigmas[scale_idx]+","+limT+","+IJ.d2s(ang,1), new FloatProcessor(limR, limR, kernels[i]));
+        }
+
+        return new ImagePlus("", iskernels);
 
     }
 
@@ -257,7 +343,6 @@ public class Zncc2D {
             float[]     _i2zncc,        // output - list of correlations    (from Profiler2D)
             float[]     _i2sigma,       // output - index of the sigma      (from Profiler2D)
             float[][]   _i2vxy,          // output - vector, 2D direction    (from Profiler2D)
-
             float[]     vals
     )
     {
@@ -332,6 +417,81 @@ public class Zncc2D {
         }
 
         return (float) (num / Math.sqrt(den * tmplt_hat_sum_sqr));
+
+    }
+
+    // zncc calculations using oriented patches
+    public void extract2(
+            int         _idx,           // index from the foreground list
+            int[][]     _i2xy,          // foreground map using Masker2D
+            float[][]   _inimg_xy,      // image in array form
+            float[]     _i2zncc,        // output - list of correlations    (from Profiler2D)
+            float[]     _i2sigma,       // output - index of the sigma      (from Profiler2D)
+            float[][]   _i2vxy,          // output - vector, 2D direction    (from Profiler2D)
+            float[]     vals
+    )
+    {
+
+        int at_x = _i2xy[_idx][0];
+        int at_y = _i2xy[_idx][1];
+
+        // outputs...
+        _i2zncc[_idx]   = 0; // lower boundary (because we look for the highest)
+        _i2sigma[_idx]  = Float.NaN;
+        _i2vxy[_idx][0] = Float.NaN;
+        _i2vxy[_idx][1] = Float.NaN;
+
+        float curr_zncc;
+        float vals_avg;
+
+        for (int kidx = 0; kidx < kernels.length; kidx++) {
+
+//            float vals_min = Float.POSITIVE_INFINITY;
+//            float vals_max = Float.NEGATIVE_INFINITY;
+            for (int pidx = 0; pidx < kernels[kidx].length; pidx++) {
+
+                int dx = (pidx % limR) - limT;
+                int dy = (pidx / limR) - limT;
+
+                int xx = at_x+dx;
+                int yy = at_y+dy;
+
+                vals[pidx] = 0;
+                if (xx>=0 && xx<_inimg_xy.length && yy>=0 && yy<_inimg_xy[xx].length) {
+                    vals[pidx] = _inimg_xy[xx][yy];
+                }
+
+            }
+
+            vals_avg = 0;
+            for (int pidx = 0; pidx < kernels[kidx].length; pidx++) {
+//                vals[cnt] = (vals[cnt]-vals_min)/(vals_max-vals_min);
+                vals_avg += vals[pidx];
+            }
+            vals_avg /= kernels[kidx].length;
+
+            // calculate zncc
+            curr_zncc = zncc(vals, vals_avg, kernels_hat[kidx], kernels_hat_sum_2[kidx]);
+
+            if (curr_zncc>_i2zncc[_idx]) {
+
+                _i2zncc[_idx] = curr_zncc;
+
+                int direc_idx = kidx % N;
+                float ang = direc_idx * (PI / N);
+
+                float vx = -((float) Math.sin(ang));
+                float vy =  ((float) Math.cos(ang));
+
+                _i2vxy[_idx][0] = vx;
+                _i2vxy[_idx][1] = vy;
+
+                int scale_idx = kidx / N;
+                _i2sigma[_idx] = sigmas[scale_idx];
+
+            }
+
+        }
 
     }
 

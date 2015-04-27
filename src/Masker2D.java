@@ -1,3 +1,7 @@
+import ij.IJ;
+import ij.ImagePlus;
+import ij.process.FloatProcessor;
+
 import java.util.Arrays;
 
 /**
@@ -56,14 +60,6 @@ public class Masker2D extends Thread {
     }
 
     public static void clean(){
-
-//        image_width = -1;
-//        image_height = -1;
-//        radiusCheck = -1;
-//        globalTh = -1;
-//        marginPix = -1;
-//        percentile = -1;
-
         inimg_xy = null;
         criteria = null;
         mask_xy = null;
@@ -79,8 +75,8 @@ public class Masker2D extends Thread {
 
         for (int locIdx=begN; locIdx<endN; locIdx++) {
 
-            int atX = locIdx%image_width;
-            int atY = locIdx/image_width;
+            int atX = locIdx % image_width;
+            int atY = locIdx / image_width;
 
             boolean processIt =
                     (atX>=marginPix) && (atY>=marginPix) && //(atZ>=marginLay) &&
@@ -127,14 +123,10 @@ public class Masker2D extends Thread {
             float[][] _inimg_xy
     )
     {
-
         int rPix = Math.round(sphereRadius);
         //int rLay = Math.round(sphereRadius / zDist);
-
         if (atX-rPix>=0 && atY-rPix>=0 && atX+rPix<_inimg_xy.length && atY+rPix<_inimg_xy[0].length) {  // && atZ-rLay>=0  // && atZ+rLay < image_length
-
             int cnt = 0;
-
             for (int xLoc=atX-rPix; xLoc<=atX+rPix; xLoc++) {
                 for (int yLoc=atY-rPix; yLoc<=atY+rPix; yLoc++) {
                     //for (int zLoc=atZ-rLay; zLoc<=atZ+rLay; zLoc++) { // loop in layers
@@ -149,96 +141,132 @@ public class Masker2D extends Thread {
                 }
             }
         }
-        else {
-            Arrays.fill(values, 0f); // set all values to zero
-        }
+        else Arrays.fill(values, 0f); // set all values to zero
+    }
 
+    private static void extractCircularNbhoodLocs(
+            int atX,
+            int atY,
+            float sphereRadius,
+            int[][] locs_xy,
+            float[][] _inimg_xy
+    )
+    {
+        int rPix = Math.round(sphereRadius);
+        //int rLay = Math.round(sphereRadius / zDist);
+        if (atX-rPix>=0 && atY-rPix>=0 && atX+rPix<_inimg_xy.length && atY+rPix<_inimg_xy[0].length) {  // && atZ-rLay>=0  // && atZ+rLay < image_length
+            int cnt = 0;
+            for (int xLoc=atX-rPix; xLoc<=atX+rPix; xLoc++) {
+                for (int yLoc=atY-rPix; yLoc<=atY+rPix; yLoc++) {
+                    //for (int zLoc=atZ-rLay; zLoc<=atZ+rLay; zLoc++) { // loop in layers
+                    //float c = (zLoc-atZ) * zDist;   // back to pixels
+                    if ( (xLoc-atX)*(xLoc-atX)+(yLoc-atY)*(yLoc-atY) <= rPix*rPix ) { // +c*c
+
+                        locs_xy[cnt][0] = xLoc;
+                        locs_xy[cnt][1] = yLoc;
+                        cnt++;
+
+                    }
+                    //}
+                }
+            }
+        }
+        else locs_xy=null; //Arrays.fill(values, 0f); // set all values to zero
     }
 
     public static void defineThreshold()
     {
 
-        // count the number of those that have discrepancy criteria above zero, they will be thresholded using percentile threshold
+        float MIN_CRITERIA = 0.1f; // since we are working with 8 bit
+
+        // count the number of those that have discrepancy criteria above MIN_CRITERIA
         int count = 0;
         for (int i = 0; i < criteria.length; i++) {
-            if (criteria[i]>Float.MIN_VALUE)
+            if (criteria[i]>MIN_CRITERIA)
                 count++;
         }
 
-        float[] criteria_reduced = new float[count]; // useful if there are many zeros in the background
+
+        float[] criteria_red = new float[count]; // useful if there are many zeros in the background
 
         count = 0;
         for (int i = 0; i < criteria.length; i++) {
-            if (criteria[i]>Float.MIN_VALUE) {
-                criteria_reduced[count] = criteria[i];
+            if (criteria[i]>MIN_CRITERIA) {
+                criteria_red[count] = criteria[i];
                 count++;
             }
         }
 
         // exclude those that were zero criteria (reduced) when calculating percentile threshold
-        globalTh = Toolbox.quantile(criteria_reduced, (int) percentile, 20);
+        globalTh = Toolbox.quantile(criteria_red, (int) percentile, 20);
 
-        for (int i = 0; i < criteria.length; i++) {
-            if (criteria[i]>globalTh) {
-                mask_xy[i%image_width][i/image_width] = true;
-            }
-            else {
-                mask_xy[i%image_width][i/image_width] = false;
+        criteria_red = null;
+
+        // now that it was used - set it to null
+//        criteria_red = null;
+
+        // form the mask
+        if (false) {
+            // version 1: percentile threshold of the original score map
+            for (int i = 0; i < criteria.length; i++) {
+                if (criteria[i]>globalTh) {
+                    mask_xy[i%image_width][i/image_width] = true;
+                }
+                else {
+                    mask_xy[i%image_width][i/image_width] = false;
+                }
             }
         }
+        else {
+            // version 2: percentile threshold of the dilated score map (local max expanded in circular neighbourhood)
+            // threshold is applied on radius dilated score map
+            // it is the same as the criteria is expanded to the whole diameter of the neighbourhood that was used for checking
+            // if the score calculated at the center is foreground then
+            // all the points that were in that neighbourhood
+            // are also foreground since all of those points were taken to calculate that score
 
-//        float[][] criteria_local_max = new float[criteria.length][criteria[0].length];
-//
-//        int circNeighSize = sizeCircularNbhood(radiusCheck);
-//        float[] circNeigh = new float[circNeighSize];
-//
-//        // this is effectively dilatation
-//        for (int x=0; x<criteria.length; x++) {
-//            for (int y=0; y<criteria[0].length; y++) {
-//                extractCircularNbhood(x, y, radiusCheck, circNeigh, criteria);
-//                criteria_local_max[x][y] = Stat.get_max(circNeigh);
-//            }
-//        }
-//
-//        for (int ii=0; ii<criteria.length; ii++) {
-//            for (int jj=0; jj<criteria[0].length; jj++) {
-//                criteria[ii][jj] = criteria_local_max[ii][jj];
-//            }
-//        }
-//        // this is effectively dilatation - just to change criteria
-//
-//        float[] criteria_temp = new float[criteria.length*criteria[0].length];
-//        int		cnt = 0;
-//        for (int ii=0; ii<criteria.length; ii++) {
-//            for (int jj=0; jj<criteria[0].length; jj++) {
-//                criteria_temp[cnt] = criteria_local_max[ii][jj];
-//                cnt++;
-//            }
-//        }
-//
-//        cnt = 0;
-//        for (int xx=0; xx<image_width; xx++) {
-//            for (int yy=0; yy<image_height; yy++) {
 
-//                if (criteria[xx][yy] > globalTh) {
-//                    mask_xy[xx][yy] = true;
-//                }
-//                else {
-//                    mask_xy[xx][yy] = false;
-//                }
+            float[][] criteria_xy = new float[image_width][image_height]; // temp (necessary for local neighbourhood)
+            for (int i = 0; i < criteria.length; i++) {
+                criteria_xy[i%image_width][i/image_width] = criteria[i];
+            }
 
-//                criteria[xx][yy] = criteria_temp[cnt];
 
-//                cnt++;
 
-//				if (criteria[xx][yy] > globalTh) {
-//					mask_xy[xx][yy] = true;
-//				}
-//				else {
-//					mask_xy[xx][yy] = false;
-//				}
-//            }
-//        }
+            int circNeighSize = sizeCircularNbhood(radiusCheck);
+            float[] circNeighVals = new float[circNeighSize];
+
+
+
+
+            // this is effectively dilatation using real values
+            float[] criteria_lmax = new float[criteria.length]; // temp
+            for (int i=0; i<criteria.length; i++) {
+
+                int atX = i % image_width;
+                int atY = i / image_width;
+
+                extractCircularNbhood(atX, atY, radiusCheck, circNeighVals, criteria_xy);
+                criteria_lmax[i] = Toolbox.get_max(circNeighVals);
+
+            }
+
+            for (int i = 0; i < criteria_lmax.length; i++) {
+                if (criteria_lmax[i]>globalTh) {
+                    mask_xy[i%image_width][i/image_width] = true;
+                }
+                else {
+                    mask_xy[i%image_width][i/image_width] = false;
+                }
+            }
+
+
+
+            criteria_lmax = null;
+            for (int i = 0; i < criteria_xy.length; i++) criteria_xy[i] = null;
+            criteria_xy=null;
+
+        }
 
     }
 
@@ -293,6 +321,15 @@ public class Masker2D extends Thread {
 //		}
 
 
+    }
+
+    public static ImagePlus getCriteria()
+    {
+        float[][] criteria2d = new float[image_width][image_height];
+        for (int i = 0; i < criteria.length; i++) {
+            criteria2d[i%image_width][i/image_width] = criteria[i];
+        }
+        return new ImagePlus("", new FloatProcessor(criteria2d));
     }
 
 }
