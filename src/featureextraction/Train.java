@@ -26,7 +26,6 @@ import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.FilenameFilter;
@@ -35,7 +34,6 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.Vector;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -58,9 +56,12 @@ import weka.core.converters.ArffSaver;
  *
  * @author Gadea
  */
-public class FE implements PlugIn {
+public class Train implements PlugIn {
+
+    boolean savetagmap = true;
 
     private ImagePlus inimg;
+    private ImagePlus impMap;
     public byte[] inimgarray;
 
     private String inputDirectory;
@@ -98,12 +99,12 @@ public class FE implements PlugIn {
         String words = Prefs.get("neuronmachine.words", "20,40,60,80");
 //        save = (boolean) Prefs.get("neuronmachine.save", false);
 
-        GenericDialog gdG = new GenericDialog("to_make_a_grid");
+        GenericDialog gdG = new GenericDialog("Train");
         gdG.addStringField("input_directory", inputDirectory, 80);
-        gdG.addNumericField("square_size", D, 0);
-        gdG.addNumericField("percentage of overlap", percentOver, 0);
-        gdG.addNumericField("percentage to be Positive", percentPOS, 0);
-        gdG.addStringField("number of words", "20", 0);
+        gdG.addNumericField("size", D, 0);
+        gdG.addNumericField("ovlpperc", percentOver, 0, 15, "%");
+        gdG.addNumericField("posperc", percentPOS, 0, 15, "%");
+        gdG.addStringField("nwords", words, 30);
 //        gdG.addCheckbox("save the patches", save);
 
         gdG.showDialog();
@@ -125,14 +126,14 @@ public class FE implements PlugIn {
         String[] nw = words.split(",");
         nwords = new int[nw.length];
         for (int i = 0; i < nw.length; i++) {
-            nwords[i] = Integer.parseInt(nw[i]);
+            nwords[i] = Integer.parseInt(nw[i].trim());
         }
 
         if (inputDirectory.isEmpty()) {
             return;
         }
 
-        outputDirectory = inputDirectory + File.separator + "SIFT.D.og.op.nw." + D + "_" + percentOver + "_" + percentPOS + "_";
+        outputDirectory = inputDirectory + File.separator + "TRAIN.D.og.op.nw." + D + "_" + percentOver + "_" + percentPOS + "_";
 
         int overlapPixels = (int) percentPOS * D * D / 100; //minimum number of pixels are neccessary to consider a patch like positive (neuron)
 
@@ -188,32 +189,21 @@ public class FE implements PlugIn {
             inimgarray = (byte[]) inimg.getProcessor().getPixels();
 
             //get a tag map (binary map) where the white pixels depict the upper-left corner of the patches which shared at least the overlap percentage of their area with a neuron marked by the expert.
-            ImagePlus impMap = getTagMap(neurons, inimg, overlapPixels);
-//            impMap.show();
+            impMap = getTagMap(neurons, inimg, overlapPixels);
+            byte[] pixelsMap = (byte[]) impMap.getProcessor().getPixels();
 
-            ImageProcessor ipMap = impMap.getProcessor();
-            byte[] pixelsMap = (byte[]) ipMap.getPixels();
-
-            String path = inputDirectory + "\\tagMap\\";
-            File fpath = new File(path);
-            if (!fpath.exists()) {
-                fpath.mkdirs();
-            }
-            IJ.save(impMap, path + impMap.getShortTitle() + ".tiff");
-
-            Overlay ov = new Overlay();
-            FileSaver fs;
+//            Overlay ov = new Overlay();
+//            FileSaver fs;
 
             int margin = D / 2; //the margin
 
             double auxPercentage = 100 - percentOver;
             double step = auxPercentage * D / 100;
 
-            int count = 0;
-            int auxnn = 0;
-            Rectangle rec = new Rectangle();
+//            int count = 0;
+//            int auxnn = 0;
+//            Rectangle rec = new Rectangle();
 
-            // -------------------- seq  --------------------
             ArrayList<int[]> locXY = new ArrayList<int[]>();
 //            ArrayList<Vector<Feature>> vv=new ArrayList<Vector<Feature>>();
 //            int[] auxXY = new int[2];
@@ -245,6 +235,18 @@ public class FE implements PlugIn {
 //            IJ.log("sequential took "+(t22-t11)/1000f);    
 //            IJ.log("avgtime was "+(avgmillsec/avgmillseccounter)/1000f);
 
+            int step_for_posotoves = 10;// make it more to avoid having too many, or fix a numer of 'positive' locations here!
+            // todo... change this definitely, add fixed known number of positive locations
+            for (int x = margin; x < W - margin - D; x += step_for_posotoves) {
+                for (int y = margin; y < H - margin - D; y += step_for_posotoves) {
+
+                    if (pixelsMap[y*W+x]==(byte)255) {
+                        locXY.add(new int[]{x,y});
+                    }
+
+                }
+            }
+
             int CPU_NR = Runtime.getRuntime().availableProcessors();
 
             IJ.log("calculating SIFT features... \n" + imgFiles[i]);
@@ -268,7 +270,7 @@ public class FE implements PlugIn {
             long t2 = System.currentTimeMillis();
             IJ.log("" + (t2 - t1) / 1000f + " s.");
 
-            // concatenate the data per image
+            // concatenate the data per mosaic image
             for (int j = 0; j < ParallelSift.siftFeatures.size(); j++) {
                 siftFeatures.add((Vector<Feature>) ParallelSift.siftFeatures.get(j).clone());
                 total_desriptors += ParallelSift.siftFeatures.get(j).size();
@@ -305,18 +307,22 @@ public class FE implements PlugIn {
             // export freatures (here those are histograms per centroids for each patch)
             exportFeaturesFull(feat, numSiftFeat, locationsxy, mosaicFileName, classPatches, auxOutput, "feat");
 
-            // export legend
+            // export tagmap
+            if (savetagmap && impMap!=null) {
+                File fpath = new File(inputDirectory);
+                if (!fpath.exists()) {
+                    fpath.mkdirs();
+                }
+
+                IJ.log(fpath.getAbsolutePath());
+
+                IJ.save(impMap, fpath.getAbsolutePath() + File.separator + impMap.getShortTitle() + ".tif");
+            }
 
         }
 
         long endTime = System.currentTimeMillis();
-        IJ.log("step machine learning took" + " " + ((endTime - startTime) / 60000f) + " min.");
-    }
-
-    protected void createTxtFile() {
-        String path = "";
-        File TXTfile = new File(path);
-
+        IJ.log("nmachinel took" + " " + ((endTime - startTime) / 60000f) + " min.");
     }
 
     //it isn't used here. create a xlsFile with the results
@@ -417,10 +423,13 @@ public class FE implements PlugIn {
             skm.setNumClusters(nwords);
             skm.buildClusterer(ins_data);
         } catch (Exception ex) {
-            Logger.getLogger(FE.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Train.class.getName()).log(Level.SEVERE, null, ex);
         }
 
+
+
         Instances insCentroids = skm.getClusterCentroids();
+
         //save the centroids in an arff-file. To test later.
 //            extractArffClustering(insCentroids, "centroids"); 
 
@@ -462,7 +471,7 @@ public class FE implements PlugIn {
 //                listclusters.add(cluster);
 //            }
 //        } catch (Exception ex) {
-//            Logger.getLogger(FE.class.getName()).log(Level.SEVERE, null, ex);
+//            Logger.getLogger(Train.class.getName()).log(Level.SEVERE, null, ex);
 //        }
 //        IJ.log("the model, calculates with SKM(for BoW), has been saved in " + inputDirectory + "\\_model_SKM" + ".model");
         long endTime = System.currentTimeMillis();
@@ -633,7 +642,7 @@ public class FE implements PlugIn {
                 fw.flush();
                 fw.close();
             } catch (IOException ex) {
-                Logger.getLogger(FE.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Train.class.getName()).log(Level.SEVERE, null, ex);
             }
 
         }
@@ -789,7 +798,6 @@ public class FE implements PlugIn {
                 }
             }
         }
-//        IJ.log(dirpath);
     }
 
     private void exportCentroids(float[][] centroids, String outdir, String filename) {
@@ -820,34 +828,6 @@ public class FE implements PlugIn {
 
     }
 
-//    private void exportFeatures(int[][] feat, String outdir, String filename) {
-//
-//        createDir(outdir);
-//        String outfile = outdir + File.separator + filename + ".csv";
-//        cleanfile(outfile);
-//
-//        try {
-//
-//            PrintWriter logWriter1 = new PrintWriter(new BufferedWriter(new FileWriter(outfile, true)));
-//
-//            int t1 = 0;
-//
-//            for (int i = 0; i < feat.length; i++) {
-//                    for (int j = 0; j < feat[i].length; j++) {
-//                        logWriter1.print(feat[i][j] + ",");
-//                    }
-//                    logWriter1.println("");
-//            }
-//
-//            logWriter1.close();
-//
-//        } catch (IOException e) {
-//        }
-//
-//        // export the legend at the same time with features
-//
-//    }
-
     private void exportFeaturesFull(
             int[][] feat,
             ArrayList<Integer> nkeypointlocs,
@@ -869,11 +849,10 @@ public class FE implements PlugIn {
             for (int i = 0; i < feat.length; i++) {
 
                 for (int j = 0; j < feat[i].length; j++) logWriter1.print(feat[i][j] + ",");
-
-                logWriter1.print(locsXY.get(i)[0]+","+locsXY.get(i)[1]+",");
-
-                logWriter1.print(mosaicname.get(i)+",");
-
+                logWriter1.print(" ");
+                logWriter1.print(nkeypointlocs.get(i)+", ");
+                logWriter1.print(locsXY.get(i)[0]+","+locsXY.get(i)[1]+", ");
+                logWriter1.print("\""+mosaicname.get(i)+"\", ");
                 logWriter1.println(Integer.toString(classpatch.get(i)));
             }
 
@@ -892,9 +871,10 @@ public class FE implements PlugIn {
 
             int countfeat = 0;
             for (int j = 0; j < feat[j].length; j++) logWriter1.println(IJ.d2s(++countfeat,0)+ " " +"h"+IJ.d2s(countfeat,0));
+            logWriter1.println(IJ.d2s(++countfeat, 0) + " " + "nrkeypointlocs");
             logWriter1.println(IJ.d2s(++countfeat, 0) + " " + "x");
             logWriter1.println(IJ.d2s(++countfeat, 0) + " " + "y");
-            logWriter1.print(IJ.d2s(++countfeat, 0) + " " + "mosaic");
+            logWriter1.println(IJ.d2s(++countfeat, 0) + " " + "mosaic");
             logWriter1.println(IJ.d2s(++countfeat, 0) + " " + "classpatch");
 
             logWriter1.close();
@@ -909,7 +889,6 @@ public class FE implements PlugIn {
         if (!f1.exists()) {
             f1.mkdirs();
         }
-//        IJ.log("createDir " + dirpath);
     }
 
     public static void cleanfile(String filepath) {
