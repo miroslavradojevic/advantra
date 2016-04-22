@@ -24,14 +24,14 @@ public class ThreadedKMeans extends Thread {
     public static float[][] c1;   // aux. centroids iterative avg.
     public static int[]     n1;  // aux. centroids count cluster size
 
+    private static Random rnd;
+
     public ThreadedKMeans(int n0, int n1) {
         begN = n0;
         endN = n1;
     }
 
     public static void initialize(float[][] _data, int _K) {
-
-//        iter = 0;
 
         data = _data;// try to keep the pointer only
         data_range = new float[_data[0].length][2];
@@ -46,7 +46,7 @@ public class ThreadedKMeans extends Thread {
 
         K = _K;
         c0 = new float[K][_data[0].length]; // centroids
-        Random rnd = new Random();
+        rnd = new Random();
         for (int i = 0; i < _data[0].length; i++) { // initial random centroids
             for (int j = 0; j < K; j++) {
                 c0[j][i] = data_range[i][0] + rnd.nextFloat() * (data_range[i][1]-data_range[i][0]);
@@ -72,7 +72,7 @@ public class ThreadedKMeans extends Thread {
             for (int kidx = 0; kidx < K; kidx++) {
 
                 float d2 = 0;
-                for (int j = 0; j < data[0].length; j++) {
+                for (int j = 0; j < data[lidx].length; j++) {
                     d2 += Math.pow(data[lidx][j]-c0[kidx][j],2);
                 }
 
@@ -101,7 +101,7 @@ public class ThreadedKMeans extends Thread {
 
     }
 
-    public static boolean assignments_changed(){
+    public static boolean assignments_changed() {
 
         boolean tags_equal;
 
@@ -109,7 +109,7 @@ public class ThreadedKMeans extends Thread {
             t0 = new int[t1.length];
             tags_equal = false;
         }
-        else{
+        else {
             tags_equal = true;
             for (int i = 0; i < data.length; i++) {
                 tags_equal = tags_equal && (t1[i]==t0[i]);
@@ -124,12 +124,18 @@ public class ThreadedKMeans extends Thread {
 
         // c0 <- c1, and reset n1, c1 to zero
         for (int i = 0; i < c0.length; i++) {
-            n1[i] = 0;
+
             for (int j = 0; j < c0[i].length; j++) {
-                c0[i][j] = c1[i][j];
-                c1[i][j] = 0;
+
+                c0[i][j] =
+                        (n1[i]==0)?
+                        (data_range[j][0] + rnd.nextFloat() * (data_range[j][1]-data_range[j][0])) :
+                        c1[i][j]; // if the centroid is empty, re-initialize it randomly
+
+                c1[i][j] = 0; // reset
             }
-//            IJ.log(Arrays.toString(c0[i]));
+
+            n1[i] = 0; // reset
         }
 
         return !tags_equal;
