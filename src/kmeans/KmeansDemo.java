@@ -104,7 +104,7 @@ public class KmeansDemo implements PlugIn {
         File fl  = new File(feat_csv_path);
         if (!fl.exists()) return;
 
-        ArrayList<double[]> feat = new ArrayList<>();
+        ArrayList<double[]> feat = new ArrayList<double[]>();
 
         BufferedReader br = null;
         String line = "";

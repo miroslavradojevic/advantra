@@ -1,15 +1,8 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package featureextraction;
 
 import ij.ImagePlus;
-import ij.gui.Roi;
 import ij.process.ByteProcessor;
 import ij.process.ImageProcessor;
-import java.awt.Rectangle;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Vector;
@@ -39,17 +32,17 @@ public class ParallelSift extends Thread {
 
     //parameters to calculate SIFT features
     // steps
-    private static int steps = 3;
+    public static int steps;// = 3;
     // initial sigma
-    private static float initial_sigma = 1.6f;
+    public static float inSigma;// = 1.6f;
     // feature descriptor size
-    private static int fdsize = 4;
+    public static int fdsize;// = 4;
     // feature descriptor orientation bins
-    private static int fdbins = 8;
+    public static int fdbins;// = 8;
     // size restrictions for scale octaves, use octaves < max_size and > min_size only
-    private static int min_size = 64;
-    private static int max_size = 1024;
-    private static boolean upscale = false;
+    public static int min_size;// = 64;
+    public static int max_size;// = 1024;
+    public static boolean upscale;// = false;
     private static float scale = 1.0f;
 
     //------------------
@@ -57,8 +50,7 @@ public class ParallelSift extends Thread {
         begN = n0;
         endN = n1;
     }
-
-    public static void load(ImagePlus inputImage, ArrayList<int[]> inputLocXY, byte[] inputMap, int inputD) {
+    public static void load(ImagePlus inputImage, ArrayList<int[]> inputLocXY, byte[] inputMap, int inputD,int inpSteps,float inpSigma, int inpfdsize,int inpfdbins, int inpmin_size, int inpmax_size,boolean inpupscale) {
         siftFeatures.clear();
         locXY.clear();
         classPatches.clear();
@@ -73,6 +65,36 @@ public class ParallelSift extends Thread {
         inimgarray = (byte[]) inimg.getProcessor().getPixels();
         pixelsMap = inputMap;
         D = inputD;
+        steps=inpSteps;
+        inSigma=inpSigma;
+        fdsize=inpfdsize;
+        fdbins=inpfdbins;
+        min_size=inpmin_size;
+        max_size=inpmax_size;
+        upscale=inpupscale;
+    }
+public static void load(ImagePlus inputImage, ArrayList<int[]> inputLocXY, byte[] inputMap, int inputD) {
+        siftFeatures.clear();
+        locXY.clear();
+        classPatches.clear();
+
+        for (int i = 0; i < inputLocXY.size(); i++) {
+            siftFeatures.add(new Vector<Feature>());
+            locXY.add(inputLocXY.get(i).clone());
+//            namePatches.add("");
+            classPatches.add(-1);
+        }
+        inimg = inputImage;
+        inimgarray = (byte[]) inimg.getProcessor().getPixels();
+        pixelsMap = inputMap;
+        D = inputD;
+//        steps=inpSteps;
+//        inSigma=inpSigma;
+//        fdsize=inpfdsize;
+//        fdbins=inpfdbins;
+//        min_size=inpmin_size;
+//        max_size=inpmax_size;
+//        upscale=inpupscale;
     }
 
     public void run() {
@@ -87,7 +109,7 @@ public class ParallelSift extends Thread {
             Vector<Feature> siftVector = calculateSIFT(inimgarray, W, x, y, D, patchyeah);
             siftFeatures.set(locIndex, siftVector);
             int pos = y * inimg.getWidth() + x;
-            classPatches.set(locIndex, (pixelsMap[pos] == (byte) 255)?1:0);
+            classPatches.set(locIndex, (pixelsMap[pos] == (byte) 255) ? 1 : 0);
 
         }
     }
@@ -137,12 +159,12 @@ public class ParallelSift extends Thread {
 //            }
 //            count++;
 //                    if (false) {
-
-
-
     public static Vector<Feature> calculateSIFT(ImageProcessor imp) {
 //        ImageProcessor ip1 = imp.getProcessor().convertToFloat();
 
+        if (upscale) {
+            scale = 2.0f;
+        }
         Vector< Feature> fs1;
         FloatArray2DSIFT sift = new FloatArray2DSIFT(fdsize, fdbins);
         FloatArray2D fa = ImageArrayConverter.ImageToFloatArray2D(imp.convertToFloat());
@@ -152,35 +174,34 @@ public class ParallelSift extends Thread {
             FloatArray2D fat = new FloatArray2D(fa.width * 2 - 1, fa.height * 2 - 1);
             FloatArray2DScaleOctave.upsample(fa, fat);
             fa = fat;
-            fa = Filter.computeGaussianFastMirror(fa, (float) Math.sqrt(initial_sigma * initial_sigma - 1.0));
+            fa = Filter.computeGaussianFastMirror(fa, (float) Math.sqrt(inSigma * inSigma - 1.0));
         } else {
-            fa = Filter.computeGaussianFastMirror(fa, (float) Math.sqrt(initial_sigma * initial_sigma - 0.25));
+            fa = Filter.computeGaussianFastMirror(fa, (float) Math.sqrt(inSigma * inSigma - 0.25));
         }
-        sift.init(fa, steps, initial_sigma, min_size, max_size);
+        sift.init(fa, steps, inSigma, min_size, max_size);
         fs1 = sift.run(max_size);
         Collections.sort(fs1);
         return fs1;
     }
 
     /*
-    we'll try to replace this implementation with a new one without .duplicate for mosaics
-    public static Vector<Feature> calculateSIFT(ImagePlus imp, int x, int y, int D) {
-        Rectangle rec = new Rectangle();
-        rec.setRect(x, y, D, D);
-        Roi rec_roi = new Roi(rec);
-        ImageProcessor ipCopy = imp.getChannelProcessor().duplicate(); // consumption!!!
-        ipCopy.setRoi(rec_roi);
-        ipCopy = ipCopy.crop();
-//        ImagePlus impCopy = new ImagePlus("", ipCopy);
-//        String namePatch = inimg.getShortTitle()
-//                + ",X,Y,D,i," + IJ.d2s(x, 0) + "," + IJ.d2s(y, 0) + "," + IJ.d2s(D, 0) + ".tif";
-//        namePatches.set(locIndex, namePatch);
-        //obtain the sift features for the patch
-        Vector<Feature> siftVector = calculateSIFT(ipCopy);
-        return siftVector;
-    }
-    */
-
+     we'll try to replace this implementation with a new one without .duplicate for mosaics
+     public static Vector<Feature> calculateSIFT(ImagePlus imp, int x, int y, int D) {
+     Rectangle rec = new Rectangle();
+     rec.setRect(x, y, D, D);
+     Roi rec_roi = new Roi(rec);
+     ImageProcessor ipCopy = imp.getChannelProcessor().duplicate(); // consumption!!!
+     ipCopy.setRoi(rec_roi);
+     ipCopy = ipCopy.crop();
+     //        ImagePlus impCopy = new ImagePlus("", ipCopy);
+     //        String namePatch = inimg.getShortTitle()
+     //                + ",X,Y,D,i," + IJ.d2s(x, 0) + "," + IJ.d2s(y, 0) + "," + IJ.d2s(D, 0) + ".tif";
+     //        namePatches.set(locIndex, namePatch);
+     //obtain the sift features for the patch
+     Vector<Feature> siftVector = calculateSIFT(ipCopy);
+     return siftVector;
+     }
+     */
     public static Vector<Feature> calculateSIFT(byte[] inimg, int inimgW, int x, int y, int D, byte[] patch) {
 
         for (int k = 0; k < D * D; k++) {
