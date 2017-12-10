@@ -6,6 +6,8 @@ https://goo.gl/Y8sdXC
 
 
 Additional FE methods to consider on top of SIFT:
+
 SpatialPyramid is the implementation for [1] 10.1109/CVPR.2006.68
+
 ScSPM is the implementation for [2] 10.1109/CVPR.2009.5206757
 
