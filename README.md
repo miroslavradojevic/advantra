@@ -5,6 +5,7 @@ Extracted neuron patches, tool for the parametraized patch extraction and the ob
 https://goo.gl/Y8sdXC
 
 
-
-ScSPM is the implementation for https://doi.org/10.1109/CVPR.2009.5206757
+Additional FE methods to consider on top of SIFT:
+SpatialPyramid is the implementation for [1] 10.1109/CVPR.2006.68
+ScSPM is the implementation for [2] 10.1109/CVPR.2009.5206757
 
