@@ -27,7 +27,6 @@ public class PatchExtraction implements PlugIn {
     ImagePlus     patch_out_ip; // wrapper for the re-scaled image
 
     public void run(String s) {
-        IJ.log("test..");
 
         GenericDialog gd = new GenericDialog("com.braincadet.ndet.PatchExtraction");
         gd.addStringField("dir",                Prefs.get("com.braincadet.ndet.dir",                    mosaic_dir_path), 20);
@@ -107,12 +106,19 @@ public class PatchExtraction implements PlugIn {
                     byte[] mXYarray = (byte[])mXY.getProcessor().getPixels();
 
                     String mXYannot = list[i].getParent()+File.separator+getFileName(list[i].getAbsolutePath())+".log";
+
                     IJ.log(mXYannot);
 
                     ArrayList<Rectangle> r = new ArrayList<Rectangle>();
 
                     read_log(mXYannot, r); // x (pixels), y (pixels), w (pixels), h (pixels)
-                    IJ.log(r.size() + " ");
+
+
+                    if (r.size()==0) { // in case there were no annotations found
+                        IJ.log("no annotations found in " + mXYannot);
+                        continue;
+                    }
+
                     int[] sizes = new int[2*r.size()];
                     for (int j = 0; j < r.size(); j++) {
                         sizes[2*j]   = r.get(j).width;
@@ -221,9 +227,9 @@ public class PatchExtraction implements PlugIn {
 
                                 patch_in.setPixels(patch_readout);
                                 patch_out_ip.setProcessor(patch_in.resize(D_out, D_out, true));
-                                IJ.saveAs(patch_out_ip, "Tiff",
+                                IJ.saveAs(patch_out_ip, "Jpeg", // "Tiff",
                                         mosaic_dir.getParent()+File.separator+outdir+File.separator+"BACKGROUND"+File.separator+
-                                                mosaic_paths.size()+"_"+String.format("%010d",count_background)+".tif");
+                                                mosaic_paths.size()+"_"+String.format("%010d",count_background)+".jpg"); // +".tif"
 
                             }
                         }
@@ -326,9 +332,14 @@ public class PatchExtraction implements PlugIn {
 
                 patch_in.setPixels(patch_readout);
                 patch_out_ip.setProcessor(patch_in.resize(D_out, D_out, true));
-                IJ.saveAs(patch_out_ip, "Tiff",
+
+
+
+                IJ.saveAs(patch_out_ip, "Jpeg", //"Tiff",
                         mosaic_dir.getParent()+File.separator+outdir+File.separator+"NEURONS"+File.separator+
-                                (i+1)+"_"+String.format("%010d",count_neuron)+".tif");
+                                (i+1)+"_"+String.format("%010d",count_neuron)+".jpg"); // +".tif"
+
+
 
             }
 
