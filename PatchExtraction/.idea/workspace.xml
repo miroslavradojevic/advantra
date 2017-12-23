@@ -56,7 +56,7 @@
       <file leaf-file-name="PatchExtraction.java" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/src/PatchExtraction.java">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="266">
+            <state relative-caret-position="360">
               <caret line="112" column="0" selection-start-line="112" selection-start-column="0" selection-end-line="112" selection-end-column="0" />
               <folding>
                 <element signature="imports" expanded="true" />
@@ -406,6 +406,9 @@
   <component name="ShelveChangesManager" show_recycled="false">
     <option name="remove_strategy" value="false" />
   </component>
+  <component name="SvnConfiguration">
+    <configuration />
+  </component>
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
       <changelist id="d0aaba9a-0b3b-4742-9528-03e17f189e5c" name="Default" comment="" />
@@ -513,7 +516,7 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/src/PatchExtraction.java">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="266">
+        <state relative-caret-position="360">
           <caret line="112" column="0" selection-start-line="112" selection-start-column="0" selection-end-line="112" selection-end-column="0" />
           <folding>
             <element signature="imports" expanded="true" />
