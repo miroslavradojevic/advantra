@@ -8,6 +8,7 @@ syntax: regexp
 syntax: glob
 
 *~
+*.DS_Store
 *.jar
 *.class
 *.iml
