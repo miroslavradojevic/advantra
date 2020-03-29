@@ -1,0 +1,10 @@
+jars necessary to compile
+ij
+imagescience
+Jama-1.0.2
+Java_SIFT
+weka3.7.1
+
+## example ij macro call
+run("Train", "input_directory=/home/miroslav/Desktop/nmachinel.test/m05 size=500 ovlpperc=1 posperc=75 nwords=10,20");
+
