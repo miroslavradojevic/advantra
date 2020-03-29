@@ -1,0 +1,327 @@
+///////////////////////////////////////////////////////////////
+//    private void stalking3d(
+//            SomaExtractor           se,
+//            ForegroundExtractor     fe,
+//            GuidepointExtractor     gpe,
+//            ArrayList<float[][]>    inimg_xy
+//    )
+//    {
+//
+//        stalker.clear();
+//        stalker.add(new Node());    // elements of the list will be referenced by tags maintained through the tag map
+//        // the tags start from 1, tags zero are background
+//        // corresponding index in the list is initialized with a dummy node due to such indexing
+//
+//        ArrayList<int[]> queue = gpe.queue;
+//
+//        ArrayList<boolean[][]> queue_map = gpe.isqueue_loc;
+//
+//        ArrayList<boolean[]> queue_success = new ArrayList<boolean[]>();
+//        for (int i = 0; i < queue.size(); i++) queue_success.add(new boolean[queue.get(i).length]);
+//
+////            int counter = 1; // counting nodes in swc starts from 1
+//
+//        ArrayList<int[]> tag_map = new ArrayList<int[]>();
+//        for (int i = 0; i < queue.size(); i++) tag_map.add(new int[W * H]);
+//
+//        // soma addition
+//        for (int i = 0; i < se.soma_list.size(); i++) {
+//
+//            float xx = (float) se.soma_list.get(i)[0];
+//            float yy = (float) se.soma_list.get(i)[1];
+//            float zz = (float) se.soma_list.get(i)[2];
+//            float rr = (float) se.soma_list.get(i)[3];
+//
+//            Node soma_node = new Node(xx, yy, zz, rr);
+//            stalker.add(soma_node);
+//
+//            addToMap(stalker.size()-1, tag_map, W, H, zDist);
+//            IJ.saveAs(getTagMap(tag_map, W, H), "Tiff", output_dir_midresults + "tagMap" + String.format("%05d", stalker.size()) + ".tif");
+//
+//        }
+//
+//        BayesianTracer3D bt = new BayesianTracer3D(Ni, Ns, step, .5f*neuron_diameter);
+//        bt.getTemplates().show();
+//        int new_traces_found = Integer.MAX_VALUE;
+//        int cnt_evol = 0;
+//
+//
+//
+//    }
+//    /*
+//        use output of clustering to give out the final cluster centroids
+//     */
+//    public static ArrayList<float[]> extracting(int[] labels, int[] vals)
+//    { // int[] idxs,
+//
+//        boolean[] checked = new boolean[labels.length];
+//        ArrayList<float[]> out = new ArrayList<float[]>();
+//
+//        for (int i = 0; i < labels.length; i++) {
+//            if (!checked[i]) {
+//
+//                float centroid = vals[ i ]; // idxs[i]
+//                int count = 1;
+//                checked[i] = true;
+//
+//                // check the rest
+//                for (int j = i+1; j < labels.length; j++) {
+//                    if (!checked[j]) {
+//                        if (labels[j]==labels[i]) {
+//
+//                            centroid += vals[ j ]; // idxs[j]
+//                            count++;
+//                            checked[j] = true;
+//
+//                        }
+//                    }
+//                }
+//
+//                out.add(new float[]{centroid/count, count});
+//
+//            }
+//        }
+//
+//        return out;
+//
+//    }
+//                    if (outcome_1!=0) {
+//                        for (int j = bt.iter_counter-1; j >= 0; j--) {
+//                            if (j==bt.iter_counter-1) {
+//                                stalker.add(new Node(bt.xc[j][0], bt.xc[j][1], bt.rc[j], outcome_1));
+//                            }
+//                            else {
+//                                int prev_idx = stalker.size()-1;
+//                                stalker.add(new Node(bt.xc[j][0], bt.xc[j][1], bt.rc[j], prev_idx));
+//                                int curr_idx = stalker.size()-1;
+//                                stalker.get(prev_idx).neighbors.add(curr_idx);
+//                            }
+//                        }
+//                    }
+//                    else if (bt.last_queue_element_checked > 0){
+//                            for (int j = bt.last_queue_element_checked-1; j >= 0; j--) {
+//                                if (j==bt.last_queue_element_checked-1) {
+//                                    stalker.add(new Node(bt.xc[j][0], bt.xc[j][1], bt.rc[j]));
+//                                }
+//                                else {
+//                                    int prev_idx = stalker.size()-1;
+//                                    stalker.add(new Node(bt.xc[j][0], bt.xc[j][1], bt.rc[j], prev_idx));
+//                                    int curr_idx = stalker.size()-1;
+//                                    stalker.get(prev_idx).neighbors.add(curr_idx);
+//                                }
+//                            }
+//                            outcome_1=-1; // loose end
+//                    }
+//                    if (outcome_2!=0) {
+//                        if (outcome_1!=0) {
+//                            // there was a trace and the other side reached TAG
+//                            for (int j = 0; j < bt.iter_counter; j++) {
+//                                int prev_idx = stalker.size()-1;
+//                                stalker.add(new Node(bt.xc[j][0], bt.xc[j][1], bt.rc[j], prev_idx));
+//                                int curr_idx = stalker.size()-1;
+//                                stalker.get(prev_idx).neighbors.add(curr_idx);
+//                                if (j==bt.iter_counter-1) {
+//                                    stalker.get(curr_idx).neighbors.add(outcome_2);
+//                                    stalker.get(outcome_1).neighbors.add(curr_idx);
+//                                }
+//                            }
+//                        }
+//                        else {
+//                            // there was NO trace and the other side reached TAG
+//                            for (int j = 0; j < bt.iter_counter; j++) {
+//                                if (j==bt.iter_counter-1) {
+//                                }
+//                                else {
+//                                }
+//                            }
+//                        }
+//                    }
+//                    ArrayList<Integer> trace_neighbour = new ArrayList<Integer>();
+//                    Trace trace = null;
+//                    // ---------------------------
+//                    // different cases
+//                    // ---------------------------
+//                    if (outcome_1==-1   &&  outcome_2==-1) {
+//                        trace = new Trace(counter, -1, Trace.AXON);
+//                        for (int j = trace_1.locs.size()-1; j >= 0; j--)    {trace.add(trace_1.locs.get(j)[0], trace_1.locs.get(j)[1], trace_1.rads.get(j)); trace_idx.add(trace_list.size());}
+//                        for (int j = 0; j < trace_2.locs.size(); j++)       {trace.add(trace_2.locs.get(j)[0], trace_2.locs.get(j)[1], trace_2.rads.get(j)); trace_idx.add(trace_list.size());}
+//                    }
+//
+//                    if (outcome_1==-1   && outcome_2==0) {
+//                        trace = new Trace(counter, -1, Trace.AXON);
+//                        for (int j = trace_1.locs.size()-1; j >= 0; j--)    {trace.add(trace_1.locs.get(j)[0], trace_1.locs.get(j)[1], trace_1.rads.get(j)); trace_idx.add(trace_list.size());}
+//                    }
+//
+//                    if (outcome_1==-1  &&  outcome_2>0) {
+//                        trace_neighbour.add(trace_idx.get(outcome_2));
+//                        trace = new Trace(counter, outcome_2, Trace.AXON);
+//                        for (int j = trace_2.locs.size()-1; j >= 0; j--)    {trace.add(trace_2.locs.get(j)[0], trace_2.locs.get(j)[1], trace_2.rads.get(j)); trace_idx.add(trace_list.size());}
+//                        for (int j = 0; j < trace_1.locs.size(); j++)       {trace.add(trace_1.locs.get(j)[0], trace_1.locs.get(j)[1], trace_1.rads.get(j)); trace_idx.add(trace_list.size());}
+//                    }
+//
+//                    // ---------------------------
+//
+//                    if (outcome_1==0  && outcome_2==-1) {
+//                        trace = new Trace(counter, -1, Trace.AXON);
+//                        for (int j = 0; j < trace_2.locs.size(); j++)       {trace.add(trace_2.locs.get(j)[0], trace_2.locs.get(j)[1], trace_2.rads.get(j)); trace_idx.add(trace_list.size());}
+//                    }
+//
+//                    if (outcome_1==0  && outcome_2>0) {
+//                        trace_neighbour.add(trace_idx.get(outcome_2));
+//                        trace = new Trace(counter, outcome_2, Trace.AXON);
+//                        for (int j = trace_2.locs.size()-1; j >= 0; j--)    {trace.add(trace_2.locs.get(j)[0], trace_2.locs.get(j)[1], trace_2.rads.get(j)); trace_idx.add(trace_list.size());}
+//                    }
+//
+//                    // ---------------------------
+//
+//                    if (outcome_1>0  && outcome_2==-1) {
+//                        trace_neighbour.add(trace_idx.get(outcome_1));
+//                        trace = new Trace(counter, outcome_1, Trace.AXON);
+//                        for (int j = trace_1.locs.size()-1; j >= 0; j--)    {trace.add(trace_1.locs.get(j)[0], trace_1.locs.get(j)[1], trace_1.rads.get(j)); trace_idx.add(trace_list.size());}
+//                        for (int j = 0; j < trace_2.locs.size(); j++)       {trace.add(trace_2.locs.get(j)[0], trace_2.locs.get(j)[1], trace_2.rads.get(j)); trace_idx.add(trace_list.size());}
+//                    }
+//
+//                    if (outcome_1>0  && outcome_2==0) {
+//                        trace_neighbour.add(trace_idx.get(outcome_1));
+//                        trace = new Trace(counter, outcome_1, Trace.AXON);
+//                        for (int j = trace_1.locs.size()-1; j >= 0; j--)    {trace.add(trace_1.locs.get(j)[0], trace_1.locs.get(j)[1], trace_1.rads.get(j)); trace_idx.add(trace_list.size());}
+//                    }
+//
+//                    if (outcome_1>0  && outcome_2>0) { // (this is actually a closed loop here!)
+//                        trace_neighbour.add(trace_idx.get(outcome_1));
+//                        trace_neighbour.add(trace_idx.get(outcome_2));
+//                        trace = new Trace(counter, outcome_1, Trace.AXON);
+//                        for (int j = trace_1.locs.size()-1; j >= 0; j--)    {trace.add(trace_1.locs.get(j)[0], trace_1.locs.get(j)[1], trace_1.rads.get(j)); trace_idx.add(trace_list.size());}
+//                        for (int j = 0; j < trace_2.locs.size(); j++)       {trace.add(trace_2.locs.get(j)[0], trace_2.locs.get(j)[1], trace_2.rads.get(j)); trace_idx.add(trace_list.size());}
+//                    }
+//
+//                    if (outcome_1!=0 || outcome_2!=0) { // means one of the previous cases worked out
+//                        if (trace.locs.size()>0) {
+//                            trace_list.add(trace);
+//                            trace_nbr_idx.add(trace_neighbour);
+//                            counter += trace.locs.size();
+//                            addToMap(trace, tag_map, W, H);
+//                            IJ.saveAs(getTagMap(tag_map, W, H), "Tiff", output_dir_midresults + "tagMap" + String.format("%05d", trace_list.size()) + ".tif");
+//                            new_traces_found++;
+//                            queue_success[i]=true; // so that this location is not examined again
+//                        }
+//                    }
+
+//            // denote loose segments
+//            boolean[][] trace_nbr_map = new boolean[trace_list.size()][trace_list.size()];
+//            for (int i = 0; i < trace_nbr_idx.size(); i++) {
+//                for (int j = 0; j < trace_nbr_idx.get(i).size(); j++) {
+//                    trace_nbr_map[i][trace_nbr_idx.get(i).get(j)] = true;
+//                    trace_nbr_map[trace_nbr_idx.get(i).get(j)][i] = true;
+//                }
+//            }
+//            int[] labs = clustering(trace_nbr_map);
+//            // we'll denote all labels that are connected with soma as AXON and the rest will be LOOSE, change will be visible in the type
+//            int nr_somas = se.soma_list.size(); // first soma will be trace(0) etc...
+//            for (int i = nr_somas; i < labs.length; i++) {
+//                int curr_label = labs[i];
+//                boolean is_conn = false;
+//                for (int j = 0; j < nr_somas; j++) {
+//                    if (curr_label==labs[j]) {
+//                        is_conn = true;
+//                        break;
+//                    }
+//                }
+//                if (!is_conn) trace_list.get(i).type=Trace.LOOSE;           // this wil be taken into account when exporting
+//            }
+//                Trace soma_trace = new Trace(counter, -1, Trace.SOMA);
+//                soma_trace.add(xx, yy, rr); // here trace has only one element, without known neighbors
+//                trace_idx.add(trace_list.size());
+//                counter += soma_trace.locs.size(); // update count
+//                trace_list.add(soma_trace);
+//                trace_nbr_idx.add(new ArrayList<Integer>()); // there are no neighbours
+//                addToMap(soma_trace, tag_map, W, H);
+
+//                if (found_node || found_gpnt) {
+//                    found_t1 = true;
+//                    OvalRoi o1 = new OvalRoi(startpx+.5-2, startpy+.5-2, 4, 4);
+//                    o1.setFillColor(new Color(1,0,0,0.1f));
+//                    stalker_gps.add(o1);
+//                    Line l = new Line(startpx+.5, startpy+.5, startpx+.5+3*startvx, startpy+.5+3*startvy);
+//                    l.setStrokeColor(Color.RED);
+//                    stalker_gps.add(l);
+//                    if (found_node) {
+//                        if (bt.iter_counter==0) { // reached stalker node label very first step in trace
+//                            stalker.add(new Node(startpx, startpy, startgcsstd));                   gpLab2NodeLab[i+1] = stalker.size() - 1;
+//                            trc_tags.add(stalker.size() - 1);
+//                            stalkLinker(trout_NODE_GDPNT[0]);
+//                        }
+//                        else { // reached stalker node after at least one or more steps
+//                            int lim = bt.iter_counter-1;//(found_tag)? bt.iter_counter-1 : bt.nearest_gp_iter-1;
+//                            for (int j = lim; j >= 0; j--) { // trace 1 backwards if there is at least one
+//                                stalker.add(new Node(bt.xc[j][0], bt.xc[j][1], bt.rc[j]));
+//                                trc_tags.add(stalker.size()-1);
+//                                if (j==lim) stalkLinker(trout_NODE_GDPNT[0]);
+//                                else        stalkLinker(stalker.size()-2);
+//                            }
+//                            stalker.add(new Node(startpx, startpy, startgcsstd));                   gpLab2NodeLab[i+1] = stalker.size() - 1;
+//                            trc_tags.add(stalker.size() - 1);
+//                            stalkLinker(stalker.size()-2);
+//                        }
+//                    }
+//                    else { // found guidepoint
+//                        if (bt.iter_counter==0) { // reached guidepoint label very first step in the trace
+//                            stalker.add(new Node(startpx, startpy, startgcsstd));                   gpLab2NodeLab[i+1] = stalker.size() - 1;
+//                            trc_tags.add(stalker.size() - 1);
+//                            gpntLinker(trout_NODE_GDPNT[1]);
+//                        }
+//                        else {
+//                            int lim = bt.iter_counter-1;
+//                            for (int j = lim; j >= 0; j--) { // trace 1 backwards if there is at least one
+//                                stalker.add(new Node(bt.xc[j][0], bt.xc[j][1], bt.rc[j]));
+//                                trc_tags.add(stalker.size()-1);
+//                                if (j!=lim) stalkLinker(stalker.size()-2);
+//                            }
+//                            stalker.add(new Node(startpx, startpy, startgcsstd));                   gpLab2NodeLab[i+1] = stalker.size() - 1;
+//                            trc_tags.add(stalker.size() - 1);
+//                            stalkLinker(stalker.size()-2);
+//                        }
+//                    }
+//                }
+//                boolean found_t2  = false;
+//                found_node = trout_NODE_GDPNT[0]!=Integer.MIN_VALUE;
+//                found_gpnt = trout_NODE_GDPNT[1]!=Integer.MIN_VALUE;
+//                if (found_node || found_gpnt) {
+//                    found_t2 = true;
+//                    OvalRoi o1 = new OvalRoi(startpx+.5-2, startpy+.5-2, 4, 4);
+//                    o1.setFillColor(new Color(1,0,0,0.1f));
+//                    stalker_gps.add(o1);
+//                    Line l = new Line(startpx+.5, startpy+.5, startpx+.5-3*startvx, startpy+.5-3*startvy);
+//                    l.setStrokeColor(Color.RED);
+//                    stalker_gps.add(l);
+
+//                    if (!found_t1) {
+//                        stalker.add(new Node(startpx, startpy, startgcsstd));                       gpLab2NodeLab[i+1] = stalker.size() - 1;
+//                        trc_tags.add(stalker.size() - 1);
+//                    }
+//
+//                    int lim = bt.iter_counter-1; // (found_node)? bt.iter_counter-1 : bt.nearest_gp_iter-1;
+//                    for (int j = 0; j <= lim; j++) { // trace 2 forward
+//                        stalker.add(new Node(bt.xc[j][0], bt.xc[j][1], bt.rc[j]));
+//                        trc_tags.add(stalker.size()-1);
+//                        stalkLinker(stalker.size()-2);
+//                    }
+//                    if (found_node) stalkLinker(trout_NODE_GDPNT[0]);
+//                    else if (found_gpnt) {gpntLinker(trout_NODE_GDPNT[1]);}
+
+//                }
+//                if (found_t1 || found_t2) new_traces_found++;
+// if only one node in the end, link
+//if (trc_tags.size()==1) {
+//                float rr = 1.7f;
+//                OvalRoi o1 = new OvalRoi(startpx+.5f-rr, startpy+.5f-rr, 2*rr, 2*rr);
+//                o1.setFillColor(new Color(1,1,0,0.2f));
+//                stalker_gps.add(o1);
+//
+//                PointRoi p1 = new PointRoi(startpx+.5f, startpy+.5f);
+//                p1.setFillColor(new Color(1,1,0,1f));
+//                stalker_gps.add(p1);
+//}
+// add to map after the trace is completed and added to the stalker list
+//                for (int j = 0; j < trc_tags.size(); j++)
+//                    addToMap(trc_tags.get(j), node2lab, W, H, startGpLab, gp_label_map);
