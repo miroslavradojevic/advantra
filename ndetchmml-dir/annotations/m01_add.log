@@ -1,0 +1,3 @@
+# annotation output: TYPE x y w h
+NEURON	11387	8327	500	500
+NEURON	7920	7367	500	500
