@@ -1,0 +1,79 @@
+<project name="neuronJ_add" default="" basedir=".">
+
+    <dirname property="basedir" file="${ant.file}"/>
+
+    <description>
+        neuron tracing project build file
+    </description>
+
+    <property environment="env"/>
+    <property name="src"    		location="src"   />
+    <property name="build"  		location="build" />
+    <property name="user" 		    value="miroslavR" />
+
+    <target name="main" depends="compress" description="main target">
+    </target>
+
+    <target name="compress" depends="compile" description="generate distribution">
+
+        <jar jarfile="neuronJ_add.jar">
+            <fileset dir="."            includes="plugins.config" />
+            <fileset dir="${build}"     includes="**/*.*"         />
+            <manifest>
+                <attribute name="Built-By" value="${user}"/>
+            </manifest>
+        </jar>
+
+        <copy file="./neuronJ_add.jar"  toDir="${env.HOME}/Fiji.app/plugins/" />
+        <!-- <copy file="./misc_.jar"  toDir="${env.HOME}/Fiji.app/plugins/" /> -->
+
+    </target>
+
+    <!-- define compilation parameters: bootclasspath, classpath, sourcepath -->
+    <!-- Paths to be included in compilation bootclasspath -->
+    <path id="bootclasspath">
+        <fileset dir="${env.HOME}/ImageJ/jre_prev/lib/" includes="rt.jar"/>
+    </path>
+
+    <path id="classpath">
+        <!-- external modules -->
+        <pathelement location="${env.HOME}/jarlib/ij.jar"/>
+        <pathelement location="${env.HOME}/jarlib/imagescience.jar"/>
+        <!--
+        <pathelement location="${env.HOME}/jarlib/flanagan.jar"/>
+        <pathelement location="${env.HOME}/jarlib/weka.jar"/>
+        <pathelement location="${env.HOME}/jarlib/jfreechart-1.0.14.jar"/>
+        <pathelement location="${env.HOME}/jarlib/jcommon-1.0.17.jar"/>
+        <pathelement location="${env.HOME}/jarlib/VIB-lib.jar"/> -->
+    </path>
+
+    <path id="sourcepath">
+
+        <dirset dir="${src}">
+            <include name="*"/>
+        </dirset>
+
+    </path>
+
+    <!-- <bootclasspath refid="bootclasspath"/>  -->
+    <target name="compile" description="Compile module"> <!-- compilation command (compile & copy to build folder) -->
+
+        <mkdir dir="${build}"/>
+
+        <delete includeEmptyDirs="true"> <!-- delete the contents of build before compiling -->
+            <fileset dir="${build}" includes="**/*"/>
+        </delete>
+
+        <javac target="1.5" destdir="${build}" srcdir="${src}" debug="true" debuglevel="lines,vars,source"> <!-- compile with 1.5 ver -->
+            <classpath refid="classpath"/>
+            <src refid="sourcepath"/>
+        </javac>
+
+        <copy todir="${build}">
+            <fileset dir="${src}">
+                <type type="file"/>
+            </fileset>
+        </copy>
+    </target>
+
+</project>
