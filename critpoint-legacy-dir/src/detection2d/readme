@@ -1,0 +1,29 @@
+#classes
+Critpoint2D          (PlugIn)       - uses Detector2D just to do the raw detection
+Detector2D           (Java class)       : carries out the detection by calling threaded classes
+Masker2D             (Thread)           : back_xy, mask_xy, criteria, i2xy, xy2i (inputs: inimg_xy)
+Profiler2D           (Thread)           : prof2  (inputs: inimg_xy, xy2i, i2xy)
+ProfileSpread2D
+PeakExtractor2D      (Thread)           : peaks_theta, peaks_i, peaks_w, peaks_lhood (inputs: i2xy, xy2i, prof2, inimg_xy)
+Delineator2D
+Ncc2D
+FuzzyDetector2D
+Evaluator2D
+Viewer2D
+
+#features
+features are in (missing values are stored as NaN):
+PeakExtractor2D.peaks_lhood             float[Nlocs][4]         peaks_lhood[loc] cannot be null
+Delineator2D.smoothness                 float[Nlocs][4]         smoothness[loc] can be null
+Ncc2D.scores                           float[Nlocs][4]         average[loc] can be null
+
+#.det output
+main detection output file - keeps CritpointRegions and stores the directions.
+file extension is .det
+.det is used by Evaluator2D and Viewer2D
+.det can be output of Detector2D (method detection) or ReadSWC.exportDetCritpoint() (if extracted from reference swc neuron reconstruction)
+// stores the detections in predefined output folders
+// image_name.det textual file with the description of critpoint regions
+//      format: x, y, radius, score, type{BIF,END,CROSS}, dir{vx,vy; vx,vy; ...}
+
+

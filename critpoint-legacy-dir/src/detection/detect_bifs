@@ -1,0 +1,26 @@
+#!/bin/bash
+# Script to detect bifurcations
+# arguments to give
+# $1 folderName
+# $2 neuronDIameter
+# $3 iDiff(intensity jump)
+# TODO there are mor params but they have to be hardcoded and recompiled to be active
+
+EXPECTED_ARGS=3
+
+if [ $# -ne $EXPECTED_ARGS ]
+then
+  echo "Usage: `basename $0` folderName neuronDiametere iDiff"
+  exit $E_BADARGS
+fi
+
+# java call args: folderName($1)  neuronDiameter($2) idiff($3)
+java -cp critpoint_.jar:ij.jar:imagescience.jar detection.DetectorDemo $1 $2 $3
+#echo "java -cp critpoint_.jar:ij.jar:imagescience.jar detection.DetectorDemo " $1 $2 $3
+
+cp DetectionDemo.r ./DET_$1
+#echo "cp DetectionDemo.r ./DET_"$1
+
+echo "finished"
+
+exit
